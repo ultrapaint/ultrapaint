@@ -134,24 +134,30 @@ export const chordText = (keys: Keys, mac = isMac): string =>
 
 const NAMED_BY_KEY = new Map(Object.values(NAMED).map((n) => [n.key, n]));
 
-/** A chord as the platform writes it: `⇧⌘Z` on a Mac, `Ctrl+Shift+Z` elsewhere. */
-export const chordLabel = (text: string, mac = isMac): string => {
+/** A chord's keys one by one, as the platform writes them: `⇧`, `⌘`, `Z`, or `Ctrl`, `Shift`, `Z`. */
+export const chordParts = (text: string, mac = isMac): string[] => {
   const chord = parseChord(text);
   const named = NAMED_BY_KEY.get(chord.key);
   const key = named ? named[mac ? "mac" : "other"] : chord.key.toUpperCase();
-  if (mac) {
-    // Apple's order: ⌃ ⌥ ⇧ ⌘.
-    return `${chord.ctrl ? "⌃" : ""}${chord.alt ? "⌥" : ""}${chord.shift ? "⇧" : ""}${chord.mod ? "⌘" : ""}${key}`;
-  }
-  return [
-    chord.ctrl || chord.mod ? "Ctrl" : "",
-    chord.alt ? "Alt" : "",
-    chord.shift ? "Shift" : "",
-    key,
-  ]
-    .filter(Boolean)
-    .join("+");
+  // Apple's order: ⌃ ⌥ ⇧ ⌘.
+  const mods = mac
+    ? [
+        chord.ctrl && "⌃",
+        chord.alt && "⌥",
+        chord.shift && "⇧",
+        chord.mod && "⌘",
+      ]
+    : [
+        (chord.ctrl || chord.mod) && "Ctrl",
+        chord.alt && "Alt",
+        chord.shift && "Shift",
+      ];
+  return [...mods.filter((m): m is string => typeof m === "string"), key];
 };
+
+/** A chord as the platform writes it: `⇧⌘Z` on a Mac, `Ctrl+Shift+Z` elsewhere. */
+export const chordLabel = (text: string, mac = isMac): string =>
+  chordParts(text, mac).join(mac ? "" : "+");
 
 /** Chords as the platform writes them, side by side: `↑ ↓`. */
 export const keysLabel = (keys: readonly Keys[], mac = isMac): string =>
@@ -162,6 +168,80 @@ export type KeyPress = Pick<
   KeyboardEvent,
   "altKey" | "code" | "ctrlKey" | "key" | "metaKey" | "shiftKey"
 >;
+
+/**
+ * Whether two chords are pressed the same on this platform. Elsewhere than on a Mac, `ctrl` is
+ * pressed as `mod` is.
+ */
+export const sameChord = (a: Keys, b: Keys, mac = isMac): boolean => {
+  const x = parseChord(chordText(a, mac));
+  const y = parseChord(chordText(b, mac));
+  return (
+    x.key === y.key &&
+    x.alt === y.alt &&
+    x.shift === y.shift &&
+    (mac
+      ? x.mod === y.mod && x.ctrl === y.ctrl
+      : (x.mod || x.ctrl) === (y.mod || y.ctrl))
+  );
+};
+
+const NAME_BY_KEY = new Map(
+  Object.entries(NAMED).map(([name, n]) => [n.key, name])
+);
+const KEY_CODE_RE = /^Key[A-Z]$/;
+const DIGIT_CODE_RE = /^Digit[0-9]$/;
+
+/** The key of a chord pressed, as a chord names it, and whether it is a symbol. */
+const nameOf = (e: KeyPress): { key: string; symbol: boolean } | null => {
+  const typed = e.key.toLowerCase();
+  // `KeyG`, `Digit1`: where the key sits.
+  const letter = KEY_CODE_RE.test(e.code) ? e.code.slice(3) : "";
+  const digit = DIGIT_CODE_RE.test(e.code) ? e.code.slice(5) : "";
+  const name = NAME_BY_KEY.get(e.key);
+  if (LETTER_RE.test(typed)) {
+    return { key: typed, symbol: false };
+  }
+  if (letter && e.altKey) {
+    return { key: letter.toLowerCase(), symbol: false };
+  }
+  if (digit) {
+    return { key: digit, symbol: false };
+  }
+  if (name) {
+    return { key: name, symbol: false };
+  }
+  if (e.key === "+") {
+    return { key: "plus", symbol: true };
+  }
+  return SYMBOL_RE.test(e.key) ? { key: e.key, symbol: true } : null;
+};
+
+/**
+ * The chord a key pressed is, written as the list writes it (`mod+shift+z`), to be matched later
+ * the way `matchesChord` matches it: a letter by what it types, or by where it sits when Alt
+ * typed another character; a digit by where it sits; a symbol by what it types, without the
+ * Shift that typed it. Null while only modifiers are down, or for a key the editor cannot name
+ * (a dead key, an input method's).
+ */
+export const chordOf = (e: KeyPress, mac = isMac): string | null => {
+  const named = nameOf(e);
+  if (named === null) {
+    return null;
+  }
+  const { key, symbol } = named;
+  const mod = mac ? e.metaKey : e.metaKey || e.ctrlKey;
+  const ctrl = mac && e.ctrlKey;
+  return [
+    mod && "mod",
+    ctrl && "ctrl",
+    e.altKey && "alt",
+    e.shiftKey && !symbol && "shift",
+    key,
+  ]
+    .filter((p): p is string => typeof p === "string")
+    .join("+");
+};
 
 /** ⌘ or Ctrl for `mod`, ⌃ alone for `ctrl`, neither for a chord without them. */
 const holdsMod = (chord: Chord, e: KeyPress) => {

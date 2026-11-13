@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Kbd } from "@/components/ui/kbd";
 import { commandGroups, keysOf, shortcuts } from "../lib/commands.ts";
+import { useKeybindings } from "../state/keybindings.ts";
 
 const useShortcutSheet = create<{ open: boolean }>(() => ({
   open: false,
@@ -15,7 +16,10 @@ const useShortcutSheet = create<{ open: boolean }>(() => ({
 export const openShortcutSheet = () =>
   useShortcutSheet.setState({ open: true });
 
-/** A command's keys, as this platform writes them, for a tooltip or a menu; nothing for none. */
+/**
+ * A command's keys now, the person's when they changed them, as this platform writes them, for
+ * a tooltip or a menu; nothing for none.
+ */
 export const CommandKeys = ({
   className,
   id,
@@ -23,11 +27,12 @@ export const CommandKeys = ({
   className?: string;
   id: string;
 }) => {
+  useKeybindings((s) => s.overrides);
   const keys = keysOf(id);
   return keys ? <Kbd className={className}>{keys}</Kbd> : null;
 };
 
-/** The sheet `?` opens: what every key does, as this platform writes it. */
+/** The sheet `?` opens: what every key does now, as this platform writes it. */
 export const ShortcutSheet = () => {
   const open = useShortcutSheet((s) => s.open);
   // Every key, in the palette's groups; read as the sheet opens.

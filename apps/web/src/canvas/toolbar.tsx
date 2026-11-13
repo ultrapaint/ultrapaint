@@ -65,6 +65,7 @@ import { useDesignSystem } from "../state/design-system.ts";
 import { type Mode, useEditor } from "../state/editor.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
 import { useIsolation } from "../state/isolation.ts";
+import { useKeybindings } from "../state/keybindings.ts";
 import { useSurface } from "../state/surface.ts";
 import { UndoRedo } from "./undo-redo.tsx";
 
@@ -173,6 +174,8 @@ const ZoomLevel = () => {
 /** The zoom level and its menu, at the end of the tools. */
 const ZoomMenu = () => {
   const grid = useCanvasGrid((s) => s.visible);
+  // The items show the keys now: the person's, when they change them.
+  useKeybindings((s) => s.overrides);
   return (
     <DropdownMenu>
       <Tooltip>

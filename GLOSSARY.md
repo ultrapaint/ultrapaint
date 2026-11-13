@@ -498,6 +498,14 @@ refactor and the board view left.
   menus read (ADR 0032), offered as the surface says; a **binding** is a command's chord and the
   scope it works in. Escape is one command, one step back at a time (`stepBack`: a gesture
   cancelled, a tree left, a card dismissed, the surface's own step, the parent selected).
+- **Default keys** and **the person's keys**: a command's chords in the list are its defaults;
+  the person's own replace them, or take them away (ADR 0090), kept in the browser
+  (`state/keybindings.ts`, an **override** per command id) and read by everything that matches
+  or shows keys (`keysNow`, `chordsNow`). **Recording** a shortcut takes the next chord pressed
+  (`chordOf`) in Settings › Shortcuts (`ShortcutsSection`); `lib/rebind.ts` says which chords
+  are **refused** (another command's, the browser's, one that would type) and which commands'
+  keys are **fixed** (the clipboard's, the arrows that walk).
+  _Avoid_: keymap (the key handler, `keymap.ts`), hotkey.
 - **Menu action**: what a context-menu item does, a typed value run by `runMenuAction`.
 - **Shell bridge**: the desktop shell's capabilities, one table the web's `Platform` is typed
   from (ADR 0031).

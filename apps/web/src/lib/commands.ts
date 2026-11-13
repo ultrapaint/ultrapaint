@@ -6,6 +6,8 @@
  * selected or on what has the focus (a row of the Layers panel), so the palette has nothing to
  * run for them. The palette adds what depends on the moment beside them: the selection's own
  * menu, the pages, the canvases and the chats. A key is written once, as a chord (`keys.ts`).
+ * The keys here are the defaults: the person may give a command others (`state/keybindings.ts`,
+ * ADR 0090), and whatever matches or shows keys reads them through `keysNow` and `chordsNow`.
  */
 import type { Page } from "@ultrapaint/contracts/pages";
 import type { Thread } from "@ultrapaint/contracts/threads";
@@ -27,6 +29,7 @@ import {
   type Workspace,
   workspaceOrder,
 } from "../state/editor.ts";
+import { overrideOf } from "../state/keybindings.ts";
 import {
   rightHasSubject,
   showLeftPanel,
@@ -89,7 +92,7 @@ export const commandGroups = [
   "Go to",
   "Project",
 ] as const;
-type CommandGroup = (typeof commandGroups)[number];
+export type CommandGroup = (typeof commandGroups)[number];
 
 /**
  * Where the window's keys work: `always` in a text field too, for what nothing is typed with;
@@ -122,6 +125,11 @@ export type FocusScope = keyof FocusTargets;
 interface Bound {
   /** Chords that do the same, not shown: Delete beside ⌫. */
   also?: readonly Keys[];
+  /**
+   * Its keys are what it acts by and cannot be changed: it reads which of them was pressed (the
+   * arrows walking a tree).
+   */
+  fixed?: true;
   group: CommandGroup;
   /** What a menu item names to show the keys of what it does. */
   id: string;
@@ -184,6 +192,27 @@ export interface Command {
   run: () => void;
   title: string;
 }
+
+/** A command's id and the chords it has in the list, the defaults. */
+interface Chorded {
+  also?: readonly Keys[];
+  id?: string;
+  keys?: readonly Keys[];
+}
+
+/** A command's keys now, the person's when they changed them, as the sheet and the menus show them. */
+export const keysNow = (b: Chorded): readonly Keys[] =>
+  (b.id === undefined ? undefined : overrideOf(b.id)) ?? b.keys ?? [];
+
+/**
+ * Every chord a command is pressed with now, shown or not. Keys the person gave it replace its
+ * default ones and the unshown ones beside them alike.
+ */
+export const chordsNow = (b: Chorded): readonly Keys[] =>
+  (b.id === undefined ? undefined : overrideOf(b.id)) ?? [
+    ...(b.keys ?? []),
+    ...(b.also ?? []),
+  ];
 
 /** A key the editor answers to, as the shortcut sheet lists it. */
 interface Shortcut {
@@ -354,6 +383,7 @@ const panelCommands = (): CommandSpec[] => [
     id: "toggleLeft",
     keywords: "sidebar",
     run: () => usePanels.getState().toggleLeft(),
+    sheetTitle: "Show or hide the left panel",
     title: () =>
       usePanels.getState().left ? "Show the left panel" : "Hide the left panel",
   },
@@ -363,6 +393,7 @@ const panelCommands = (): CommandSpec[] => [
     keywords: "sidebar inspector code",
     offered: onCanvas,
     run: () => usePanels.getState().toggleRight(),
+    sheetTitle: "Show or hide the right panel",
     title: () =>
       usePanels.getState().right
         ? "Show the right panel"
@@ -640,6 +671,7 @@ const keyOnlyCommands = (): CommandSpec[] => [
     title: "Select the parent",
   },
   {
+    fixed: true,
     group: "Selection",
     id: "selectSibling",
     keys: ["arrowup", "arrowdown"],
@@ -649,6 +681,7 @@ const keyOnlyCommands = (): CommandSpec[] => [
     title: "Select the previous or next element",
   },
   {
+    fixed: true,
     group: "Selection",
     id: "selectDepth",
     keys: ["arrowleft", "arrowright"],
@@ -729,6 +762,7 @@ export const focusBindings: {
 } = {
   layersRow: [
     {
+      fixed: true,
       group: "Layers",
       id: "layers:walk",
       keys: ["arrowup", "arrowdown", "home", "end"],
@@ -737,6 +771,7 @@ export const focusBindings: {
       title: "Go to the previous, next, first or last layer",
     },
     {
+      fixed: true,
       group: "Layers",
       id: "layers:fold",
       keys: ["arrowleft", "arrowright"],
@@ -806,16 +841,38 @@ export const focusBindings: {
 const titleOf = (c: CommandSpec) =>
   typeof c.title === "string" ? c.title : c.title();
 
-/** Every binding with keys: the window's commands, then what has the focus. */
-const everyBinding = (): readonly (Bound & { title: string })[] => [
-  ...commandList().map((c) => ({ ...c, title: c.sheetTitle ?? titleOf(c) })),
+/** A command's keys as the shortcut sheet and the settings list them. */
+export type Binding = Bound & {
+  /** Its keys are copy, cut or paste, which the browser turns into its clipboard events. */
+  clipboard?: "copy" | "cut" | "paste";
+  /** Where its keys work: a window's scope, or what has the focus. */
+  scope: WindowScope | FocusScope;
+  /** Its name, said once, plainly. */
+  title: string;
+};
+
+/** Every command that has keys or may be given some: the window's, then what has the focus. */
+export const bindings = (): readonly Binding[] => [
+  ...commandList().map(
+    (c): Binding => ({
+      ...(c.also ? { also: c.also } : {}),
+      ...(c.clipboard ? { clipboard: c.clipboard } : {}),
+      ...(c.fixed ? { fixed: c.fixed } : {}),
+      group: c.group,
+      id: c.id,
+      ...(c.keys ? { keys: c.keys } : {}),
+      scope: c.scope ?? "editor",
+      title: c.sheetTitle ?? titleOf(c),
+    })
+  ),
   ...Object.values(focusBindings).flat(),
 ];
 
-/** The keys of a command, as this platform writes them; none when it has none. */
+/** The keys of a command now, as this platform writes them; none when it has none. */
 export const keysOf = (id: string): string | undefined => {
-  const keys = everyBinding().find((b) => b.id === id)?.keys;
-  return keys ? keysLabel(keys) : undefined;
+  const binding = bindings().find((b) => b.id === id);
+  const keys = binding ? keysNow(binding) : [];
+  return keys.length > 0 ? keysLabel(keys) : undefined;
 };
 
 /**
@@ -831,7 +888,7 @@ export const runCommand = (id: string): unknown => {
 const paletteCommand = (c: CommandSpec): Command => ({
   group: c.group,
   id: c.id,
-  ...(c.keys ? { keys: keysLabel(c.keys) } : {}),
+  ...(keysNow(c).length > 0 ? { keys: keysLabel(keysNow(c)) } : {}),
   ...(c.keywords ? { keywords: c.keywords } : {}),
   run: () => {
     c.run?.();
@@ -850,11 +907,14 @@ const isOffered = (c: CommandSpec) =>
 export const commands = (): Command[] =>
   commandList().filter(isOffered).map(paletteCommand);
 
-/** Every key, in the palette's groups, whatever the moment offers: the sheet lists them all. */
+/** Every key now, in the palette's groups, whatever the moment offers: the sheet lists them all. */
 export const shortcuts = (): Shortcut[] => {
-  const all = everyBinding().flatMap((b): Shortcut[] =>
-    b.keys ? [{ group: b.group, keys: keysLabel(b.keys), title: b.title }] : []
-  );
+  const all = bindings().flatMap((b): Shortcut[] => {
+    const keys = keysNow(b);
+    return keys.length > 0
+      ? [{ group: b.group, keys: keysLabel(keys), title: b.title }]
+      : [];
+  });
   return commandGroups.flatMap((g) => all.filter((s) => s.group === g));
 };
 

@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 import { keyEventOf } from "../testing/key-events.ts";
 import {
   chordLabel,
+  chordOf,
+  chordParts,
   chordText,
   isTyping,
   type KeyPress,
   keysLabel,
   matchesChord,
   parseChord,
+  sameChord,
 } from "./keys.ts";
 
 const press = (key: string, more: Partial<KeyPress> = {}): KeyPress => ({
@@ -172,6 +175,100 @@ describe("matchesChord", () => {
     expect(matches("shift+f10", press("F10", { shiftKey: true }))).toBe(true);
     expect(matches("arrowup", press("ArrowUp"))).toBe(true);
     expect(matches("space", press(" ", { code: "Space" }))).toBe(true);
+  });
+});
+
+describe("chord parts", () => {
+  it("are the keys of a chord one by one, as the label writes them together", () => {
+    expect(chordParts("mod+shift+z", true)).toEqual(["⇧", "⌘", "Z"]);
+    expect(chordParts("mod+shift+z", false)).toEqual(["Ctrl", "Shift", "Z"]);
+    expect(chordParts("backspace", true)).toEqual(["⌫"]);
+  });
+});
+
+describe("chordOf, a key pressed written as a chord", () => {
+  const DEFAULTS = [
+    "mod+z",
+    "mod+shift+z",
+    "mod+alt+g",
+    "shift+1",
+    "shift+c",
+    "?",
+    "mod+=",
+    "mod+-",
+    "mod+'",
+    "mod+\\",
+    "f2",
+    "shift+f10",
+    "backspace",
+    "mod+backspace",
+    "enter",
+    "space",
+    "arrowup",
+    "ctrl+1",
+    "alt+1",
+  ];
+
+  it.each([true, false])(
+    "matches what was pressed, on a US keyboard (on a Mac: %s)",
+    (mac) => {
+      for (const text of DEFAULTS) {
+        const e = keyEventOf(text, mac);
+        const chord = chordOf(e, mac);
+        expect(chord, text).not.toBeNull();
+        expect(matches(chord ?? "", e), text).toBe(true);
+      }
+    }
+  );
+
+  it("writes ⌘ as mod on a Mac and Ctrl as mod elsewhere, and ⌃ as ctrl on a Mac", () => {
+    expect(chordOf(press("z", { metaKey: true }), true)).toBe("mod+z");
+    expect(chordOf(press("z", { ctrlKey: true }), false)).toBe("mod+z");
+    expect(chordOf(press("1", { code: "Digit1", ctrlKey: true }), true)).toBe(
+      "ctrl+1"
+    );
+  });
+
+  it("takes a letter typed with ⌥ by where it sits, a digit by where it sits", () => {
+    expect(
+      chordOf(press("©", { altKey: true, code: "KeyG", metaKey: true }), true)
+    ).toBe("mod+alt+g");
+    expect(chordOf(press("!", { code: "Digit1", shiftKey: true }), true)).toBe(
+      "shift+1"
+    );
+  });
+
+  it("leaves out the Shift that typed a symbol, and writes + as plus", () => {
+    expect(chordOf(press("?", { code: "Slash", shiftKey: true }), true)).toBe(
+      "?"
+    );
+    expect(chordOf(press("+", { metaKey: true, shiftKey: true }), true)).toBe(
+      "mod+plus"
+    );
+  });
+
+  it("is nothing while only modifiers are down, or for a dead key", () => {
+    expect(chordOf(press("Shift", { shiftKey: true }), true)).toBeNull();
+    expect(chordOf(press("Meta", { metaKey: true }), true)).toBeNull();
+    expect(chordOf(press("Dead", { altKey: true }), true)).toBeNull();
+  });
+});
+
+describe("sameChord", () => {
+  it("holds for chords pressed the same, whatever their spelling", () => {
+    expect(sameChord("mod+shift+z", "shift+mod+z", true)).toBe(true);
+    expect(sameChord("mod+z", "mod+shift+z", true)).toBe(false);
+    expect(sameChord({ mac: "ctrl+1", other: "alt+1" }, "ctrl+1", true)).toBe(
+      true
+    );
+    expect(sameChord({ mac: "ctrl+1", other: "alt+1" }, "ctrl+1", false)).toBe(
+      false
+    );
+  });
+
+  it("tells ⌃ from ⌘ on a Mac only", () => {
+    expect(sameChord("ctrl+k", "mod+k", true)).toBe(false);
+    expect(sameChord("ctrl+k", "mod+k", false)).toBe(true);
   });
 });
 

@@ -11,6 +11,7 @@ import { useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 import { surfaceNow } from "../state/surface.ts";
 import {
+  chordsNow,
   commandList,
   type FocusScope,
   type FocusTargets,
@@ -31,15 +32,14 @@ import { useClipboardEvents } from "./shortcuts.ts";
 
 interface Chorded {
   also?: readonly Keys[];
+  id?: string;
   keys?: readonly Keys[];
   scope?: string;
 }
 
-/** Every chord of a binding, shown or not, as this platform presses them. */
+/** Every chord of a binding now, shown or not, the person's own, as this platform presses them. */
 const chordsOf = (binding: Chorded, mac = isMac) =>
-  [...(binding.keys ?? []), ...(binding.also ?? [])].map((k) =>
-    parseChord(chordText(k, mac))
-  );
+  chordsNow(binding).map((k) => parseChord(chordText(k, mac)));
 
 /** The scope a window's binding works in: the editor's when it says none. */
 export const scopeOf = (binding: Chorded) => binding.scope ?? "editor";
