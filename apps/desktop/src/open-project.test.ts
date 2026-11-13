@@ -3,6 +3,7 @@ import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import { Deferred, Effect, Fiber, FileSystem, Layer, Option } from "effect";
 import { Agents, makeRuntime } from "./agents.ts";
+import { Folders } from "./folders.ts";
 import { LoginShell } from "./login-shell.ts";
 import { OpenProject } from "./open-project.ts";
 import { ProjectStore } from "./projects.ts";
@@ -28,6 +29,7 @@ const withApp = <A, E>(
     const recorded = makeRecorded();
     const app = OpenProject.layer(dir).pipe(
       Layer.provideMerge(ProjectStore.layer(dir)),
+      Layer.provideMerge(Folders.layer({ dataDir: dir, home: "/home/u" })),
       Layer.provideMerge(LoginShell.layerTest({ PATH: "/usr/bin" })),
       Layer.provideMerge(
         Agents.layerTest(

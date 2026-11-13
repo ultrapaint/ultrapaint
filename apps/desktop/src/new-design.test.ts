@@ -4,8 +4,9 @@ import { assert, describe, it } from "@effect/vitest";
 import type { NewDesignUpdate } from "@ultrapaint/contracts/shell-bridge";
 import { Effect, FileSystem, Layer, Schema } from "effect";
 import { Agents, makeRuntime } from "./agents.ts";
+import { DESIGNS_HOME, Folders } from "./folders.ts";
 import { LoginShell } from "./login-shell.ts";
-import { DESIGNS_HOME, folderNameOf, NewDesigns } from "./new-design.ts";
+import { folderNameOf, NewDesigns } from "./new-design.ts";
 import { OpenProject } from "./open-project.ts";
 import { ProjectStore } from "./projects.ts";
 import {
@@ -28,7 +29,11 @@ const withApp = <A, E>(
     readonly home: string;
     readonly recorded: Recorded;
     readonly record: string;
-  }) => Effect.Effect<A, E, NewDesigns | ProjectStore | FileSystem.FileSystem>
+  }) => Effect.Effect<
+    A,
+    E,
+    Folders | NewDesigns | ProjectStore | FileSystem.FileSystem
+  >
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -45,6 +50,9 @@ const withApp = <A, E>(
     }).pipe(
       Layer.provideMerge(OpenProject.layer(path.join(home, "data"))),
       Layer.provideMerge(ProjectStore.layer(path.join(home, "data"))),
+      Layer.provideMerge(
+        Folders.layer({ dataDir: path.join(home, "data"), home })
+      ),
       Layer.provideMerge(
         LoginShell.layerTest({
           FAKE_NEW_RECORD: record,
@@ -91,6 +99,30 @@ describe("the folder a new design is proposed", () => {
         assert.strictEqual(yield* designs.folderFor("Acme"), `${first} 3`);
       })
     )
+  );
+
+  it.effect(
+    "is in the folder the person chose for new projects (ADR 0091)",
+    () =>
+      withApp(({ home }) =>
+        Effect.gen(function* () {
+          const designs = yield* NewDesigns;
+          const folders = yield* Folders;
+          const chosen = path.join(home, "Work", "Designs");
+          yield* folders.setNewProjects(chosen);
+          assert.strictEqual(
+            yield* designs.folderFor("Acme"),
+            path.join(chosen, "Acme")
+          );
+          assert.strictEqual((yield* folders.current).newProjects, chosen);
+          // Chosen back, the default is kept as no choice at all.
+          yield* folders.setNewProjects(path.join(home, DESIGNS_HOME));
+          assert.strictEqual(
+            yield* designs.folderFor("Acme"),
+            path.join(home, DESIGNS_HOME, "Acme")
+          );
+        })
+      )
   );
 });
 

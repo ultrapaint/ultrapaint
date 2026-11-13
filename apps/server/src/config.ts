@@ -174,7 +174,10 @@ export class ServerConfig extends Context.Service<
      * --dev` gives one for its whole session (`--token`), which the server's restarts keep.
      */
     readonly token: string;
-    /** User-level data that is only read, such as custom agents: `~/.ultrapaint`. */
+    /**
+     * The person's folder, absolute: their name, findings, chat preferences and custom agents,
+     * the same in every project. `~/.ultrapaint`, or `.ultrapaint` in `--user-dir` (ADR 0091).
+     */
     readonly userDir: string;
     readonly version: string;
     /** Built web bundle to serve, when running outside the Vite dev server. */

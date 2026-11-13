@@ -45,7 +45,7 @@ import {
 import { liveRun } from "./run-file.ts";
 import { MCP_PATH } from "./services/mcp/access.ts";
 import { KEPT_TOOLS_FILE } from "./services/mcp/kept-tools.ts";
-import { resolveStorage } from "./storage-resolve.ts";
+import { resolveStorage, userDirFlag } from "./storage-resolve.ts";
 
 /**
  * Where the `ultrapaint` command says how to start the project's server, as it runs it: a JSON
@@ -132,7 +132,9 @@ const SERVER_LOG = "mcp-server.log";
 export const makeLocator = Effect.fnUntraced(function* (
   project: { readonly dir: string; readonly stateDir: string },
   /** How to start the project's server: the program and its arguments, as JSON. */
-  serve: Option.Option<string>
+  serve: Option.Option<string>,
+  /** `--user-dir` as this command was given it, absolute: the server started is given it too. */
+  userDir?: string
 ) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -183,6 +185,7 @@ export const makeLocator = Effect.fnUntraced(function* (
       "--ready-json",
       "--stop-with-stdin",
       "--linger",
+      ...(userDir === undefined ? [] : ["--user-dir", userDir]),
     ];
     yield* Effect.logInfo(`starting Ultrapaint for ${project.dir}`);
     yield* fs.makeDirectory(project.stateDir, { recursive: true });
@@ -298,12 +301,20 @@ export const makeRouting = <R>(options: {
   });
 };
 
-const relayStdio = Effect.fnUntraced(function* (serve: Option.Option<string>) {
+const relayStdio = Effect.fnUntraced(function* (
+  serve: Option.Option<string>,
+  /** `--user-dir`: where the person's folder is, which keeps the tools a server listed last. */
+  userDirIn: Option.Option<string>
+) {
   const stdio = yield* Stdio.Stdio;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const cwd = process.cwd();
   const userHome = process.env.HOME || homedir();
+  // From where the command was started, not from each project's folder.
+  const userDirGiven = Option.getOrUndefined(
+    Option.map(userDirIn, (given) => path.resolve(cwd, given))
+  );
   /** The project whose configuration is found from `dir` upwards: its folder and state. */
   const projectAt = (dir: string) =>
     Effect.map(
@@ -312,6 +323,7 @@ const relayStdio = Effect.fnUntraced(function* (serve: Option.Option<string>) {
         cwd: dir,
         ephemeral: false,
         home: undefined,
+        userDir: userDirGiven,
         userHome,
       }),
       ({ storage, userDir }) => ({
@@ -365,7 +377,11 @@ const relayStdio = Effect.fnUntraced(function* (serve: Option.Option<string>) {
             message: `No Ultrapaint configuration in ${dir}: in Ultrapaint, Settings › Repository › Save to file… writes it there.`,
           });
         }
-        const locate = yield* makeLocator(found.project.value, serve);
+        const locate = yield* makeLocator(
+          found.project.value,
+          serve,
+          userDirGiven
+        );
         locators.set(dir, locate);
         return locate;
       })
@@ -422,9 +438,10 @@ export const mcpCommand = Command.make(
       Flag.withFallbackConfig(Config.String(SERVE_ENV)),
       Flag.optional
     ),
+    userDir: userDirFlag,
   },
-  ({ serve }) =>
-    relayStdio(serve).pipe(
+  ({ serve, userDir }) =>
+    relayStdio(serve, userDir).pipe(
       Effect.scoped,
       // Stdout is the agent's channel: the logs go to stderr.
       Effect.provideService(Logger.LogToStderr, true),

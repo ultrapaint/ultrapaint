@@ -12,10 +12,12 @@ import type { ShellPlatform } from "@ultrapaint/contracts/shell-bridge";
  * types here and the desktop app's preload and main process their channels and Schemas.
  */
 export type {
+  FolderMove,
   InstalledCommand,
   NewDesignStepId,
   PlatformAgent,
   PlatformProject,
+  ShellFolders,
   ShellNotice,
   ShellPlatform,
   ShellStatus,
@@ -27,6 +29,13 @@ export type {
  * back where it was.
  */
 export type AgentSetup = ShellPlatform["agents"];
+
+/**
+ * Where this machine's app keeps the person's folder and makes new projects (ADR 0091): read,
+ * shown in the file manager, moved or changed. Moving the person's folder starts the project's
+ * server again, and the editor comes back where it was.
+ */
+export type FolderSetup = ShellPlatform["folders"];
 
 /** The shell's list of projects, for the switcher in the header. One project is open at a time. */
 export type ProjectSwitcher = ShellPlatform["projects"];

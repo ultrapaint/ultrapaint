@@ -41,6 +41,11 @@ export class Shell extends Context.Service<
       readonly detail: string;
       readonly message: string;
     }) => Effect.Effect<boolean>;
+    /**
+     * Shows a folder in the system's file manager (Finder, say); why not, when it couldn't:
+     * the system's own words.
+     */
+    readonly openPath: (path: string) => Effect.Effect<Option.Option<string>>;
     /** The native file picker, for an executable; nothing when it is cancelled. */
     readonly pickFile: (title: string) => Effect.Effect<Option.Option<string>>;
     /** The native folder picker, at `defaultPath` when given; nothing when it is cancelled. */

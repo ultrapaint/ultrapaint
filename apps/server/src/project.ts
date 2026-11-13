@@ -33,7 +33,7 @@ import {
 } from "effect";
 import type { ChildProcessSpawner } from "effect/process";
 import { AppLog } from "./app-log.ts";
-import type { ServerConfig } from "./config.ts";
+import { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
 import type { CodeSide } from "./services/code-side.ts";
 import type { CommentsService } from "./services/comments.ts";
@@ -223,6 +223,7 @@ export class ProjectManager extends Context.Service<
         const settingsService = yield* SettingsService;
         const setup = yield* SetupService;
         const profile = yield* ProfileService;
+        const { userDir } = yield* ServerConfig;
         const managerScope = yield* Effect.scope;
         // open and close never interleave.
         const lifecycle = yield* Semaphore.make(1);
@@ -301,9 +302,15 @@ export class ProjectManager extends Context.Service<
         const info: Effect.Effect<ProjectInfo> = Effect.gen(function* () {
           const { displayName } = yield* profile.get;
           const settings = yield* settingsService.get;
+          // Asked each time: a session saved meanwhile has its state beside its configuration.
+          const target = yield* storage.target;
           return {
             ...(yield* openInfo),
             ...(displayName === undefined ? {} : { displayName }),
+            folders: {
+              ...(target.mode === "file" ? { project: target.stateDir } : {}),
+              user: userDir,
+            },
             ...(settings === null ? {} : { settings }),
             storage: yield* storage.info,
           };

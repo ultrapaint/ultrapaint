@@ -520,6 +520,16 @@ refactor and the board view left.
   a restart into the release it downloaded, or a download by hand where this copy cannot replace
   itself (`Platform.update`, the desktop's `Updater`, `updates.ts`; the editor's `app-update.tsx`,
   ADR 0078). Its **release notes** are what comes before the release's install mark.
+- **The person's folder**: what is the person's in every project, kept in a folder named
+  `.ultrapaint` (their name, findings, chat preferences, custom agents), in the home folder
+  unless moved (ADR 0091): the server's `ServerConfig.userDir`, placed by `--user-dir`
+  (`ULTRAPAINT_USER_DIR`, the folder it is in); the desktop app keeps where it is (`Folders`,
+  `folders.json`), passes it to every local server and moves it (`folders.moveUser`). Not a
+  project's **state folder**, `<project>/.ultrapaint`, its chats, history and caches. The project
+  info names both (`folders`); Settings › About shows them (`FoldersGroup`).
+- **New projects' folder**: where the desktop app's start screen makes a new project,
+  `~/Ultrapaint` unless the person changed it (ADR 0091; `Folders`, `folders.setNewProjects`,
+  `newDesign.folderFor`).
 
 ## Server
 

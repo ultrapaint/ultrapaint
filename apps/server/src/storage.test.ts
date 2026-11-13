@@ -2,6 +2,7 @@ import { homedir } from "node:os";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import {
+  ConfigProvider,
   Effect,
   Fiber,
   FileSystem,
@@ -11,6 +12,7 @@ import {
   Scope,
   Stream,
 } from "effect";
+import { Command } from "effect/cli";
 import { AppLog } from "./app-log.ts";
 import { ServerConfig, type StorageTarget } from "./config.ts";
 import { EventBus } from "./events.ts";
@@ -19,7 +21,7 @@ import { FigmaBaseline } from "./services/figma-baseline.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import { SettingsService } from "./services/settings.ts";
 import { Storage } from "./services/storage.ts";
-import { resolveStorage } from "./storage-resolve.ts";
+import { resolveStorage, userDirFlag } from "./storage-resolve.ts";
 import { eachTest } from "./testing/each-test.ts";
 import {
   makeRepository,
@@ -174,6 +176,82 @@ describe("resolveStorage", () => {
           stateDir: "/h",
         });
       }).pipe(Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
+    "keeps the person's folder as .ultrapaint in --user-dir, whatever the storage",
+    () =>
+      Effect.gen(function* () {
+        const path = yield* Path.Path;
+        const cwd = yield* tempDir;
+        const unsaved = yield* resolveStorage({
+          ...flags,
+          cwd,
+          userDir: "/sync",
+        });
+        assert.deepStrictEqual(unsaved, {
+          storage: { mode: "ephemeral" },
+          userDir: "/sync/.ultrapaint",
+        });
+        // Over --home's, which keeps the settings and state it had.
+        const managed = yield* resolveStorage({
+          ...flags,
+          cwd,
+          home: "/h",
+          userDir: "/sync",
+        });
+        assert.deepStrictEqual(managed, {
+          storage: { home: "/h", mode: "managed" },
+          userDir: "/sync/.ultrapaint",
+        });
+        const relative = yield* resolveStorage({
+          ...flags,
+          cwd,
+          userDir: "elsewhere",
+        });
+        assert.strictEqual(
+          relative.userDir,
+          path.join(cwd, "elsewhere", ".ultrapaint")
+        );
+      }).pipe(Effect.provide(NodeServices.layer))
+  );
+});
+
+describe("--user-dir", () => {
+  /** What the flag gives a command run with `args`, in an environment of `env`. */
+  const given = (args: readonly string[], env: Record<string, string> = {}) =>
+    Effect.gen(function* () {
+      let seen: Option.Option<string> = Option.none();
+      const command = Command.make(
+        "ultrapaint",
+        { userDir: userDirFlag },
+        (c) =>
+          Effect.sync(() => {
+            seen = c.userDir;
+          })
+      );
+      yield* Command.runWith(command, { version: "test" })(args).pipe(
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromEnv({ env })
+        )
+      );
+      return Option.getOrUndefined(seen);
+    }).pipe(Effect.provide(NodeServices.layer));
+
+  it.effect("is read from the flag, then from ULTRAPAINT_USER_DIR", () =>
+    Effect.gen(function* () {
+      assert.isUndefined(yield* given([]));
+      assert.strictEqual(yield* given(["--user-dir", "/sync"]), "/sync");
+      assert.strictEqual(
+        yield* given([], { ULTRAPAINT_USER_DIR: "/env" }),
+        "/env"
+      );
+      assert.strictEqual(
+        yield* given(["--user-dir", "/sync"], { ULTRAPAINT_USER_DIR: "/env" }),
+        "/sync"
+      );
+    })
   );
 });
 

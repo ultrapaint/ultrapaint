@@ -7,12 +7,29 @@ const GitUser = Schema.Struct({
   name: Schema.optional(Schema.String),
 });
 
+/** Where the server keeps what is not the project's code (ADR 0091), each absolute. */
+export const ProjectFolders = Schema.Struct({
+  /**
+   * The project's own state folder (`<project>/.ultrapaint`): its chats, design history and
+   * caches. Absent when nothing is saved, or the settings are kept in a `--home`.
+   */
+  project: Schema.optional(Schema.String),
+  /**
+   * The person's folder, the same in every project: their name, review findings and chat
+   * preferences. `~/.ultrapaint`, or `.ultrapaint` wherever `--user-dir` put it.
+   */
+  user: Schema.String,
+});
+export type ProjectFolders = typeof ProjectFolders.Type;
+
 export const ProjectInfo = Schema.Struct({
   branch: Schema.optional(Schema.String),
   configured: Schema.Boolean,
   designsDir: Schema.optional(Schema.String),
   /** The name the user gave in Settings, used when git gives none. */
   displayName: Schema.optional(Schema.String),
+  /** Where the server keeps the person's data and the project's; absent from older servers. */
+  folders: Schema.optional(ProjectFolders),
   /**
    * Whether the folder is in a git repository the tool can read: its status, diffs and branch.
    * Absent or false, there is no git or no repository, and the tool works without them.

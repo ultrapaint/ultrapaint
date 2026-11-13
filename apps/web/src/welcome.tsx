@@ -86,7 +86,10 @@ const problemOf = (
   title = "Couldn’t open the project"
 ): Problem => ({ message: messageOf(error), title });
 
-/** Where a new project goes: a new folder in `~/Ultrapaint`, or one the person chose. */
+/**
+ * Where a new project goes: a new folder in the new projects' folder (`~/Ultrapaint` unless the
+ * person changed it, ADR 0091), or one the person chose.
+ */
 type Where =
   | { readonly kind: "new" }
   | {
@@ -99,6 +102,12 @@ type Where =
 
 const NEW_FOLDER = "new";
 const CHOSEN = "chosen";
+
+const SEPARATORS = /[/\\]/;
+
+/** A folder's own name, the last part of its path. */
+const folderName = (folder: string) =>
+  folder.split(SEPARATORS).filter(Boolean).at(-1) ?? folder;
 
 const LOOKS = [
   { label: "Agent picks the look", value: "agent" },
@@ -205,7 +214,16 @@ const AlreadyAProject = ({
 
 /** The prompt that starts a new project, with where it goes, who picks the look and the model. */
 const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
-  const { newDesign, pickFolder, projects } = platform();
+  const { folders, newDesign, pickFolder, projects } = platform();
+  // Where a new folder goes, once the app says: the person may have changed it (ADR 0091).
+  const [newProjects, setNewProjects] = useState<string | null>(null);
+  useEffect(() => {
+    folders
+      ?.current()
+      .then((current) => setNewProjects(current.newProjects))
+      // Unread, the choice keeps its usual words.
+      .catch(() => undefined);
+  }, [folders]);
   const sendKey = useSendKey((s) => s.sendKey);
   const [text, setText] = useState("");
   const [where, setWhere] = useState<Where>({ kind: "new" });
@@ -315,7 +333,10 @@ const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
   };
 
   const whereChoices = [
-    { label: "New folder in ~/Ultrapaint", value: NEW_FOLDER },
+    {
+      label: `New folder in ${newProjects ? folderName(newProjects) : "~/Ultrapaint"}`,
+      value: NEW_FOLDER,
+    },
     ...(where.kind === "chosen" ? [{ label: where.name, value: CHOSEN }] : []),
   ];
   const modelChoices = models.map((m) => ({

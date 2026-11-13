@@ -24,7 +24,7 @@ import { mcpCommand } from "./mcp-command.ts";
 import { newCommand } from "./new-command.ts";
 import { liveRun } from "./run-file.ts";
 import { ServerLive } from "./server.ts";
-import { resolveStorage } from "./storage-resolve.ts";
+import { resolveStorage, userDirFlag } from "./storage-resolve.ts";
 
 /** The release workflow bumps it in the root `package.json`; the bundle carries it. */
 const VERSION = product.version;
@@ -179,6 +179,7 @@ const serve = Command.make(
       ),
       Flag.optional
     ),
+    userDir: userDirFlag,
     webDist: Flag.String("web-dist").pipe(
       Flag.withDescription("Built editor bundle to serve"),
       Flag.withFallbackConfig(Config.String("ULTRAPAINT_WEB_DIST")),
@@ -201,6 +202,7 @@ const serve = Command.make(
     sessionDir,
     stopWithStdin,
     token,
+    userDir: userDirIn,
     webDist,
   }) {
     const cwd = process.cwd();
@@ -212,6 +214,7 @@ const serve = Command.make(
       ephemeral,
       home: Option.getOrUndefined(home),
       sessionDir: Option.getOrUndefined(sessionDir),
+      userDir: Option.getOrUndefined(userDirIn),
       userHome,
     });
     // A project's server runs once: a second start finds the first by its run file in the

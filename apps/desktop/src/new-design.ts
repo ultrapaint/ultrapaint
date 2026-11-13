@@ -25,12 +25,10 @@ import {
   Stream,
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import { DESIGNS_HOME, Folders } from "./folders.ts";
 import { LoginShell } from "./login-shell.ts";
 import { OpenProject } from "./open-project.ts";
 import { type ServerLaunch, serverEnv } from "./project-server.ts";
-
-/** Where new designs go unless the user picks another folder: `~/Ultrapaint`. */
-export const DESIGNS_HOME = "Ultrapaint";
 
 const decodeLine = Schema.decodeUnknownOption(NewDesignProgressLine);
 
@@ -58,8 +56,9 @@ export class NewDesigns extends Context.Service<
       report: (update: NewDesignUpdate) => Effect.Effect<void>
     ) => Effect.Effect<NewDesignOutcome>;
     /**
-     * Where a design of that name goes unless another folder is picked: `~/Ultrapaint/<name>`,
-     * or `<name> 2`, `<name> 3`… when that is there already.
+     * Where a design of that name goes unless another folder is picked: `<name>` in the new
+     * projects' folder (`~/Ultrapaint` unless changed, ADR 0091), or `<name> 2`, `<name> 3`…
+     * when that is there already.
      */
     readonly folderFor: (name: string) => Effect.Effect<string>;
   }
@@ -77,15 +76,17 @@ export class NewDesigns extends Context.Service<
         const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
         const { env } = yield* LoginShell;
         const projects = yield* OpenProject;
+        const folders = yield* Folders;
 
         const folderFor = Effect.fn("NewDesigns.folderFor")(function* (
           name: string
         ) {
-          const base = path.join(
-            options.home,
-            DESIGNS_HOME,
-            folderNameOf(name)
+          const newProjects = yield* folders.current.pipe(
+            Effect.map((current) => current.newProjects),
+            // Settings that can't be read leave the default, which the start screen can change.
+            Effect.orElseSucceed(() => path.join(options.home, DESIGNS_HOME))
           );
+          const base = path.join(newProjects, folderNameOf(name));
           for (let n = 1; ; n += 1) {
             const candidate = n === 1 ? base : `${base} ${n}`;
             // One that cannot be looked at is as good as taken.

@@ -10,6 +10,7 @@ import { CONFIG_FILE_NAMES } from "@ultrapaint/contracts/settings";
 import type {
   FirstPrompt,
   FolderKind,
+  FolderMove,
 } from "@ultrapaint/contracts/shell-bridge";
 import {
   type BuiltInAgentId,
@@ -20,6 +21,8 @@ import { AgentSettings } from "./agent-settings.ts";
 import { Agents } from "./agents.ts";
 import type { BridgeHandlers } from "./bridge-server.ts";
 import { CommandLine } from "./command-line.ts";
+import { PathNotShown } from "./errors.ts";
+import { Folders } from "./folders.ts";
 import { NewDesigns } from "./new-design.ts";
 import { Notices } from "./notices.ts";
 import { OpenProject } from "./open-project.ts";
@@ -46,6 +49,7 @@ export type HandlerServices =
   | Agents
   | CommandLine
   | FileSystem.FileSystem
+  | Folders
   | NewDesigns
   | Notices
   | OpenProject
@@ -58,23 +62,54 @@ const decodePreferences = Schema.decodeUnknownEffect(
 );
 
 /**
- * What the chat remembers, from the user's directory (`~/.ultrapaint/chat/preferences.json`,
- * the server's `ChatPreferences`): nothing when no chat has run on this machine yet, or the file
- * cannot be read.
+ * What the chat remembers, from the person's folder (`chat/preferences.json` in `~/.ultrapaint`
+ * or wherever it was moved, the server's `ChatPreferences`): nothing when no chat has run on this
+ * machine yet, or the file cannot be read.
  */
-const chatPreferences = (home: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const text = yield* fs.readFileString(
-      path.join(home, ".ultrapaint", "chat", "preferences.json")
-    );
-    return yield* decodePreferences(text);
-  }).pipe(
-    Effect.orElseSucceed(
-      (): ChatPreferencesFile => ({ agents: [], defaults: {} })
-    )
+const chatPreferences = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const { user } = yield* Folders.use((f) => f.current);
+  const text = yield* fs.readFileString(
+    path.join(user, "chat", "preferences.json")
   );
+  return yield* decodePreferences(text);
+}).pipe(
+  Effect.orElseSucceed(
+    (): ChatPreferencesFile => ({ agents: [], defaults: {} })
+  )
+);
+
+/**
+ * Moves the person's folder into one they pick (ADR 0091): refused before anything stops when it
+ * can't go there, then copied with the open project's server stopped, which starts again on it.
+ */
+const moveUserFolder = Effect.gen(function* () {
+  const folders = yield* Folders;
+  const { userDirIn } = yield* folders.current;
+  const picked = yield* Shell.use((s) =>
+    s.pickFolder({
+      defaultPath: userDirIn,
+      title: "Move your folder to…",
+    })
+  );
+  if (Option.isNone(picked)) {
+    return {} satisfies FolderMove;
+  }
+  yield* folders.checkMove(picked.value);
+  const moved = yield* OpenProject.use((o) =>
+    o.whileStopped(folders.moveUser(picked.value))
+  );
+  return Option.match(moved, {
+    // An agent at work, and the person would rather it went on.
+    onNone: (): FolderMove => ({}),
+    onSome: (user): FolderMove => ({ user }),
+  });
+}).pipe(
+  Effect.catchTag("FolderMoveRefused", (refused) =>
+    Effect.succeed({ problem: refused.message } satisfies FolderMove)
+  )
+);
 
 /** What a folder may hold and still count as empty: what a system or `git init` leaves. */
 const LEFT_BY_OTHERS = new Set([".DS_Store", "Thumbs.db", ".git"]);
@@ -132,7 +167,7 @@ export const bridgeHandlers = (
   "agents.clearPath": (id) => setAgentPath(id, undefined),
   "agents.download": (id) => thenRestart(Agents.use((a) => a.download(id))),
   "agents.list": () => Agents.use((a) => a.status),
-  "agents.preferences": () => chatPreferences(options.home),
+  "agents.preferences": () => chatPreferences,
   "agents.setApiKey": (id, key) =>
     thenRestart(
       Agents.use((a) => a.setApiKey(id, key?.trim() ? key : undefined))
@@ -141,6 +176,41 @@ export const bridgeHandlers = (
   "agents.signIn": (id) => Agents.use((a) => a.signIn(id)),
   "command.install": () => CommandLine.use((c) => c.install),
   "command.installed": () => CommandLine.use((c) => c.installed),
+  "folders.current": () =>
+    Effect.map(
+      Folders.use((f) => f.current),
+      ({ newProjects, user }) => ({ newProjects, user })
+    ),
+  "folders.moveUser": () => moveUserFolder,
+  "folders.open": (folder) =>
+    Effect.flatMap(
+      Shell.use((s) => s.openPath(folder)),
+      Option.match({
+        onNone: () => Effect.void,
+        onSome: (why) =>
+          Effect.fail(
+            new PathNotShown({
+              message: `Couldn’t open ${folder} (${why}).`,
+            })
+          ),
+      })
+    ),
+  "folders.setNewProjects": () =>
+    Effect.gen(function* () {
+      const folders = yield* Folders;
+      const { newProjects } = yield* folders.current;
+      const picked = yield* Shell.use((s) =>
+        s.pickFolder({
+          defaultPath: newProjects,
+          title: "Make new projects in…",
+        })
+      );
+      if (Option.isNone(picked)) {
+        return null;
+      }
+      yield* folders.setNewProjects(picked.value);
+      return picked.value;
+    }),
   installUpdate: () => options.installUpdate ?? Effect.void,
   "newDesign.create": (input, report) =>
     NewDesigns.use((n) => n.create(input, report)),

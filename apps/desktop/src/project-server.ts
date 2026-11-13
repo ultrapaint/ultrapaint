@@ -37,6 +37,11 @@ export interface ServerOptions {
    * restart of the app. The app's to remove, with the project.
    */
   readonly sessionDir: string;
+  /**
+   * The folder the person's folder (`.ultrapaint`) is in, the app's setting (ADR 0091): given as
+   * `--user-dir`, so that every project's server and the app read the same one.
+   */
+  readonly userDirIn: string;
 }
 
 /** A server that answers for the project. */
@@ -140,6 +145,8 @@ export class ProjectServer extends Context.Service<
                   launch.webDist,
                   "--session-dir",
                   options.sessionDir,
+                  "--user-dir",
+                  options.userDirIn,
                   // Its stdin is a pipe from this process, which no one writes: when the app
                   // goes, however it goes, the pipe closes and the server stops.
                   "--stop-with-stdin",

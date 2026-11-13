@@ -29,6 +29,7 @@ import {
   StoreError,
   type UnknownProject,
 } from "./errors.ts";
+import { Folders } from "./folders.ts";
 import { LoginShell } from "./login-shell.ts";
 import { ProjectServer, type RunningServer } from "./project-server.ts";
 import {
@@ -40,13 +41,13 @@ import {
 import { RemoteProjects } from "./remote-project.ts";
 import { Shell } from "./shell.ts";
 
+/** What stops the open project's server. */
+type StopAction = "switch" | "quit" | "restart" | "move";
+
 /** What the user is asked before agents at work are stopped. */
-const stopQuestion = (
-  action: "switch" | "quit" | "restart",
-  working: number,
-  name: string
-) => {
+const stopQuestion = (action: StopAction, working: number, name: string) => {
   const stops = {
+    move: "Moving your folder stops this project's server while it copies",
     quit: "Quitting stops this project's server",
     restart:
       "Applying the change starts this project's server again, which stops it",
@@ -54,6 +55,7 @@ const stopQuestion = (
   }[action];
   return {
     action: {
+      move: "Stop and move",
       quit: "Stop and quit",
       restart: "Stop and apply",
       switch: "Stop and switch",
@@ -147,6 +149,17 @@ export class OpenProject extends Context.Service<
      */
     readonly restart: Effect.Effect<void, StoreError | ServerStartError>;
     /**
+     * Runs `change` with the open project's server stopped, then starts it again, the editor
+     * coming back where it was: for a change the server must not be running through, as the
+     * person's folder moving (ADR 0091). Asks first when agents are at work; none, and `change`
+     * does not run, when the user says no. With no server of the app's own open (none, one only
+     * attached to, one on another machine), `change` just runs. The server starts again whether
+     * `change` failed or not, which then fails with its error.
+     */
+    readonly whileStopped: <A, E>(
+      change: Effect.Effect<A, E>
+    ) => Effect.Effect<Option.Option<A>, E | StoreError | ServerStartError>;
+    /**
      * The start screen's prompt for the open project, once: the editor takes it as it loads.
      * None when the project was opened without one, or it was taken.
      */
@@ -192,6 +205,7 @@ export class OpenProject extends Context.Service<
         const { env } = yield* LoginShell;
         const agents = yield* Agents;
         const remote = yield* RemoteProjects;
+        const folders = yield* Folders;
         // One switch at a time: a second click waits for the first to finish.
         const switching = yield* Semaphore.make(1);
         let open: Open | null = null;
@@ -229,7 +243,7 @@ export class OpenProject extends Context.Service<
          * Asked first when agents are at work in it; false when the user says no.
          */
         const release = Effect.fnUntraced(function* (
-          action: "switch" | "quit" | "restart",
+          action: StopAction,
           ask: boolean
         ) {
           const was = open;
@@ -299,6 +313,8 @@ export class OpenProject extends Context.Service<
               : Effect.gen(function* () {
                   // Asked at each start: an agent installed or set up since is in the next one.
                   const runtime = yield* agents.runtime;
+                  // And where the person's folder is: moved since, it is there.
+                  const { userDirIn } = yield* folders.current;
                   return yield* servers.start({
                     cwd: project.path,
                     env: {
@@ -306,6 +322,7 @@ export class OpenProject extends Context.Service<
                       ULTRAPAINT_AGENT_RUNTIME: JSON.stringify(runtime),
                     },
                     sessionDir: path.join(sessions, project.id),
+                    userDirIn,
                   });
                 })
           ).pipe(
@@ -607,6 +624,31 @@ export class OpenProject extends Context.Service<
             return kept.start;
           }),
           unsaved,
+          whileStopped: <A, E>(change: Effect.Effect<A, E>) =>
+            switching.withPermits(1)(
+              Effect.gen(function* () {
+                const was = open;
+                if (
+                  !was ||
+                  was.server.attached ||
+                  was.project.kind !== "local"
+                ) {
+                  return Option.some(yield* change);
+                }
+                if (!(yield* release("move", true))) {
+                  return Option.none<A>();
+                }
+                const changed = yield* Effect.exit(change);
+                // Given up for a quit, there is nothing to show: the app is going.
+                yield* showFailure(
+                  stoppable(
+                    { id: was.project.id, shown: false },
+                    launch(was.project, { keepLocation: true })
+                  )
+                );
+                return Option.some(yield* changed);
+              })
+            ),
         });
       })
     );

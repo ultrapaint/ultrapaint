@@ -11,8 +11,11 @@ pnpm test && pnpm typecheck && pnpm lint
 `pnpm dev` is `ultrapaint --dev` run from the checkout, with ports in 4600–4679 derived from the
 checkout's path, or the next free pair when those are taken, so several worktrees, and the
 installed command on 4770, run side by side (`ULTRAPAINT_PORT` and `ULTRAPAINT_WEB_PORT` win). It
-keeps its settings in `~/.ultrapaint` unless it is given `--config` or `--ephemeral`. Read
-[`AGENTS.md`](../AGENTS.md) before writing server code.
+keeps its settings in `~/.ultrapaint` unless it is given `--config` or `--ephemeral`. Your own
+folder (your name, findings, chat preferences) is `~/.ultrapaint` too; `ULTRAPAINT_USER_DIR=<dir>`
+(or `--user-dir`) puts it at `<dir>/.ultrapaint` instead, whatever the storage
+([ADR 0091](adr/0091-the-persons-folder-can-move.md)). Read [`AGENTS.md`](../AGENTS.md) before
+writing server code.
 
 The desktop app on another machine shows this checkout's sources as they change: `pnpm
 install:cli` here, then in the app an SSH project on this machine (over Tailscale, say) with the

@@ -314,6 +314,24 @@ export const InstalledCommand = Schema.Struct({
 });
 export type InstalledCommand = typeof InstalledCommand.Type;
 
+/** The folders this machine's app keeps the person's things in (ADR 0091), each absolute. */
+export const ShellFolders = Schema.Struct({
+  /** Where the start screen makes a new project: `~/Ultrapaint` unless changed. */
+  newProjects: Schema.String,
+  /** The person's folder, `.ultrapaint` in the home folder unless it was moved. */
+  user: Schema.String,
+});
+export type ShellFolders = typeof ShellFolders.Type;
+
+/** How moving the person's folder went: where it is now, or why it didn't move. */
+export const FolderMove = Schema.Struct({
+  /** Why it didn't move, or what went wrong once it had: words for the person. */
+  problem: Schema.optional(Schema.String),
+  /** Where the folder is now; absent when it stayed (cancelled, refused, kept for an agent). */
+  user: Schema.optional(Schema.String),
+});
+export type FolderMove = typeof FolderMove.Type;
+
 /**
  * Every capability, by its name, which is its path in `Platform`. A group (`agents`, `projects`,
  * `newDesign`) is shown or hidden whole (`shell-bridge.test.ts`): a part the editor finds is all
@@ -348,6 +366,22 @@ export const SHELL_BRIDGE = {
   "command.install": invoke([], InstalledCommand, LOCAL),
   /** The `ultrapaint` command on the PATH, this app's or another; null when there is none. */
   "command.installed": invoke([], Schema.NullOr(InstalledCommand), LOCAL),
+  /** Where the app keeps the person's folder and makes new projects (ADR 0091). */
+  "folders.current": invoke([], ShellFolders, LOCAL),
+  /**
+   * Moves the person's folder into a folder picked with the shell's own dialog: its contents
+   * copied, then the old one removed; the open project's server starts again on it, once agents
+   * at work are stopped with the person's agreement. Refused into itself, or onto a folder that
+   * holds a `.ultrapaint` already.
+   */
+  "folders.moveUser": invoke([], FolderMove, LOCAL),
+  /** Shows a folder in the system's file manager. */
+  "folders.open": invoke([Schema.String], Schema.Void, LOCAL),
+  /**
+   * Picks, with the shell's own dialog, the folder the start screen makes new projects in; the
+   * folder picked, or null when it is cancelled.
+   */
+  "folders.setNewProjects": invoke([], Schema.NullOr(Schema.String), LOCAL),
   /**
    * Restarts the app into the update it downloaded (`update`), once agents at work are stopped
    * with the person's agreement; nothing when they would rather let them finish.
@@ -365,7 +399,7 @@ export const SHELL_BRIDGE = {
   ),
   /**
    * Where a design of that name goes unless another folder is picked: a folder of that name in
-   * `~/Ultrapaint`, numbered when one is there already.
+   * the new projects' folder (`folders.setNewProjects`), numbered when one is there already.
    */
   "newDesign.folderFor": invoke([Schema.String], Schema.String),
   /** What the shell found missing on this machine. */

@@ -4,6 +4,7 @@ import { Effect, FileSystem, Layer, Path } from "effect";
 import { AgentSettings } from "./agent-settings.ts";
 import { Agents, makeRuntime } from "./agents.ts";
 import { CommandLine } from "./command-line.ts";
+import { Folders } from "./folders.ts";
 import {
   bridgeHandlers,
   type HandlerServices,
@@ -96,6 +97,7 @@ const withHandlers = <A, E>(
       })
     ).pipe(
       Layer.provideMerge(ProjectStore.layer(dir)),
+      Layer.provideMerge(Folders.layer({ dataDir: dir, home })),
       Layer.provideMerge(AgentSettings.layer(dir)),
       Layer.provideMerge(LoginShell.layerTest({ PATH: "/usr/bin" })),
       Layer.provideMerge(fakeAgents(asked)),
@@ -552,5 +554,168 @@ describe("the bridge's handlers", () => {
           assert.deepStrictEqual(recorded.events, ["start devbox:site"]);
         })
       )
+  );
+});
+
+/** The handlers in a home folder of their own, whose `.ultrapaint` holds the person's name. */
+const withHome = <A, E>(
+  body: (
+    handlers: ReturnType<typeof bridgeHandlers>,
+    recorded: Recorded,
+    home: string
+  ) => Effect.Effect<A, E, HandlerServices>
+) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const home = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+    yield* fs.makeDirectory(path.join(home, ".ultrapaint", "chat"), {
+      recursive: true,
+    });
+    yield* fs.writeFileString(
+      path.join(home, ".ultrapaint", "profile.json"),
+      '{"displayName":"Ada"}\n'
+    );
+    return yield* withHandlers(
+      (handlers, recorded) => body(handlers, recorded, home),
+      "/nowhere/config",
+      home
+    );
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
+
+describe("the person's folders (ADR 0091)", () => {
+  it.effect(
+    "move the person's folder: copied, the old one removed, and the open project's server started again on it",
+    () =>
+      withHome((handlers, recorded, home) =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          const store = yield* ProjectStore;
+          yield* handlers["projects.open"]((yield* store.add("/work/shop")).id);
+          assert.strictEqual(recorded.starts[0]?.userDirIn, home);
+          const sync = path.join(home, "Sync");
+          yield* fs.makeDirectory(sync);
+          recorded.picks.push(sync);
+          const moved = path.join(sync, ".ultrapaint");
+          assert.deepStrictEqual(yield* handlers["folders.moveUser"](), {
+            user: moved,
+          });
+          assert.deepStrictEqual(recorded.pickers, ["Move your folder to…"]);
+          assert.strictEqual(
+            yield* fs.readFileString(path.join(moved, "profile.json")),
+            '{"displayName":"Ada"}\n'
+          );
+          assert.isFalse(yield* fs.exists(path.join(home, ".ultrapaint")));
+          assert.deepStrictEqual(recorded.events, [
+            "start shop",
+            "stop shop",
+            "start shop",
+          ]);
+          assert.strictEqual(recorded.starts[1]?.userDirIn, sync);
+          assert.deepStrictEqual(yield* handlers["folders.current"](), {
+            newProjects: path.join(home, "Ultrapaint"),
+            user: moved,
+          });
+          // What the app reads there itself follows it.
+          yield* fs.writeFileString(
+            path.join(moved, "chat", "preferences.json"),
+            JSON.stringify({ agents: [], defaults: { agentId: "codex" } })
+          );
+          assert.deepStrictEqual(
+            (yield* handlers["agents.preferences"]()).defaults,
+            { agentId: "codex" }
+          );
+        })
+      )
+  );
+
+  it.effect(
+    "refuse a folder inside the person's folder, or one with a .ultrapaint already, before anything stops",
+    () =>
+      withHome((handlers, recorded, home) =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          const store = yield* ProjectStore;
+          yield* handlers["projects.open"]((yield* store.add("/work/shop")).id);
+          const inside = path.join(home, ".ultrapaint", "chat");
+          recorded.picks.push(inside);
+          assert.deepStrictEqual(yield* handlers["folders.moveUser"](), {
+            problem: `That folder is inside your folder. Choose one outside ${path.join(home, ".ultrapaint")}.`,
+          });
+          const taken = path.join(home, "Taken");
+          yield* fs.makeDirectory(path.join(taken, ".ultrapaint"), {
+            recursive: true,
+          });
+          recorded.picks.push(taken);
+          assert.deepStrictEqual(yield* handlers["folders.moveUser"](), {
+            problem: `${taken} already has a .ultrapaint folder. Choose another folder, or move that one away first.`,
+          });
+          assert.deepStrictEqual(recorded.events, ["start shop"]);
+          assert.isTrue(
+            yield* fs.exists(path.join(home, ".ultrapaint", "profile.json"))
+          );
+        })
+      )
+  );
+
+  it.effect(
+    "ask before stopping agents at work, and leave the folder where it is when told no",
+    () =>
+      withHome((handlers, recorded, home) =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          const store = yield* ProjectStore;
+          yield* handlers["projects.open"]((yield* store.add("/work/shop")).id);
+          recorded.working.shop = 1;
+          recorded.answers.push(false);
+          const sync = path.join(home, "Sync");
+          yield* fs.makeDirectory(sync);
+          recorded.picks.push(sync);
+          assert.deepStrictEqual(yield* handlers["folders.moveUser"](), {});
+          assert.deepStrictEqual(recorded.questions, [
+            "An agent is working in shop",
+          ]);
+          assert.deepStrictEqual(recorded.events, ["start shop"]);
+          assert.isFalse(yield* fs.exists(path.join(sync, ".ultrapaint")));
+          assert.strictEqual(
+            (yield* handlers["folders.current"]()).user,
+            path.join(home, ".ultrapaint")
+          );
+        })
+      )
+  );
+
+  it.effect(
+    "change where new projects are made, and nothing when the picker is cancelled",
+    () =>
+      withHome((handlers, recorded, home) =>
+        Effect.gen(function* () {
+          const path = yield* Path.Path;
+          assert.isNull(yield* handlers["folders.setNewProjects"]());
+          const work = path.join(home, "Work");
+          recorded.picks.push(work);
+          assert.strictEqual(yield* handlers["folders.setNewProjects"](), work);
+          assert.deepStrictEqual(recorded.pickers, [
+            "Make new projects in…",
+            "Make new projects in…",
+          ]);
+          assert.strictEqual(
+            (yield* handlers["folders.current"]()).newProjects,
+            work
+          );
+        })
+      )
+  );
+
+  it.effect("show a folder in the file manager", () =>
+    withHome((handlers, recorded, home) =>
+      Effect.gen(function* () {
+        yield* handlers["folders.open"](home);
+        assert.deepStrictEqual(recorded.events, [`show ${home}`]);
+      })
+    )
   );
 });

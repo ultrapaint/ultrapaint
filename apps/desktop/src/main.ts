@@ -36,6 +36,7 @@ import {
   stateMessage,
 } from "./bridge-server.ts";
 import { CommandLine, commandApp } from "./command-line.ts";
+import { Folders } from "./folders.ts";
 import { bridgeHandlers, remoteOpen } from "./handlers.ts";
 import { LoginShell } from "./login-shell.ts";
 import { NewDesigns } from "./new-design.ts";
@@ -197,6 +198,11 @@ const ElectronShell = Layer.succeed(
           : await dialog.showMessageBox(options);
         return answer.response === 0;
       }),
+    // Electron answers with why it couldn't, or nothing.
+    openPath: (folder) =>
+      Effect.promise(() => shell.openPath(folder)).pipe(
+        Effect.map((why) => Option.fromNullishOr(why || undefined))
+      ),
     pickFile: (title) =>
       pickPath({ properties: ["openFile", "showHiddenFiles"], title }),
     pickFolder: ({ defaultPath, title }) =>
@@ -297,6 +303,7 @@ const runtime = ManagedRuntime.make(
     })
   ).pipe(
     Layer.provideMerge(ProjectStore.layer(dataDir)),
+    Layer.provideMerge(Folders.layer({ dataDir, home: app.getPath("home") })),
     Layer.provideMerge(
       Agents.layer({
         adaptersDir: path.join(appDir, "adapters"),

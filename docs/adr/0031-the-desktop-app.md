@@ -5,6 +5,10 @@ here), 0004, 0013, 0018 and 0023 (git is no longer needed). Builds on 0008, 0010
 work is planned in [PLAN-desktop](../plans/done/PLAN-desktop.md); this records its decisions and what Phase 0
 changed in the server and the editor, and what Phases 1, 2 and 3 added.
 
+> Amended by [0091](0091-the-persons-folder-can-move.md), 2026-11-13: new designs go in the
+> new projects' folder, `~/Ultrapaint` unless the person changed it, and the app starts every
+> local server with `--user-dir`, the place of the person's folder, which it can move.
+
 > Writing to git amended by [0087](0087-the-designs-history-is-ultrapaints-and-git-is-apart.md),
 > 2026-11-12: there is no setting; in a repository the Changes panel commits what the person
 > ticks when they press Commit, and nothing makes a folder a repository but `ultrapaint new --git`.

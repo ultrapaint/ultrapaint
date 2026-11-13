@@ -24,6 +24,8 @@ export interface Recorded {
    * recorded as a connection, and given up when what waits for it is stopped.
    */
   stalled: string[];
+  /** What each local server was started with, in order. */
+  starts: ServerOptions[];
   /** What the window was told the app is doing, `null` once it is done. */
   statuses: (ShellStatus | null)[];
   views: View[];
@@ -40,6 +42,7 @@ export const makeRecorded = (): Recorded => ({
   picks: [],
   questions: [],
   stalled: [],
+  starts: [],
   statuses: [],
   views: [],
   watchers: new Set(),
@@ -91,6 +94,11 @@ export const fakeShell = (recorded: Recorded) =>
           const answer = recorded.answers.shift() ?? true;
           return typeof answer === "boolean" ? Effect.succeed(answer) : answer;
         }),
+      openPath: (path) =>
+        Effect.sync(() => {
+          recordEvent(recorded, `show ${path}`);
+          return Option.none();
+        }),
       pickFile: (title) =>
         Effect.sync(() => {
           recorded.pickers.push(title);
@@ -124,13 +132,15 @@ export const fakeServers = (recorded: Recorded) =>
           const stalled = recorded.stalled.indexOf(name);
           if (stalled !== -1) {
             recorded.stalled.splice(stalled, 1);
-            recordEvent(recorded, `connect ${name}`);
+            // Given up from the moment it is told of: a test waits for the connection, then stops it.
             yield* Effect.addFinalizer(() =>
               Effect.sync(() => recordEvent(recorded, `give up ${name}`))
             );
+            recordEvent(recorded, `connect ${name}`);
             return yield* Effect.never;
           }
           const attached = name === "attached";
+          recorded.starts.push(options);
           recordEvent(recorded, `${attached ? "attach" : "start"} ${name}`);
           if (!attached) {
             yield* Effect.addFinalizer(() =>
@@ -160,10 +170,10 @@ export const fakeRemoteProjects = (recorded: Recorded) =>
         Effect.gen(function* () {
           if (project.host === "silent") {
             const name = `${project.host}:${project.path.split("/").at(-1) ?? ""}`;
-            recordEvent(recorded, `connect ${name}`);
             yield* Effect.addFinalizer(() =>
               Effect.sync(() => recordEvent(recorded, `give up ${name}`))
             );
+            recordEvent(recorded, `connect ${name}`);
             return yield* Effect.never;
           }
           if (project.host === "down") {

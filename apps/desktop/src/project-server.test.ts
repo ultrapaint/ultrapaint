@@ -57,6 +57,7 @@ describe("ProjectServer", () => {
             cwd: dir,
             env: { FAKE_SERVER: "ready", FAKE_SERVER_RECORD: record },
             sessionDir: path.join(dir, "session"),
+            userDirIn: path.join(dir, "sync"),
           })
           .pipe(Scope.provide(scope));
         assert.isFalse(running.attached);
@@ -73,6 +74,9 @@ describe("ProjectServer", () => {
           "/app/web",
           path.join(dir, "session"),
         ]);
+        // The person's folder is where the app keeps it (ADR 0091).
+        const at = started.args.indexOf("--user-dir");
+        assert.strictEqual(started.args[at + 1], path.join(dir, "sync"));
         assert.isTrue(alive(started.pid));
         // Closing the scope waits for the process to exit.
         yield* Scope.close(scope, Exit.void);
@@ -91,6 +95,7 @@ describe("ProjectServer", () => {
           cwd: dir,
           env: { FAKE_SERVER: "chatty" },
           sessionDir: dir,
+          userDirIn: dir,
         });
         // It answers once all it wrote was read: a pipe left unread would hold it, or end it.
         assert.strictEqual(yield* running.working, 1);
@@ -109,6 +114,7 @@ describe("ProjectServer", () => {
             cwd: dir,
             env: { FAKE_SERVER: "silent" },
             sessionDir: dir,
+            userDirIn: dir,
           })
         );
         assert.strictEqual(error._tag, "ServerStartError");

@@ -32,6 +32,21 @@ export class ProjectOpen extends Schema.TaggedError<ProjectOpen>()(
   }
 }
 
+/**
+ * The person's folder can't move where they picked (ADR 0091): into itself, onto another
+ * `.ultrapaint`, or a copy that failed. Says why and what to pick instead.
+ */
+export class FolderMoveRefused extends Schema.TaggedError<FolderMoveRefused>()(
+  "FolderMoveRefused",
+  { message: Schema.String }
+) {}
+
+/** The system's file manager couldn't show a folder: gone, say. */
+export class PathNotShown extends Schema.TaggedError<PathNotShown>()(
+  "PathNotShown",
+  { message: Schema.String }
+) {}
+
 /** The page called a capability of the shell bridge with what its input does not take. */
 export class BridgeInputError extends Schema.TaggedError<BridgeInputError>()(
   "BridgeInputError",

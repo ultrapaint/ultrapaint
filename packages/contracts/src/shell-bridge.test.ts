@@ -17,7 +17,7 @@ describe("the shell bridge's table", () => {
     }
   });
 
-  it("hides only this machine's agents, command and notices from a project on another machine", () => {
+  it("hides only this machine's agents, command, folders and notices from a project on another machine", () => {
     expect(names.filter((name) => !SHELL_BRIDGE[name].remote)).toEqual([
       "agents.choosePath",
       "agents.clearPath",
@@ -28,6 +28,10 @@ describe("the shell bridge's table", () => {
       "agents.signIn",
       "command.install",
       "command.installed",
+      "folders.current",
+      "folders.moveUser",
+      "folders.open",
+      "folders.setNewProjects",
       "notices",
     ]);
   });

@@ -319,4 +319,35 @@ describe("the settings in force", () => {
       })
     );
   });
+
+  eachTest(
+    ProjectTest({
+      files: { "designs/package.json": DETECTED_PACKAGE },
+      storage: "ephemeral",
+    })
+  )((it) => {
+    it.effect(
+      "tells the editor where the person's folder is, and the project's once it has one (ADR 0091)",
+      () =>
+        Effect.gen(function* () {
+          const project = yield* ProjectManager;
+          const { home, repo } = yield* ProjectFixture;
+          // The test's user directory is its home.
+          assert.deepStrictEqual((yield* project.info).folders, {
+            user: home,
+          });
+          const { told } = yield* toldOf(
+            (info) => info.storage.mode === "file",
+            project.persist({
+              configPath: `${repo}/ultrapaint.config.json`,
+              settings: yield* running,
+            })
+          );
+          assert.deepStrictEqual(told?.folders, {
+            project: `${repo}/.ultrapaint`,
+            user: home,
+          });
+        })
+    );
+  });
 });
