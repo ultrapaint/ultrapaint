@@ -49,8 +49,8 @@ interface ResolvedStorage {
  * Picks the storage mode. An explicit `--config` wins, then `--ephemeral`, then `--home`;
  * with none of them the nearest `ultrapaint.config.json` (or, from before v0.2,
  * `ultrapaint.json`) from the working directory upwards is used,
- * and when there is none nothing is saved. The person's folder is apart from all of it:
- * `.ultrapaint` in `--user-dir`, else `--home` itself, else `~/.ultrapaint`.
+ * and when there is none nothing is saved until the first change. The person's folder is apart
+ * from all of it: `.ultrapaint` in `--user-dir`, else `--home` itself, else `~/.ultrapaint`.
  */
 export const resolveStorage = Effect.fn("resolveStorage")(function* (
   flags: StorageFlags
@@ -71,21 +71,24 @@ export const resolveStorage = Effect.fn("resolveStorage")(function* (
     userDir,
   });
 
-  const ephemeral: ResolvedStorage = {
-    storage: flags.sessionDir
-      ? {
-          mode: "ephemeral",
-          sessionDir: path.resolve(flags.cwd, flags.sessionDir),
-        }
-      : { mode: "ephemeral" },
+  // Asked for with `--ephemeral`, it never saves; for want of a configuration, it saves into the
+  // folder on the first change (ADR 0092).
+  const ephemeral = (saveOnChange: boolean): ResolvedStorage => ({
+    storage: {
+      mode: "ephemeral",
+      ...(saveOnChange ? { saveOnChange } : {}),
+      ...(flags.sessionDir
+        ? { sessionDir: path.resolve(flags.cwd, flags.sessionDir) }
+        : {}),
+    },
     userDir,
-  };
+  });
 
   if (flags.config) {
     return fileTarget(path.resolve(flags.cwd, flags.config));
   }
   if (flags.ephemeral) {
-    return ephemeral;
+    return ephemeral(false);
   }
   if (flags.home) {
     return {
@@ -113,5 +116,5 @@ export const resolveStorage = Effect.fn("resolveStorage")(function* (
       }
     }
   }
-  return ephemeral;
+  return ephemeral(true);
 });

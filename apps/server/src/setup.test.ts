@@ -117,11 +117,17 @@ describe("first-run setup", () => {
           const ok = yield* validate(front);
           assert.deepStrictEqual(ok.problems, []);
 
-          // Without saying where the pages import from, there is nothing to resolve them in.
+          // Without saying where the app is, the pages still draw (ADR 0092); one named must be
+          // a package.
           const { resolveFrom: _gone, ...unanchored } = front;
-          const missing = yield* validate(unanchored);
-          assert.isFalse(missing.ok);
-          assert.include(missing.problems.join(" "), "set Application to");
+          assert.deepStrictEqual((yield* validate(unanchored)).problems, []);
+          const notAPackage = yield* validate({
+            ...front,
+            resolveFrom: "docs",
+          });
+          assert.deepStrictEqual(notAPackage.problems, [
+            "Application has no package.json: docs",
+          ]);
         })
       )
   );

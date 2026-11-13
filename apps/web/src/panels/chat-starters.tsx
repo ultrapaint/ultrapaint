@@ -169,7 +169,7 @@ const useStarters = (threadId: string): readonly Starter[] => {
     ...(info.configured && info.setup === "detected"
       ? [
           {
-            label: `Set up ${info.name ?? "this folder"}`,
+            label: "Check what Ultrapaint found",
             prompt: commandOf({ _tag: "Setup" }),
           },
         ]

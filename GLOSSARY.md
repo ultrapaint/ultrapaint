@@ -28,13 +28,20 @@ refactor and the board view left.
   a design system drawn as a trial over the project's on sample screens; *Use this look* writes
   it, and the prompt that waited for it is sent.
   _Avoid_: theme picker, look wizard.
-- **Setup chat**: the chat that sets up a folder opened for the first time (ADR 0062), suggested
-  by the editor and never started on its own (ADR 0073): while the folder's settings are detected
-  and not saved, the Agents list with no chats and a new chat's starters offer *Set up <name>*,
-  which puts `/setup` in a new chat's composer for the person to send. In it an agent checks what
-  detection found and saves it with `save_setup` (the designs directory and
-  `ultrapaint.config.json`, no code).
+- **Setup chat**: the chat that checks a folder opened for the first time (ADR 0062), optional,
+  suggested by the editor and never started on its own (ADRs 0073, 0092): while the folder's
+  settings are detected and not saved yet, the Agents list with no chats offers *Check settings…*
+  and a new chat's starters *Check what Ultrapaint found*, which put `/setup` in a new chat's
+  composer for the person to send. In it an agent checks what detection found and saves it with
+  `save_setup` (the designs directory and `ultrapaint.config.json`, no code).
   _Avoid_: setup dialog, first-run setup.
+- **First-change save**: a session started in a folder with no configuration (not `--ephemeral`:
+  storage's `saveOnChange`) writes `ultrapaint.config.json` into the folder on the first change
+  the person makes, a design file written through the editor or by an agent's tool, or a prompt
+  sent (ADR 0092): `ProjectManager.changed`, once, told to the editor as
+  `settings.savedOnChange`, which says where in a toast, or why not. Any folder opens as a
+  project but the home directory and the root.
+  _Avoid_: autosave, auto-setup.
 - **Token preset**: how a design system names its colour tokens, one per system (ADR 0062):
   **simple** roles (`primary`, `muted-foreground`, shadcn's names) or **detailed** tokens by
   property and meaning (`text.subtle`, `background.success.subtle`, Atlassian's), written in

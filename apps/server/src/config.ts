@@ -11,7 +11,9 @@ import { Context, Effect, Layer, Option } from "effect";
  * - `ephemeral`: no configuration was given or found. Nothing is written outside a temporary
  *   directory that goes away with the process, until the user saves a configuration. The
  *   `ultrapaint` command lends a `sessionDir` that outlives the server, so a restart under
- *   `--dev` keeps the session; the command removes it when it exits.
+ *   `--dev` keeps the session; the command removes it when it exits. Started where no
+ *   configuration was found (not with `--ephemeral`), it `saveOnChange`: the first change the
+ *   person makes writes `ultrapaint.config.json` into the folder (ADR 0092).
  */
 export type StorageTarget =
   | { readonly mode: "managed"; readonly home: string }
@@ -20,7 +22,11 @@ export type StorageTarget =
       readonly configPath: string;
       readonly stateDir: string;
     }
-  | { readonly mode: "ephemeral"; readonly sessionDir?: string };
+  | {
+      readonly mode: "ephemeral";
+      readonly saveOnChange?: boolean;
+      readonly sessionDir?: string;
+    };
 
 /** `0.0.0.0` and `::` bind every interface; they are not addresses a client connects to. */
 const WILDCARDS = new Set(["0.0.0.0", "::"]);

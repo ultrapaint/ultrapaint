@@ -294,9 +294,9 @@ const Section = ({
   ) : null;
 
 /**
- * The list with no chats. A folder whose settings were detected and not saved is offered its
- * setup, `/setup` in a new chat's composer for the person to send; nothing starts it on its own
- * (ADR 0073).
+ * The list with no chats. A folder whose settings were detected and not saved yet is ready to
+ * design in (ADR 0092); an agent can check what was found against the code, `/setup` in a new
+ * chat's composer for the person to send, and nothing starts it on its own (ADR 0073).
  */
 const NoChats = ({ unsetFolder }: { unsetFolder: string | null }) =>
   unsetFolder === null ? (
@@ -320,14 +320,14 @@ const NoChats = ({ unsetFolder }: { unsetFolder: string | null }) =>
           onClick={() => startTask({ _tag: "Setup" })}
           variant="secondary"
         >
-          Set up {unsetFolder}
+          Check settings…
         </Button>
       }
       icon={<SquareDashedMousePointer />}
       title="No chats yet"
     >
-      This folder's settings were detected, not saved. An agent can check them
-      against the code and save them.
+      {unsetFolder} is ready to design in. An agent can check what Ultrapaint
+      found in it.
     </PanelEmpty>
   );
 
@@ -340,7 +340,7 @@ export const ThreadList = () => {
   );
   const unsetFolder = useProject((s) =>
     s.info.configured && s.info.setup === "detected"
-      ? (s.info.name ?? "this folder")
+      ? (s.info.name ?? "This folder")
       : null
   );
   const [query, setQuery] = useState("");

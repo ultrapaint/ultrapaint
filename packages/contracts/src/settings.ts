@@ -117,6 +117,11 @@ export const StorageInfo = Schema.Struct({
    */
   defaultRepoPath: Schema.optional(Schema.String),
   mode: StorageMode,
+  /**
+   * An unsaved session that writes `ultrapaint.config.json` into its folder on the first change
+   * the person makes (ADR 0092). Absent in a run started with `--ephemeral`, which never saves.
+   */
+  saveOnChange: Schema.optional(Schema.Boolean),
   /** An unsaved session the command keeps across restarts of the server, until it stops. */
   session: Schema.optional(Schema.Boolean),
 });
@@ -138,6 +143,16 @@ export const PersistResult = Schema.Struct({
   validation: SettingsValidation,
 });
 export type PersistResult = typeof PersistResult.Type;
+
+/**
+ * An unsaved session's settings written into its folder on the first change (ADR 0092): where
+ * they went, or why they were not.
+ */
+export const SavedOnChange = Schema.Struct({
+  configPath: Schema.optional(Schema.String),
+  problems: Schema.Array(Schema.String),
+});
+export type SavedOnChange = typeof SavedOnChange.Type;
 
 /**
  * Who the user is to the tool, wherever they work: kept in the user's own directory, never in a

@@ -110,6 +110,7 @@ export class Storage extends Context.Service<
         return {
           defaultRepoPath: cwdRepo,
           mode: "ephemeral",
+          ...(target.saveOnChange ? { saveOnChange: true } : {}),
           ...(target.sessionDir ? { session: true } : {}),
         };
       });

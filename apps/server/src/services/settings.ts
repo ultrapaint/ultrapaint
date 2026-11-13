@@ -20,6 +20,7 @@ import {
   PubSub,
   Ref,
   Schema,
+  Semaphore,
   Stream,
 } from "effect";
 import { AppLog } from "../app-log.ts";
@@ -103,6 +104,9 @@ export class SettingsService extends Context.Service<
       const layerScope = yield* Effect.scope;
       const writeAtomic = makeWriteAtomic(fs, path);
       const external = yield* PubSub.unbounded<Settings>();
+      // Where the settings are kept changes one way at a time: a file that appears, a save to a
+      // file and a rename each see the others' end, never their middle.
+      const moving = yield* Semaphore.make(1);
 
       const exists = makeExists(fs);
 
@@ -146,7 +150,7 @@ export class SettingsService extends Context.Service<
         return toSettings(path, config, file.baseDir);
       });
 
-      const write = Effect.fnUntraced(function* (
+      const writeFile = Effect.fnUntraced(function* (
         file: SettingsFile,
         settings: Settings
       ) {
@@ -158,7 +162,9 @@ export class SettingsService extends Context.Service<
         const text = configText(encoded);
         yield* writeAtomic(file.path, text);
         lastText = text;
-      }, Effect.orDie);
+      });
+      const write = (file: SettingsFile, settings: Settings) =>
+        Effect.orDie(writeFile(file, settings));
 
       const load = Effect.gen(function* () {
         const file = yield* settingsFile;
@@ -259,7 +265,7 @@ export class SettingsService extends Context.Service<
           `${configPath} appeared: the session now saves to it`
         );
         yield* PubSub.publish(external, settings);
-      });
+      }, moving.withPermits(1));
 
       const startInfo = yield* storage.info;
       if (startInfo.mode === "ephemeral" && startInfo.defaultRepoPath) {
@@ -296,23 +302,6 @@ export class SettingsService extends Context.Service<
       }
 
       // ---- validation ----
-      /** Whether a package.json is in the designs directory or a directory above it, in the repository. */
-      const packageAbove = Effect.fnUntraced(function* (
-        repo: string,
-        designsDir: string
-      ) {
-        let dir = path.resolve(repo, designsDir);
-        for (;;) {
-          if (yield* exists(path.join(dir, "package.json"))) {
-            return true;
-          }
-          if (dir === repo || !dir.startsWith(repo)) {
-            return false;
-          }
-          dir = path.dirname(dir);
-        }
-      });
-
       const validate = Effect.fn("SettingsService.validate")(function* (
         settings: Settings
       ) {
@@ -330,9 +319,8 @@ export class SettingsService extends Context.Service<
             `Designs directory does not exist: ${settings.designsDir}`
           );
         }
-        // The pages import what a package of the repository can: the one named, or the nearest
-        // one above the designs directory. The repository's root need not be one; an app in
-        // `front/` with no manifest at the root is set up by naming `front`.
+        // An application is optional: the pages draw Ultrapaint's own components, and a folder
+        // with no package.json is designed in as it is (ADR 0092). One named must be a package.
         if (settings.resolveFrom !== undefined) {
           const anchor = path.join(repo, settings.resolveFrom, "package.json");
           if (!(yield* exists(anchor))) {
@@ -340,10 +328,6 @@ export class SettingsService extends Context.Service<
               `Application has no package.json: ${settings.resolveFrom}`
             );
           }
-        } else if (!(yield* packageAbove(repo, settings.designsDir))) {
-          problems.push(
-            "No package.json for the pages to resolve their imports from: set Application to your application's directory."
-          );
         }
         for (const dir of settings.libraryDirs) {
           if (!(yield* exists(path.join(repo, dir)))) {
@@ -457,6 +441,22 @@ export class SettingsService extends Context.Service<
         if (!validation.ok) {
           return { validation } satisfies PersistResult;
         }
+        // Written first: a folder that refuses the file leaves the session as it was.
+        yield* writeFile(
+          {
+            baseDir: path.dirname(configPath),
+            path: configPath,
+            relative: true,
+          },
+          { ...input.settings, repoPath: path.resolve(input.settings.repoPath) }
+        ).pipe(
+          Effect.mapError(
+            (error) =>
+              new Conflict({
+                message: `Couldn’t write ${configPath}: ${error.message}`,
+              })
+          )
+        );
         yield* storage.promote(configPath);
         yield* store(input.settings);
         const file = yield* settingsFile;
@@ -477,7 +477,7 @@ export class SettingsService extends Context.Service<
           configPath,
           validation,
         } satisfies PersistResult;
-      });
+      }, moving.withPermits(1));
 
       const renameConfig = Effect.gen(function* () {
         const target = yield* storage.target;
@@ -511,7 +511,10 @@ export class SettingsService extends Context.Service<
         }
         yield* log.log("server", "info", `configuration renamed to ${next}`);
         return next;
-      }).pipe(Effect.withSpan("SettingsService.renameConfig"));
+      }).pipe(
+        moving.withPermits(1),
+        Effect.withSpan("SettingsService.renameConfig")
+      );
 
       return SettingsService.of({
         adopt,

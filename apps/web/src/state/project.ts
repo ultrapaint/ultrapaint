@@ -2,7 +2,8 @@ import { RequestError } from "@ultrapaint/client-runtime/connection";
 import type { UndoState } from "@ultrapaint/contracts/edit";
 import type { Canvas, Page, PageList } from "@ultrapaint/contracts/pages";
 import type { ProjectInfo } from "@ultrapaint/contracts/project";
-import type { Settings } from "@ultrapaint/contracts/settings";
+import type { SavedOnChange, Settings } from "@ultrapaint/contracts/settings";
+import { toast } from "sonner";
 import { create } from "zustand";
 import { keptAsTheyWere } from "../lib/kept-as-they-were.ts";
 import { api } from "./connection.ts";
@@ -69,6 +70,29 @@ export const useProject = create<ProjectStore>((set, get) => ({
 /** Whether a project is open: what the pages, the documents and the rest belong to. */
 const projectOpen = () => useProject.getState().info.configured;
 
+const openRepositorySettings = {
+  label: "Settings",
+  onClick: () => useProject.getState().openSettings(true, "repository"),
+};
+
+/**
+ * Says once that the first change saved the folder's settings, or why it couldn't: the change
+ * stands either way (ADR 0092).
+ */
+export const tellSavedOnChange = (saved: SavedOnChange) => {
+  if (saved.configPath !== undefined) {
+    toast.success("Saved this folder’s settings", {
+      action: openRepositorySettings,
+      description: "In ultrapaint.config.json. Change them in Settings.",
+    });
+    return;
+  }
+  toast.error("Couldn’t save this folder’s settings", {
+    action: openRepositorySettings,
+    description: `${saved.problems.join(" ")} Your changes are kept; try again from Settings.`,
+  });
+};
+
 /** The project's info, with the settings in force: read first at every connection open. */
 const projectData = follow({
   apply: (info) => {
@@ -97,6 +121,7 @@ const projectData = follow({
         useProject.getState().load();
       }
     },
+    "settings.savedOnChange": tellSavedOnChange,
   },
   // A read that fails before any has landed leaves nothing to show: the settings say why.
   read: () =>

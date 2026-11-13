@@ -97,9 +97,9 @@ const node = (nodeId: string) => ({
 });
 
 describe("a new chat's starters", () => {
-  it("suggest setting up a folder whose settings were detected, sending nothing", () => {
+  it("suggest an agent check the settings of a folder whose settings were detected, sending nothing", () => {
     opened("detected");
-    expect(starters()[0]).toBe("Set up bike-shop");
+    expect(starters()[0]).toBe("Check what Ultrapaint found");
     act(() => {
       container.querySelector("button")?.click();
     });
@@ -110,9 +110,9 @@ describe("a new chat's starters", () => {
     expect(fakeApi.calls).toEqual([]);
   });
 
-  it("suggest no setup once the settings are saved", () => {
+  it("suggest no check once the settings are saved", () => {
     opened("saved");
-    expect(starters()).not.toContain("Set up bike-shop");
+    expect(starters()).not.toContain("Check what Ultrapaint found");
   });
 });
 
@@ -188,7 +188,7 @@ describe("a new chat's starters on what is selected", () => {
 });
 
 describe("the agents' list with no chats", () => {
-  it("suggests a detected folder's setup, drafted in a new chat and not sent", async () => {
+  it("says a detected folder is ready, and suggests a check of its settings, drafted in a new chat and not sent", async () => {
     fakeApi.respond("threads.create", () => thread);
     const shown = new Promise((resolve) => {
       // The chat panel first, then the new chat with its draft.
@@ -209,7 +209,7 @@ describe("the agents' list with no chats", () => {
     });
     act(() => mounted.render(<ThreadList />));
     const setUp = [...container.querySelectorAll("button")].find(
-      (b) => b.textContent === "Set up bike-shop"
+      (b) => b.textContent === "Check settings…"
     );
     act(() => setUp?.click());
     expect(await shown).toEqual({ chat: thread, draft: "/setup " });

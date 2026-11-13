@@ -42,18 +42,22 @@ import { DESIGN_TOKENS_FILE } from "./dtcg.ts";
 import { IGNORED_DIRS } from "./pages-layout.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
-/** What a file of the designs is, as the modules that own each kind know it. */
-type DesignKind =
-  | "canvas"
-  | "canvases"
-  | "comments"
-  | "component"
-  | "designSystem"
-  | "implementation"
-  | "notes"
-  | "page"
-  | "skill"
-  | "tokens";
+/** What a file of the designs can be, as the modules that own each kind know it. */
+export const DESIGN_KINDS = [
+  "canvas",
+  "canvases",
+  "comments",
+  "component",
+  "designSystem",
+  "implementation",
+  "notes",
+  "page",
+  "skill",
+  "tokens",
+] as const;
+
+/** What a file of the designs is. */
+type DesignKind = (typeof DESIGN_KINDS)[number];
 
 /**
  * A file of the designs changed: its repository-relative path, its content's hash ("" gone), and

@@ -49,13 +49,20 @@ describe("resolveStorage", () => {
     userHome: "/users/someone",
   };
 
-  it.effect("saves nothing when no configuration is given or found", () =>
-    Effect.gen(function* () {
-      const cwd = yield* tempDir;
-      const resolved = yield* resolveStorage({ ...flags, cwd });
-      assert.deepStrictEqual(resolved.storage, { mode: "ephemeral" });
-      assert.strictEqual(resolved.userDir, "/users/someone/.ultrapaint");
-    }).pipe(Effect.provide(NodeServices.layer))
+  it.effect(
+    "saves nothing until the first change when no configuration is given or found, and never with --ephemeral (ADR 0092)",
+    () =>
+      Effect.gen(function* () {
+        const cwd = yield* tempDir;
+        const resolved = yield* resolveStorage({ ...flags, cwd });
+        assert.deepStrictEqual(resolved.storage, {
+          mode: "ephemeral",
+          saveOnChange: true,
+        });
+        assert.strictEqual(resolved.userDir, "/users/someone/.ultrapaint");
+        const asked = yield* resolveStorage({ ...flags, cwd, ephemeral: true });
+        assert.deepStrictEqual(asked.storage, { mode: "ephemeral" });
+      }).pipe(Effect.provide(NodeServices.layer))
   );
 
   it.effect(
@@ -122,6 +129,7 @@ describe("resolveStorage", () => {
       });
       assert.deepStrictEqual(resolved.storage, {
         mode: "ephemeral",
+        saveOnChange: true,
         sessionDir: path.join(cwd, "session"),
       });
       // A configuration, when there is one, is still where things are saved.
@@ -190,7 +198,7 @@ describe("resolveStorage", () => {
           userDir: "/sync",
         });
         assert.deepStrictEqual(unsaved, {
-          storage: { mode: "ephemeral" },
+          storage: { mode: "ephemeral", saveOnChange: true },
           userDir: "/sync/.ultrapaint",
         });
         // Over --home's, which keeps the settings and state it had.

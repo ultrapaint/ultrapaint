@@ -264,8 +264,11 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "threads.list": () => store.list,
       "threads.permission": ({ threadId, requestId, optionId }) =>
         thread(threadId, (s) => s.cards.choose(requestId, optionId)),
+      // A prompt is a change of the person's: an unsaved session saves first (ADR 0092).
       "threads.prompt": (input) =>
-        thread(input.threadId, (s) => s.prompt(input)),
+        thread(input.threadId, (s) =>
+          Effect.andThen(project.changed, s.prompt(input))
+        ),
       "threads.sendQueued": ({ threadId }) =>
         thread(threadId, (s) => s.sendQueued),
       "threads.setAgent": ({ threadId, agentId }) =>

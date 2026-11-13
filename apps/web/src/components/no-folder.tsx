@@ -4,8 +4,9 @@ import { chooseFolder } from "../lib/project-setup.ts";
 import { PanelEmpty } from "./panel.tsx";
 
 /**
- * What a panel shows with no folder open: the folder is chosen in the settings. A folder opened
- * is set up in a chat (ADR 0062), so this is only ever the server started outside one.
+ * What a panel shows with no folder open: any folder opens as a project (ADR 0092), so this is
+ * only ever the server started in the home directory or at the root. The folder is picked with
+ * the shell's picker, or typed in the settings.
  */
 export const NoFolder = () => (
   <PanelEmpty
@@ -17,6 +18,6 @@ export const NoFolder = () => (
     icon={<FolderOpen />}
     title="No folder open"
   >
-    Choose the folder of the app you’ll design.
+    Choose a folder to design in, with an app in it or none yet.
   </PanelEmpty>
 );

@@ -67,6 +67,7 @@ import { ScreenshotRequest, ScreenshotResult } from "./screenshots.ts";
 import {
   PersistInput,
   PersistResult,
+  SavedOnChange,
   Settings,
   SettingsValidation,
   UserProfile,
@@ -884,6 +885,11 @@ const eventSchemas = {
   project: ProjectInfo,
   /** An agent wants a picture of a node: an editor that can draw it answers with `screenshots.deliver`. */
   screenshot: ScreenshotRequest,
+  /**
+   * An unsaved session's settings written into its folder on the first change, or refused, which
+   * the editor says once (ADR 0092).
+   */
+  "settings.savedOnChange": SavedOnChange,
   /** A skill file changed, or the settings turned one on or off. */
   skills: SkillList,
   /** The sync's plan, worked out again because something it reads changed. */

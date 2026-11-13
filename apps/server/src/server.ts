@@ -325,7 +325,13 @@ const Boot = Layer.effectDiscard(
       );
     }
     const storage = yield* (yield* Storage).info;
-    if (storage.mode === "ephemeral") {
+    if (storage.mode === "ephemeral" && storage.saveOnChange) {
+      yield* log.log(
+        "server",
+        "info",
+        "started without a configuration: the first change writes ultrapaint.config.json into the folder"
+      );
+    } else if (storage.mode === "ephemeral") {
       yield* log.log(
         "server",
         "warn",

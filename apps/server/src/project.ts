@@ -9,6 +9,7 @@ import {
   defaultSettings,
   type PersistInput,
   type PersistResult,
+  type SavedOnChange,
   Settings,
   type SettingsValidation,
 } from "@ultrapaint/contracts/settings";
@@ -38,7 +39,7 @@ import { EventBus } from "./events.ts";
 import type { CodeSide } from "./services/code-side.ts";
 import type { CommentsService } from "./services/comments.ts";
 import type { ComponentService } from "./services/components.ts";
-import type { DesignFiles } from "./services/design-files.ts";
+import { DESIGN_KINDS, DesignFiles } from "./services/design-files.ts";
 import type { DesignMd } from "./services/design-md.ts";
 import type { DesignSystemService } from "./services/design-system.ts";
 import type { DesignTargets } from "./services/design-targets.ts";
@@ -190,6 +191,12 @@ export class ProjectManager extends Context.Service<
      * runs other settings, or leaves it be. `why` is what the log says of an opening.
      */
     readonly apply: (settings: Settings, why: string) => Effect.Effect<void>;
+    /**
+     * The person changed something (a prompt sent to an agent): an unsaved session that saves on
+     * change writes its settings into its folder, once (ADR 0092). A design file written through
+     * the editor or by an agent's tool does the same on its own.
+     */
+    readonly changed: Effect.Effect<void>;
     readonly close: Effect.Effect<void>;
     readonly info: Effect.Effect<ProjectInfo>;
     /** Saves an unsaved session to a configuration file, and puts its settings in force. */
@@ -223,7 +230,8 @@ export class ProjectManager extends Context.Service<
         const settingsService = yield* SettingsService;
         const setup = yield* SetupService;
         const profile = yield* ProfileService;
-        const { userDir } = yield* ServerConfig;
+        const config = yield* ServerConfig;
+        const { userDir } = config;
         const managerScope = yield* Effect.scope;
         // open and close never interleave.
         const lifecycle = yield* Semaphore.make(1);
@@ -349,6 +357,7 @@ export class ProjectManager extends Context.Service<
                   Effect.onError(() => Scope.close(scope, Exit.void))
                 );
                 current = { scope, services, settings };
+                yield* Effect.suspend(() => saveOnFirstChange(services, scope));
               })
             )
             .pipe(
@@ -450,6 +459,68 @@ export class ProjectManager extends Context.Service<
           );
         });
 
+        // Whether the first change has been taken: it saves once, or says once why it couldn't.
+        let firstChangeTaken = false;
+
+        /**
+         * The person changed something: an unsaved session that saves on change writes its
+         * settings to `ultrapaint.config.json` in its folder, once (ADR 0092), and the editor is
+         * told where, or why not. Nothing waits on it and nothing fails with it.
+         */
+        const changed: Effect.Effect<void> = Effect.gen(function* () {
+          const target = yield* storage.target;
+          if (!(target.mode === "ephemeral" && target.saveOnChange)) {
+            return;
+          }
+          const settings = yield* settingsService.get;
+          if (!settings || firstChangeTaken) {
+            return;
+          }
+          firstChangeTaken = true;
+          const saved: SavedOnChange = yield* saveSettings(settings).pipe(
+            // A folder that can't be written to: the change stands, unsaved.
+            Effect.catchDefect((defect) =>
+              Effect.succeed({
+                problems: [
+                  defect instanceof Error ? defect.message : String(defect),
+                ],
+              })
+            )
+          );
+          yield* log.log(
+            "server",
+            saved.problems.length === 0 ? "info" : "warn",
+            saved.configPath === undefined
+              ? `the settings could not be saved: ${saved.problems.join(" ")}`
+              : `saved the settings to ${saved.configPath} on the first change`
+          );
+          yield* events.publish("settings.savedOnChange", saved);
+        }).pipe(Effect.withSpan("ProjectManager.changed"));
+
+        /**
+         * Saves an unsaved session on the first design file the person or their agent writes in
+         * the project just opened (`changed`). What only the watcher sees (a checkout, a file
+         * written by hand, an agent's shell, whose prompt saved already) is not theirs to count.
+         */
+        const saveOnFirstChange = Effect.fnUntraced(function* (
+          services: Context.Context<ProjectServices>,
+          scope: Scope.Scope
+        ) {
+          const target = yield* storage.target;
+          if (!(target.mode === "ephemeral" && target.saveOnChange)) {
+            return;
+          }
+          yield* Context.get(services, DesignFiles)
+            .changes(DESIGN_KINDS)
+            .pipe(
+              Stream.filter((change) => change.by._tag !== "Unknown"),
+              Stream.runHead,
+              // Saving puts the settings in force, which is the manager's to do, not the project's.
+              Effect.andThen(Effect.forkIn(changed, managerScope)),
+              Effect.forkIn(scope, { startImmediately: true })
+            );
+        });
+
         const saveSetup = Effect.fn("ProjectManager.saveSetup")(function* (
           change: SetupChange
         ) {
@@ -500,8 +571,28 @@ export class ProjectManager extends Context.Service<
           .withPermits(1)(Effect.tap(settingsService.renameConfig, publishInfo))
           .pipe(Effect.withSpan("ProjectManager.renameConfig"));
 
+        /** The home directory and the filesystem's root, which are never a project. */
+        const notAProject = Effect.fnUntraced(function* (repo: string) {
+          const real = (p: string) =>
+            fs.realPath(p).pipe(Effect.orElseSucceed(() => path.resolve(p)));
+          const folder = yield* real(repo);
+          return (
+            folder === path.parse(folder).root ||
+            folder === (yield* real(config.machine.home))
+          );
+        });
+
         const adoptDetected = Effect.fn("ProjectManager.adoptDetected")(
           function* (repo: string) {
+            // A command run in the home directory or at the root was run in the wrong place:
+            // nothing is written there, and the editor asks for a folder (ADR 0092).
+            if (yield* notAProject(repo)) {
+              return yield* log.log(
+                "server",
+                "info",
+                `${repo} is not opened as a project: choose a folder`
+              );
+            }
             const found = yield* setup.detect(repo).pipe(
               // A repository that cannot be read is left for the setup to ask about.
               Effect.catchTag("BadRequest", (error) =>
@@ -519,10 +610,10 @@ export class ProjectManager extends Context.Service<
               return;
             }
             const candidate = applySuggestions(defaultSettings(repo), found);
-            // An application opened for the first time has nowhere for its designs yet: the
-            // directory is made empty, so the project opens and its setup chat can run (ADR
-            // 0062), which keeps it or chooses another. A folder holding no app is left as it is.
-            if (found.anchors.length > 0 && found.designsDirs.length === 0) {
+            // A folder opened for the first time, with an app in it or not, has nowhere for its
+            // designs yet: the directory is made empty, so the project opens (ADR 0092), and its
+            // setup chat, when the person sends it, keeps it or chooses another.
+            if (found.designsDirs.length === 0) {
               yield* setup
                 .createDesigns({
                   designsDir: candidate.designsDir,
@@ -556,7 +647,7 @@ export class ProjectManager extends Context.Service<
                 yield* log.log(
                   "server",
                   "info",
-                  `opened ${repo} with detected settings; save them to keep them`
+                  `opened ${repo} with detected settings`
                 );
                 yield* putInForce(adopted, "detected settings");
               })
@@ -585,6 +676,7 @@ export class ProjectManager extends Context.Service<
           ProjectManager.of({
             adoptDetected,
             apply,
+            changed,
             close: lifecycle.withPermits(1)(closeCurrent),
             info,
             persist,

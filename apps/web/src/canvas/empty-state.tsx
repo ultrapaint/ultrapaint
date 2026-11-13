@@ -109,7 +109,7 @@ export const EmptyState = () => {
   const canvas = useEditor((s) => s.canvas);
   let content = (
     <Lead
-      description="Choose the folder of the app you’ll design."
+      description="Choose a folder to design in, with an app in it or none yet."
       icon={FolderOpen}
       title="No folder open"
     >

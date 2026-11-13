@@ -34,16 +34,6 @@ import { CommandKeys } from "./shortcut-sheet.tsx";
 export const EDGE = 8;
 const TITLE_HEIGHT = 48;
 
-// Saving needs settings to save; before the first ones exist a folder is chosen first.
-const openSaveConfig = () => {
-  const { openSaveConfig: open, settings } = useProject.getState();
-  if (settings) {
-    open(true);
-  } else {
-    chooseFolder();
-  }
-};
-
 /** The open project's name and branch on one line, or the way to set one up. */
 const ProjectName = () => {
   const info = useProject((s) => s.info);
@@ -77,12 +67,13 @@ const ProjectName = () => {
 };
 
 /**
- * A project whose settings are not saved: a status, not an error, so the system's neutral badge
- * with the warning's dot beside its words, quieter than the name. It opens Save configuration.
+ * A run that never saves (`--ephemeral`): a status, not an error, so the system's neutral badge
+ * with the warning's dot beside its words, quieter than the name, and why in its tooltip. An
+ * unsaved session that saves on the first change shows nothing (ADR 0092).
  */
-const Unsaved = () => {
-  const info = useProject((s) => s.info);
-  if (info.storage.mode !== "ephemeral") {
+export const Unsaved = () => {
+  const storage = useProject((s) => s.info.storage);
+  if (storage.mode !== "ephemeral" || storage.saveOnChange) {
     return null;
   }
   return (
@@ -90,8 +81,8 @@ const Unsaved = () => {
       <TooltipTrigger
         render={
           <Badge
-            className="window-no-drag h-6 shrink-0 gap-1.5 bg-foreground/6 px-2 text-muted-foreground outline-none hover:bg-foreground/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25"
-            render={<button onClick={openSaveConfig} type="button" />}
+            className="window-no-drag h-6 shrink-0 gap-1.5 bg-foreground/6 px-2 text-muted-foreground"
+            render={<span />}
           />
         }
       >
@@ -99,8 +90,8 @@ const Unsaved = () => {
         Not saved
       </TooltipTrigger>
       <TooltipContent className="max-w-64" side="bottom">
-        Chats are lost when Ultrapaint stops. Save the configuration to keep
-        them.
+        Started with --ephemeral, so nothing is saved: settings and chats go
+        when Ultrapaint stops.
       </TooltipContent>
     </Tooltip>
   );

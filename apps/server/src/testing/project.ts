@@ -13,7 +13,7 @@ import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { McpSchema, type Tool, type Toolkit } from "effect/ai";
 import { RpcTest } from "effect/rpc";
 import { type Adapters, ApplicationLayer } from "../composition.ts";
-import { ServerConfig } from "../config.ts";
+import { ServerConfig, type StorageTarget } from "../config.ts";
 import { EventBus } from "../events.ts";
 import { ListenPort } from "../listen-port.ts";
 import { OpenProject, ProjectManager } from "../project.ts";
@@ -68,16 +68,30 @@ export interface ProjectTestOptions {
   readonly state?: Readonly<Record<string, string>>;
   /**
    * Where the settings are kept: a home directory's file (`managed`, the default), or nowhere,
-   * an unsaved session started in the fixture (`ephemeral`). The project is opened either way,
-   * with nothing saved.
+   * an unsaved session started in the fixture: one that never saves (`ephemeral`, as
+   * `--ephemeral` runs), or one that saves into the folder on the first change (`saveOnChange`,
+   * as a folder with no configuration runs, ADR 0092). The project is opened either way, with
+   * nothing saved.
    */
-  readonly storage?: "managed" | "ephemeral";
+  readonly storage?: "managed" | "ephemeral" | "saveOnChange";
   /**
    * Whether the designs directory is watched, as the server watches it: for the one test of a
    * file written by hand that the watcher must see. Without, a test tells `DesignFiles` itself.
    */
   readonly watch?: boolean;
 }
+
+const storageOf = (
+  storage: NonNullable<ProjectTestOptions["storage"]>,
+  home: string
+): StorageTarget => {
+  if (storage === "managed") {
+    return { home, mode: "managed" };
+  }
+  return storage === "saveOnChange"
+    ? { mode: "ephemeral", saveOnChange: true }
+    : { mode: "ephemeral" };
+};
 
 /**
  * Every service of the server, with a project open on a fresh fixture (`makeFixture`: a designs
@@ -144,10 +158,7 @@ export const ProjectTest = (options: ProjectTestOptions = {}) =>
             cwd: repo,
             machine: { home },
             mcp: options.mcp ?? true,
-            storage:
-              options.storage === "ephemeral"
-                ? { mode: "ephemeral" }
-                : { home, mode: "managed" },
+            storage: storageOf(options.storage ?? "managed", home),
             userDir: home,
           })
         )

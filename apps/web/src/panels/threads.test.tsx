@@ -32,7 +32,7 @@ const thread: Thread = {
 };
 
 /** A new chat's first starter, in a folder whose settings were detected. */
-const STARTER = "Set up bike-shop";
+const STARTER = "Check what Ultrapaint found";
 
 let mounted: Root;
 let container: HTMLElement;
