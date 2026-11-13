@@ -129,6 +129,54 @@ describe("recall", () => {
   });
 
   it.effect(
+    "writes the reviews alone when told to, for a later run to judge, group and report",
+    () =>
+      Effect.gen(function* () {
+        const { gaps } = yield* EvalsConfig;
+        yield* writeText(
+          `${gaps}/g01-empty.md`,
+          gapFile("g01", "missing", "panel")
+        );
+        yield* writeData({
+          "gaps/sections/panel/code/DESIGN.md": "# Design\n",
+          "gaps/sections/panel/pictures/panel-dark@2x.png": "png",
+          "gaps/sections/panel/section.json": section("Panel"),
+        });
+        const options = {
+          concurrency: 2,
+          effort: "high",
+          judgeModel: "opus",
+          models: ["opus"],
+          round: "r",
+          runs: 1,
+          sections: [],
+          skills: ["built-in"],
+        };
+        yield* recall({ ...options, reviewsOnly: true });
+
+        const fs = yield* FileSystem.FileSystem;
+        const { runs } = (yield* EvalsConfig).data;
+        const run = `${runs}/r/panel/shipped/run-1`;
+        assert.isTrue(yield* fs.exists(`${run}/review.json`));
+        assert.isFalse(yield* fs.exists(`${run}/judgement.json`));
+        assert.isFalse(yield* fs.exists(`${runs}/r/panel/unmatched.json`));
+        assert.isFalse(yield* fs.exists(`${runs}/r/report.md`));
+        assert.include(
+          yield* fs.readFileString(`${gaps}/g01-empty.md`),
+          "status: open"
+        );
+
+        // The judges' run takes the reviews as they are.
+        yield* recall(options);
+        assert.isTrue(yield* fs.exists(`${run}/judgement.json`));
+        assert.include(
+          yield* readData("runs/r/report.md"),
+          "| g01 Gap g01 | missing | panel | 0/1 |"
+        );
+      }).pipe(Effect.provide(world))
+  );
+
+  it.effect(
     "counts per version the runs that caught each gap, lists what no gap matched, and writes the result into the gaps",
     () =>
       Effect.gen(function* () {

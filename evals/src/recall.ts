@@ -449,6 +449,11 @@ export interface RecallOptions {
   readonly models: readonly string[];
   /** Writes the deck that rates what no gap matched in the held-out sections. */
   readonly rate?: boolean;
+  /**
+   * Writes the reviews and stops: no judgement, grouping or report. For reviewers whose quota
+   * ends before the judges' comes back; a later run of the round judges what is there.
+   */
+  readonly reviewsOnly?: boolean;
   readonly round: string;
   readonly runs: number;
   /** The sections to review; every one there is when empty. */
@@ -801,6 +806,10 @@ const groupUnmatched = Effect.fn("groupUnmatched")(function* (
   reviewed: readonly Reviewed[],
   options: RecallOptions
 ) {
+  // Grouping reads the judgements, which a reviews-only run leaves to the next.
+  if (options.reviewsOnly) {
+    return;
+  }
   const fs = yield* FileSystem.FileSystem;
   const models = yield* Models;
   const findings = reviewed.flatMap((r) =>
@@ -898,6 +907,34 @@ const setAside = (file: string | undefined) =>
     ? ""
     : `; the problems changed, and the ratings given to the earlier ones are kept in ${file}`;
 
+/** Every model that judges each review: none in a reviews-only run. */
+const judgesOf = (options: RecallOptions): readonly string[] => {
+  if (options.reviewsOnly) {
+    return [];
+  }
+  return options.judges ?? [options.judgeModel];
+};
+
+/** The round's record, `recall.json`, left to the run that judges when this one only reviews. */
+const writeRecord = (
+  out: string,
+  options: RecallOptions,
+  sections: readonly string[],
+  judges: readonly string[]
+) =>
+  options.reviewsOnly
+    ? Effect.void
+    : writeJson(path.join(out, "recall.json"), {
+        effort: options.effort,
+        inputs: options.inputs ?? ["pictures"],
+        judgeModel: options.judgeModel,
+        ...(judges.length > 1 && { judges }),
+        models: options.models,
+        runs: options.runs,
+        sections,
+        skills: options.skills,
+      });
+
 export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
   const { data } = yield* EvalsConfig;
   const out = path.join(data.runs, options.round);
@@ -919,21 +956,12 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
   }
   const reviewers = versionsOf(options.skills, options.models, options.inputs);
   const versions = reviewers.map((v) => v.name);
-  const judges = options.judges ?? [options.judgeModel];
+  const judges = judgesOf(options);
   const trees = new Map<string, string>();
   for (const skills of options.skills) {
     trees.set(skills, yield* skillTree(options.round, skills));
   }
-  yield* writeJson(path.join(out, "recall.json"), {
-    effort: options.effort,
-    inputs: options.inputs ?? ["pictures"],
-    judgeModel: options.judgeModel,
-    ...(judges.length > 1 && { judges }),
-    models: options.models,
-    runs: options.runs,
-    sections: ids,
-    skills: options.skills,
-  });
+  yield* writeRecord(out, options, ids, judges);
 
   // A finding is matched by the judge; a gap of process is measured through its sections' findings.
   const findingGaps = gaps.filter(isFinding);
@@ -1040,6 +1068,13 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
       }),
     { concurrency: options.concurrency }
   );
+  if (options.reviewsOnly) {
+    const written = Object.values(reviewed).reduce((n, r) => n + r.length, 0);
+    yield* Effect.log(
+      `${written} reviews, $${cost.toFixed(2)}: the next run of ${options.round} without --reviews-only judges them`
+    );
+    return;
+  }
 
   const tally = tallyOf(findingGaps, reviewed, versions);
   const sectionTally = (sections: readonly string[]) =>

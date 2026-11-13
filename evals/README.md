@@ -390,7 +390,9 @@ measured on, so the others are the held-out split a change has to show on. Give 
 model that does not review: the report says so when the judge read its own reviews. Or give it
 several (`--judge-model opus,gpt-6.1-sol,cursor:grok-4.7-high`): each judges every review, a gap's
 verdict is the one most of them gave, the first groups what no gap matched, and the report says
-what each judge counted alone and how often they agreed.
+what each judge counted alone and how often they agreed. When the reviewers' quota runs out
+before the judges' comes back, `--reviews-only` writes the reviews and stops; the next run of the
+round without it judges them, groups and reports.
 
 What no gap matched is counted per review and version, in every section and in the held-out
 ones. `--rate` writes the deck `rate-<round>` of the held-out sections' problems, shown without

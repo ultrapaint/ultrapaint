@@ -1122,6 +1122,12 @@ const recallCommand = Command.make(
       ),
       Flag.withDefault(false)
     ),
+    reviewsOnly: Flag.Boolean("reviews-only").pipe(
+      Flag.withDescription(
+        "Write the reviews and stop, with no judging, grouping or report: for reviewers whose quota ends before the judges' comes back; the next run of the round without it judges them"
+      ),
+      Flag.withDefault(false)
+    ),
     runs: Flag.Int("runs").pipe(
       Flag.withDescription(
         "Reviews per section, version and model: under three, one gap's count says little"
@@ -1160,6 +1166,7 @@ const recallCommand = Command.make(
       judges: modelList(input.judgeModel),
       models: modelList(input.models),
       rate: input.rate,
+      reviewsOnly: input.reviewsOnly,
       round: input.name,
       runs: input.runs,
       sections: input.sections,
