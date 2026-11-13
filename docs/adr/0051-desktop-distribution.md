@@ -30,7 +30,7 @@ from a tap of one's own, though not from its official one.
   workflow of its own, every hour, with its own token: the main repository keeps no key to it.
   Its caveats say how to open an unsigned app (`xattr -dr com.apple.quarantine`).
 - The macOS app's icon is made as Icon Composer makes one (`apps/desktop/resources/icon.icon`:
-  the black fill, the mark as its layer at about 69% of the tile's width, the size of the marks
+  the black fill, the mark as its layer at 62% of the tile's width, in the range of the marks
   beside it in the Dock, larger than a round mark needs since a diagonal one covers less of its
   box) and compiled into the app's asset catalog by Xcode's actool on the macOS runner: macOS 26
   draws an app with only an icns inside a grey tile of its own. Its About window says `Copyright © <year> Ultrapaint`, not the maintainer's name, which
