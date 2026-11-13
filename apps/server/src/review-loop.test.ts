@@ -76,6 +76,7 @@ const designed = Effect.fnUntraced(function* (
     readonly file?: string;
     readonly purpose?: "implement";
     readonly review?: ReviewSettings;
+    readonly skills?: readonly string[];
   } = {}
 ) {
   const threads = yield* ThreadSessions;
@@ -86,9 +87,10 @@ const designed = Effect.fnUntraced(function* (
     agentId: "scripted",
     purpose: options.purpose,
   });
-  if (options.review) {
-    yield* store.update(threadId, { review: options.review });
-  }
+  yield* store.update(threadId, {
+    review: options.review,
+    skills: options.skills,
+  });
   yield* promptThread({ attachments: [], text: REQUEST, threadId });
   const designer = yield* agents.next;
   const turn = yield* designer.nextTurn;
@@ -121,6 +123,19 @@ const reviewEnded = (
 ) => reviewsOf(items).at(-1)?.end !== undefined && thread.status === "idle";
 
 describe("a design's review", () => {
+  test("runs in a chat that chose no design skill when its own review is on", () =>
+    Effect.gen(function* () {
+      const { threadId } = yield* designed({
+        review: { on: true },
+        skills: [],
+      });
+      const { reviewer, turn } = yield* nextReviewer;
+      yield* threadWhen(threadId, (t) => t.status === "reviewing");
+      yield* turn.say(answer([], true));
+      yield* turn.end();
+      yield* reviewer.stopped;
+    }));
+
   test("starts when a design turn that changed a page ends, the thread reviewing meanwhile", () =>
     Effect.gen(function* () {
       const { repo } = yield* ThreadFixture;
@@ -523,6 +538,12 @@ describe("no review", () => {
       }),
     { review: { on: false } }
   );
+
+  test("in a chat that chose no design skill", () =>
+    Effect.gen(function* () {
+      const { threadId } = yield* designed({ skills: [] });
+      yield* noReview(threadId);
+    }));
 
   test("in an implement thread", () =>
     Effect.gen(function* () {

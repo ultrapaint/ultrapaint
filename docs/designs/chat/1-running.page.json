@@ -1,0 +1,117 @@
+{
+  "root": {"type": "page", "id": "root", "align": "center", "crossAlign": "center", "direction": "column", "fill": "$color-canvas", "padding": 0, "children": [
+    {"type": "row", "id": "r_s25", "name": "Stage", "align": "center", "crossAlign": "start", "fill": "$color-canvas", "height": "fill", "padding": 20, "width": "fill", "children": [
+      {"type": "column", "id": "c_s24", "name": "Chat panel", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-sidebar", "height": 860, "radius": 12, "width": 340, "children": [
+        {"type": "row", "id": "r_so", "name": "Header", "border": {"color": "$color-border", "style": "solid", "width": "0 0 1px 0"}, "crossAlign": "center", "gap": 4, "height": 44, "padding": {"left": 6, "right": 8}, "width": "fill", "children": [
+          {"type": "row", "id": "r_sj", "name": "Icon button · All chats", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+            {"type": "image", "id": "m_si", "name": "chevron-left", "height": 16, "src": "assets/icons/chevron-left.svg", "tint": "$color-muted-foreground", "width": 16}
+          ]},
+          {"type": "row", "id": "r_sl", "crossAlign": "center", "gap": 6, "width": "fill", "children": [
+            {"type": "text", "id": "t_sk", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "level": 3, "lineHeight": "20px", "role": "heading", "size": 14, "text": "Redesign the pricing page", "tracking": "0.02em", "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_sn", "name": "Icon button · More", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+            {"type": "image", "id": "m_sm", "name": "ellipsis", "height": 16, "src": "assets/icons/ellipsis.svg", "tint": "$color-muted-foreground", "width": 16}
+          ]}
+        ]},
+        {"type": "column", "id": "c_s22", "name": "Transcript", "align": "end", "gap": 12, "height": "fill", "padding": {"bottom": 12, "left": 12, "right": 12, "top": 12}, "width": "fill", "children": [
+          {"type": "column", "id": "c_sr", "name": "Your message", "crossAlign": "end", "gap": 6, "padding": {"left": 32}, "width": "fill", "children": [
+            {"type": "column", "id": "c_sq", "fill": "$color-secondary", "padding": {"bottom": 8, "left": 12, "right": 12, "top": 8}, "radius": 10, "children": [
+              {"type": "text", "id": "t_sp", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Make the pricing page feel calmer: three plans, the middle one recommended, and a short FAQ under them."}
+            ]}
+          ]},
+          {"type": "column", "id": "c_s1c", "name": "Turn card", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-sidebar", "radius": 10, "width": "fill", "children": [
+            {"type": "row", "id": "r_s15", "name": "Page", "crossAlign": "center", "gap": 10, "padding": {"bottom": 10, "left": 12, "right": 8, "top": 10}, "width": "fill", "children": [
+              {"type": "column", "id": "c_s11", "name": "Page picture", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(0.9 0.003 80)", "gap": 3, "height": 40, "padding": {"bottom": 5, "left": 5, "right": 5, "top": 5}, "radius": 4, "width": 56, "children": [
+                {"type": "row", "id": "r_sv", "fill": "#2a2826", "height": 2, "radius": 1, "width": 20, "children": []},
+                {"type": "row", "id": "r_sz", "gap": 2, "height": "fill", "width": "fill", "children": [
+                  {"type": "column", "id": "c_sw", "fill": "#e2e0dc", "height": "fill", "radius": 1.5, "width": "fill", "children": []},
+                  {"type": "column", "id": "c_sx", "fill": "#3d55e0", "height": "fill", "radius": 1.5, "width": "fill", "children": []},
+                  {"type": "column", "id": "c_sy", "fill": "#e2e0dc", "height": "fill", "radius": 1.5, "width": "fill", "children": []}
+                ]},
+                {"type": "row", "id": "r_s10", "fill": "#e2e0dc", "height": 2, "radius": 1, "width": "fill", "children": []}
+              ]},
+              {"type": "column", "id": "c_s14", "gap": 2, "width": "fill", "children": [
+                {"type": "text", "id": "t_s12", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Pricing", "weight": 500},
+                {"type": "text", "id": "t_s13", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Being edited"}
+              ]},
+              {"type": "row", "id": "r_su", "name": "Following (pressed)", "crossAlign": "center", "fill": "$color-accent", "gap": 6, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 6, "children": [
+                {"type": "image", "id": "m_ss", "name": "crosshair", "height": 14, "src": "assets/icons/crosshair.svg", "tint": "$color-foreground", "width": 14},
+                {"type": "text", "id": "t_st", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Following", "weight": 500}
+              ]}
+            ]},
+            {"type": "row", "id": "r_s1a", "name": "Hairline", "fill": "$color-border", "height": 1, "width": "fill", "children": []},
+            {"type": "column", "id": "c_sh", "name": "Steps", "gap": 4, "padding": {"bottom": 10, "left": 12, "right": 12, "top": 10}, "width": "fill", "children": [
+              {"type": "column", "id": "c_s5", "width": "fill", "children": [
+                {"type": "row", "id": "r_s4", "crossAlign": "center", "gap": 8, "height": 20, "width": "fill", "children": [
+                  {"type": "image", "id": "m_s1", "name": "check", "height": 14, "src": "assets/icons/check.svg", "tint": "$color-muted-foreground", "width": 14},
+                  {"type": "text", "id": "t_s2", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Outline", "weight": 500},
+                  {"type": "text", "id": "t_s3", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "3 sections", "width": "fill"}
+                ]}
+              ]},
+              {"type": "column", "id": "c_sb", "width": "fill", "children": [
+                {"type": "row", "id": "r_sa", "crossAlign": "center", "gap": 8, "height": 20, "width": "fill", "children": [
+                  {"type": "row", "id": "r_s7", "align": "center", "crossAlign": "center", "height": 14, "width": 14, "children": [
+                    {"type": "row", "id": "r_s6", "fill": "$color-foreground", "height": 6, "radius": 999, "width": 6, "children": []}
+                  ]},
+                  {"type": "text", "id": "t_s8", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Build", "weight": 500},
+                  {"type": "text", "id": "t_s9", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "FAQ · 2 of 3", "width": "fill"}
+                ]}
+              ]},
+              {"type": "column", "id": "c_sg", "width": "fill", "children": [
+                {"type": "row", "id": "r_sf", "crossAlign": "center", "gap": 8, "height": 20, "width": "fill", "children": [
+                  {"type": "image", "id": "m_sc", "name": "circle", "height": 14, "opacity": 0.6, "src": "assets/icons/circle.svg", "tint": "$color-muted-foreground", "width": 14},
+                  {"type": "text", "id": "t_sd", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Review", "weight": 500},
+                  {"type": "text", "id": "t_se", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "3 review models", "width": "fill"}
+                ]}
+              ]}
+            ]},
+            {"type": "row", "id": "r_s1b", "name": "Hairline", "fill": "$color-border", "height": 1, "width": "fill", "children": []},
+            {"type": "row", "id": "r_s19", "name": "Activity · live", "crossAlign": "center", "gap": 6, "height": 36, "padding": {"left": 12, "right": 12}, "width": "fill", "children": [
+              {"type": "image", "id": "m_s16", "name": "loader-circle", "height": 14, "src": "assets/icons/loader-circle.svg", "tint": "$color-agent", "width": 14},
+              {"type": "text", "id": "t_s17", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Writing the questions", "width": "fill"},
+              {"type": "text", "id": "t_s18", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "2m 47s"}
+            ]}
+          ]}
+        ]},
+        {"type": "column", "id": "c_s23", "name": "Bottom", "gap": 0, "padding": {"bottom": 8, "left": 8, "right": 8}, "width": "fill", "children": [
+          {"type": "column", "id": "c_s1q", "name": "Composer", "border": {"color": "$color-input", "style": "solid", "width": 1}, "fill": "$color-muted", "radius": 12, "width": "fill", "children": [
+            {"type": "column", "id": "c_s1e", "minHeight": 52, "padding": {"bottom": 4, "left": 12, "right": 12, "top": 10}, "width": "fill", "children": [
+              {"type": "text", "id": "t_s1d", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Queue a follow-up…", "width": "fill"}
+            ]},
+            {"type": "row", "id": "r_s1p", "crossAlign": "center", "gap": 4, "padding": {"bottom": 8, "left": 8, "right": 8}, "width": "fill", "children": [
+              {"type": "row", "id": "r_s1g", "name": "Icon button · Attach", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+                {"type": "image", "id": "m_s1f", "name": "paperclip", "height": 16, "src": "assets/icons/paperclip.svg", "tint": "$color-muted-foreground", "width": 16}
+              ]},
+              {"type": "column", "id": "c_s1h", "name": "Spacer", "height": "fill", "width": "fill", "children": []},
+              {"type": "row", "id": "r_s1m", "crossAlign": "center", "gap": 4, "height": 28, "padding": {"left": 8, "right": 6}, "radius": 6, "children": [
+                {"type": "image", "id": "m_s1i", "name": "Claude Code", "height": 14, "src": "assets/icons/agent-claude.svg", "tint": "$color-muted-foreground", "width": 14},
+                {"type": "text", "id": "t_s1j", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Opus 5.5", "weight": 500},
+                {"type": "text", "id": "t_s1k", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "High"},
+                {"type": "image", "id": "m_s1l", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "$color-muted-foreground", "width": 14}
+              ]},
+              {"type": "row", "id": "r_s1o", "align": "center", "crossAlign": "center", "fill": "$color-foreground", "height": 28, "radius": 6, "width": 28, "children": [
+                {"type": "row", "id": "r_s1n", "fill": "$color-background", "height": 10, "radius": 2, "width": 10, "children": []}
+              ]}
+            ]}
+          ]},
+          {"type": "row", "id": "r_s21", "name": "Composer tray", "padding": {"left": 8, "right": 8}, "width": "fill", "children": [
+            {"type": "row", "id": "r_s20", "border": {"color": "$color-border", "style": "solid", "width": "0 1px 1px 1px"}, "crossAlign": "center", "fill": "$color-rail", "gap": 4, "height": 30, "padding": {"left": 2, "right": 2}, "radius": "0 0 10px 10px", "width": "fill", "children": [
+              {"type": "row", "id": "r_s1u", "name": "Skills", "crossAlign": "center", "gap": 6, "height": 24, "padding": {"left": 6, "right": 4}, "radius": 6, "children": [
+                {"type": "text", "id": "t_s1r", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Skill"},
+                {"type": "text", "id": "t_s1s", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Ultrapaint", "weight": 500},
+                {"type": "image", "id": "m_s1t", "name": "chevron-down", "height": 12, "src": "assets/icons/chevron-down.svg", "tint": "$color-muted-foreground", "width": 12}
+              ]},
+              {"type": "column", "id": "c_s1v", "name": "Spacer", "height": "fill", "width": "fill", "children": []},
+              {"type": "row", "id": "r_s1z", "name": "Review", "crossAlign": "center", "gap": 6, "height": 24, "padding": {"left": 6, "right": 4}, "radius": 6, "children": [
+                {"type": "text", "id": "t_s1w", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Review"},
+                {"type": "text", "id": "t_s1x", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Standard", "weight": 500},
+                {"type": "image", "id": "m_s1y", "name": "chevron-down", "height": 12, "src": "assets/icons/chevron-down.svg", "tint": "$color-muted-foreground", "width": 12}
+              ]}
+            ]}
+          ]}
+        ]}
+      ]}
+    ]}
+  ]},
+  "version": 1
+}

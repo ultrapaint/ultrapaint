@@ -18,6 +18,11 @@ export type Notifications = "off" | "notification" | "sound" | "both";
 export interface Preferences {
   accent: Accent;
   contrast: boolean;
+  /**
+   * A chat shows every step its agent takes, as the agent reports them, rather than each turn's
+   * card with its steps folded (ADR 0095).
+   */
+  everyStep: boolean;
   motion: Motion;
   notifications: Notifications;
   scrollWheel: ScrollWheel;
@@ -35,6 +40,7 @@ export const ACCENTS: readonly { label: string; value: Accent }[] = [
 export const DEFAULT_PREFERENCES: Preferences = {
   accent: "ultramarine",
   contrast: false,
+  everyStep: false,
   motion: "system",
   notifications: "off",
   scrollWheel: "pan",
@@ -46,6 +52,7 @@ const KEY = "ultrapaint:preferences";
 const CHOICES: { [K in keyof Preferences]: readonly Preferences[K][] } = {
   accent: ACCENTS.map((a) => a.value),
   contrast: [false, true],
+  everyStep: [false, true],
   motion: ["system", "reduced", "full"],
   notifications: ["off", "notification", "sound", "both"],
   scrollWheel: ["pan", "zoom"],
@@ -108,6 +115,7 @@ interface PreferencesStore extends Preferences {
 const valuesOf = (s: PreferencesStore): Preferences => ({
   accent: s.accent,
   contrast: s.contrast,
+  everyStep: s.everyStep,
   motion: s.motion,
   notifications: s.notifications,
   scrollWheel: s.scrollWheel,

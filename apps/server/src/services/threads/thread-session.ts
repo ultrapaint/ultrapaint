@@ -632,19 +632,33 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       if (task !== null) {
         blocks[0] = { text: task, type: "text" };
       }
+      const now = (yield* store.get(threadId)) ?? thread;
+      const reviewed = yield* reviews.enabled(threadId);
+      let briefedNow = false;
       if (!session.briefed) {
         session.briefed = true;
-        const purpose = (yield* store.get(threadId))?.purpose ?? "design";
-        blocks.unshift(
-          ...(yield* content.sessionContext(
-            session.resumed,
-            earlier,
-            purpose,
-            session.editorMcp,
-            input.text,
-            yield* reviews.enabled(threadId)
-          ))
+        const context = yield* content.sessionContext(
+          session.resumed,
+          earlier,
+          now.purpose ?? "design",
+          session.editorMcp,
+          input.text,
+          reviewed,
+          now.skills
         );
+        blocks.unshift(...context.blocks);
+        if (context.briefed) {
+          briefedNow = true;
+          yield* store.update(threadId, { toldSkills: context.told });
+        }
+      }
+      // The chat's design skills changed since its agent was told them: said on this prompt.
+      const change = briefedNow
+        ? null
+        : yield* content.skillsChange(now, session.editorMcp, reviewed);
+      if (change !== null) {
+        blocks.unshift(change.block);
+        yield* store.update(threadId, { toldSkills: change.told });
       }
       // Who else writes from now on, and the folder's files before the turn, by time and size,
       // to tell after it what it changed. The witness is the turn's once it is at the agent.

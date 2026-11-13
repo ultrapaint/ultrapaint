@@ -41,9 +41,15 @@ export interface SkillsTold {
   readonly dir: string | undefined;
   /** A line per skill told by its title and summary: `- Ultrapaint (<where>): <summary>`. */
   readonly listed: readonly string[];
+  /** The skills told, by the names a chat's choice gives them: `ultrapaint`, a project skill's file. */
+  readonly names: readonly string[];
   /** The skills told whole, as one markdown text; empty when none. */
   readonly whole: string;
 }
+
+/** A skill by the name a chat's choice gives it (`Thread.skills`): `ultrapaint`, else its file. */
+export const choiceName = (skill: Skill) =>
+  skill.source === "built-in" ? skill.name : (skill.file ?? skill.name);
 
 /**
  * The design skills an agent is told: the design skill the tool ships (`ultrapaint`), on unless the
@@ -54,8 +60,15 @@ export interface SkillsTold {
 export class SkillsService extends Context.Service<
   SkillsService,
   {
-    /** The skills that are on, as the briefing tells them, to an agent with the editor's tools or without. */
-    readonly briefing: (tools: boolean) => Effect.Effect<SkillsTold>;
+    /**
+     * The skills that are on, as the briefing tells them, to an agent with the editor's tools or
+     * without. `chosen`, a chat's own choice (`Thread.skills`): exactly the skills it names,
+     * whatever the settings turn on or off; a name that matches no skill is passed over.
+     */
+    readonly briefing: (
+      tools: boolean,
+      chosen?: readonly string[]
+    ) => Effect.Effect<SkillsTold>;
     readonly list: Effect.Effect<SkillList>;
   }
 >()("ultrapaint/server/SkillsService") {
@@ -227,17 +240,25 @@ export class SkillsService extends Context.Service<
         `The reference \`${skillDir}/${file}\`:\n\n${naming(skillFiles[file] ?? "", skillDir).trim()}`;
 
       const briefing = Effect.fn("SkillsService.briefing")(function* (
-        tools: boolean
+        tools: boolean,
+        chosen?: readonly string[]
       ): Effect.fn.Return<SkillsTold> {
         const { skills } = yield* list;
-        const on = skills.filter((s) => s.enabled);
-        const at = designSkill.enabled ? skillDir : undefined;
+        const picked = chosen === undefined ? undefined : new Set(chosen);
+        const on = skills.filter((s) =>
+          picked === undefined ? s.enabled : picked.has(choiceName(s))
+        );
+        const at = on.some((s) => s.source === "built-in")
+          ? skillDir
+          : undefined;
+        const names = on.map(choiceName);
         if (told === "summaries") {
           return {
             dir: at,
             listed: on.map(
               (s) => `- ${s.title} (${whereRead(s, tools)}): ${s.summary}`
             ),
+            names,
             whole: "",
           };
         }
@@ -246,7 +267,7 @@ export class SkillsService extends Context.Service<
             ? [skill.text.trim(), ...referenceFiles.map(referenceTold)]
             : [skill.text.trim()]
         );
-        return { dir: at, listed: [], whole: whole.join("\n\n") };
+        return { dir: at, listed: [], names, whole: whole.join("\n\n") };
       });
 
       // Whoever changes the files: an undo, an agent, an editor, a checkout.

@@ -25,7 +25,6 @@ import {
   ShieldOff,
   ShieldQuestion,
 } from "lucide-react";
-import type * as React from "react";
 import { useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -316,14 +315,16 @@ export const ModelPicker = ({ thread }: { thread: Thread }) => {
     .filter(Boolean)
     .join(", ");
 
-  // The permission mode's icon leads; without modes, the agent's mark when no model names it
-  // (the agent is named in the thread's header).
-  let lead: React.ReactNode = null;
-  if (mode) {
-    lead = <ModeIcon className="size-3.5" modeId={mode.id} />;
-  } else if (!modelName) {
-    lead = <AgentIcon agentId={thread.agentId} className="size-3.5" />;
-  }
+  // The agent's mark leads, as nothing else in the chat names it (ADR 0095); the permission
+  // mode's icon after it, when the agent has modes.
+  const lead = (
+    <>
+      <AgentIcon agentId={thread.agentId} className="size-3.5 shrink-0" />
+      {mode ? (
+        <ModeIcon className="size-3.5 shrink-0" modeId={mode.id} />
+      ) : null}
+    </>
+  );
 
   return (
     <DropdownMenu>

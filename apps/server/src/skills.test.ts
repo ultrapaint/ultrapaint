@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, FileSystem, Path } from "effect";
-import { ProjectBriefing } from "./services/threads/briefing.ts";
+import { ProjectBriefing, SKILLS_OFF } from "./services/threads/briefing.ts";
 import { CORE_FILE, referenceFiles, skillFiles } from "./skills/index.ts";
 import { perTest } from "./testing/each-test.ts";
 import { TestEnv } from "./testing/harness.ts";
@@ -222,5 +222,102 @@ describe("design skills", () => {
         ),
         Effect.scoped
       )
+  );
+
+  /** A project with a skill of its own, which its settings leave off. */
+  const withVoice = ProjectTest({
+    files: { "designs/skills/voice.md": "# Voice\n\nPlain words.\n" },
+  });
+
+  /** The briefing a design thread is told for the chat's choice of skills. */
+  const toldFor = (skills: readonly string[]) =>
+    Effect.flatMap(ProjectBriefing, (briefing) =>
+      briefing.text("design", { skills, tools: true })
+    ).pipe(Effect.map((text) => text ?? ""));
+
+  it.effect(
+    "tells a chat exactly the skills it chose, whatever the settings turn on, and none when it chose none",
+    () =>
+      Effect.gen(function* () {
+        const none = yield* toldFor([]);
+        assert.notInclude(none, "How to design well");
+        assert.notInclude(none, "How you work in this chat");
+        assert.notInclude(none, "# Ultrapaint");
+
+        const design = yield* toldFor(["ultrapaint"]);
+        assert.include(design, "\n# Ultrapaint\n");
+        assert.include(design, "The design skill in this tool");
+        assert.notInclude(design, "Plain words.");
+
+        // A name that matches no skill is passed over.
+        const own = yield* toldFor(["designs/skills/voice.md", "gone.md"]);
+        assert.include(own, "# Voice\n\nPlain words.");
+        assert.include(own, "How you work in this chat");
+        assert.notInclude(own, "# Ultrapaint");
+        assert.notInclude(own, "The design skill in this tool");
+        const briefing = yield* ProjectBriefing;
+        assert.deepStrictEqual(
+          yield* briefing.told(["designs/skills/voice.md", "gone.md"]),
+          ["designs/skills/voice.md"]
+        );
+        assert.deepStrictEqual(yield* briefing.told(undefined), ["ultrapaint"]);
+      }).pipe(Effect.provide(withVoice), Effect.scoped)
+  );
+
+  it.effect(
+    "tells a chat whose skills changed the ones it chose now, or to stop following any",
+    () =>
+      Effect.gen(function* () {
+        const briefing = yield* ProjectBriefing;
+        const options = { method: false, reviewed: true, tools: true };
+        assert.strictEqual(yield* briefing.changed([], options), SKILLS_OFF);
+
+        const own =
+          (yield* briefing.changed(["designs/skills/voice.md"], options)) ?? "";
+        assert.include(own, "The user changed this chat's design skills");
+        assert.include(own, "# Voice\n\nPlain words.");
+        assert.notInclude(own, "# Ultrapaint");
+        assert.notInclude(own, "How you work in this chat");
+
+        // One briefed with none is told how to work in the chat too.
+        const first =
+          (yield* briefing.changed(["ultrapaint"], {
+            ...options,
+            method: true,
+          })) ?? "";
+        assert.include(first, "How you work in this chat");
+        assert.include(first, "\n# Ultrapaint\n");
+        assert.include(first, "The design skill in this tool");
+      }).pipe(Effect.provide(withVoice), Effect.scoped)
+  );
+
+  inProject.effect(
+    "keeps a chat's own choice of skills on the thread, and null goes back to the project's",
+    () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        // The first agent there is: none is started until a prompt.
+        const { id: threadId } = yield* client["threads.create"]({});
+        const skillsOf = Effect.map(
+          client["threads.list"](),
+          (threads) => threads.find((t) => t.id === threadId)?.skills
+        );
+        yield* client["threads.setSkills"]({ skills: [], threadId });
+        assert.deepStrictEqual(yield* skillsOf, []);
+        yield* client["threads.setSkills"]({
+          skills: ["ultrapaint", "designs/skills/voice.md"],
+          threadId,
+        });
+        assert.deepStrictEqual(yield* skillsOf, [
+          "ultrapaint",
+          "designs/skills/voice.md",
+        ]);
+        yield* client["threads.setSkills"]({ skills: null, threadId });
+        assert.isUndefined(yield* skillsOf);
+        const unknown = yield* Effect.flip(
+          client["threads.setSkills"]({ skills: [], threadId: "t_gone" })
+        );
+        assert.strictEqual(unknown._tag, "NotFound");
+      })
   );
 });

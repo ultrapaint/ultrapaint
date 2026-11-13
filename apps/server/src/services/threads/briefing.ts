@@ -29,7 +29,7 @@ import { catalogueOf } from "@ultrapaint/system-components/catalogue";
 import { DEFAULT_LOOK } from "@ultrapaint/system-components/default-look";
 import { Context, Effect, Layer } from "effect";
 import { ServerConfig } from "../../config.ts";
-import { OpenProject } from "../../project.ts";
+import { OpenProject, type ProjectServices } from "../../project.ts";
 import { ComponentService } from "../components.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { GitService } from "../git.ts";
@@ -230,6 +230,26 @@ const termsOf = (skills: SkillsTold, ways: AgentWays, designsDir: string) =>
     ? ""
     : `\n${skillTerms(ways, designsDir, skills.dir)}`;
 
+/** What a chat briefed with design skills is told once the person chose none (ADR 0095). */
+export const SKILLS_OFF = `<ultrapaint-skills>
+The user chose no design skill for this chat. From now on, stop following the design skills and
+the way of working in this chat you were told at the start: work as the user asks.
+</ultrapaint-skills>`;
+
+/**
+ * What a chat is told once the person chose other design skills (ADR 0095): the skills as the
+ * briefing tells them, after how to work in the chat when its briefing told it none.
+ */
+const skillsOn = (
+  skills: SkillsTold,
+  ways: AgentWays,
+  designsDir: string,
+  method: string
+) => `<ultrapaint-skills>
+The user changed this chat's design skills: from now on follow these, in place of any you were
+told before.
+${method ? `\n${method}` : ""}${craftOf(skills)}${termsOf(skills, ways, designsDir)}</ultrapaint-skills>`;
+
 /**
  * The components (ADR 0041): their files, which system components' look the design owns, and the
  * format an agent writes a component's file in.
@@ -254,13 +274,38 @@ export class ProjectBriefing extends Context.Service<
      * thread is unless said otherwise (`toldTheDesignSkill`), an implement thread never.
      * `reviewed`: the editor reviews what the thread's turns make (ADR 0063), which a thread told
      * the design skills is told too, unless no review will run for it (`ReviewLoop.enabled`).
+     * `skills`: the chat's own choice (`Thread.skills`), told exactly, the project's defaults when
+     * absent; a choice that names no skill there briefs the thread as one not told the design
+     * skills.
      */
     readonly text: (
       purpose: ThreadPurpose,
       options?: {
         readonly designs?: boolean;
         readonly reviewed?: boolean;
+        readonly skills?: readonly string[];
         readonly tools?: boolean;
+      }
+    ) => Effect.Effect<string | undefined>;
+    /**
+     * The design skills a design thread is told for a chat's choice (the project's defaults when
+     * absent), by their names in a choice; nothing when no project is open.
+     */
+    readonly told: (
+      skills: readonly string[] | undefined
+    ) => Effect.Effect<readonly string[] | undefined>;
+    /**
+     * What a design thread briefed with other design skills is told on its next prompt, for
+     * the skills `skills` names (`told`'s): them as the briefing tells them, after how to work in
+     * the chat when `method` (its briefing told none), or to stop following any when it names
+     * none. Nothing when no project is open.
+     */
+    readonly changed: (
+      skills: readonly string[],
+      options: {
+        readonly method: boolean;
+        readonly reviewed: boolean;
+        readonly tools: boolean;
       }
     ) => Effect.Effect<string | undefined>;
   }
@@ -272,11 +317,50 @@ export class ProjectBriefing extends Context.Service<
       const { mcp } = yield* ServerConfig;
       const sandbox = yield* AgentSandbox;
 
+      const none: SkillsTold = {
+        dir: undefined,
+        listed: [],
+        names: [],
+        whole: "",
+      };
+
+      /** The skills told for a choice, the project's defaults when absent. */
+      const skillsFor = (
+        tools: boolean,
+        chosen: readonly string[] | undefined
+      ) =>
+        Effect.orElseSucceed(
+          Effect.flatMap(SkillsService, (service) =>
+            service.briefing(tools, chosen)
+          ),
+          () => none
+        );
+
+      /**
+       * The design skills a thread is told, and whether it is told any: a chat that chose none,
+       * or none there is, is a design thread told none (ADR 0095).
+       */
+      const designSkills = Effect.fnUntraced(function* (
+        tools: boolean,
+        wanted: boolean,
+        chosen: readonly string[] | undefined
+      ) {
+        if (!wanted) {
+          return { designs: false, skills: none };
+        }
+        const skills = yield* skillsFor(tools, chosen);
+        return {
+          designs: chosen === undefined || skills.names.length > 0,
+          skills,
+        };
+      });
+
       const build = Effect.fnUntraced(function* (
         purpose: ThreadPurpose,
         tools: boolean,
-        designs: boolean,
-        reviewed: boolean
+        wanted: boolean,
+        reviewed: boolean,
+        chosen: readonly string[] | undefined
       ) {
         const ways = agentWays(tools);
         const paths = yield* RepoPaths;
@@ -291,15 +375,7 @@ export class ProjectBriefing extends Context.Service<
         );
         const ds = system.designSystem;
         const styles = ds?.typography.styles ?? [];
-        const none: SkillsTold = { dir: undefined, listed: [], whole: "" };
-        const skills = designs
-          ? yield* Effect.orElseSucceed(
-              Effect.flatMap(SkillsService, (service) =>
-                service.briefing(tools)
-              ),
-              () => none
-            )
-          : none;
+        const { designs, skills } = yield* designSkills(tools, wanted, chosen);
         const craft = craftOf(skills);
         const conventions = conventionsOf(system.document);
         const files = yield* Effect.orElseSucceed(
@@ -378,19 +454,41 @@ never write it; when styles are missing, send the user to Sync in the Design sys
 </ultrapaint>`;
       });
 
+      const changed = Effect.fnUntraced(function* (
+        chosen: readonly string[],
+        options: { method: boolean; reviewed: boolean; tools: boolean }
+      ) {
+        const skills = yield* skillsFor(options.tools, chosen);
+        if (skills.names.length === 0) {
+          return SKILLS_OFF;
+        }
+        const { settings } = yield* RepoPaths;
+        return skillsOn(
+          skills,
+          agentWays(options.tools),
+          settings.designsDir,
+          options.method ? designChat(options.reviewed) : ""
+        );
+      });
+
+      // No project open, or a repository the server cannot read: the agent manages without.
+      const orNothing = <A, E>(effect: Effect.Effect<A, E, ProjectServices>) =>
+        project.use(effect).pipe(Effect.orElseSucceed(() => undefined));
+
       return ProjectBriefing.of({
+        changed: (skills, options) => orNothing(changed(skills, options)),
         text: (purpose, options = {}) =>
-          project
-            .use(
-              build(
-                purpose,
-                options.tools ?? mcp,
-                purpose === "design" && options.designs !== false,
-                options.reviewed !== false
-              )
+          orNothing(
+            build(
+              purpose,
+              options.tools ?? mcp,
+              purpose === "design" && options.designs !== false,
+              options.reviewed !== false,
+              options.skills
             )
-            // No project open, or a repository the server cannot read: the agent manages without.
-            .pipe(Effect.orElseSucceed(() => undefined)),
+          ),
+        told: (skills) =>
+          orNothing(Effect.map(skillsFor(mcp, skills), (s) => s.names)),
       });
     })
   );

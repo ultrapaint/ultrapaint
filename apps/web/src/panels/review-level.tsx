@@ -13,7 +13,7 @@ import {
   withLevel,
 } from "@ultrapaint/contracts/review";
 import type { Thread } from "@ultrapaint/contracts/threads";
-import { ChevronDown, ScanEye } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +22,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/cn";
+import { trayTrigger } from "../components/composer-style.ts";
 import { api } from "../state/connection.ts";
 import { reportError, useProject } from "../state/project.ts";
 
@@ -167,7 +168,7 @@ const LevelSlider = ({
 const useProjectReview = () => useProject((s) => s.settings?.review);
 
 /**
- * The composer's Review chip (ADR 0063): this design's level, a dot when it differs from the
+ * The Review chip in the composer's tray (ADR 0063, 0095): this design's level, a dot when it differs from the
  * project's, opening the slider. A change applies from the next round.
  */
 export const ReviewChip = ({ thread }: { thread: Thread }) => {
@@ -194,27 +195,30 @@ export const ReviewChip = ({ thread }: { thread: Thread }) => {
         render={
           <Button
             aria-label={`Review: ${LEVEL_NAMES[level]}${differs ? ", changed for this chat" : ""}`}
-            className="min-w-0 shrink gap-1 px-1.5 text-muted-foreground has-data-[icon=inline-end]:pr-1"
+            className={trayTrigger}
             ref={trigger}
             variant="ghost"
           />
         }
       >
-        <ScanEye aria-hidden className="size-3.5 shrink-0" />
-        <span className="truncate">{LEVEL_NAMES[level]}</span>
+        Review
+        <span className="truncate text-foreground">{LEVEL_NAMES[level]}</span>
         {differs ? (
           <span
             aria-hidden
             className="size-1.5 shrink-0 rounded-full bg-foreground"
           />
         ) : null}
-        <ChevronDown className="size-3.5 shrink-0 opacity-70" />
+        <ChevronDown
+          className="size-3.5 shrink-0 opacity-70"
+          data-icon="inline-end"
+        />
       </PopoverTrigger>
       {/* Over the whole composer, as wide as it, as its model menu opens above it. */}
       <PopoverContent
         align="start"
         anchor={() =>
-          trigger.current?.closest("[data-composer]") ?? trigger.current
+          trigger.current?.closest("[data-composer-stack]") ?? trigger.current
         }
         className="w-(--anchor-width) gap-3 p-3"
         side="top"

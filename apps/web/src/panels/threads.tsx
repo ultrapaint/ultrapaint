@@ -4,11 +4,19 @@ import {
   type Thread,
   type ThreadItem,
 } from "@ultrapaint/contracts/threads";
-import { ChevronLeft, CircleAlert, Ellipsis, LocateFixed } from "lucide-react";
+import { ChevronLeft, CircleAlert, Ellipsis } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   MessageScroller,
   MessageScrollerButton,
@@ -22,23 +30,22 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/cn";
-import { AgentIcon } from "../components/agent-icon.tsx";
 import { CutText } from "../components/cut-text.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { NoFolder } from "../components/no-folder.tsx";
 import { PanelFailed } from "../components/panel.tsx";
 import { PanelLoading } from "../components/splash.tsx";
-import { showScope } from "../lib/add-to-chat.ts";
 import { roundsByPlan, stoppedRuns } from "../lib/design-run.ts";
-import { toggleFollowing } from "../lib/thread-actions.ts";
+import { deleteThread } from "../lib/thread-actions.ts";
+import { splitTurns } from "../lib/thread-turns.ts";
 import { threadView } from "../lib/thread-view.ts";
 import { groupWork } from "../lib/thread-work.ts";
 import { useAgents } from "../state/agents.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
+import { usePreferences } from "../state/preferences.ts";
 import { useProject } from "../state/project.ts";
-import { ScopePicture, ThreadList } from "./chat-list.tsx";
+import { ThreadList } from "./chat-list.tsx";
 import { ChatStarters } from "./chat-starters.tsx";
 import { SetupStepBar, SetupStepIntro } from "./design-system-setup.tsx";
 import { LEVEL_NAMES } from "./review-level.tsx";
@@ -49,6 +56,7 @@ import {
   RunContextValue,
 } from "./thread-review.tsx";
 import { Entry, keyOfEntry } from "./thread-transcript.tsx";
+import { TurnView } from "./thread-turn.tsx";
 import { WorkingIndicator } from "./thread-work.tsx";
 
 export const Threads = () => {
@@ -77,10 +85,7 @@ export const Threads = () => {
   }
   return (
     <div className="flex h-full flex-col">
-      <div className="flex shrink-0 flex-col border-b">
-        <ThreadHeader thread={thread} worked={(items?.length ?? 0) > 0} />
-        <ScopeBar thread={thread} />
-      </div>
+      <ThreadHeader thread={thread} />
       <SetupStepBar threadId={thread.id} />
       {/* A chat still being read is not an empty one: its starters are a new chat's alone. */}
       {items === undefined ? (
@@ -97,24 +102,15 @@ export const Threads = () => {
 };
 
 /**
- * Back to the list, the thread's name and who works on it (its model is the composer's picker's),
- * and, once the agent has done something, following it on the canvas.
+ * Back to the list, the thread's name, and its menu (ADR 0095). Who works on it is the composer's
+ * model picker's; following and showing its page are its turn's card's, where they apply.
  */
-const ThreadHeader = ({
-  thread,
-  worked,
-}: {
-  thread: Thread;
-  worked: boolean;
-}) => {
-  const agentName = useAgents(
-    (s) => s.agents.find((a) => a.id === thread.agentId)?.name
-  );
-  const following = useAgents((s) => s.following === thread.id);
+const ThreadHeader = ({ thread }: { thread: Thread }) => {
+  const everyStep = usePreferences((s) => s.everyStep);
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the header's menu is the thread's; its buttons raise it from the keyboard.
     <div
-      className="flex h-11 shrink-0 items-center gap-1 pr-2 pl-1.5"
+      className="flex h-11 shrink-0 items-center gap-1 border-b pr-2 pl-1.5"
       onContextMenu={(e) =>
         openMenuAt(e, { kind: "thread", threadId: thread.id })
       }
@@ -125,93 +121,56 @@ const ThreadHeader = ({
       >
         <ChevronLeft />
       </IconButton>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <h2 className="truncate font-heading-xsmall">
-          <CutText className="block truncate">{thread.title}</CutText>
-        </h2>
-        <span className="flex min-w-0 items-center gap-1.5 font-body-small text-muted-foreground">
-          <AgentIcon agentId={thread.agentId} className="size-3 shrink-0" />
-          <span className="truncate">{agentName ?? thread.agentId}</span>
-          {/* A design thread is the rule; one that may write the code says so (ADR 0030). */}
-          {thread.purpose === "implement" ? (
-            <Tooltip>
-              <TooltipTrigger render={<Badge className="shrink-0" />}>
-                Implements
-              </TooltipTrigger>
-              <TooltipContent>May change the application’s code</TooltipContent>
-            </Tooltip>
-          ) : null}
-        </span>
-      </div>
-      {worked ? (
+      <h2 className="flex min-w-0 flex-1 items-center gap-1.5 font-heading-xsmall">
+        <CutText className="block truncate">{thread.title}</CutText>
+        {/* A design thread is the rule; one that may write the code says so (ADR 0030). */}
+        {thread.purpose === "implement" ? (
+          <Tooltip>
+            <TooltipTrigger render={<Badge className="shrink-0" />}>
+              Implements
+            </TooltipTrigger>
+            <TooltipContent>May change the application’s code</TooltipContent>
+          </Tooltip>
+        ) : null}
+      </h2>
+      <DropdownMenu>
         <Tooltip>
           <TooltipTrigger
             render={
-              <Button
-                aria-pressed={following}
-                className={cn(
-                  "text-muted-foreground",
-                  following && "bg-accent text-foreground"
-                )}
-                onClick={() => toggleFollowing(thread.id)}
-                size="sm"
-                variant="ghost"
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    aria-label="More"
+                    className="text-muted-foreground"
+                    size="icon"
+                    variant="ghost"
+                  />
+                }
               />
             }
           >
-            Follow
+            <Ellipsis />
           </TooltipTrigger>
-          <TooltipContent>
-            {following
-              ? "Stop following the agent on the canvas"
-              : "Follow the agent on the canvas"}
-          </TooltipContent>
+          <TooltipContent>More</TooltipContent>
         </Tooltip>
-      ) : null}
-      <IconButton
-        onClick={(e) => openMenuAt(e, { kind: "thread", threadId: thread.id })}
-        tooltip="More"
-      >
-        <Ellipsis />
-      </IconButton>
-    </div>
-  );
-};
-
-/** What the thread works on, pinned under its header, with the way to it on the canvas. */
-const ScopeBar = ({ thread }: { thread: Thread }) => {
-  const { scope } = thread;
-  // A node's page by its name and URL; a page by its URL; a node beside the pages, the canvas.
-  const where = useProject((s) => {
-    const page = s.pages.find((p) => p.file === scope?.file);
-    if (!page) {
-      return "On the canvas";
-    }
-    const route = page.route ?? page.name;
-    return scope?.nodeId === undefined ? route : `${page.name} · ${route}`;
-  });
-  if (!scope) {
-    return null;
-  }
-  const more = scope.count && scope.count > 1 ? scope.count - 1 : 0;
-  return (
-    <div className="flex items-center gap-2.5 px-3 pb-2">
-      <ScopePicture className="size-8" thread={thread} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <CutText className="truncate font-body-medium" tip={scope.name}>
-          {scope.name}
-          {more ? (
-            <span className="text-muted-foreground"> and {more} more</span>
-          ) : null}
-        </CutText>
-        <span className="truncate font-body-small text-muted-foreground">
-          {where}
-        </span>
-      </div>
-      <Button onClick={() => showScope(thread)} size="sm" variant="ghost">
-        <LocateFixed data-icon="inline-start" />
-        Show
-      </Button>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuCheckboxItem
+            checked={everyStep}
+            onCheckedChange={(on) =>
+              usePreferences.getState().set("everyStep", on)
+            }
+          >
+            Show every step
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => deleteThread(thread.id)}
+            variant="destructive"
+          >
+            Delete chat…
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 };
@@ -265,15 +224,17 @@ const Unread = ({
   </div>
 );
 
-const ThreadView = ({
-  thread,
+/** Every step the agent reported, its tool calls folded between its messages ("Show every step"). */
+const EveryStep = ({
   items,
+  run,
+  thread,
 }: {
-  thread: Thread;
   items: readonly ThreadItem[];
+  run: RunContext;
+  thread: Thread;
 }) => {
   const entries = useMemo(() => groupWork(items), [items]);
-  const run = useRunContext(thread, items);
   // A round inside its run's card isn't an entry of its own: no gap is left where it was.
   const shown = useMemo(
     () =>
@@ -287,9 +248,71 @@ const ThreadView = ({
       ),
     [entries, run]
   );
-  const { busy, failed } = threadView(thread);
+  const { busy } = threadView(thread);
   const last = items.at(-1);
-  const since = items.findLast((i) => i.kind === "user")?.at;
+  const reviewing = thread.status === "reviewing";
+  return (
+    <>
+      {shown.map((entry) => (
+        <MessageScrollerItem
+          key={keyOfEntry(entry)}
+          messageId={keyOfEntry(entry)}
+        >
+          <Entry
+            entry={entry}
+            last={last}
+            running={busy}
+            threadId={thread.id}
+          />
+        </MessageScrollerItem>
+      ))}
+      {/* While a turn runs, the agent's start included, or is being stopped. */}
+      {busy ? (
+        <WorkingIndicator
+          label={reviewing ? "Reviewing…" : "Working…"}
+          since={
+            reviewing
+              ? items.findLast((i) => i.kind === "review")?.at
+              : items.findLast((i) => i.kind === "user")?.at
+          }
+        />
+      ) : null}
+    </>
+  );
+};
+
+/** Each prompt and what came of it, as a card (ADR 0095). */
+const Turns = ({
+  items,
+  thread,
+}: {
+  items: readonly ThreadItem[];
+  thread: Thread;
+}) => {
+  const turns = useMemo(() => splitTurns(items), [items]);
+  const { busy } = threadView(thread);
+  return turns.map((turn, i) => (
+    <MessageScrollerItem key={turn.id} messageId={turn.id}>
+      <TurnView
+        last={i === turns.length - 1}
+        running={busy}
+        thread={thread}
+        turn={turn}
+      />
+    </MessageScrollerItem>
+  ));
+};
+
+const ThreadView = ({
+  thread,
+  items,
+}: {
+  thread: Thread;
+  items: readonly ThreadItem[];
+}) => {
+  const run = useRunContext(thread, items);
+  const { busy, failed } = threadView(thread);
+  const everyStep = usePreferences((s) => s.everyStep);
   const fresh = items.length === 0 && !(busy || failed);
   const stepThread = useDesignSystemSetup(
     (s) =>
@@ -312,34 +335,11 @@ const ThreadView = ({
             <MessageScroller className="flex-1">
               <MessageScrollerViewport>
                 <MessageScrollerContent className="gap-3 px-3 pt-3 pb-4">
-                  {shown.map((entry) => (
-                    <MessageScrollerItem
-                      key={keyOfEntry(entry)}
-                      messageId={keyOfEntry(entry)}
-                    >
-                      <Entry
-                        entry={entry}
-                        last={last}
-                        running={busy}
-                        threadId={thread.id}
-                      />
-                    </MessageScrollerItem>
-                  ))}
-                  {/* While a turn runs, the agent's start included, or is being stopped. */}
-                  {busy ? (
-                    <WorkingIndicator
-                      label={
-                        thread.status === "reviewing"
-                          ? "Reviewing…"
-                          : "Working…"
-                      }
-                      since={
-                        thread.status === "reviewing"
-                          ? items.findLast((i) => i.kind === "review")?.at
-                          : since
-                      }
-                    />
-                  ) : null}
+                  {everyStep ? (
+                    <EveryStep items={items} run={run} thread={thread} />
+                  ) : (
+                    <Turns items={items} thread={thread} />
+                  )}
                   {failed ? (
                     <Alert variant="destructive">
                       <CircleAlert />

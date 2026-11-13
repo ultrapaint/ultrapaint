@@ -147,10 +147,13 @@ interface Logged {
 
 /**
  * Whether a thread's turns are reviewed at all: a design thread whose review, with `settings`
- * its own over the project's, is on.
+ * its own over the project's, is on. A chat that chose no design skill (ADR 0095) is reviewed
+ * only when its own review settings turn the review on.
  */
 const reviewed = (thread: Thread, settings: ReviewSettings) =>
-  (thread.purpose ?? "design") === "design" && settings.on !== false;
+  (thread.purpose ?? "design") === "design" &&
+  settings.on !== false &&
+  (thread.skills?.length !== 0 || thread.review?.on === true);
 
 /** A round under way: its item, who is in it, and what its reviewers gave so far. */
 interface RoundState {

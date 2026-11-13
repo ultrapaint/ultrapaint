@@ -10,6 +10,7 @@ import type {
   CreateElicitationRequest,
   SessionUpdate,
 } from "@ultrapaint/acp/acp-agent";
+import { DESIGN_SKILL } from "@ultrapaint/contracts/skills";
 import { type ThreadItem, withChunk } from "@ultrapaint/contracts/threads";
 import { Deferred, Effect, Fiber, FileSystem, Result, Stream } from "effect";
 import { TestClock } from "effect/testing";
@@ -37,6 +38,7 @@ import {
   onThread,
   promptThread,
   SCRIPTED_SANDBOX_META,
+  skillsNoteFor,
   ThreadFixture,
   ThreadTest,
   type ThreadTestServices,
@@ -993,6 +995,41 @@ describe("a turn", () => {
       yield* send(threadId, "again");
       const second = yield* agent.nextTurn;
       assert.deepStrictEqual(second.texts, ["again"]);
+    }));
+
+  test("tells a later prompt the chat's design skills once they changed since its briefing", () =>
+    Effect.gen(function* () {
+      const store = yield* ThreadStore;
+      const { agent, threadId, turn } = yield* started();
+      // The briefing told the project's defaults: the design skill.
+      assert.deepStrictEqual((yield* store.get(threadId))?.toldSkills, [
+        DESIGN_SKILL,
+      ]);
+      yield* turn.end();
+      yield* threadWhen(threadId, turnEnded);
+
+      // The person chose no design skill: the next prompt leads with it, once.
+      yield* store.update(threadId, { skills: [] });
+      yield* send(threadId, "plain");
+      const off = yield* agent.nextTurn;
+      assert.deepStrictEqual(off.texts, [skillsNoteFor([]), "plain"]);
+      assert.deepStrictEqual((yield* store.get(threadId))?.toldSkills, []);
+      yield* off.end();
+      yield* threadWhen(threadId, turnsEnded(2));
+      yield* send(threadId, "again");
+      const same = yield* agent.nextTurn;
+      assert.deepStrictEqual(same.texts, ["again"]);
+      yield* same.end();
+      yield* threadWhen(threadId, turnsEnded(3));
+
+      // Back to the project's defaults, which are the design skill again.
+      yield* store.update(threadId, { skills: undefined });
+      yield* send(threadId, "design");
+      const on = yield* agent.nextTurn;
+      assert.deepStrictEqual(on.texts, [
+        skillsNoteFor([DESIGN_SKILL]),
+        "design",
+      ]);
     }));
 
   test("confines a design thread's agent to the designs; /implement makes an implement thread", () =>

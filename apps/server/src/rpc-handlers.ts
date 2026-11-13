@@ -288,6 +288,16 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         }
         yield* store.update(threadId, { review: review ?? undefined });
       }),
+      // The chat's own design skills (ADR 0095): kept on the thread, told from its next prompt.
+      "threads.setSkills": Effect.fnUntraced(function* ({
+        skills: chosen,
+        threadId,
+      }) {
+        if (!(yield* store.get(threadId))) {
+          return yield* new NotFound({ message: `unknown thread ${threadId}` });
+        }
+        yield* store.update(threadId, { skills: chosen ?? undefined });
+      }),
       "threads.unqueue": ({ id, threadId }) =>
         thread(threadId, (s) => s.unqueue(id)),
       "thumbnails.get": ({ key }) => thumbnails((t) => t.get(key)),

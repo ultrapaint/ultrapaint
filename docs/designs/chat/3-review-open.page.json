@@ -1,0 +1,140 @@
+{
+  "root": {"type": "page", "id": "root", "align": "center", "crossAlign": "center", "direction": "column", "fill": "$color-canvas", "padding": 0, "children": [
+    {"type": "row", "id": "r_s6o", "name": "Stage", "align": "center", "crossAlign": "start", "fill": "$color-canvas", "height": "fill", "padding": 20, "width": "fill", "children": [
+      {"type": "column", "id": "c_s6n", "name": "Chat panel", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-sidebar", "height": 860, "radius": 12, "width": 340, "children": [
+        {"type": "row", "id": "r_s46", "name": "Header", "border": {"color": "$color-border", "style": "solid", "width": "0 0 1px 0"}, "crossAlign": "center", "gap": 4, "height": 44, "padding": {"left": 6, "right": 8}, "width": "fill", "children": [
+          {"type": "row", "id": "r_s41", "name": "Icon button · All chats", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+            {"type": "image", "id": "m_s40", "name": "chevron-left", "height": 16, "src": "assets/icons/chevron-left.svg", "tint": "$color-muted-foreground", "width": 16}
+          ]},
+          {"type": "row", "id": "r_s43", "crossAlign": "center", "gap": 6, "width": "fill", "children": [
+            {"type": "text", "id": "t_s42", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "level": 3, "lineHeight": "20px", "role": "heading", "size": 14, "text": "Redesign the pricing page", "tracking": "0.02em", "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_s45", "name": "Icon button · More", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+            {"type": "image", "id": "m_s44", "name": "ellipsis", "height": 16, "src": "assets/icons/ellipsis.svg", "tint": "$color-muted-foreground", "width": 16}
+          ]}
+        ]},
+        {"type": "column", "id": "c_s6l", "name": "Transcript", "align": "end", "gap": 12, "height": "fill", "padding": {"bottom": 12, "left": 12, "right": 12, "top": 12}, "width": "fill", "children": [
+          {"type": "column", "id": "c_s5t", "name": "Turn card", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-sidebar", "radius": 10, "width": "fill", "children": [
+            {"type": "row", "id": "r_s4j", "name": "Page", "crossAlign": "center", "gap": 10, "padding": {"bottom": 10, "left": 12, "right": 8, "top": 10}, "width": "fill", "children": [
+              {"type": "column", "id": "c_s4f", "name": "Page picture", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "oklch(0.9 0.003 80)", "gap": 3, "height": 40, "padding": {"bottom": 5, "left": 5, "right": 5, "top": 5}, "radius": 4, "width": 56, "children": [
+                {"type": "row", "id": "r_s49", "fill": "#2a2826", "height": 2, "radius": 1, "width": 20, "children": []},
+                {"type": "row", "id": "r_s4d", "gap": 2, "height": "fill", "width": "fill", "children": [
+                  {"type": "column", "id": "c_s4a", "fill": "#e2e0dc", "height": "fill", "radius": 1.5, "width": "fill", "children": []},
+                  {"type": "column", "id": "c_s4b", "fill": "#3d55e0", "height": "fill", "radius": 1.5, "width": "fill", "children": []},
+                  {"type": "column", "id": "c_s4c", "fill": "#e2e0dc", "height": "fill", "radius": 1.5, "width": "fill", "children": []}
+                ]},
+                {"type": "row", "id": "r_s4e", "fill": "#e2e0dc", "height": 2, "radius": 1, "width": "fill", "children": []}
+              ]},
+              {"type": "column", "id": "c_s4i", "gap": 2, "width": "fill", "children": [
+                {"type": "text", "id": "t_s4g", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Pricing", "weight": 500},
+                {"type": "text", "id": "t_s4h", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "3 sections changed · 1 file"}
+              ]},
+              {"type": "row", "id": "r_s48", "name": "Button · Show", "align": "center", "crossAlign": "center", "gap": 6, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 6, "children": [
+                {"type": "text", "id": "t_s47", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Show", "weight": 500}
+              ]}
+            ]},
+            {"type": "row", "id": "r_s5r", "name": "Hairline", "fill": "$color-border", "height": 1, "width": "fill", "children": []},
+            {"type": "column", "id": "c_s5m", "name": "Review open", "width": "fill", "children": [
+              {"type": "row", "id": "r_s4o", "name": "Review", "crossAlign": "center", "gap": 8, "height": 36, "padding": {"left": 12, "right": 12}, "width": "fill", "children": [
+                {"type": "image", "id": "m_s4k", "name": "scan-eye", "height": 14, "src": "assets/icons/scan-eye.svg", "tint": "$color-muted-foreground", "width": 14},
+                {"type": "text", "id": "t_s4l", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Approved by all 3 · 2 rounds", "weight": 500, "width": "fill"},
+                {"type": "text", "id": "t_s4m", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "91–94"},
+                {"type": "image", "id": "m_s4n", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "$color-muted-foreground", "width": 14}
+              ]},
+              {"type": "column", "id": "c_s5l", "gap": 12, "padding": {"bottom": 12, "left": 34, "right": 12}, "width": "fill", "children": [
+                {"type": "column", "id": "c_s56", "gap": 4, "width": "fill", "children": [
+                  {"type": "text", "id": "t_s55", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Round 1"},
+                  {"type": "row", "id": "r_s4s", "crossAlign": "center", "gap": 8, "height": 20, "width": "fill", "children": [
+                    {"type": "text", "id": "t_s4p", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Opus 5.5", "width": "fill"},
+                    {"type": "text", "id": "t_s4q", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "2 findings"},
+                    {"type": "text", "id": "t_s4r", "align": "end", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "86", "weight": 500, "width": 22}
+                  ]},
+                  {"type": "row", "id": "r_s4w", "crossAlign": "center", "gap": 8, "height": 20, "width": "fill", "children": [
+                    {"type": "text", "id": "t_s4t", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "GPT-6.1 Sol", "width": "fill"},
+                    {"type": "text", "id": "t_s4u", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "3 findings"},
+                    {"type": "text", "id": "t_s4v", "align": "end", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "81", "weight": 500, "width": 22}
+                  ]},
+                  {"type": "row", "id": "r_s50", "crossAlign": "center", "gap": 8, "height": 20, "width": "fill", "children": [
+                    {"type": "text", "id": "t_s4x", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Gemini 3.5 Pro", "width": "fill"},
+                    {"type": "text", "id": "t_s4y", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "1 finding"},
+                    {"type": "text", "id": "t_s4z", "align": "end", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "88", "weight": 500, "width": 22}
+                  ]},
+                  {"type": "text", "id": "t_s51", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "padding": {"top": 2}, "role": "paragraph", "size": 12, "text": "5 fixed · 1 declined"},
+                  {"type": "column", "id": "c_s54", "border": {"color": "$color-border", "style": "solid", "width": "0 0 0 1px"}, "gap": 0, "padding": {"left": 10}, "width": "fill", "children": [
+                    {"type": "text", "id": "t_s52", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "FAQ answers sit closer to the next question", "weight": 500},
+                    {"type": "text", "id": "t_s53", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Declined: the gap is the FAQ component’s own; changing it is the design system’s job."}
+                  ]}
+                ]},
+                {"type": "column", "id": "c_s5k", "gap": 4, "width": "fill", "children": [
+                  {"type": "text", "id": "t_s5j", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Round 2"},
+                  {"type": "row", "id": "r_s5a", "crossAlign": "center", "gap": 8, "height": 20, "width": "fill", "children": [
+                    {"type": "text", "id": "t_s57", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Opus 5.5", "width": "fill"},
+                    {"type": "text", "id": "t_s58", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": ""},
+                    {"type": "text", "id": "t_s59", "align": "end", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "93", "weight": 500, "width": 22}
+                  ]},
+                  {"type": "row", "id": "r_s5e", "crossAlign": "center", "gap": 8, "height": 20, "width": "fill", "children": [
+                    {"type": "text", "id": "t_s5b", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "GPT-6.1 Sol", "width": "fill"},
+                    {"type": "text", "id": "t_s5c", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": ""},
+                    {"type": "text", "id": "t_s5d", "align": "end", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "91", "weight": 500, "width": 22}
+                  ]},
+                  {"type": "row", "id": "r_s5i", "crossAlign": "center", "gap": 8, "height": 20, "width": "fill", "children": [
+                    {"type": "text", "id": "t_s5f", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Gemini 3.5 Pro", "width": "fill"},
+                    {"type": "text", "id": "t_s5g", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": ""},
+                    {"type": "text", "id": "t_s5h", "align": "end", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "94", "weight": 500, "width": 22}
+                  ]}
+                ]}
+              ]}
+            ]},
+            {"type": "row", "id": "r_s5s", "name": "Hairline", "fill": "$color-border", "height": 1, "width": "fill", "children": []},
+            {"type": "row", "id": "r_s5q", "name": "Disclosure · Worked 5m 5s · 9 steps", "crossAlign": "center", "gap": 6, "height": 36, "padding": {"left": 12, "right": 12}, "width": "fill", "children": [
+              {"type": "image", "id": "m_s5n", "name": "list", "height": 14, "src": "assets/icons/list.svg", "tint": "$color-muted-foreground", "width": 14},
+              {"type": "text", "id": "t_s5o", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Worked 5m 5s · 9 steps", "width": "fill"},
+              {"type": "image", "id": "m_s5p", "name": "chevron-right", "height": 14, "src": "assets/icons/chevron-right.svg", "tint": "$color-muted-foreground", "width": 14}
+            ]}
+          ]},
+          {"type": "column", "id": "c_s5v", "name": "Agent’s answer", "gap": 8, "width": "fill", "children": [
+            {"type": "text", "id": "t_s5u", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Three plans now, with Pro raised as the one most teams pick, a five-question FAQ and a shorter footer. All three review models approved it after one round of fixes."}
+          ]}
+        ]},
+        {"type": "column", "id": "c_s6m", "name": "Bottom", "gap": 0, "padding": {"bottom": 8, "left": 8, "right": 8}, "width": "fill", "children": [
+          {"type": "column", "id": "c_s69", "name": "Composer", "border": {"color": "$color-input", "style": "solid", "width": 1}, "fill": "$color-muted", "radius": 12, "width": "fill", "children": [
+            {"type": "column", "id": "c_s5x", "minHeight": 52, "padding": {"bottom": 4, "left": 12, "right": 12, "top": 10}, "width": "fill", "children": [
+              {"type": "text", "id": "t_s5w", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Describe a change, or type / for commands…", "width": "fill"}
+            ]},
+            {"type": "row", "id": "r_s68", "crossAlign": "center", "gap": 4, "padding": {"bottom": 8, "left": 8, "right": 8}, "width": "fill", "children": [
+              {"type": "row", "id": "r_s5z", "name": "Icon button · Attach", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+                {"type": "image", "id": "m_s5y", "name": "paperclip", "height": 16, "src": "assets/icons/paperclip.svg", "tint": "$color-muted-foreground", "width": 16}
+              ]},
+              {"type": "column", "id": "c_s60", "name": "Spacer", "height": "fill", "width": "fill", "children": []},
+              {"type": "row", "id": "r_s65", "crossAlign": "center", "gap": 4, "height": 28, "padding": {"left": 8, "right": 6}, "radius": 6, "children": [
+                {"type": "image", "id": "m_s61", "name": "Claude Code", "height": 14, "src": "assets/icons/agent-claude.svg", "tint": "$color-muted-foreground", "width": 14},
+                {"type": "text", "id": "t_s62", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Opus 5.5", "weight": 500},
+                {"type": "text", "id": "t_s63", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "High"},
+                {"type": "image", "id": "m_s64", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "$color-muted-foreground", "width": 14}
+              ]},
+              {"type": "row", "id": "r_s67", "name": "Send", "align": "center", "crossAlign": "center", "fill": "$color-primary", "height": 28, "radius": 6, "width": 28, "children": [
+                {"type": "image", "id": "m_s66", "name": "arrow-up", "height": 16, "src": "assets/icons/arrow-up.svg", "tint": "$color-primary-foreground", "width": 16}
+              ]}
+            ]}
+          ]},
+          {"type": "row", "id": "r_s6k", "name": "Composer tray", "padding": {"left": 8, "right": 8}, "width": "fill", "children": [
+            {"type": "row", "id": "r_s6j", "border": {"color": "$color-border", "style": "solid", "width": "0 1px 1px 1px"}, "crossAlign": "center", "fill": "$color-rail", "gap": 4, "height": 30, "padding": {"left": 2, "right": 2}, "radius": "0 0 10px 10px", "width": "fill", "children": [
+              {"type": "row", "id": "r_s6d", "name": "Skills", "crossAlign": "center", "gap": 6, "height": 24, "padding": {"left": 6, "right": 4}, "radius": 6, "children": [
+                {"type": "text", "id": "t_s6a", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Skill"},
+                {"type": "text", "id": "t_s6b", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Ultrapaint", "weight": 500},
+                {"type": "image", "id": "m_s6c", "name": "chevron-down", "height": 12, "src": "assets/icons/chevron-down.svg", "tint": "$color-muted-foreground", "width": 12}
+              ]},
+              {"type": "column", "id": "c_s6e", "name": "Spacer", "height": "fill", "width": "fill", "children": []},
+              {"type": "row", "id": "r_s6i", "name": "Review", "crossAlign": "center", "gap": 6, "height": 24, "padding": {"left": 6, "right": 4}, "radius": 6, "children": [
+                {"type": "text", "id": "t_s6f", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Review"},
+                {"type": "text", "id": "t_s6g", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Standard", "weight": 500},
+                {"type": "image", "id": "m_s6h", "name": "chevron-down", "height": 12, "src": "assets/icons/chevron-down.svg", "tint": "$color-muted-foreground", "width": 12}
+              ]}
+            ]}
+          ]}
+        ]}
+      ]}
+    ]}
+  ]},
+  "version": 1
+}

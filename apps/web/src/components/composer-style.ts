@@ -10,3 +10,7 @@ export const composerBox =
 /** The composer's text: the prompt, or an answer of one's own. */
 export const composerText =
   "field-sizing-content max-h-60 min-h-16 w-full resize-none bg-transparent px-3 pt-2.5 pb-1 font-body outline-none placeholder:text-muted-foreground";
+
+/** A control in the tray under the composer: its muted name, then its value and a chevron. */
+export const trayTrigger =
+  "h-6 min-w-0 shrink gap-1.5 px-1.5 font-body-small text-muted-foreground has-data-[icon=inline-end]:pr-1";

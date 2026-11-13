@@ -285,10 +285,17 @@ refactor and the board view left.
   Thorough (all look, then all check), or Custom for any other settings or a goal (contracts'
   `levelOf`, `withLevel`). A **first look** sends the designer blockers and majors only; the
   **second look** says which of them aren't fixed and adds only new blockers; two rounds at most. Set per project in Settings ›
-  Agents › Review and per design by the composer's **Review chip**.
+  Settings › Review and per design by the **Review chip** in the composer's tray.
 - **Design run**: a design thread's work from the person's prompt to the design approved: its
   plan as **Outline** and **Build** steps and the **review rounds** (`review` items) the editor's
   review loop adds, shown together as the **run card** (web's `design-run.ts`).
+- **Turn card**: how a design chat shows a turn (ADR 0095, web's `thread-turns.ts`): the prompt,
+  one card (the page the turn works on, the run's steps while it goes, the review's line, the
+  agent's **steps** folded and named in words) and the agent's last message, its **answer**.
+  **Show every step** (the person's `everyStep`) shows the transcript as the agent reported it.
+- **Composer tray**: the strip hung under a design chat's composer with its **Skill** picker and
+  its Review chip. A chat's **skills** are the design skills its briefing tells (`Thread.skills`,
+  the project's defaults when absent, none for **No design skill**); `toldSkills` is what was told.
 - **General check**: a rule written once for every screen that code decides on the document or
   the rendered page, with a threshold (ADR 0061): values **off the system** (design-document's
   `offSystemValues`: spacing off the base's steps, a raw radius, colour or type size where a

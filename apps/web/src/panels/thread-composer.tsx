@@ -89,7 +89,7 @@ import { reportError, useProject } from "../state/project.ts";
 import { isSendKey, useSendKey } from "../state/send-key.ts";
 import { useSlashCommands } from "../state/slash-commands.ts";
 import { useSync } from "../state/sync.ts";
-import { ReviewChip } from "./review-level.tsx";
+import { ComposerTray } from "./composer-tray.tsx";
 import { ModelPicker } from "./thread-pickers.tsx";
 import {
   AnswerButtons,
@@ -309,105 +309,107 @@ export const Composer = ({ thread }: { thread: Thread }) => {
       {failed ? (
         <SendFailed busy={busy} message={failed} onRetry={send} />
       ) : null}
-      <FileDropBox
-        className={composerBox}
-        data-composer
-        hint="Drop to attach"
-        onFiles={(dropped) => attachFiles(thread.id, dropped)}
-      >
-        {/* An agent's question is the composer's own top: answered below it, sent from its bar. */}
-        <OpenQuestion answering={answering} threadId={thread.id} />
-        {images.length > 0 ? (
-          <div className="flex flex-wrap gap-2 px-2 pt-2">
-            {images.map((chip) => (
-              <ImageThumb
-                chip={chip}
-                key={chipKey(chip)}
-                onRemove={() => removeChip(thread.id, chipKey(chip))}
-              />
-            ))}
+      <div className="flex flex-col" data-composer-stack>
+        <FileDropBox
+          className={cn(composerBox, "relative z-1")}
+          data-composer
+          hint="Drop to attach"
+          onFiles={(dropped) => attachFiles(thread.id, dropped)}
+        >
+          {/* An agent's question is the composer's own top: answered below it, sent from its bar. */}
+          <OpenQuestion answering={answering} threadId={thread.id} />
+          {images.length > 0 ? (
+            <div className="flex flex-wrap gap-2 px-2 pt-2">
+              {images.map((chip) => (
+                <ImageThumb
+                  chip={chip}
+                  key={chipKey(chip)}
+                  onRemove={() => removeChip(thread.id, chipKey(chip))}
+                />
+              ))}
+            </div>
+          ) : null}
+          {tags.length > 0 || implicit || showShot ? (
+            <div className="flex flex-wrap gap-1 px-2 pt-2">
+              {tags.map((chip) => (
+                <AttachmentChip
+                  chip={chip}
+                  key={chipKey(chip)}
+                  onRemove={() => removeChip(thread.id, chipKey(chip))}
+                />
+              ))}
+              {implicit ? (
+                <AttachmentChip
+                  chip={implicit}
+                  implicit
+                  key={chipKey(implicit)}
+                  onRemove={() => dismissChip(thread.id, chipKey(implicit))}
+                />
+              ) : null}
+              {showShot && page ? (
+                <ChipTag
+                  icon={<Camera />}
+                  name={`Screenshot of ${page.name}`}
+                  onRemove={() => setAttachShot(false)}
+                  tip={`Screenshot of ${page.name}`}
+                />
+              ) : null}
+            </div>
+          ) : null}
+          <CommandList menu={menu} />
+          {answering ? (
+            <AnswerField answering={answering} onKeyDown={onTextKeyDown} />
+          ) : (
+            // The commands' list is the prompt's: the arrows move through it while the caret stays.
+            <textarea
+              aria-activedescendant={menu.activeId}
+              aria-autocomplete="list"
+              aria-controls={menu.id}
+              aria-expanded={menu.offered.length > 0}
+              aria-label="Prompt"
+              className={composerText}
+              onChange={onTextChange}
+              onKeyDown={onTextKeyDown}
+              onPaste={onPaste}
+              placeholder={placeholderOf(running)}
+              ref={field}
+              role="combobox"
+              value={text}
+            />
+          )}
+          {/* Attach at the start; the pickers of how it is done, then Send, at the end. */}
+          <div className="@container flex min-w-0 items-center gap-1 p-2 pt-0">
+            <AttachMenu
+              attachShot={attachShot}
+              onAttachShot={setAttachShot}
+              page={page}
+              selectedChip={selectedChip}
+              threadId={thread.id}
+            />
+            <div className="min-w-1 flex-1" />
+            <ModelPicker thread={thread} />
+            <div className="flex shrink-0 items-center gap-1">
+              {answering ? (
+                <AnswerButtons
+                  answering={answering}
+                  onStop={cancel}
+                  running={running}
+                  threadId={thread.id}
+                />
+              ) : (
+                <SendButtons
+                  busy={busy}
+                  canSend={Boolean(text.trim())}
+                  onSend={send}
+                  onStop={cancel}
+                  running={running}
+                />
+              )}
+            </div>
           </div>
-        ) : null}
-        {tags.length > 0 || implicit || showShot ? (
-          <div className="flex flex-wrap gap-1 px-2 pt-2">
-            {tags.map((chip) => (
-              <AttachmentChip
-                chip={chip}
-                key={chipKey(chip)}
-                onRemove={() => removeChip(thread.id, chipKey(chip))}
-              />
-            ))}
-            {implicit ? (
-              <AttachmentChip
-                chip={implicit}
-                implicit
-                key={chipKey(implicit)}
-                onRemove={() => dismissChip(thread.id, chipKey(implicit))}
-              />
-            ) : null}
-            {showShot && page ? (
-              <ChipTag
-                icon={<Camera />}
-                name={`Screenshot of ${page.name}`}
-                onRemove={() => setAttachShot(false)}
-                tip={`Screenshot of ${page.name}`}
-              />
-            ) : null}
-          </div>
-        ) : null}
-        <CommandList menu={menu} />
-        {answering ? (
-          <AnswerField answering={answering} onKeyDown={onTextKeyDown} />
-        ) : (
-          // The commands' list is the prompt's: the arrows move through it while the caret stays.
-          <textarea
-            aria-activedescendant={menu.activeId}
-            aria-autocomplete="list"
-            aria-controls={menu.id}
-            aria-expanded={menu.offered.length > 0}
-            aria-label="Prompt"
-            className={composerText}
-            onChange={onTextChange}
-            onKeyDown={onTextKeyDown}
-            onPaste={onPaste}
-            placeholder={placeholderOf(running)}
-            ref={field}
-            role="combobox"
-            value={text}
-          />
-        )}
-        {/* Attach at the start; the pickers of how it is done, then Send, at the end. */}
-        <div className="@container flex min-w-0 items-center gap-1 p-2 pt-0">
-          <AttachMenu
-            attachShot={attachShot}
-            onAttachShot={setAttachShot}
-            page={page}
-            selectedChip={selectedChip}
-            threadId={thread.id}
-          />
-          <div className="min-w-1 flex-1" />
-          <ReviewChip thread={thread} />
-          <ModelPicker thread={thread} />
-          <div className="flex shrink-0 items-center gap-1">
-            {answering ? (
-              <AnswerButtons
-                answering={answering}
-                onStop={cancel}
-                running={running}
-                threadId={thread.id}
-              />
-            ) : (
-              <SendButtons
-                busy={busy}
-                canSend={Boolean(text.trim())}
-                onSend={send}
-                onStop={cancel}
-                running={running}
-              />
-            )}
-          </div>
-        </div>
-      </FileDropBox>
+        </FileDropBox>
+        <ComposerTray thread={thread} />
+      </div>
     </div>
   );
 };

@@ -62,6 +62,10 @@ export const purposeFor = (
     : purpose;
 };
 
+/** Two lists of skills' names hold the same ones, in any order. */
+const sameNames = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((name) => b.includes(name));
+
 /** Until the first prompt names it. */
 export const UNTITLED = "New chat";
 
@@ -246,9 +250,12 @@ export const makePromptContent = Effect.fnUntraced(function* () {
   });
 
   /**
-   * What leads a session's first prompt, `text`. A resumed session has the conversation back,
-   * and the briefing with it if anything was ever asked. A new one is told the project, then
-   * what was said before it. `reviewed`: the editor reviews what the thread's turns make.
+   * What leads a session's first prompt, `text`, its `blocks`. A resumed session has the
+   * conversation back, and the briefing with it if anything was ever asked: `briefed` is false.
+   * A new one is told the project, then what was said before it. `reviewed`: the editor reviews
+   * what the thread's turns make. `skills`: the chat's own design skills (`Thread.skills`).
+   * `told`: the design skills the briefing told, by name, the thread's record of them
+   * (`Thread.toldSkills`); absent when it told nothing of them.
    */
   const sessionContext = Effect.fnUntraced(function* (
     resumed: boolean,
@@ -256,10 +263,15 @@ export const makePromptContent = Effect.fnUntraced(function* () {
     purpose: ThreadPurpose,
     tools: boolean,
     text: string,
-    reviewed: boolean
-  ) {
+    reviewed: boolean,
+    skills: readonly string[] | undefined
+  ): Effect.fn.Return<{
+    readonly blocks: readonly ContentBlock[];
+    readonly briefed: boolean;
+    readonly told: readonly string[] | undefined;
+  }> {
     if (resumed && earlier.some((i) => i.kind === "user")) {
-      return [];
+      return { blocks: [], briefed: false, told: undefined };
     }
     // A session started for a task that draws nothing (Map, an implementation's link) is not
     // told how to design well.
@@ -267,12 +279,51 @@ export const makePromptContent = Effect.fnUntraced(function* () {
     const designs =
       parsed?._tag !== "Request" || toldTheDesignSkill(parsed.request);
     const about = briefingEnabled
-      ? yield* briefing.text(purpose, { designs, reviewed, tools })
+      ? yield* briefing.text(purpose, { designs, reviewed, skills, tools })
       : undefined;
+    const told =
+      about !== undefined && purpose === "design" && designs
+        ? yield* briefing.told(skills)
+        : undefined;
     const recap = resumed ? null : recapOf(earlier);
-    return [about, recap].flatMap((said): ContentBlock[] =>
-      said ? [{ text: said, type: "text" }] : []
-    );
+    return {
+      blocks: [about, recap].flatMap((said): ContentBlock[] =>
+        said ? [{ text: said, type: "text" }] : []
+      ),
+      briefed: true,
+      told,
+    };
+  });
+
+  /**
+   * What leads a later prompt of a design thread whose design skills changed since it was told
+   * them (`Thread.toldSkills`, ADR 0095): the skills it chose now, or to stop following any, and
+   * the new record. Null when nothing changed, or its session was told nothing of them.
+   */
+  const skillsChange = Effect.fnUntraced(function* (
+    thread: Thread,
+    tools: boolean,
+    reviewed: boolean
+  ): Effect.fn.Return<{
+    readonly block: ContentBlock;
+    readonly told: readonly string[];
+  } | null> {
+    const before = thread.toldSkills;
+    if (before === undefined || (thread.purpose ?? "design") !== "design") {
+      return null;
+    }
+    const now = yield* briefing.told(thread.skills);
+    if (now === undefined || sameNames(now, before)) {
+      return null;
+    }
+    const note = yield* briefing.changed(now, {
+      method: before.length === 0,
+      reviewed,
+      tools,
+    });
+    return note === undefined
+      ? null
+      : { block: { text: note, type: "text" }, told: now };
   });
 
   /**
@@ -294,5 +345,5 @@ export const makePromptContent = Effect.fnUntraced(function* () {
     return designing ? DESIGN_THREAD_IMPLEMENT : task.text;
   });
 
-  return { attachmentBlocks, sessionContext, taskFor };
+  return { attachmentBlocks, sessionContext, skillsChange, taskFor };
 });

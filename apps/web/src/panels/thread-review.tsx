@@ -182,7 +182,7 @@ const roundTitle = (item: ReviewItem) =>
   `Round ${item.round}${item.closing ? " · all review models" : ""}`;
 
 /** The rounds under the card's Review step, each its title and body. */
-const Rounds = ({ rounds }: { rounds: readonly ReviewItem[] }) => (
+export const Rounds = ({ rounds }: { rounds: readonly ReviewItem[] }) => (
   <ol className="mt-1.5 flex flex-col gap-2.5 border-l pl-3">
     {rounds.map((item) => (
       <li className="flex flex-col gap-1" key={item.id}>
@@ -196,7 +196,7 @@ const Rounds = ({ rounds }: { rounds: readonly ReviewItem[] }) => (
 );
 
 /** One step of the card: its mark, title and how far it came, what it works on under it. */
-const StepRow = ({
+export const StepRow = ({
   children,
   step,
 }: {

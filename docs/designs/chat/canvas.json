@@ -1,0 +1,86 @@
+{
+  "defaults": {
+    "color": "$color-foreground",
+    "fill": "$color-background",
+    "font": "'Figtree Variable', system-ui, sans-serif",
+    "theme": "dark"
+  },
+  "name": "Chat",
+  "routes": {
+    "1-running.page.json": "/1-running",
+    "2-done.page.json": "/2-done",
+    "3-review-open.page.json": "/3-review-open",
+    "4-activity-open.page.json": "/4-activity-open",
+    "5-question.page.json": "/5-question",
+    "6-skill-menu.page.json": "/6-skill-menu",
+    "7-review-menu.page.json": "/7-review-menu",
+    "8-header-menu.page.json": "/8-header-menu",
+    "9-no-skill.page.json": "/9-no-skill"
+  },
+  "frames": {
+    "1-running.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 380,
+      "x": 0,
+      "y": 0
+    },
+    "2-done.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 380,
+      "x": 460,
+      "y": 0
+    },
+    "3-review-open.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 380,
+      "x": 920,
+      "y": 0
+    },
+    "4-activity-open.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 380,
+      "x": 1380,
+      "y": 0
+    },
+    "5-question.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 380,
+      "x": 1840,
+      "y": 0
+    },
+    "6-skill-menu.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 380,
+      "x": 2300,
+      "y": 0
+    },
+    "7-review-menu.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 380,
+      "x": 2760,
+      "y": 0
+    },
+    "8-header-menu.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 380,
+      "x": 3220,
+      "y": 0
+    },
+    "9-no-skill.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 380,
+      "x": 3680,
+      "y": 0
+    }
+  },
+  "version": 1
+}

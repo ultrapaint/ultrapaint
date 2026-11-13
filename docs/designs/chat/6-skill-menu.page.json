@@ -1,0 +1,104 @@
+{
+  "root": {"type": "page", "id": "root", "align": "center", "crossAlign": "center", "direction": "column", "fill": "$color-canvas", "padding": 0, "children": [
+    {"type": "row", "id": "r_sek", "name": "Stage", "align": "center", "crossAlign": "start", "fill": "$color-canvas", "height": "fill", "padding": 20, "width": "fill", "children": [
+      {"type": "column", "id": "c_sej", "name": "Chat panel", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-sidebar", "height": 860, "radius": 12, "width": 340, "children": [
+        {"type": "row", "id": "r_scx", "name": "Header", "border": {"color": "$color-border", "style": "solid", "width": "0 0 1px 0"}, "crossAlign": "center", "gap": 4, "height": 44, "padding": {"left": 6, "right": 8}, "width": "fill", "children": [
+          {"type": "row", "id": "r_scs", "name": "Icon button · All chats", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+            {"type": "image", "id": "m_scr", "name": "chevron-left", "height": 16, "src": "assets/icons/chevron-left.svg", "tint": "$color-muted-foreground", "width": 16}
+          ]},
+          {"type": "row", "id": "r_scu", "crossAlign": "center", "gap": 6, "width": "fill", "children": [
+            {"type": "text", "id": "t_sct", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "level": 3, "lineHeight": "20px", "role": "heading", "size": 14, "text": "Redesign the pricing page", "tracking": "0.02em", "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_scw", "name": "Icon button · More", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+            {"type": "image", "id": "m_scv", "name": "ellipsis", "height": 16, "src": "assets/icons/ellipsis.svg", "tint": "$color-muted-foreground", "width": 16}
+          ]}
+        ]},
+        {"type": "column", "id": "c_seh", "name": "Transcript", "align": "end", "gap": 12, "height": "fill", "padding": {"bottom": 12, "left": 12, "right": 12, "top": 12}, "width": "fill", "children": [
+          {"type": "column", "id": "c_scz", "name": "Agent’s answer", "gap": 8, "width": "fill", "children": [
+            {"type": "text", "id": "t_scy", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Three plans now, with Pro raised as the one most teams pick, a five-question FAQ and a shorter footer. All three review models approved it after one round of fixes."}
+          ]},
+          {"type": "row", "id": "r_sdr", "width": "fill", "children": [
+            {"type": "column", "id": "c_sdq", "name": "Menu", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-popover", "gap": 0, "padding": 4, "radius": 10, "shadow": "0 2px 6px rgba(0,0,0,0.35), 0 12px 32px -6px rgba(0,0,0,0.55)", "width": 300, "children": [
+              {"type": "row", "id": "r_sd1", "crossAlign": "center", "height": 24, "padding": {"left": 8, "right": 8}, "width": "fill", "children": [
+                {"type": "text", "id": "t_sd0", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Design skills"}
+              ]},
+              {"type": "row", "id": "r_sd8", "name": "Item · Ultrapaint", "crossAlign": "start", "gap": 8, "minHeight": 28, "padding": {"bottom": 6, "left": 8, "right": 8, "top": 6}, "radius": 6, "width": "fill", "children": [
+                {"type": "row", "id": "r_sd3", "crossAlign": "center", "height": 20, "width": 16, "children": [
+                  {"type": "image", "id": "m_sd2", "name": "check", "height": 14, "src": "assets/icons/check.svg", "tint": "$color-foreground", "width": 14}
+                ]},
+                {"type": "column", "id": "c_sd6", "gap": 0, "width": "fill", "children": [
+                  {"type": "text", "id": "t_sd4", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Ultrapaint", "weight": 500},
+                  {"type": "text", "id": "t_sd5", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "How to design an interface well: the rules and the method"}
+                ]},
+                {"type": "text", "id": "t_sd7", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Default"}
+              ]},
+              {"type": "row", "id": "r_sdd", "name": "Item · Brand voice", "crossAlign": "start", "gap": 8, "minHeight": 28, "padding": {"bottom": 6, "left": 8, "right": 8, "top": 6}, "radius": 6, "width": "fill", "children": [
+                {"type": "row", "id": "r_sd9", "crossAlign": "center", "height": 20, "width": 16, "children": []},
+                {"type": "column", "id": "c_sdc", "gap": 0, "width": "fill", "children": [
+                  {"type": "text", "id": "t_sda", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Brand voice", "weight": 500},
+                  {"type": "text", "id": "t_sdb", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "How our copy sounds: short, plain, no exclamation marks"}
+                ]}
+              ]},
+              {"type": "row", "id": "r_sdf", "padding": {"bottom": 4, "top": 4}, "width": "fill", "children": [
+                {"type": "row", "id": "r_sde", "name": "Hairline", "fill": "$color-border", "height": 1, "width": "fill", "children": []}
+              ]},
+              {"type": "row", "id": "r_sdk", "name": "Item · No design skill", "crossAlign": "start", "fill": "$color-accent", "gap": 8, "minHeight": 28, "padding": {"bottom": 6, "left": 8, "right": 8, "top": 6}, "radius": 6, "width": "fill", "children": [
+                {"type": "row", "id": "r_sdg", "crossAlign": "center", "height": 20, "width": 16, "children": []},
+                {"type": "column", "id": "c_sdj", "gap": 0, "width": "fill", "children": [
+                  {"type": "text", "id": "t_sdh", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "No design skill", "weight": 500},
+                  {"type": "text", "id": "t_sdi", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "For a question or code: the agent gets no design rules"}
+                ]}
+              ]},
+              {"type": "row", "id": "r_sdm", "padding": {"bottom": 4, "top": 4}, "width": "fill", "children": [
+                {"type": "row", "id": "r_sdl", "name": "Hairline", "fill": "$color-border", "height": 1, "width": "fill", "children": []}
+              ]},
+              {"type": "row", "id": "r_sdp", "name": "Item · Skill settings…", "crossAlign": "center", "gap": 8, "minHeight": 28, "padding": {"bottom": 0, "left": 8, "right": 8, "top": 0}, "radius": 6, "width": "fill", "children": [
+                {"type": "column", "id": "c_sdo", "gap": 0, "width": "fill", "children": [
+                  {"type": "text", "id": "t_sdn", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Skill settings…", "weight": 500}
+                ]}
+              ]}
+            ]}
+          ]}
+        ]},
+        {"type": "column", "id": "c_sei", "name": "Bottom", "gap": 0, "padding": {"bottom": 8, "left": 8, "right": 8}, "width": "fill", "children": [
+          {"type": "column", "id": "c_se5", "name": "Composer", "border": {"color": "$color-input", "style": "solid", "width": 1}, "fill": "$color-muted", "radius": 12, "width": "fill", "children": [
+            {"type": "column", "id": "c_sdt", "minHeight": 52, "padding": {"bottom": 4, "left": 12, "right": 12, "top": 10}, "width": "fill", "children": [
+              {"type": "text", "id": "t_sds", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Describe a change, or type / for commands…", "width": "fill"}
+            ]},
+            {"type": "row", "id": "r_se4", "crossAlign": "center", "gap": 4, "padding": {"bottom": 8, "left": 8, "right": 8}, "width": "fill", "children": [
+              {"type": "row", "id": "r_sdv", "name": "Icon button · Attach", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+                {"type": "image", "id": "m_sdu", "name": "paperclip", "height": 16, "src": "assets/icons/paperclip.svg", "tint": "$color-muted-foreground", "width": 16}
+              ]},
+              {"type": "column", "id": "c_sdw", "name": "Spacer", "height": "fill", "width": "fill", "children": []},
+              {"type": "row", "id": "r_se1", "crossAlign": "center", "gap": 4, "height": 28, "padding": {"left": 8, "right": 6}, "radius": 6, "children": [
+                {"type": "image", "id": "m_sdx", "name": "Claude Code", "height": 14, "src": "assets/icons/agent-claude.svg", "tint": "$color-muted-foreground", "width": 14},
+                {"type": "text", "id": "t_sdy", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Opus 5.5", "weight": 500},
+                {"type": "text", "id": "t_sdz", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "High"},
+                {"type": "image", "id": "m_se0", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "$color-muted-foreground", "width": 14}
+              ]},
+              {"type": "row", "id": "r_se3", "name": "Send", "align": "center", "crossAlign": "center", "fill": "$color-primary", "height": 28, "radius": 6, "width": 28, "children": [
+                {"type": "image", "id": "m_se2", "name": "arrow-up", "height": 16, "src": "assets/icons/arrow-up.svg", "tint": "$color-primary-foreground", "width": 16}
+              ]}
+            ]}
+          ]},
+          {"type": "row", "id": "r_seg", "name": "Composer tray", "padding": {"left": 8, "right": 8}, "width": "fill", "children": [
+            {"type": "row", "id": "r_sef", "border": {"color": "$color-border", "style": "solid", "width": "0 1px 1px 1px"}, "crossAlign": "center", "fill": "$color-rail", "gap": 4, "height": 30, "padding": {"left": 2, "right": 2}, "radius": "0 0 10px 10px", "width": "fill", "children": [
+              {"type": "row", "id": "r_se9", "name": "Skills", "crossAlign": "center", "fill": "$color-accent", "gap": 6, "height": 24, "padding": {"left": 6, "right": 4}, "radius": 6, "children": [
+                {"type": "text", "id": "t_se6", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Skill"},
+                {"type": "text", "id": "t_se7", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Ultrapaint", "weight": 500},
+                {"type": "image", "id": "m_se8", "name": "chevron-down", "height": 12, "src": "assets/icons/chevron-down.svg", "tint": "$color-muted-foreground", "width": 12}
+              ]},
+              {"type": "column", "id": "c_sea", "name": "Spacer", "height": "fill", "width": "fill", "children": []},
+              {"type": "row", "id": "r_see", "name": "Review", "crossAlign": "center", "gap": 6, "height": 24, "padding": {"left": 6, "right": 4}, "radius": 6, "children": [
+                {"type": "text", "id": "t_seb", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Review"},
+                {"type": "text", "id": "t_sec", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Standard", "weight": 500},
+                {"type": "image", "id": "m_sed", "name": "chevron-down", "height": 12, "src": "assets/icons/chevron-down.svg", "tint": "$color-muted-foreground", "width": 12}
+              ]}
+            ]}
+          ]}
+        ]}
+      ]}
+    ]}
+  ]},
+  "version": 1
+}

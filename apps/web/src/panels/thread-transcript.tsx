@@ -474,7 +474,7 @@ const Plan = ({ item }: { item: PlanItem }) => (
   </div>
 );
 
-const Item = ({
+export const Item = ({
   item,
   streaming,
   threadId,

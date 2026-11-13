@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import "../testing/fake-browser.ts";
 import { RequestError } from "@ultrapaint/client-runtime/connection";
+import type { Skill } from "@ultrapaint/contracts/skills";
 import type { QueuedPrompt, Thread } from "@ultrapaint/contracts/threads";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -10,6 +11,7 @@ import { useAgents } from "../state/agents.ts";
 import { addChip, useAttachments } from "../state/attachments.ts";
 import { useDrafts } from "../state/drafts.ts";
 import { showLeftPanel } from "../state/panels.ts";
+import { useSkills } from "../state/skills.ts";
 import { useSlashCommands } from "../state/slash-commands.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { Composer } from "./thread-composer.tsx";
@@ -86,8 +88,19 @@ afterEach(() => {
   useAttachments.setState({ byThread: {} });
   useDrafts.setState({ byThread: {} });
   useSlashCommands.setState({ commands: [], loaded: false });
+  useSkills.setState({ loaded: false, skills: [] });
   useAgents.setState({ current: null, view: "list" });
 });
+
+/** The design skill the tool ships, on as the project's default. */
+const designSkill: Skill = {
+  enabled: true,
+  name: "ultrapaint",
+  source: "built-in",
+  summary: "Interface design rules",
+  text: "# Ultrapaint",
+  title: "Ultrapaint",
+};
 
 /** The thread with no turn running, where Send sends at once. */
 const idle: Thread = { ...thread, queued: [], status: "idle" };
@@ -180,9 +193,9 @@ describe("Send", () => {
     });
     const alert = container.querySelector("[role='alert']");
     expect(alert?.textContent).toContain("The agent is gone");
-    // Right over the composer, which stays where it was.
+    // Right over the composer and its tray, which stay where they were.
     expect(
-      container.querySelector("[data-composer]")?.previousElementSibling
+      container.querySelector("[data-composer-stack]")?.previousElementSibling
     ).toBe(alert);
     expect(prompt()?.value).toBe("Make the header taller");
     await act(async () => {
@@ -196,15 +209,36 @@ describe("Send", () => {
   });
 });
 
+/** The labels of the buttons under `selector`, up to their colon. */
+const buttonNames = (selector: string) =>
+  [...container.querySelectorAll<HTMLButtonElement>(selector)].map(
+    (b) => b.getAttribute("aria-label")?.split(":")[0]
+  );
+
 describe("the composer's bar", () => {
-  it("has Attach at its start, then Review, the model and Send at its end", () => {
+  it("has Attach at its start, then the model and Send at its end", () => {
     show(idle);
-    const names = [
-      ...container.querySelectorAll<HTMLButtonElement>(
-        "[data-composer] button[aria-label]"
-      ),
-    ].map((b) => b.getAttribute("aria-label")?.split(":")[0]);
-    expect(names).toEqual(["Attach", "Review", "Agent and model", "Send"]);
+    expect(buttonNames("[data-composer] button[aria-label]")).toEqual([
+      "Attach",
+      "Agent and model",
+      "Send",
+    ]);
+  });
+
+  it("hangs a tray under it with the chat's design skills, then its review", () => {
+    act(() => useSkills.setState({ loaded: true, skills: [designSkill] }));
+    show(idle);
+    expect(
+      buttonNames("[data-composer-stack] > :last-child button[aria-label]")
+    ).toEqual(["Design skills", "Review"]);
+  });
+
+  it("has no tray in a chat that writes the code", () => {
+    act(() => useSkills.setState({ loaded: true, skills: [designSkill] }));
+    show({ ...idle, purpose: "implement" });
+    expect(
+      container.querySelector("[data-composer-stack]")?.children
+    ).toHaveLength(1);
   });
 });
 

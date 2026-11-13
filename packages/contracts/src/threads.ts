@@ -347,6 +347,12 @@ export const Thread = Schema.Struct({
   sandboxed: Schema.optional(Schema.Boolean),
   scope: Schema.optional(ThreadScope),
   sessionId: Schema.optional(Schema.String),
+  /**
+   * The design skills this chat is told, from the composer's Skill picker (ADR 0095): `ultrapaint`
+   * for the design skill, a project's own skill by its file's repo-relative path. Empty, the chat
+   * is told no design skill and works as a plain agent. Absent, the project's defaults hold.
+   */
+  skills: Schema.optional(Schema.Array(Schema.String)),
   status: ThreadStatus,
   /**
    * The thread's last line and whether it waits on the user, for the list of threads. Derived
@@ -356,6 +362,13 @@ export const Thread = Schema.Struct({
     Schema.Struct({ text: Schema.String, waiting: Schema.Boolean })
   ),
   title: Schema.String,
+  /**
+   * The server's record of the design skills this chat's agent was last told, by the names
+   * `skills` uses: by its session's briefing, then by the note a later prompt leads with when the
+   * chat's skills changed. Absent when its session was told nothing of them (an implement thread,
+   * a task that draws nothing, no briefing).
+   */
+  toldSkills: Schema.optional(Schema.Array(Schema.String)),
   updatedAt: Schema.Number,
 });
 export type Thread = typeof Thread.Type;

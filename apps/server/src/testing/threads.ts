@@ -10,6 +10,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { NotConfigured } from "@ultrapaint/contracts/errors";
 import { defaultSettings, type Settings } from "@ultrapaint/contracts/settings";
+import { DESIGN_SKILL } from "@ultrapaint/contracts/skills";
 import { parseCommand, taskPurpose } from "@ultrapaint/contracts/tasks";
 import type {
   PromptInput,
@@ -62,6 +63,10 @@ export class ThreadFixture extends Context.Service<
  */
 export const briefingFor = (purpose: string, tools = false, reviewed = true) =>
   `<ultrapaint>\nThe project, for a ${purpose} thread${tools ? ", with the editor's tools" : ""}${reviewed ? "" : ", not reviewed"}.\n</ultrapaint>`;
+
+/** What the scripted briefing's thread is told once its design skills change to `skills`. */
+export const skillsNoteFor = (skills: readonly string[]) =>
+  `<ultrapaint-skills>${skills.length === 0 ? "none" : skills.join(", ")}</ultrapaint-skills>`;
 
 /**
  * The fixture's project closed, as saving other settings closes it, and opened again: every
@@ -202,6 +207,7 @@ const commands = Layer.effect(
 const briefing = Layer.succeed(
   ProjectBriefing,
   ProjectBriefing.of({
+    changed: (skills) => Effect.succeed(skillsNoteFor(skills)),
     text: (purpose, options = {}) =>
       Effect.succeed(
         briefingFor(
@@ -211,6 +217,8 @@ const briefing = Layer.succeed(
           purpose !== "design" || options.reviewed !== false
         )
       ),
+    // The project's default is the design skill; a choice is told as it names.
+    told: (skills) => Effect.succeed(skills ?? [DESIGN_SKILL]),
   })
 );
 

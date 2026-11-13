@@ -685,6 +685,14 @@ const requestRpcs = [
     error: ThreadError,
     payload: { ...ThreadRef, review: Schema.NullOr(ReviewSettings) },
   }),
+  /** The chat's own design skills from the composer's Skill picker; null goes back to the project's. */
+  Rpc.make("threads.setSkills", {
+    error: ThreadError,
+    payload: {
+      ...ThreadRef,
+      skills: Schema.NullOr(Schema.Array(Schema.String)),
+    },
+  }),
   Rpc.make("threads.setConfigOption", {
     error: ThreadError,
     payload: { ...ThreadRef, optionId: Schema.String, value: Schema.String },
