@@ -10,8 +10,9 @@
  * its dependency tree is large, and only this script needs it.
  */
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { NAME, shippedLauncherScript } from "../src/launcher.ts";
 import { appDir, desktopDir, version } from "./parts.ts";
 
 const ELECTRON_BUILDER = "electron-builder@26.18.0";
@@ -42,6 +43,18 @@ const icon = path.join(desktopDir, "resources", "icon.png");
  */
 const macIcon = path.join(desktopDir, "resources", "icon.icon");
 
+const productName = "Ultrapaint";
+
+/**
+ * The `ultrapaint` command the macOS app ships, at `Contents/Resources/bin/ultrapaint`, which the
+ * Homebrew cask links onto the PATH (ADR 0088). electron-builder names the app's executable after
+ * the product (`CFBundleExecutable`), and keeps the launcher's mode.
+ */
+const shippedLauncher = path.join(desktopDir, "build", "bin", NAME);
+mkdirSync(path.dirname(shippedLauncher), { recursive: true });
+writeFileSync(shippedLauncher, shippedLauncherScript(productName));
+chmodSync(shippedLauncher, 0o755);
+
 const config = {
   appId: "dev.ultrapaint.desktop",
   artifactName: `ultrapaint-${placeholder("version")}-${placeholder("os")}-${placeholder("arch")}.${placeholder("ext")}`,
@@ -67,6 +80,7 @@ const config = {
   },
   mac: {
     category: "public.app-category.developer-tools",
+    extraResources: [{ from: shippedLauncher, to: `bin/${NAME}` }],
     hardenedRuntime: false,
     icon: macIcon,
     // Unsigned until there is an Apple Developer account (PLAN-desktop, open questions).
@@ -75,7 +89,7 @@ const config = {
   },
   // `stage.ts` installs nothing beside the app's parts: there is nothing to rebuild.
   npmRebuild: false,
-  productName: "Ultrapaint",
+  productName,
   // Where the update feed points; the workflow uploads, so electron-builder never publishes.
   publish: { owner: "ultrapaint", provider: "github", repo: "ultrapaint" },
 };

@@ -7,6 +7,9 @@
  *
  * In an AppImage the app's files are in a mount that moves on every run, so the launcher runs the
  * AppImage itself and finds the server under `$APPDIR`, which the AppImage sets.
+ *
+ * The macOS app also ships a launcher of its own, which Homebrew links onto the PATH (ADR 0088):
+ * that command is found here as the app's, and none is written beside it.
  */
 import type { InstalledCommand } from "@ultrapaint/contracts/shell-bridge";
 import {
@@ -20,62 +23,20 @@ import {
 } from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { runCommand } from "./command.ts";
+import {
+  type CommandApp,
+  launcherScript,
+  MARK,
+  NAME,
+  quoted,
+  SHIPPED,
+} from "./launcher.ts";
 import { LoginShell } from "./login-shell.ts";
-
-/** Says the launcher is this app's: a second install writes over it, another is left alone. */
-const MARK = "# The ultrapaint command of the Ultrapaint app (ADR 0083).";
-const NAME = "ultrapaint";
-
-/** Where the app's server is, as the launcher runs it. */
-export type CommandApp =
-  | {
-      readonly _tag: "Bundle";
-      /** Electron's binary, run as Node. */
-      readonly executable: string;
-      readonly serverBin: string;
-      readonly webDist: string;
-    }
-  | {
-      readonly _tag: "AppImage";
-      readonly appImage: string;
-      /** The server's bundle and the editor's build, from the mount's root. */
-      readonly serverBin: string;
-      readonly webDist: string;
-    };
 
 export class CommandInstallError extends Schema.TaggedError<CommandInstallError>()(
   "CommandInstallError",
   { message: Schema.String }
 ) {}
-
-/** A path inside single quotes for `sh`. */
-const quoted = (text: string) => `'${text.replaceAll("'", `'\\''`)}'`;
-
-/**
- * The launcher: the server's bundle run as Node, the editor's build for it to serve, and the
- * launcher itself as the way `ultrapaint mcp` starts a project's server (`ULTRAPAINT_SERVE`).
- */
-export const launcherScript = (app: CommandApp, at: string) => {
-  const serve = quoted(JSON.stringify([at]));
-  if (app._tag === "Bundle") {
-    return `#!/bin/sh
-${MARK}
-export ELECTRON_RUN_AS_NODE=1
-export ULTRAPAINT_WEB_DIST=${quoted(app.webDist)}
-export ULTRAPAINT_SERVE=${serve}
-exec ${quoted(app.executable)} ${quoted(app.serverBin)} "$@"
-`;
-  }
-  // Node's -e leaves the arguments after the code where a script's would be, from argv[1]: the
-  // server's own name goes back in front of them.
-  const start = `process.argv.splice(1, 0, ${JSON.stringify(NAME)}); process.env.ULTRAPAINT_WEB_DIST = process.env.APPDIR + ${JSON.stringify(`/${app.webDist}`)}; import(process.env.APPDIR + ${JSON.stringify(`/${app.serverBin}`)});`;
-  return `#!/bin/sh
-${MARK}
-export ELECTRON_RUN_AS_NODE=1
-export ULTRAPAINT_SERVE=${serve}
-exec ${quoted(app.appImage)} -e ${quoted(start)} "$@"
-`;
-};
 
 /** The folders on a PATH, in its order. */
 const pathFolders = (pathVariable: string) =>
@@ -108,17 +69,21 @@ export class CommandLine extends Context.Service<
             Effect.as(true),
             Effect.orElseSucceed(() => false)
           );
-        const ours = (file: string) =>
+        /** Whose launcher it is, read through the links that lead to it. */
+        const whose = (file: string) =>
           fs.readFileString(file).pipe(
-            Effect.map((text) => text.includes(MARK)),
-            Effect.orElseSucceed(() => false)
+            Effect.map((text) => ({
+              ours: text.includes(MARK),
+              shipped: text.includes(SHIPPED),
+            })),
+            Effect.orElseSucceed(() => ({ ours: false, shipped: false }))
           );
 
         const installed = Effect.gen(function* () {
           for (const folder of folders) {
             const file = path.join(folder, NAME);
             if (yield* exists(file)) {
-              return { onPath: true, ours: yield* ours(file), path: file };
+              return { onPath: true, path: file, ...(yield* whose(file)) };
             }
           }
           return null;
@@ -167,6 +132,12 @@ export class CommandLine extends Context.Service<
           }).pipe(Effect.scoped);
 
         const install = Effect.gen(function* () {
+          // A link to the launcher the app ships (Homebrew's) follows the app: none goes beside
+          // it. A launcher the app wrote is written again, for an app that moved.
+          const present = yield* installed;
+          if (present?.shipped) {
+            return present;
+          }
           // A folder the user can write that agents find on the PATH.
           const preferred = [
             path.join(options.home, ".local", "bin"),
@@ -178,7 +149,7 @@ export class CommandLine extends Context.Service<
             if (folders.includes(folder) && (yield* writable(folder))) {
               const file = path.join(folder, NAME);
               yield* writeAt(file);
-              return { onPath: true, ours: true, path: file };
+              return { onPath: true, ours: true, path: file, shipped: false };
             }
           }
           if (options.platform === "darwin") {
@@ -188,13 +159,14 @@ export class CommandLine extends Context.Service<
               onPath: folders.includes("/usr/local/bin"),
               ours: true,
               path: file,
+              shipped: false,
             };
           }
           // Elsewhere the usual folder for a user's own commands, which the person adds to the
           // PATH if their shell does not.
           const file = path.join(options.home, ".local", "bin", NAME);
           yield* writeAt(file);
-          return { onPath: false, ours: true, path: file };
+          return { onPath: false, ours: true, path: file, shipped: false };
         }).pipe(
           Effect.catchTags({
             PlatformError: (error) =>

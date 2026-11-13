@@ -2,12 +2,12 @@ import { execFileSync } from "node:child_process";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, FileSystem, Layer, Option, Path } from "effect";
+import { CommandLine, commandApp } from "./command-line.ts";
 import {
   type CommandApp,
-  CommandLine,
-  commandApp,
   launcherScript,
-} from "./command-line.ts";
+  shippedLauncherScript,
+} from "./launcher.ts";
 import { LoginShell } from "./login-shell.ts";
 
 /** A stand-in for the server's bundle: says what it was given. */
@@ -47,6 +47,7 @@ describe("the ultrapaint command the app installs (ADR 0083)", () => {
           onPath: true,
           ours: true,
           path: file,
+          shipped: false,
         });
         assert.deepStrictEqual(yield* commandLine.installed, installed);
         const info = yield* fs.stat(file);
@@ -72,6 +73,7 @@ describe("the ultrapaint command the app installs (ADR 0083)", () => {
           onPath: true,
           ours: false,
           path: path.join(other, "ultrapaint"),
+          shipped: false,
         });
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
   );
@@ -88,8 +90,67 @@ describe("the ultrapaint command the app installs (ADR 0083)", () => {
           onPath: false,
           ours: true,
           path: path.join(home, ".local", "bin", "ultrapaint"),
+          shipped: false,
         });
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
+    "is Homebrew's link to the launcher the app ships, and writes none beside it (ADR 0088)",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const home = yield* fs.makeTempDirectoryScoped();
+        const bin = path.join(home, ".local", "bin");
+        yield* fs.makeDirectory(bin, { recursive: true });
+        const shipped = path.join(
+          home,
+          "Ultrapaint.app",
+          "Contents",
+          "Resources",
+          "bin"
+        );
+        yield* fs.makeDirectory(shipped, { recursive: true });
+        yield* fs.writeFileString(
+          path.join(shipped, "ultrapaint"),
+          shippedLauncherScript("Ultrapaint")
+        );
+        const brew = path.join(home, "homebrew", "bin");
+        yield* fs.makeDirectory(brew, { recursive: true });
+        yield* fs.symlink(
+          path.join(shipped, "ultrapaint"),
+          path.join(brew, "ultrapaint")
+        );
+        const commandLine = yield* install(home, `${bin}:${brew}`, BUNDLE);
+        const linked = {
+          onPath: true,
+          ours: true,
+          path: path.join(brew, "ultrapaint"),
+          shipped: true,
+        };
+        assert.deepStrictEqual(yield* commandLine.installed, linked);
+        assert.deepStrictEqual(yield* commandLine.install, linked);
+        assert.isFalse(yield* fs.exists(path.join(bin, "ultrapaint")));
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect("writes the launcher it wrote again, for an app that moved", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const home = yield* fs.makeTempDirectoryScoped();
+      const bin = path.join(home, ".local", "bin");
+      yield* fs.makeDirectory(bin, { recursive: true });
+      const file = path.join(bin, "ultrapaint");
+      yield* fs.writeFileString(
+        file,
+        launcherScript({ ...BUNDLE, executable: "/moved/Ultrapaint" }, file)
+      );
+      const commandLine = yield* install(home, bin, BUNDLE);
+      yield* commandLine.install;
+      assert.include(yield* fs.readFileString(file), process.execPath);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
   );
 
   it.effect(

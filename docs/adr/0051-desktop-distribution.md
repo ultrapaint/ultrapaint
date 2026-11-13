@@ -1,7 +1,7 @@
 # ADR 0051: The desktop app ships with each release, unsigned
 
 Status: accepted, 2026-11-03. Carries out PLAN-desktop D14 and D15 now that the repository is
-public. How the macOS app and an AppImage update: amended by 0078.
+public. How the macOS app and an AppImage update: amended by 0078. What the cask installs: amended by 0088.
 
 ## Context
 

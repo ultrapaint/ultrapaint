@@ -81,6 +81,7 @@ describe("Settings › Agents › Connect over MCP (ADR 0083)", () => {
         onPath: false,
         ours: true,
         path: "/home/u/.local/bin/ultrapaint",
+        shipped: false,
       });
       await Promise.resolve();
     });
@@ -91,11 +92,60 @@ describe("Settings › Agents › Connect over MCP (ADR 0083)", () => {
 
   it("says nothing more where the command is there already", async () => {
     withCommand(
-      { onPath: true, ours: false, path: "/home/u/.local/bin/ultrapaint" },
+      {
+        onPath: true,
+        ours: false,
+        path: "/home/u/.local/bin/ultrapaint",
+        shipped: false,
+      },
       () => Promise.reject(new Error("not asked"))
     );
     await render();
     await act(() => Promise.resolve());
     expect(button("Install the command")).toBeUndefined();
+    expect(container.textContent).not.toContain("installed at");
+  });
+
+  it("says where Homebrew linked the app's command, and offers no second one (ADR 0088)", async () => {
+    withCommand(
+      {
+        onPath: true,
+        ours: true,
+        path: "/opt/homebrew/bin/ultrapaint",
+        shipped: true,
+      },
+      () => Promise.reject(new Error("not asked"))
+    );
+    await render();
+    await act(() => Promise.resolve());
+    expect(container.textContent).toContain(
+      "The command is installed at /opt/homebrew/bin/ultrapaint, linked to this app."
+    );
+    expect(button("Install the command")).toBeUndefined();
+    expect(button("Install again")).toBeUndefined();
+  });
+
+  it("says where the app's own command is, with the way to write it again", async () => {
+    let installs = 0;
+    const own = {
+      onPath: true,
+      ours: true,
+      path: "/home/u/.local/bin/ultrapaint",
+      shipped: false,
+    };
+    withCommand(own, () => {
+      installs += 1;
+      return Promise.resolve(own);
+    });
+    await render();
+    await act(() => Promise.resolve());
+    expect(container.textContent).toContain(
+      "The command is installed at /home/u/.local/bin/ultrapaint."
+    );
+    await act(async () => {
+      button("Install again")?.click();
+      await Promise.resolve();
+    });
+    expect(installs).toBe(1);
   });
 });

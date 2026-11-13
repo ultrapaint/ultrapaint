@@ -1,7 +1,8 @@
 # ADR 0083: An agent outside the editor reaches a project by its folder, through `ultrapaint mcp`
 
 Status: accepted, 2026-11-12. Amends 0014 (how an agent outside the editor connects) and 0031
-(a server the app did not start).
+(a server the app did not start). How the command gets on the PATH on macOS: amended by
+0088.
 
 ## Context
 

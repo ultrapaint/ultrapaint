@@ -299,14 +299,18 @@ const state = <Value extends Schema.Constraint>(
 
 /**
  * The `ultrapaint` command an agent outside the editor starts (`ultrapaint mcp`, ADR 0083): where
- * it is found on the PATH, and whether it is the one this app installed (a checkout links its
- * own).
+ * it is found on the PATH, and whether it is the app's (a checkout links its own).
  */
 export const InstalledCommand = Schema.Struct({
   /** Whether the folder it is in is on the PATH agents get; a new terminal is then needed. */
   onPath: Schema.Boolean,
   ours: Schema.Boolean,
   path: Schema.String,
+  /**
+   * A link to the launcher the macOS app ships, which Homebrew makes (ADR 0088): it follows the
+   * app, and the app writes none beside it.
+   */
+  shipped: Schema.Boolean,
 });
 export type InstalledCommand = typeof InstalledCommand.Type;
 

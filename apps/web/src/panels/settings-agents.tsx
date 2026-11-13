@@ -150,7 +150,7 @@ const CommandStatus = () => {
       </RowMessage>
     );
   }
-  if (installed) {
+  if (installed && !installed.ours) {
     return null;
   }
   const install = () => {
@@ -163,6 +163,30 @@ const CommandStatus = () => {
       )
       .finally(() => setInstalling(false));
   };
+  // The app's command is there: where it is, and, for one the app wrote, the way to write it
+  // again (for an app that moved). Homebrew's link follows the app (ADR 0088).
+  if (installed && !problem) {
+    return (
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-body-small text-muted-foreground">
+        <p className="min-w-0">
+          The command is installed at{" "}
+          <code className="font-code">{installed.path}</code>
+          {installed.shipped ? ", linked to this app." : "."}
+        </p>
+        {installed.shipped ? null : (
+          <Button
+            disabled={installing}
+            onClick={install}
+            size="sm"
+            variant="ghost"
+          >
+            {installing ? <Spinner /> : null}
+            Install again
+          </Button>
+        )}
+      </div>
+    );
+  }
   return (
     <RowMessage kind={problem ? "error" : "notice"}>
       <p>
