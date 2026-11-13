@@ -33,6 +33,11 @@ message is the end of work you started, not a prompt ADR 0074 rules out. Put "‚è
 thread's title while the job runs and take it off in the turn its message starts; never end a
 turn on "check back later".
 
+A task is done in its own worktree, under `~/.t3/worktrees/ultrapaint/`, and lands on `main`
+by a rebase on `origin/main`, the checks and `git push origin HEAD:main`, with no PR
+(`docs/development.md`, "Working in parallel"). `~/Code/ultrapaint/ultrapaint` is the clone
+that stays on `main`, and is never edited directly.
+
 A change is done when `pnpm typecheck`, `pnpm test` and `pnpm lint` pass (`pnpm format` fixes
 what lint can). Its commit message is `type: ` and the behaviour as it now is, in one sentence,
 naming the ADR it follows: `feat: the design skill has two jobs (ADR 0049): ‚Ä¶`.

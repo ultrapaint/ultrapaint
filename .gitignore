@@ -11,4 +11,4 @@ coverage
 apps/desktop/build
 apps/desktop/release
 # Claude Code's worktrees: checkouts of this repository, each with a root biome.json.
-.claude/worktrees
+.claude/worktrees/

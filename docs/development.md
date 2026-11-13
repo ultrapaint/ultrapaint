@@ -9,7 +9,8 @@ pnpm test && pnpm typecheck && pnpm lint
 ```
 
 `pnpm dev` is `ultrapaint --dev` run from the checkout, with ports in 4600–4679 derived from the
-checkout's path so several worktrees, and the installed command on 4770, run side by side. It
+checkout's path, or the next free pair when those are taken, so several worktrees, and the
+installed command on 4770, run side by side (`ULTRAPAINT_PORT` and `ULTRAPAINT_WEB_PORT` win). It
 keeps its settings in `~/.ultrapaint` unless it is given `--config` or `--ephemeral`. Read
 [`AGENTS.md`](../AGENTS.md) before writing server code.
 
@@ -21,6 +22,36 @@ command `ultrapaint --dev`. The editor reloads and the server restarts as files 
 `pnpm pack:local` makes the package a release carries, in `dist/ultrapaint-<version>.tgz`. A
 release is made by hand: the **Release** workflow in the Actions tab raises the version in
 `package.json`, tags it and attaches the package.
+
+## Working in parallel
+
+Every task runs in a worktree of its own ([ADR 0089](adr/0089-a-task-runs-in-a-worktree-of-its-own.md)):
+
+```
+~/Code/ultrapaint/                      a plain folder, not a repository
+  ultrapaint/                           the clone: always on main, never edited
+~/.t3/worktrees/ultrapaint/<branch>/    a task: a worktree on its own branch
+~/Code/ultrapaint-data/                 the evals' data
+```
+
+- **`~/Code/ultrapaint/ultrapaint`** is the T3 project. It stays on `main`, T3's `autoPull` keeps
+  it at `origin/main`, and nobody edits it. A commit made in any worktree is in its `.git` at once.
+- **A task** is a T3 thread in worktree mode, on a `t3/<name>` branch from `origin/main`, in
+  `~/.t3/worktrees/ultrapaint/<branch>/`.
+- **A worktree has of its own** its `node_modules`, installed by T3's setup script
+  (`pnpm install --frozen-lockfile --prefer-offline`) when the worktree is made; its port pair
+  for `pnpm dev`; and its `.ultrapaint/`, the state of an editor dogfooding on it. Nothing is
+  copied in: a plain `pnpm dev` keeps its settings in `~/.ultrapaint`, and the evals find their
+  data at `~/Code/ultrapaint-data`.
+- **Landing on `main`**, with no PR:
+  1. commit on the worktree's branch, staging each file by name;
+  2. `git fetch && git rebase origin/main`;
+  3. `pnpm typecheck && pnpm test && pnpm lint`;
+  4. `git push origin HEAD:main`. A push refused because `main` moved goes back to step 2.
+
+  The worktree is deleted in T3 once its work is on `main`.
+- **Long jobs** (a lab round, a long recall) run from a worktree that stays until they end, or
+  from `~/Code/ultrapaint-data`; a worktree deleted under a running job takes its checkout away.
 
 ## Where things are
 
