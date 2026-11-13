@@ -9,7 +9,7 @@ const echo = (app: string) =>
   `console.log(JSON.stringify({ app: ${JSON.stringify(app)}, args: process.argv.slice(2), serve: process.env.ULTRAPAINT_SERVE, web: process.env.ULTRAPAINT_WEB_DIST }));`;
 
 /**
- * A macOS app bundle as the release packages it, at `<dir>/<name>`: Node stands in for
+ * A macOS app bundle as the release packages it (`Contents/MacOS/ultrapaint`), at `<dir>/<name>`: Node stands in for
  * Electron's binary (both run the server as Node), and `app` names the copy.
  */
 const bundle = Effect.fn("bundle")(function* (at: string, app: string) {
@@ -20,7 +20,7 @@ const bundle = Effect.fn("bundle")(function* (at: string, app: string) {
   yield* fs.makeDirectory(path.join(contents, "MacOS"), { recursive: true });
   yield* fs.symlink(
     process.execPath,
-    path.join(contents, "MacOS", "Ultrapaint")
+    path.join(contents, "MacOS", "ultrapaint")
   );
   yield* fs.makeDirectory(path.join(resources, "app", "server"), {
     recursive: true,
@@ -31,7 +31,7 @@ const bundle = Effect.fn("bundle")(function* (at: string, app: string) {
   );
   yield* fs.makeDirectory(path.join(resources, "bin"));
   const launcher = path.join(resources, "bin", "ultrapaint");
-  yield* fs.writeFileString(launcher, shippedLauncherScript("Ultrapaint"));
+  yield* fs.writeFileString(launcher, shippedLauncherScript("ultrapaint"));
   yield* fs.chmod(launcher, 0o755);
   return { launcher, resources: yield* fs.realPath(resources) };
 });

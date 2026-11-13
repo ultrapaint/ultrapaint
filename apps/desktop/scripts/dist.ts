@@ -46,13 +46,18 @@ const macIcon = path.join(desktopDir, "resources", "icon.icon");
 const productName = "Ultrapaint";
 
 /**
+ * The app's executable: `Contents/MacOS/ultrapaint` on macOS (`CFBundleExecutable`), whatever the
+ * bundle is called. The launcher names it exactly: a case-sensitive volume tells the two apart.
+ */
+const executableName = "ultrapaint";
+
+/**
  * The `ultrapaint` command the macOS app ships, at `Contents/Resources/bin/ultrapaint`, which the
- * Homebrew cask links onto the PATH (ADR 0088). electron-builder names the app's executable after
- * the product (`CFBundleExecutable`), and keeps the launcher's mode.
+ * Homebrew cask links onto the PATH (ADR 0088). electron-builder keeps the launcher's mode.
  */
 const shippedLauncher = path.join(desktopDir, "build", "bin", NAME);
 mkdirSync(path.dirname(shippedLauncher), { recursive: true });
-writeFileSync(shippedLauncher, shippedLauncherScript(productName));
+writeFileSync(shippedLauncher, shippedLauncherScript(executableName));
 chmodSync(shippedLauncher, 0o755);
 
 const config = {
@@ -69,7 +74,7 @@ const config = {
   },
   directories: { output: path.join(desktopDir, "release") },
   electronVersion,
-  executableName: "ultrapaint",
+  executableName,
   linux: {
     category: "Development",
     icon,

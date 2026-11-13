@@ -114,7 +114,7 @@ describe("the ultrapaint command the app installs (ADR 0083)", () => {
         yield* fs.makeDirectory(shipped, { recursive: true });
         yield* fs.writeFileString(
           path.join(shipped, "ultrapaint"),
-          shippedLauncherScript("Ultrapaint")
+          shippedLauncherScript("ultrapaint")
         );
         const brew = path.join(home, "homebrew", "bin");
         yield* fs.makeDirectory(brew, { recursive: true });
