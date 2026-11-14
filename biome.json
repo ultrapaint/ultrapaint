@@ -41,6 +41,12 @@
       }
     },
     {
+      "includes": ["epicparty-skills.json"],
+      "formatter": {
+        "enabled": false
+      }
+    },
+    {
       "includes": ["apps/web/**"],
       "linter": {
         "rules": {

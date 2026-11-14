@@ -1,6 +1,7 @@
 # ADR 0089: A task runs in a worktree of its own, and lands on `main` by a push
 
-Status: accepted, 2026-11-13.
+Status: accepted, 2026-11-13. Amended 2026-11-14 by
+[0096](0096-work-lands-through-a-pull-request.md): a task lands through a PR, rebase-merged.
 
 ## Context
 

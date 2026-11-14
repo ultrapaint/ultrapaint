@@ -7,9 +7,9 @@
 - `docs/adr/`: the decisions, indexed in `docs/adr/README.md`. Read the ADRs behind a behaviour
   before changing it, and record a new decision as the next ADR.
 - `docs/TESTING.md`: how tests are written. Read it before writing one.
-- `.agents/skills/`: the vendored skills of `skills-lock.json`, used as they are and never edited.
-  Where one asks for a setup or a form this repository does not have (an issue tracker document,
-  its own glossary or ADR format), this file, `GLOSSARY.md` and the existing ADRs give the form.
+- `.agents/skills/`: the `up-*` workflow skills (`## Agent skills` below), used as they are and
+  never edited there, and a link to the design skill. Where one asks for a form this repository
+  does not have, this file, `GLOSSARY.md` and the existing ADRs give the form.
 - `skills/ultrapaint/`: the design skill agents are told. Its `README.md` says how it is built
   into the server; a change to it starts from a gap in `evals/gaps/`.
 - `evals/gaps/`: the design skill's known gaps, one file each, with their status and the lab's
@@ -34,13 +34,43 @@ thread's title while the job runs and take it off in the turn its message starts
 turn on "check back later".
 
 A task is done in its own worktree, under `~/.t3/worktrees/ultrapaint/`, and lands on `main`
-by a rebase on `origin/main`, the checks and `git push origin HEAD:main`, with no PR
-(`docs/development.md`, "Working in parallel"). `~/Code/ultrapaint/ultrapaint` is the clone
-that stays on `main`, and is never edited directly.
+through a pull request, rebase-merged once CI's `check` passes; a direct `git push origin
+HEAD:main` only when the person asks for one (ADR 0096; `docs/development.md`, "Working in
+parallel"). `~/Code/ultrapaint/ultrapaint` is the clone that stays on `main`, and is never
+edited directly.
 
 A change is done when `pnpm typecheck`, `pnpm test` and `pnpm lint` pass (`pnpm format` fixes
 what lint can). Its commit message is `type: ` and the behaviour as it now is, in one sentence,
 naming the ADR it follows: `feat: the design skill has two jobs (ADR 0049): …`.
+
+## Agent skills
+
+`/up` is the router: it reads a request, names the route through the skills and walks it to a
+merged PR. The usual route is `/up-explore` → `/up-to-story` → `/up-implement` → `/up-to-pr` →
+`/up-babysit` → `/up-ship` (ADR 0096). `/up-deliver` starts the stories in the board's `Queued`
+column; only a person moves a card there. `/up-grill` stress-tests a plan and keeps
+`GLOSSARY.md` and the ADRs, `/up-diagnose` investigates a failure, `/up-architect` judges a
+design, `/up handoff` hands a thread to a fresh agent, and `/up-writing-for-agents` governs
+skills and agent files. A person types `/up`, `/up-setup`, `/up-deliver` and `/up-upgrade`
+themselves; an agent cannot start them.
+
+They are the [`epicparty/skills`](https://github.com/epicparty/skills) pack, installed under the
+prefix `up` by its CLI; `epicparty-skills.json` records the prefix, the version and the agents.
+**Never edit them in `.agents/skills/`**: change them in the pack, then run
+`npx @epicparty/skills@latest update`. The design skill, `skills/ultrapaint/`, is Ultrapaint's
+own and not part of it.
+
+`up-*` settings: `docs/agents/<topic>.md`, one heading per setting. `/up-setup` asks every unset
+one, or changes one.
+
+**A skill that names subagents authorises them**: invoking it is the request to spawn them.
+`/up-code-review` depends on it, its two axes running in contexts that do not read each other's
+findings. A subagent reports to you, never to the person.
+
+Issues are user stories on GitHub Issues, written `UP-<n>`, and sit on the Ultrapaint Board:
+`docs/agents/issue-tracker.md` holds the story rules Ultrapaint adds, the labels and the board.
+"Create a story" means one new issue through `/up-to-story`; "save it as an idea" means a draft
+card in `Ideas`, never an issue.
 
 # Effect
 

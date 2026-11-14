@@ -37,7 +37,7 @@ reduce Test Flakiness" (ICST 2023).
 
 ### 1. Test through the module's interface
 
-The interface is the test surface (see `.agents/skills/codebase-design`). A test calls what a
+The interface is the test surface (see `.agents/skills/up-to-story/SEAMS.md`). A test calls what a
 caller calls and asserts what a caller can observe: a return value, an event published, a file
 written, a document as `DocumentService` gives it back. It does not reach into a module's private
 state, and it does not need to change when the implementation does. When a module is deepened,
