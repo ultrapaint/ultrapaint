@@ -25,7 +25,9 @@ skills.**
   turns it off.
 - A project's own skills (`SkillsService.list`): the folders with a `SKILL.md` under
   `.claude/skills/`, `.agents/skills/` and `skills/` (`SKILL_FOLDERS`); a folder named
-  `ultrapaint` is a copy of the design skill and left out. A skill's title and summary are its
+  `ultrapaint` is a copy of the design skill and left out, and folders that are one on disk (a
+  skills pack installed in `.agents/skills/`, linked into `.claude/skills/`) are listed once, by
+  the first in that order, the path settings and chats already name it by. A skill's title and summary are its
   front matter's `name` and `description` (`skillFrontMatter`), else its first heading and
   paragraph. A folder's skill is told with where its files are, which it names from there. Files
   in `<designsDir>/skills/` are no skills: the designs directory holds designs only.

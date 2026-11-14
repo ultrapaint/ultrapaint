@@ -150,7 +150,10 @@ export class SkillsService extends Context.Service<
 
       /**
        * The skill folders agents keep in the repository, each with its `SKILL.md`. A folder of
-       * the design skill's own name is a copy of the one the tool ships, and left out.
+       * the design skill's own name is a copy of the one the tool ships, and left out. Folders
+       * that are one folder on disk (a skills pack installed in `.agents/skills`, linked into
+       * Claude Code's) are one skill, listed by the first of them in `SKILL_FOLDERS`' order: the
+       * path the settings and chats already name it by.
        */
       const agentFolders = Effect.forEach(SKILL_FOLDERS, (parent) =>
         Effect.gen(function* () {
@@ -162,19 +165,42 @@ export class SkillsService extends Context.Service<
             names
               .filter((n) => n !== DESIGN_SKILL && !n.startsWith("."))
               .sort(),
-            (name) => {
-              const folder = `${parent}/${name}`;
-              const file = `${folder}/${SKILL_FILE}`;
-              return Effect.map(readText(file), (text) =>
-                text._tag === "Some"
-                  ? [projectSkill(name, file, text.value, folder)]
-                  : []
-              );
-            }
+            (name) =>
+              Effect.gen(function* () {
+                const folder = `${parent}/${name}`;
+                const file = `${folder}/${SKILL_FILE}`;
+                const text = yield* readText(file);
+                if (text._tag === "None") {
+                  return [];
+                }
+                const listed = path.join(paths.root, folder);
+                // A folder whose link cannot be followed is no other folder's: it stands alone.
+                const onDisk = yield* Effect.orElseSucceed(
+                  fs.realPath(listed),
+                  () => listed
+                );
+                return [
+                  {
+                    onDisk,
+                    skill: projectSkill(name, file, text.value, folder),
+                  },
+                ];
+              })
           );
           return found.flat();
         })
-      ).pipe(Effect.map((read) => read.flat()));
+      ).pipe(
+        Effect.map((read) => {
+          const seen = new Set<string>();
+          return read.flat().flatMap(({ onDisk, skill }) => {
+            if (seen.has(onDisk)) {
+              return [];
+            }
+            seen.add(onDisk);
+            return [skill];
+          });
+        })
+      );
 
       /** Two skills of one name are told apart by a number, for their resources' names. */
       const named = (skills: readonly Skill[]): Skill[] => {
