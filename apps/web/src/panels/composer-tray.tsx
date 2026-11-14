@@ -6,7 +6,7 @@
 import type { Skill } from "@ultrapaint/contracts/skills";
 import type { Thread } from "@ultrapaint/contracts/threads";
 import { ChevronDown } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -72,15 +72,21 @@ const chosenLabel = (titles: readonly string[]) => {
   return titles.length > 1 ? `${first} +${titles.length - 1}` : first;
 };
 
-/** A skill in the picker: checked when the chat is told it, "Default" when the project's is. */
+/**
+ * A skill in the picker: checked when the chat is told it, "Default" when the project's is. The
+ * menu's own rows are a line each, so it stays short however many the chat chose; "Other skills"
+ * adds what each does, read when choosing one not yet known.
+ */
 const SkillItem = ({
   chosen,
   onToggle,
   skill,
+  summary = false,
 }: {
   chosen: readonly string[];
   onToggle: (key: string, on: boolean) => void;
   skill: Skill;
+  summary?: boolean;
 }) => {
   const key = skillKey(skill);
   return (
@@ -98,9 +104,11 @@ const SkillItem = ({
             </span>
           ) : null}
         </span>
-        <span className="line-clamp-2 font-body-small text-muted-foreground">
-          {skill.summary}
-        </span>
+        {summary ? (
+          <span className="line-clamp-2 font-body-small text-muted-foreground">
+            {skill.summary}
+          </span>
+        ) : null}
       </span>
     </DropdownMenuCheckboxItem>
   );
@@ -113,6 +121,11 @@ const SkillItem = ({
 const SkillPicker = ({ thread }: { thread: Thread }) => {
   const skills = useSkills((s) => s.skills);
   const loaded = useSkills((s) => s.loaded);
+  // What the chat had chosen as the menu opened: a skill checked under Other skills stays there
+  // until the menu opens again, rather than leaving the list it was checked in.
+  const [chosenAtOpen, setChosenAtOpen] = useState<readonly string[] | null>(
+    null
+  );
   useEffect(() => {
     if (!useSkills.getState().loaded) {
       useSkills.getState().load();
@@ -126,7 +139,10 @@ const SkillPicker = ({ thread }: { thread: Thread }) => {
   const titles = chosenTitles(chosen, skills);
   // The design skill, the project's defaults and what this chat chose; the others a level down.
   const near = skills.filter(
-    (s) => s.source === "built-in" || s.enabled || chosen.includes(skillKey(s))
+    (s) =>
+      s.source === "built-in" ||
+      s.enabled ||
+      (chosenAtOpen ?? chosen).includes(skillKey(s))
   );
   const other = skills.filter((s) => !near.includes(s));
   const toggle = (key: string, on: boolean) =>
@@ -136,14 +152,16 @@ const SkillPicker = ({ thread }: { thread: Thread }) => {
       defaults
     );
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      onOpenChange={(open) => setChosenAtOpen(open ? chosen : null)}
+    >
       <Tooltip>
         <TooltipTrigger
           render={
             <DropdownMenuTrigger
               render={
                 <Button
-                  aria-label={`Design skills: ${titles.length > 0 ? titles.join(", ") : "None"}`}
+                  aria-label={`Skills: ${titles.length > 0 ? titles.join(", ") : "None"}`}
                   className={trayTrigger}
                   variant="ghost"
                 />
@@ -163,8 +181,8 @@ const SkillPicker = ({ thread }: { thread: Thread }) => {
         {/* The names "+2" stands for, one a line; one skill's name is on the button already. */}
         {titles.length > 1 ? (
           <TooltipContent align="start" className="flex flex-col items-start">
-            {titles.map((title) => (
-              <span key={title}>{title}</span>
+            {chosen.map((key, i) => (
+              <span key={key}>{titles[i]}</span>
             ))}
           </TooltipContent>
         ) : null}
@@ -191,6 +209,7 @@ const SkillPicker = ({ thread }: { thread: Thread }) => {
                     key={skillKey(skill)}
                     onToggle={toggle}
                     skill={skill}
+                    summary
                   />
                 ))}
               </DropdownMenuSubContent>

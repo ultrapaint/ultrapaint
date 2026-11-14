@@ -230,7 +230,50 @@ describe("the composer's bar", () => {
     show(idle);
     expect(
       buttonNames("[data-composer-stack] > :last-child button[aria-label]")
-    ).toEqual(["Design skills", "Review"]);
+    ).toEqual(["Skills", "Review"]);
+  });
+
+  it("names every chosen skill, and lists them a line each, the others' summaries a level down", async () => {
+    const skill = (name: string, enabled = false): Skill => ({
+      enabled,
+      file: `.claude/skills/${name}/SKILL.md`,
+      name,
+      source: "project",
+      summary: `What ${name} does`,
+      text: `# ${name}`,
+      title: name,
+    });
+    act(() =>
+      useSkills.setState({
+        loaded: true,
+        skills: [designSkill, skill("voice", true), skill("grilling")],
+      })
+    );
+    show(idle);
+    const trigger = container.querySelector<HTMLButtonElement>(
+      "button[aria-label^='Skills']"
+    );
+    expect(trigger?.getAttribute("aria-label")).toBe(
+      "Skills: Ultrapaint, voice"
+    );
+    expect(trigger?.textContent).toBe("SkillsUltrapaint +1");
+    await act(async () => {
+      trigger?.click();
+      await Promise.resolve();
+    });
+    const rows = [
+      ...document.querySelectorAll("[role='menuitemcheckbox']"),
+    ].map((row) => row.textContent);
+    expect(rows).toEqual([
+      "UltrapaintDefault",
+      "voiceDefault",
+      expect.stringContaining("No design skill"),
+    ]);
+    expect(document.body.textContent).toContain("Other skills");
+    await act(async () => {
+      trigger?.click();
+      await Promise.resolve();
+    });
   });
 
   it("has no tray in a chat that writes the code", () => {
