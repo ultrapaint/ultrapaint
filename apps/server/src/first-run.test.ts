@@ -56,6 +56,9 @@ const emptyFolder = Effect.gen(function* () {
 const REFUSED =
   /^Couldn’t write .*ultrapaint\.config\.json: .*PermissionDenied/;
 
+/** What a folder that refuses its designs directory is told. */
+const NO_DESIGNS = /Designs directory does not exist: docs\/designs/;
+
 /** What no save says: published last, every save told before it has been taken by then. */
 const MARKER: SavedOnChange = { problems: ["the test's marker"] };
 
@@ -298,6 +301,44 @@ describe("a first run", () => {
           assert.strictEqual(told.length, 1);
           assert.isUndefined(told[0]?.configPath);
           assert.match(told[0]?.problems.join(" ") ?? "", REFUSED);
+        })
+    );
+  });
+
+  eachTest(
+    ProjectTest({
+      fileSystem: (fs) => ({
+        ...fs,
+        makeDirectory: (dir, options) =>
+          dir.endsWith("/docs/designs")
+            ? Effect.fail(
+                PlatformError.systemError({
+                  _tag: "PermissionDenied",
+                  method: "makeDirectory",
+                  module: "FileSystem",
+                  pathOrDescriptor: dir,
+                })
+              )
+            : fs.makeDirectory(dir, options),
+      }),
+      storage: "saveOnChange",
+    })
+  )((it) => {
+    it.effect(
+      "says once that the settings were not saved when the folder refuses its designs directory",
+      () =>
+        Effect.gen(function* () {
+          const project = yield* ProjectManager;
+          const folder = yield* emptyFolder;
+          yield* project.adoptDetected(folder);
+          const saves = yield* savesTold;
+          yield* project.changed;
+          yield* project.changed;
+          const told = yield* saves.told;
+          assert.strictEqual(told.length, 1);
+          assert.isUndefined(told[0]?.configPath);
+          assert.match(told[0]?.problems.join(" ") ?? "", NO_DESIGNS);
+          assert.strictEqual((yield* project.info).storage.mode, "ephemeral");
         })
     );
   });

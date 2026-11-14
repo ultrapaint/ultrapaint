@@ -220,9 +220,19 @@ export class DesignFiles extends Context.Service<
         Stream.runDrain
       );
 
-      /** The files already in the directory, told of as the watcher would have. */
+      /** What is already in the directory, told of as the watcher would have. */
       const present = Effect.gen(function* () {
         const files = yield* fs.readDirectory(root, { recursive: true });
+        // Each one came, for the page list, as the watcher's own Create would have said.
+        yield* Effect.forEach(
+          files,
+          (file) =>
+            PubSub.publish(comings, {
+              _tag: "Create",
+              path: file,
+            } satisfies FileSystem.WatchEvent),
+          { discard: true }
+        );
         yield* Effect.forEach(
           files.filter((file) => kindOf(file) !== null),
           // A file gone or unreadable mid-way is the watcher's to tell once it settles.
