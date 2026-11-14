@@ -23,8 +23,9 @@ first, then add its row and its section below.
 - **The head commit has no CodeRabbit review** when its `CodeRabbit` check is missing, or ends
   skipped, rate limited or neutral. That is the one case a request is posted: `@coderabbitai review`,
   after a rate limit has lifted. Every request counts against the cap of 2 per PR. The exception is
-  a PR whose every file `.coderabbit.yaml` filters out ("No files to review"), such as a pack update:
-  its skip is its review, and nothing is requested.
+  a head commit whose changes since CodeRabbit's last review are all files `.coderabbit.yaml`
+  filters out ("No files to review"), such as a pack update or a pack-only commit on a PR with other
+  files: its skip is its review, and nothing is requested.
 - **The merge gate waits for a review, not just a finished check**: the head commit has a CodeRabbit
   review, or is that exception, and every thread CodeRabbit opened is fixed or answered and
   resolved. With the cap spent and still no review, the PR stays open and the report says so.
