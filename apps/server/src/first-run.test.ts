@@ -115,6 +115,54 @@ describe("a first run", () => {
     );
 
     it.effect(
+      "makes the designs directory when a setting is the first change",
+      () =>
+        Effect.gen(function* () {
+          const project = yield* ProjectManager;
+          const settings = yield* SettingsService;
+          const fs = yield* FileSystem.FileSystem;
+          const folder = yield* emptyFolder;
+          yield* project.adoptDetected(folder);
+          const detected = yield* settings.get;
+          assert.isNotNull(detected);
+          if (detected === null) {
+            return;
+          }
+          const validation = yield* project.set({
+            ...detected,
+            pagePngs: !detected.pagePngs,
+          });
+          assert.deepStrictEqual(validation.problems, []);
+          assert.isTrue(yield* fs.exists(`${folder}/docs/designs`));
+        })
+    );
+
+    it.effect(
+      "makes the designs directory when Save to file… comes before any change",
+      () =>
+        Effect.gen(function* () {
+          const project = yield* ProjectManager;
+          const settings = yield* SettingsService;
+          const fs = yield* FileSystem.FileSystem;
+          const folder = yield* emptyFolder;
+          yield* project.adoptDetected(folder);
+          const detected = yield* settings.get;
+          assert.isNotNull(detected);
+          if (detected === null) {
+            return;
+          }
+          const configPath = `${folder}/ultrapaint.config.json`;
+          const result = yield* project.persist({
+            configPath,
+            settings: detected,
+          });
+          assert.deepStrictEqual(result.validation.problems, []);
+          assert.isTrue(yield* fs.exists(configPath));
+          assert.isTrue(yield* fs.exists(`${folder}/docs/designs`));
+        })
+    );
+
+    it.effect(
       "leaves the home directory and the root unopened, and writes nothing there",
       () =>
         Effect.gen(function* () {

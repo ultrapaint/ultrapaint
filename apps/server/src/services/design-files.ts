@@ -31,6 +31,7 @@ import {
   Layer,
   Path,
   PubSub,
+  Schedule,
   type Scope,
   Stream,
 } from "effect";
@@ -176,6 +177,7 @@ export class DesignFiles extends Context.Service<
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const root = paths.designsDir;
+      // A directory that cannot be read counts as not there yet.
       const there = fs.exists(root).pipe(Effect.orElseSucceed(() => false));
 
       /** A file written by someone else: an agent, a checkout, an editor. */
@@ -223,25 +225,34 @@ export class DesignFiles extends Context.Service<
         const files = yield* fs.readDirectory(root, { recursive: true });
         yield* Effect.forEach(
           files.filter((file) => kindOf(file) !== null),
+          // A file gone or unreadable mid-way is the watcher's to tell once it settles.
           (file) => Effect.ignore(seen(path.resolve(root, file))),
           { concurrency: 8, discard: true }
         );
       });
 
-      if (yield* there) {
-        yield* watch.pipe(Effect.ignore({ log: true }), Effect.forkScoped);
-        return service;
-      }
       // A folder opened for the first time has no designs directory until its first change
       // makes it (ADR 0092), or an agent's shell or a checkout does: it is looked for until it
       // is there, then watched, and what was written into it before the watch began is told.
+      const opened = yield* there;
       yield* Effect.gen(function* () {
-        while (!(yield* there)) {
-          yield* Effect.sleep(DESIGNS_LOOKED_FOR_EVERY);
+        yield* Effect.repeat(there, {
+          schedule: Schedule.spaced(DESIGNS_LOOKED_FOR_EVERY),
+          until: (found) => found,
+        });
+        yield* watch.pipe(
+          // A directory that cannot be watched only means its changes are seen later.
+          Effect.ignore({ log: true }),
+          Effect.forkScoped
+        );
+        if (!opened) {
+          yield* present;
         }
-        yield* watch.pipe(Effect.ignore({ log: true }), Effect.forkScoped);
-        yield* present;
-      }).pipe(Effect.ignore({ log: true }), Effect.forkScoped);
+      }).pipe(
+        // A directory that cannot be listed leaves what was in it for the watcher to tell.
+        Effect.ignore({ log: true }),
+        Effect.forkScoped
+      );
       return service;
     })
   );
