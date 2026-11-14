@@ -139,7 +139,7 @@
           {"type": "row", "id": "r_scm", "name": "Composer tray", "padding": {"left": 8, "right": 8}, "width": "fill", "children": [
             {"type": "row", "id": "r_scl", "border": {"color": "$color-border", "style": "solid", "width": "0 1px 1px 1px"}, "crossAlign": "center", "fill": "$color-rail", "gap": 4, "height": 30, "padding": {"left": 2, "right": 2}, "radius": "0 0 10px 10px", "width": "fill", "children": [
               {"type": "row", "id": "r_scf", "name": "Skills", "crossAlign": "center", "gap": 6, "height": 24, "padding": {"left": 6, "right": 4}, "radius": 6, "children": [
-                {"type": "text", "id": "t_scc", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Skill"},
+                {"type": "text", "id": "t_scc", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Skills"},
                 {"type": "text", "id": "t_scd", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Ultrapaint", "weight": 500},
                 {"type": "image", "id": "m_sce", "name": "chevron-down", "height": 12, "src": "assets/icons/chevron-down.svg", "tint": "$color-muted-foreground", "width": 12}
               ]},

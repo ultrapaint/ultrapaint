@@ -294,7 +294,7 @@ refactor and the board view left.
   one card (the page the turn works on, the run's steps while it goes, the review's line, the
   agent's **steps** folded and named in words) and the agent's last message, its **answer**.
   **Show every step** (the person's `everyStep`) shows the transcript as the agent reported it.
-- **Composer tray**: the strip hung under a design chat's composer with its **Skill** picker and
+- **Composer tray**: the strip hung under a design chat's composer with its **Skills** picker and
   its Review chip. A chat's **skills** are the design skills its briefing tells (`Thread.skills`,
   the project's defaults when absent, none for **No design skill**); `toldSkills` is what was told.
 - **General check**: a rule written once for every screen that code decides on the document or

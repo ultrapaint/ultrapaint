@@ -40,10 +40,10 @@ tray under the composer, the Ultrapaint skill by default (the Chat canvas, `docs
 **The header is one line:** back, the title and ⋯ (Show every step, Delete chat). The model
 picker leads with the agent's mark, the one place the chat names its agent.
 
-**A tray hangs under the composer**, inset from its sides, with Skill and Review as quiet text
+**A tray hangs under the composer**, inset from its sides, with Skills and Review as quiet text
 controls (their name muted, their value in the foreground). A chat that writes the code has none.
 
-- **Skill** lists the design skill, the project's defaults and what this chat chose, each with its
+- **Skills** lists the design skill, the project's defaults and what this chat chose, each with its
   summary and "Default" beside the project's own. The project's other skills are under Other
   skills. Then No design skill, and Skill settings….
 - A chat's choice is `Thread.skills`: `ultrapaint` and project skills by their files, set by

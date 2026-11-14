@@ -103,7 +103,7 @@ const SkillItem = ({
 };
 
 /**
- * The Skill picker: the design skill and the project's own, each checked when this chat is told
+ * The Skills picker: the design skill and the project's own, each checked when this chat is told
  * it, "Default" beside the project's; No design skill for a question or code; the settings last.
  */
 const SkillPicker = ({ thread }: { thread: Thread }) => {
@@ -141,7 +141,7 @@ const SkillPicker = ({ thread }: { thread: Thread }) => {
           />
         }
       >
-        Skill
+        Skills
         <span className="truncate text-foreground">
           {chosenLabel(chosen, skills)}
         </span>
