@@ -36,6 +36,7 @@ import {
   Stream,
 } from "effect";
 import { EventBus } from "../events.ts";
+import { makeWalk } from "../fs-walk.ts";
 import { hashContent, toPosix } from "../hash.ts";
 import { COMMENTS_FILE } from "./comments-file.ts";
 import { DESIGN_TOKENS_FILE } from "./dtcg.ts";
@@ -220,9 +221,18 @@ export class DesignFiles extends Context.Service<
         Stream.runDrain
       );
 
-      /** What is already in the directory, told of as the watcher would have. */
+      const walk = makeWalk(fs, path);
+
+      /**
+       * What is already in the directory, told of as the watcher would have: its files, the
+       * directories it never watches (dependencies, builds) left unread.
+       */
       const present = Effect.gen(function* () {
-        const files = yield* fs.readDirectory(root, { recursive: true });
+        const found = yield* walk(root, {
+          includeFile: () => true,
+          skipDir: (name) => IGNORED_DIRS.has(name),
+        });
+        const files = found.map((abs) => toPosix(path.relative(root, abs)));
         // Each one came, for the page list, as the watcher's own Create would have said.
         yield* Effect.forEach(
           files,
@@ -267,8 +277,7 @@ export class DesignFiles extends Context.Service<
               Effect.ignore(watch, { log: true }),
               gone
             ),
-            // A directory that cannot be listed leaves what was in it for the watcher to tell.
-            Effect.ignore(told, { log: true }),
+            told,
           ],
           { concurrency: "unbounded", discard: true }
         );
