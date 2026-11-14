@@ -244,4 +244,61 @@ describe("a change to the designs from outside the editor", () => {
       ),
     30_000
   );
+
+  // real clock: the real watcher, and the real wait for a directory that is not there yet.
+  it.live(
+    "in a designs directory made after the watch began are told without the dependencies in it",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const repo = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+        const came = yield* Ref.make<readonly string[]>([]);
+        yield* Effect.gen(function* () {
+          const designFiles = yield* DesignFiles;
+          yield* designFiles.comings.pipe(
+            Stream.runForEach((event) =>
+              Ref.update(came, (before) => [...before, event.path])
+            ),
+            Effect.forkScoped
+          );
+          yield* fs.makeDirectory(path.join(repo, "designs/node_modules/kit"), {
+            recursive: true,
+          });
+          yield* fs.writeFileString(
+            path.join(repo, "designs/node_modules/kit/home.page.json"),
+            "{}\n"
+          );
+          yield* fs.writeFileString(
+            path.join(repo, "designs/home.page.json"),
+            "{}\n"
+          );
+          const paths = yield* waitFor(
+            Ref.get(came),
+            (all) => all.includes("home.page.json"),
+            { every: "100 millis", within: "10 seconds" }
+          );
+          assert.deepStrictEqual(
+            paths.filter((p) => p.includes("node_modules")),
+            []
+          );
+        }).pipe(
+          Effect.provide(
+            DesignFiles.layer.pipe(
+              Layer.provideMerge(
+                Layer.mergeAll(
+                  RepoPaths.layer({
+                    designsDir: "designs",
+                    hostCss: [],
+                    libraryDirs: [],
+                    repoPath: repo,
+                  }),
+                  EventBus.layer
+                )
+              )
+            )
+          )
+        );
+      }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+    15_000
+  );
 });
