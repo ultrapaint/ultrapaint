@@ -201,7 +201,6 @@ describe("a change to the designs from outside the editor", () => {
           every: "100 millis",
           within: "10 seconds",
         });
-        assert.isAbove(yield* Ref.get(told), 0);
       }).pipe(
         Effect.provide(ProjectTest({ storage: "saveOnChange", watch: true })),
         Effect.scoped

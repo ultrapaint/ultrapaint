@@ -47,7 +47,9 @@ the editor just starts.
 ## Consequences
 
 - A folder only looked at is left as it was: an empty folder gets `docs/designs/`,
-  `ultrapaint.config.json` and `.ultrapaint/` on the first change, and nothing before. Until then
+  `ultrapaint.config.json` and `.ultrapaint/` on the first change, and nothing before. Settings
+  saved that keep the designs directory in force (a setting changed, Save to file…) make it as
+  they are saved, so they count as that first change too. Until then
   the designs' watcher looks for the directory each second, and once it is there tells what is
   in it and watches it, so an agent's shell that makes it is seen too.
 - Settings is for changing things later. Its Repository section's "Detected, not saved yet" and

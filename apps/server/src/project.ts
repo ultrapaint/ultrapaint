@@ -403,11 +403,37 @@ export class ProjectManager extends Context.Service<
             .withPermits(1)(putInForce(settings, why))
             .pipe(counted, Effect.withSpan("ProjectManager.apply"));
 
+        /**
+         * The designs directory of the settings in force, which a folder opens without (ADR 0092),
+         * made as settings that keep it are saved: saving them is a first change. A directory the
+         * person names anew is theirs to make, and the validation says when it is not there.
+         */
+        const makeDesignsKept = Effect.fnUntraced(function* (next: Settings) {
+          const now = yield* settingsService.get;
+          if (
+            now === null ||
+            path.resolve(now.repoPath) !== path.resolve(next.repoPath) ||
+            now.designsDir !== next.designsDir
+          ) {
+            return;
+          }
+          yield* setup
+            .createDesigns({
+              designsDir: next.designsDir,
+              repoPath: next.repoPath,
+            })
+            .pipe(
+              // One that cannot be made is what the validation that follows tells the person.
+              Effect.ignore({ log: true })
+            );
+        });
+
         const set = Effect.fn("ProjectManager.set")(function* (
           settings: Settings
         ) {
           return yield* inForce.withPermits(1)(
             Effect.gen(function* () {
+              yield* makeDesignsKept(settings);
               const validation = yield* settingsService.set(settings);
               const saved = yield* settingsService.get;
               if (validation.ok && saved) {
@@ -423,6 +449,7 @@ export class ProjectManager extends Context.Service<
         ) {
           return yield* inForce.withPermits(1)(
             Effect.gen(function* () {
+              yield* makeDesignsKept(input.settings);
               const result = yield* settingsService.persist(input);
               const saved = yield* settingsService.get;
               if (result.validation.ok && saved) {
@@ -485,12 +512,7 @@ export class ProjectManager extends Context.Service<
                 if (!now) {
                   return { problems: [] };
                 }
-                // The designs directory a folder opened without (ADR 0092), so the file's
-                // settings are valid as they are written.
-                yield* setup.createDesigns({
-                  designsDir: now.designsDir,
-                  repoPath: now.repoPath,
-                });
+                yield* makeDesignsKept(now);
                 const result = yield* settingsService.persist({
                   configPath: path.join(now.repoPath, CONFIG_FILE_NAME),
                   settings: now,

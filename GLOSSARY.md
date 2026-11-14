@@ -37,10 +37,11 @@ refactor and the board view left.
   _Avoid_: setup dialog, first-run setup.
 - **First-change save**: a session started in a folder with no configuration (not `--ephemeral`:
   storage's `saveOnChange`) writes `ultrapaint.config.json` into the folder on the first change
-  the person makes, a design file written through the editor or by an agent's tool, or a prompt
-  sent (ADR 0092): `ProjectManager.changed`, once, told to the editor as
+  the person makes, a design file written through the editor or by an agent's tool, a prompt
+  sent or a setting saved (ADR 0092): `ProjectManager.changed`, once, told to the editor as
   `settings.savedOnChange`, which says where in a toast, or why not. Any folder opens as a
-  project but the home directory and the root.
+  project but the home directory and the root, and nothing is written into it before that first
+  change, which makes its designs directory too.
   _Avoid_: autosave, auto-setup.
 - **Token preset**: how a design system names its colour tokens, one per system (ADR 0062):
   **simple** roles (`primary`, `muted-foreground`, shadcn's names) or **detailed** tokens by
@@ -576,7 +577,8 @@ refactor and the board view left.
 - **Designs' changes**: every change to the designs, whoever made it (the journal, an agent, a
   checkout), sorted once by kind (a page, the canvases, a component, the design system, its
   tokens, the notes, a skill, the link to the code, the comments) and told once per content
-  (`DesignFiles`); its adapters are a watch of the designs directory, or what a test reports. The
+  (`DesignFiles`); its adapters are a watch of the designs directory (looked for each second
+  until a first change makes it, then what is in it told), or what a test reports. The
   wire's `file.changed` is one output of it. A change is told with its **writer** (`Writer`): a
   thread's agent (a file the editor wrote for it, an MCP call it made), the editor's user, or
   nobody known (what the watcher sees).
