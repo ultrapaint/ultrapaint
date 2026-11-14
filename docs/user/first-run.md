@@ -2,19 +2,20 @@
 
 Start `ultrapaint` inside a repository that has no configuration file, and it reads the
 repository for its settings: where the designs go (`docs/designs` unless you already have a
-designs directory; it is made empty when the folder holds an application and none), which
-stylesheet sets up your design system, and where your application is. The editor opens with
-those settings in force, but nothing is saved yet.
+designs directory), which stylesheet sets up your design system, and where your application is.
+The editor opens with those settings in force, and nothing is written into the folder yet: your
+first change (an edit, or a prompt to an agent) makes the designs directory and saves the
+settings to `ultrapaint.config.json`.
 
 Nothing starts on its own after that. While the settings are detected and not saved, **Agents**, on
 the rail, says so and offers **Set up** followed by the folder's name, and a new chat lists the same
 row first. It puts `/setup` in a new chat's composer; you send it. The agent checks what detection
 found against your code, saves it to `ultrapaint.config.json` with the designs directory, changes no
-file of your code, and tells you in a few lines what it found. You can also design straight away and
-save later.
+file of your code, and tells you in a few lines what it found. You can also skip it and design
+straight away.
 
 When the repository cannot be read for settings, the panels say **No folder open**: **Choose a
-folder…** opens **Settings** › **Repository**, where **Detect from the repository** fills in the
+folder…** opens **Settings** › **Repository**, where **Detect again**, in its header, fills in the
 fields from what it finds.
 
 Only Tailwind v4 is read today: the tokens are its `@theme`. Settings says so under

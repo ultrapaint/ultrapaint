@@ -485,6 +485,12 @@ export class ProjectManager extends Context.Service<
                 if (!now) {
                   return { problems: [] };
                 }
+                // The designs directory a folder opened without (ADR 0092), so the file's
+                // settings are valid as they are written.
+                yield* setup.createDesigns({
+                  designsDir: now.designsDir,
+                  repoPath: now.repoPath,
+                });
                 const result = yield* settingsService.persist({
                   configPath: path.join(now.repoPath, CONFIG_FILE_NAME),
                   settings: now,
@@ -629,26 +635,10 @@ export class ProjectManager extends Context.Service<
             if (!found) {
               return;
             }
+            // A folder opened for the first time, with an app in it or not, may have nowhere for
+            // its designs yet: it opens all the same, and its first change makes the directory
+            // (ADR 0092), so a folder only looked at is left as it was.
             const candidate = applySuggestions(defaultSettings(repo), found);
-            // A folder opened for the first time, with an app in it or not, has nowhere for its
-            // designs yet: the directory is made empty, so the project opens (ADR 0092), and its
-            // setup chat, when the person sends it, keeps it or chooses another.
-            if (found.designsDirs.length === 0) {
-              yield* setup
-                .createDesigns({
-                  designsDir: candidate.designsDir,
-                  repoPath: repo,
-                })
-                .pipe(
-                  Effect.catch((error) =>
-                    log.log(
-                      "server",
-                      "warn",
-                      `could not make ${candidate.designsDir}: ${error.message}`
-                    )
-                  )
-                );
-            }
             yield* inForce.withPermits(1)(
               Effect.gen(function* () {
                 // Settings someone set while the repository was read are in force already.

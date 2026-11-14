@@ -87,6 +87,9 @@ const UNKNOWN: Writer = { _tag: "Unknown" };
 
 const SEGMENT_RE = /[\\/]/;
 
+/** How often a designs directory not made yet is looked for. */
+const DESIGNS_LOOKED_FOR_EVERY = "1 second";
+
 /** What a file inside the designs directory is, by its path there; null when it is none of them. */
 export const kindOf = (rel: string): DesignKind | null => {
   const segments = toPosix(rel).split("/");
@@ -173,9 +176,7 @@ export class DesignFiles extends Context.Service<
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const root = paths.designsDir;
-      if (!(yield* fs.exists(root).pipe(Effect.orElseSucceed(() => false)))) {
-        return service;
-      }
+      const there = fs.exists(root).pipe(Effect.orElseSucceed(() => false));
 
       /** A file written by someone else: an agent, a checkout, an editor. */
       const seen = Effect.fnUntraced(function* (abs: string) {
@@ -188,7 +189,7 @@ export class DesignFiles extends Context.Service<
         );
       });
 
-      yield* fs.watch(root, { recursive: true }).pipe(
+      const watch = fs.watch(root, { recursive: true }).pipe(
         Stream.filter(
           (event) =>
             !event.path.split(SEGMENT_RE).some((seg) => IGNORED_DIRS.has(seg))
@@ -214,10 +215,33 @@ export class DesignFiles extends Context.Service<
             }),
           { concurrency: "unbounded" }
         ),
-        Stream.runDrain,
-        Effect.ignore({ log: true }),
-        Effect.forkScoped
+        Stream.runDrain
       );
+
+      /** The files already in the directory, told of as the watcher would have. */
+      const present = Effect.gen(function* () {
+        const files = yield* fs.readDirectory(root, { recursive: true });
+        yield* Effect.forEach(
+          files.filter((file) => kindOf(file) !== null),
+          (file) => Effect.ignore(seen(path.resolve(root, file))),
+          { concurrency: 8, discard: true }
+        );
+      });
+
+      if (yield* there) {
+        yield* watch.pipe(Effect.ignore({ log: true }), Effect.forkScoped);
+        return service;
+      }
+      // A folder opened for the first time has no designs directory until its first change
+      // makes it (ADR 0092), or an agent's shell or a checkout does: it is looked for until it
+      // is there, then watched, and what was written into it before the watch began is told.
+      yield* Effect.gen(function* () {
+        while (!(yield* there)) {
+          yield* Effect.sleep(DESIGNS_LOOKED_FOR_EVERY);
+        }
+        yield* watch.pipe(Effect.ignore({ log: true }), Effect.forkScoped);
+        yield* present;
+      }).pipe(Effect.ignore({ log: true }), Effect.forkScoped);
       return service;
     })
   );

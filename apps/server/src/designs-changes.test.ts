@@ -4,7 +4,7 @@ import { assert, describe, it } from "@effect/vitest";
 import { Effect, Fiber, FileSystem, Layer, Ref, Stream } from "effect";
 import { TestClock } from "effect/testing";
 import { EventBus } from "./events.ts";
-import { OpenProject } from "./project.ts";
+import { OpenProject, ProjectManager } from "./project.ts";
 import {
   type DesignChange,
   DesignFiles,
@@ -170,6 +170,42 @@ describe("a change to the designs from outside the editor", () => {
         );
         assert.isAbove(yield* Ref.get(told), 0);
       }).pipe(Effect.provide(ProjectTest({ watch: true })), Effect.scoped),
+    15_000
+  );
+
+  // real clock: the real watcher, and the real wait for a directory that is not there yet.
+  it.live(
+    "in a designs directory made after the folder opened is seen once the directory is there",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const events = yield* EventBus;
+        // A folder opened for the first time has no designs directory (ADR 0092).
+        const folder = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+        yield* (yield* ProjectManager).adoptDetected(folder);
+        assert.isFalse(yield* fs.exists(path.join(folder, "docs")));
+        const told = yield* Ref.make(0);
+        yield* events.subscribe("designSystem").pipe(
+          Stream.runForEach(() => Ref.update(told, (n) => n + 1)),
+          Effect.forkScoped
+        );
+        // An agent's shell makes it, with a file in it before anything watches it.
+        yield* fs.makeDirectory(path.join(folder, "docs/designs"), {
+          recursive: true,
+        });
+        yield* fs.writeFileString(
+          path.join(folder, "docs/designs/design.tokens.json"),
+          `${JSON.stringify({ color: { brand: { $type: "color", $value: "#000001" } } }, null, 2)}\n`
+        );
+        yield* waitFor(Ref.get(told), (n) => n > 0, {
+          every: "100 millis",
+          within: "10 seconds",
+        });
+        assert.isAbove(yield* Ref.get(told), 0);
+      }).pipe(
+        Effect.provide(ProjectTest({ storage: "saveOnChange", watch: true })),
+        Effect.scoped
+      ),
     15_000
   );
 });

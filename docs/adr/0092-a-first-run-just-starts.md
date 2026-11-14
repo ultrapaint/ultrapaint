@@ -19,8 +19,9 @@ the editor just starts.
 
 - **Any folder opens as a project.** An application is optional: the pages draw Ultrapaint's own
   components, so a folder without a package.json is valid. An application named (`resolveFrom`)
-  must still be a package. Detection's settings are used as they are, and the designs directory
-  (`docs/designs` unless detection found one) is made for any folder, with an app or not. The
+  must still be a package. Detection's settings are used as they are, the designs directory
+  (`docs/designs` unless detection found one) among them while it is not there yet: the first
+  change makes it (amended 2026-11-14; it was made as the folder opened). The
   home directory and the filesystem's root are the exception: a command run there was run in the
   wrong place, nothing is written, and the editor says "No folder open".
 - **The settings are written on the first change** (the **first-change save**). A session started
@@ -45,8 +46,10 @@ the editor just starts.
 
 ## Consequences
 
-- An empty folder gets `docs/designs/` as it opens, and `ultrapaint.config.json` and `.ultrapaint/`
-  on the first change; nothing else is written before the person does something.
+- A folder only looked at is left as it was: an empty folder gets `docs/designs/`,
+  `ultrapaint.config.json` and `.ultrapaint/` on the first change, and nothing before. Until then
+  the designs' watcher looks for the directory each second, and once it is there tells what is
+  in it and watches it, so an agent's shell that makes it is seen too.
 - Settings is for changing things later. Its Repository section's "Detected, not saved yet" and
   Save to file… describe a state a session leaves at its first change; Save to file… stays for a
   session that hasn't changed anything yet, or that runs with `--ephemeral`.

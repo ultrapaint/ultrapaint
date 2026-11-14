@@ -303,7 +303,9 @@ export class SettingsService extends Context.Service<
 
       // ---- validation ----
       const validate = Effect.fn("SettingsService.validate")(function* (
-        settings: Settings
+        settings: Settings,
+        /** Detected settings' designs directory is made by the first change (ADR 0092). */
+        designs: "exists" | "made later" = "exists"
       ) {
         const problems: string[] = [];
         const repo = path.resolve(settings.repoPath);
@@ -314,7 +316,10 @@ export class SettingsService extends Context.Service<
         if (!(yield* exists(repo))) {
           problems.push(`Repository path does not exist: ${repo}`);
         }
-        if (!(yield* exists(path.join(repo, settings.designsDir)))) {
+        if (
+          designs === "exists" &&
+          !(yield* exists(path.join(repo, settings.designsDir)))
+        ) {
           problems.push(
             `Designs directory does not exist: ${settings.designsDir}`
           );
@@ -363,7 +368,7 @@ export class SettingsService extends Context.Service<
       const adopt = Effect.fn("SettingsService.adopt")(function* (
         settings: Settings
       ) {
-        const validation = yield* validate(settings);
+        const validation = yield* validate(settings, "made later");
         if (!validation.ok) {
           return validation;
         }

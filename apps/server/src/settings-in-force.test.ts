@@ -251,7 +251,7 @@ describe("the settings in force", () => {
     })
   )((it) => {
     it.effect(
-      "opens an app never set up, its designs directory made empty, and takes it away when the setup moves it",
+      "opens an app never set up without making its designs directory, which the setup makes where it chooses",
       () =>
         Effect.gen(function* () {
           const project = yield* ProjectManager;
@@ -263,16 +263,11 @@ describe("the settings in force", () => {
           const info = yield* project.info;
           assert.strictEqual(info.setup, "detected");
           assert.strictEqual(info.designsDir, "docs/designs");
-          console.log(
-            "DIR",
-            yield* fs.readDirectory(`${repo}/docs/designs`, { recursive: true })
-          );
-          const made = `${repo}/${info.designsDir}`;
-          assert.isTrue(yield* fs.exists(made));
+          assert.isFalse(yield* fs.exists(`${repo}/docs`));
 
           yield* project.saveSetup({ designsDir: "app/designs" });
           assert.isTrue(yield* fs.exists(`${repo}/app/designs`));
-          assert.isFalse(yield* fs.exists(made));
+          assert.isFalse(yield* fs.exists(`${repo}/docs`));
         })
     );
   });
