@@ -9,12 +9,19 @@ import type { Thread } from "@ultrapaint/contracts/threads";
 export const skillKey = (skill: Skill) =>
   skill.source === "built-in" ? DESIGN_SKILL : (skill.file ?? skill.name);
 
+/** The key a chat's choice names a skill by, for a choice that named it by an alias. */
+const keyOf = (choice: string, skills: readonly Skill[]) => {
+  const skill = skills.find((s) => s.aliases?.includes(choice));
+  return skill ? skillKey(skill) : choice;
+};
+
 /** The skills a chat is told: its own choice, else the ones the project has on. */
 export const chosenSkills = (
   thread: Pick<Thread, "skills">,
   skills: readonly Skill[]
 ): readonly string[] =>
-  thread.skills ?? skills.filter((s) => s.enabled).map(skillKey);
+  thread.skills?.map((choice) => keyOf(choice, skills)) ??
+  skills.filter((s) => s.enabled).map(skillKey);
 
 /** The chosen skills by their titles, a skill the project no longer has by its key. */
 export const chosenTitles = (

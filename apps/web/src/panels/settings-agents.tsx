@@ -90,16 +90,26 @@ export const skillsWith = (
  */
 export const skillOn = (
   config: SkillsConfig | undefined,
-  skill: Pick<Skill, "file" | "name" | "source">
+  skill: Pick<Skill, "aliases" | "file" | "name" | "source">
 ) =>
   skill.source === "built-in"
     ? !(config?.disabled ?? []).includes(skill.name)
-    : (config?.enabled ?? []).includes(skill.file ?? skill.name);
+    : (config?.enabled ?? []).some((f) => namesSkill(skill, f));
 
-/** The skills with one turned on or off: the design skill by its name, a project's by its file. */
+/** Whether a project skill's file in the settings is this skill's, by its own path or an alias. */
+const namesSkill = (
+  skill: Pick<Skill, "aliases" | "file" | "name">,
+  file: string
+) =>
+  file === (skill.file ?? skill.name) || (skill.aliases ?? []).includes(file);
+
+/**
+ * The skills with one turned on or off: the design skill by its name, a project's by its file,
+ * its aliases dropped either way.
+ */
 export const skillToggled = (
   config: SkillsConfig | undefined,
-  skill: Pick<Skill, "file" | "name" | "source">,
+  skill: Pick<Skill, "aliases" | "file" | "name" | "source">,
   on: boolean
 ): SkillsConfig | undefined => {
   if (skill.source === "built-in") {
@@ -109,7 +119,7 @@ export const skillToggled = (
     });
   }
   const file = skill.file ?? skill.name;
-  const others = (config?.enabled ?? []).filter((f) => f !== file);
+  const others = (config?.enabled ?? []).filter((f) => !namesSkill(skill, f));
   return skillsWith(config, { enabled: on ? [...others, file] : others });
 };
 

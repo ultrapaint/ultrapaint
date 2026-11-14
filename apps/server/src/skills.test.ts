@@ -110,10 +110,10 @@ describe("design skills", () => {
   );
 
   inProject.effect(
-    "lists a skill linked into another agent's folder once, by the folder listed first",
+    "lists a skill linked into another agent's folder once, by the folder listed first, named by either",
     () =>
       Effect.gen(function* () {
-        const { client, repo } = yield* TestEnv;
+        const { client, repo, settings } = yield* TestEnv;
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         // A skills pack installed once in `.agents/skills`, linked into Claude Code's folder.
@@ -132,12 +132,31 @@ describe("design skills", () => {
         );
         const { skills } = yield* client["skills.list"]();
         assert.deepStrictEqual(
-          skills.map((s) => [s.name, s.file]),
+          skills.map((s) => [s.name, s.file, s.aliases]),
           [
-            ["ultrapaint", undefined],
-            ["up-ship", ".claude/skills/up-ship/SKILL.md"],
+            ["ultrapaint", undefined, undefined],
+            [
+              "up-ship",
+              ".claude/skills/up-ship/SKILL.md",
+              [".agents/skills/up-ship/SKILL.md"],
+            ],
           ]
         );
+        // Turned on, or chosen in a chat, by the folder it is linked to: still the one skill.
+        const alias = ".agents/skills/up-ship/SKILL.md";
+        yield* client["settings.set"]({
+          ...settings,
+          skills: { enabled: [alias] },
+        });
+        const on = yield* client["skills.list"]();
+        assert.deepStrictEqual(
+          on.skills.filter((s) => s.enabled).map((s) => s.name),
+          ["ultrapaint", "up-ship"]
+        );
+        const chosenTold = yield* Effect.flatMap(ProjectBriefing, (briefing) =>
+          briefing.text("design", { skills: [alias], tools: true })
+        );
+        assert.include(chosenTold ?? "", "up-ship");
       })
   );
 

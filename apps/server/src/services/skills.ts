@@ -152,8 +152,8 @@ export class SkillsService extends Context.Service<
        * The skill folders agents keep in the repository, each with its `SKILL.md`. A folder of
        * the design skill's own name is a copy of the one the tool ships, and left out. Folders
        * that are one folder on disk (a skills pack installed in `.agents/skills`, linked into
-       * Claude Code's) are one skill, listed by the first of them in `SKILL_FOLDERS`' order: the
-       * path the settings and chats already name it by.
+       * Claude Code's) are one skill, listed by the first of them in `SKILL_FOLDERS`' order, the
+       * others' files its aliases.
        */
       const agentFolders = Effect.forEach(SKILL_FOLDERS, (parent) =>
         Effect.gen(function* () {
@@ -191,14 +191,22 @@ export class SkillsService extends Context.Service<
         })
       ).pipe(
         Effect.map((read) => {
-          const seen = new Set<string>();
-          return read.flat().flatMap(({ onDisk, skill }) => {
-            if (seen.has(onDisk)) {
-              return [];
+          // The first folder of each on disk, with the others' files: a setting or a chat that
+          // named the skill by another of them still names it.
+          const byDisk = new Map<string, Skill>();
+          for (const { onDisk, skill } of read.flat()) {
+            const first = byDisk.get(onDisk);
+            if (first === undefined) {
+              byDisk.set(onDisk, skill);
+            } else if (skill.file !== undefined) {
+              byDisk.set(onDisk, {
+                ...first,
+                aliases: [...(first.aliases ?? []), skill.file],
+                enabled: first.enabled || skill.enabled,
+              });
             }
-            seen.add(onDisk);
-            return [skill];
-          });
+          }
+          return [...byDisk.values()];
         })
       );
 
@@ -262,7 +270,9 @@ export class SkillsService extends Context.Service<
         const { skills } = yield* list;
         const picked = chosen === undefined ? undefined : new Set(chosen);
         const on = skills.filter((s) =>
-          picked === undefined ? s.enabled : picked.has(choiceName(s))
+          picked === undefined
+            ? s.enabled
+            : [choiceName(s), ...(s.aliases ?? [])].some((n) => picked.has(n))
         );
         const at = on.some((s) => s.source === "built-in")
           ? skillDir
