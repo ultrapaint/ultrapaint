@@ -99,9 +99,14 @@ A new label takes a colour from its family's band.
 
 ## Project board
 
-The **Ultrapaint Board** is a Projects v2 board owned by the `ultrapaint` organisation and
-linked to this repository. **It is not created yet.** Until it is, the skills find no linked
-board and skip the board steps. The commands find it by that link, not by its title.
+The **Ultrapaint Board** ([project 1](https://github.com/orgs/ultrapaint/projects/1)) is a
+Projects v2 board owned by the `ultrapaint` organisation and linked to this repository. A
+repository cannot own a Projects v2 board, so owned by the organisation and linked is as close as
+the API allows. It is the one open board linked to this repository, and the commands find it by
+that link, not by its title.
+
+Its automations (`## Tracker`) are set in the board's Workflows, in the web UI: GitHub's API
+cannot set them.
 
 The stages, the rules for each and the commands are `/up`'s
 [`BOARD.md`](../../.agents/skills/up/BOARD.md). Ultrapaint adds:

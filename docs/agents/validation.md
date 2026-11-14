@@ -34,6 +34,6 @@ on every pull request to `main`: `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pn
 and staging the desktop app (`pnpm -F @ultrapaint/desktop run stage`). Its passing on the PR's
 head commit is the evidence, and the PR body carries no suite report.
 
-`check` is to be a required status check on `main`, by a ruleset the person can bypass for a rare
-direct push. **The ruleset is not made yet**: until it is, nothing on GitHub enforces the check,
-and `/up-babysit` merges only on `check` green.
+`check` is a required status check on `main`: the ruleset **main: CI check required** (Settings →
+Rules → Rulesets) requires it from GitHub Actions, and also refuses a force push to `main` and its
+deletion. Repository admins bypass it, for a rare direct push.
