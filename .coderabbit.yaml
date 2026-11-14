@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit reviews every pull request on its own (docs/agents/reviewers.md). It skips the
+# `up-*` skills: they are the @epicparty/skills pack, never edited here, and are reviewed where
+# they are written, in epicparty/skills.
+reviews:
+  path_filters:
+    - "!.agents/skills/**"
+    - "!.claude/skills/**"
