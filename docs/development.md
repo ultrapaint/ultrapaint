@@ -46,13 +46,17 @@ Every task runs in a worktree of its own ([ADR 0089](adr/0089-a-task-runs-in-a-w
   for `pnpm dev`; and its `.ultrapaint/`, the state of an editor dogfooding on it. Nothing is
   copied in: a plain `pnpm dev` keeps its settings in `~/.ultrapaint`, and the evals find their
   data at `~/Code/ultrapaint-data`.
-- **Landing on `main`**, with no PR:
-  1. commit on the worktree's branch, staging each file by name;
+- **Landing on `main`**, through a pull request
+  ([ADR 0096](adr/0096-work-lands-through-a-pull-request.md)):
+  1. commit on the work's branch, staging each file by name;
   2. `git fetch && git rebase origin/main`;
   3. `pnpm typecheck && pnpm test && pnpm lint`;
-  4. `git push origin HEAD:main`. A push refused because `main` moved goes back to step 2.
+  4. push the branch and open a PR (`/up-to-pr`); CI's `check` job proves its head, and it is
+     rebase-merged (`/up-babysit`, `/up-ship`).
 
-  The worktree is deleted in T3 once its work is on `main`.
+  A direct `git push origin HEAD:main` after step 3 is made only when the person asks for one. A
+  push refused because `main` moved goes back to step 2. The worktree is deleted in T3 once its
+  work is on `main`.
 - **Long jobs** (a lab round, a long recall) run from a worktree that stays until they end, or
   from `~/Code/ultrapaint-data`; a worktree deleted under a running job takes its checkout away.
 
