@@ -417,10 +417,9 @@ export class ProjectManager extends Context.Service<
           ) {
             return;
           }
-          yield* setup
-            .createDesigns({
-              designsDir: next.designsDir,
-              repoPath: next.repoPath,
+          yield* fs
+            .makeDirectory(path.resolve(next.repoPath, next.designsDir), {
+              recursive: true,
             })
             .pipe(
               // One that cannot be made is what the validation that follows tells the person.

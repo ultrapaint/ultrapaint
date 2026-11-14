@@ -175,7 +175,7 @@ describe("a change to the designs from outside the editor", () => {
 
   // real clock: the real watcher, and the real wait for a directory that is not there yet.
   it.live(
-    "in a designs directory made after the folder opened is seen once the directory is there",
+    "in a designs directory made after the folder opened is seen once the directory is there, and its pages listed",
     () =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -189,7 +189,17 @@ describe("a change to the designs from outside the editor", () => {
           Stream.runForEach(() => Ref.update(told, (n) => n + 1)),
           Effect.forkScoped
         );
-        // An agent's shell makes it, with a file in it before anything watches it.
+        const listed = yield* Ref.make<readonly string[]>([]);
+        yield* events.subscribe("pages").pipe(
+          Stream.runForEach((list) =>
+            Ref.set(
+              listed,
+              list.pages.map((page) => page.id)
+            )
+          ),
+          Effect.forkScoped
+        );
+        // An agent's shell makes it, with files in it before anything watches it.
         yield* fs.makeDirectory(path.join(folder, "docs/designs"), {
           recursive: true,
         });
@@ -197,10 +207,20 @@ describe("a change to the designs from outside the editor", () => {
           path.join(folder, "docs/designs/design.tokens.json"),
           `${JSON.stringify({ color: { brand: { $type: "color", $value: "#000001" } } }, null, 2)}\n`
         );
+        yield* fs.writeFileString(
+          path.join(folder, "docs/designs/home.page.json"),
+          `${JSON.stringify({ root: { children: [], id: "root", type: "page" } }, null, 2)}\n`
+        );
         yield* waitFor(Ref.get(told), (n) => n > 0, {
           every: "100 millis",
           within: "10 seconds",
         });
+        // The page list too, as for any page that came.
+        yield* waitFor(
+          Ref.get(listed),
+          (ids) => ids.some((id) => id.includes("home")),
+          { every: "100 millis", within: "10 seconds" }
+        );
       }).pipe(
         Effect.provide(ProjectTest({ storage: "saveOnChange", watch: true })),
         Effect.scoped
