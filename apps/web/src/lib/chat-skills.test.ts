@@ -64,5 +64,17 @@ describe("a chat's design skills", () => {
         linked,
       ])
     ).toEqual([".claude/skills/grilling/SKILL.md"]);
+    // A choice made while both folders were listed names the one skill once.
+    expect(
+      chosenSkills(
+        {
+          skills: [
+            ".claude/skills/grilling/SKILL.md",
+            ".agents/skills/grilling/SKILL.md",
+          ],
+        },
+        [design, linked]
+      )
+    ).toEqual([".claude/skills/grilling/SKILL.md"]);
   });
 });

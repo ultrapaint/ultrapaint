@@ -15,13 +15,19 @@ const keyOf = (choice: string, skills: readonly Skill[]) => {
   return skill ? skillKey(skill) : choice;
 };
 
-/** The skills a chat is told: its own choice, else the ones the project has on. */
+/**
+ * The skills a chat is told: its own choice, each skill once however many of its files it named,
+ * else the ones the project has on.
+ */
 export const chosenSkills = (
   thread: Pick<Thread, "skills">,
   skills: readonly Skill[]
-): readonly string[] =>
-  thread.skills?.map((choice) => keyOf(choice, skills)) ??
-  skills.filter((s) => s.enabled).map(skillKey);
+): readonly string[] => {
+  if (thread.skills === undefined) {
+    return skills.filter((s) => s.enabled).map(skillKey);
+  }
+  return [...new Set(thread.skills.map((choice) => keyOf(choice, skills)))];
+};
 
 /** The chosen skills by their titles, a skill the project no longer has by its key. */
 export const chosenTitles = (
