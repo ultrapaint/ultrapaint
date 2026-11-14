@@ -25,6 +25,27 @@ describe("a skill turned on or off", () => {
     ).toBeUndefined();
   });
 
+  it("turns a linked skill off whichever of its files the settings name, and on by its own", () => {
+    const linked = {
+      ...grilling,
+      aliases: [".agents/skills/grilling/SKILL.md"],
+    };
+    expect(
+      skillToggled(
+        { enabled: [".agents/skills/grilling/SKILL.md"] },
+        linked,
+        false
+      )
+    ).toBeUndefined();
+    expect(
+      skillToggled(
+        { enabled: [".agents/skills/grilling/SKILL.md"] },
+        linked,
+        true
+      )
+    ).toEqual({ enabled: [".claude/skills/grilling/SKILL.md"] });
+  });
+
   it("turns the design skill off by its name, and on again by leaving it out", () => {
     const off = skillToggled({ briefing: "full" }, design, false);
     expect(off).toEqual({ briefing: "full", disabled: ["ultrapaint"] });

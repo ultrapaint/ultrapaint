@@ -43,6 +43,12 @@ export const SKILL_INSTALL_COMMAND = "npx skills add ultrapaint/ultrapaint";
 const SkillSource = Schema.Literals(["built-in", "project"]);
 
 export const Skill = Schema.Struct({
+  /**
+   * A project skill's other `SKILL.md` paths: folders linked to the one it is listed by (a skills
+   * pack in `.agents/skills`, linked into `.claude/skills`). The settings and a chat's choice may
+   * name it by any of them.
+   */
+  aliases: Schema.optional(Schema.Array(Schema.String)),
   /** On in the settings: agents are told it. */
   enabled: Schema.Boolean,
   /** Repo-relative path of a project skill's `SKILL.md`: what `skills.enabled` names. */

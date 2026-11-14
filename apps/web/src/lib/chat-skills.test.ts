@@ -52,4 +52,17 @@ describe("a chat's design skills", () => {
       chosenTitles(["ultrapaint", ".claude/skills/gone/SKILL.md"], [design])
     ).toEqual(["ultrapaint", ".claude/skills/gone/SKILL.md"]);
   });
+
+  it("are named by a skill's own file when the chat chose it by a folder linked to it", () => {
+    const linked = {
+      ...grilling,
+      aliases: [".agents/skills/grilling/SKILL.md"],
+    };
+    expect(
+      chosenSkills({ skills: [".agents/skills/grilling/SKILL.md"] }, [
+        design,
+        linked,
+      ])
+    ).toEqual([".claude/skills/grilling/SKILL.md"]);
+  });
 });
