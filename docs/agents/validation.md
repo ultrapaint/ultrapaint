@@ -35,5 +35,6 @@ and staging the desktop app (`pnpm -F @ultrapaint/desktop run stage`). Its passi
 head commit is the evidence, and the PR body carries no suite report.
 
 `check` is a required status check on `main`: the ruleset **main: CI check required** (Settings →
-Rules → Rulesets) requires it from GitHub Actions, and also refuses a force push to `main` and its
-deletion. Repository admins bypass it, for a rare direct push.
+Rules → Rulesets) requires it from GitHub Actions, **strict**, so a PR behind `main` is rebased
+onto it and checked again before it merges. The ruleset also refuses a force push to `main` and
+its deletion. Repository admins bypass it, for a rare direct push.

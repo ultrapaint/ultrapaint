@@ -21,8 +21,9 @@ merged (`/up-babysit`) and shipped (`/up-ship`). EpicParty works this way.
 - **The tracker is GitHub Issues** on `ultrapaint/ultrapaint`, an issue written `UP-<n>` and a
   PR `#<n>`, with role labels, the `area:*`, `priority:*` and `type:*` axes, and the Ultrapaint
   Board (`docs/agents/issue-tracker.md`).
-- **CI's `check` job is the PR's evidence**, and is to be a required check on `main` that the
-  person can bypass for a direct push.
+- **CI's `check` job is the PR's evidence**: a required check on `main`, strict, so a PR merges
+  only when its branch is up to date with `main` and `check` passed on that head. Repository
+  admins bypass it for a direct push.
 - **The `up-*` settings** live in `docs/agents/<topic>.md`, one heading per setting, and
   `/up-setup` asks or changes them.
 - 0089 holds otherwise: a task still runs in a T3 worktree of its own, cut from `origin/main`.
@@ -32,7 +33,9 @@ merged (`/up-babysit`) and shipped (`/up-ship`). EpicParty works this way.
 ## Consequences
 
 - A change is seen as a PR, with CI green on its head, before it is on `main`.
-- Two threads' work meets at the PR's rebase onto `main`, as it met at the push before.
+- Two threads' work meets at the PR's rebase onto `main`, as it met at the push before: once one
+  PR merges, the other is behind, rebases, and its `check` runs again on the new base before it
+  can merge, so no merged commit goes untested.
 - Work that should start is a card a person drags into the board's `Queued` column, and
   `/up-deliver` starts at most three worker threads for it.
 - A release is still made by hand (`docs/agents/deploy.md`): nothing deploys on a merge.
