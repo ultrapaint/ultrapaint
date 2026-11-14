@@ -43,9 +43,11 @@ picker leads with the agent's mark, the one place the chat names its agent.
 **A tray hangs under the composer**, inset from its sides, with Skills and Review as quiet text
 controls (their name muted, their value in the foreground). A chat that writes the code has none.
 
-- **Skills** lists the design skill, the project's defaults and what this chat chose, each with its
-  summary and "Default" beside the project's own. The project's other skills are under Other
-  skills. Then No design skill, and Skill settings….
+- **Skills** lists the design skill, the project's defaults and what this chat chose, a line each
+  with "Default" beside the project's own, so the menu stays short however many are chosen. The
+  project's other skills are under Other skills, each with its summary; one checked there stays
+  there until the menu opens again. Then No design skill, and Skill settings…. With more than one
+  chosen, the button reads the first and a count ("Ultrapaint +3"), its tooltip every name.
 - A chat's choice is `Thread.skills`: `ultrapaint` and project skills by their files, set by
   `threads.setSkills`; null goes back to the project's defaults, and so does a choice equal to them.
 - The briefing tells exactly the chosen skills. None is briefed as a chat not told the design
