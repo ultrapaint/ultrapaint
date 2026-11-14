@@ -110,6 +110,38 @@ describe("design skills", () => {
   );
 
   inProject.effect(
+    "lists a skill linked into another agent's folder once, by the folder listed first",
+    () =>
+      Effect.gen(function* () {
+        const { client, repo } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        // A skills pack installed once in `.agents/skills`, linked into Claude Code's folder.
+        const ship = path.join(repo, ".agents", "skills", "up-ship");
+        yield* fs.makeDirectory(ship, { recursive: true });
+        yield* fs.writeFileString(
+          path.join(ship, "SKILL.md"),
+          "---\nname: up-ship\ndescription: Takes a PR to merged.\n---\n\n# Ship\n"
+        );
+        yield* fs.makeDirectory(path.join(repo, ".claude", "skills"), {
+          recursive: true,
+        });
+        yield* fs.symlink(
+          "../../.agents/skills/up-ship",
+          path.join(repo, ".claude", "skills", "up-ship")
+        );
+        const { skills } = yield* client["skills.list"]();
+        assert.deepStrictEqual(
+          skills.map((s) => [s.name, s.file]),
+          [
+            ["ultrapaint", undefined],
+            ["up-ship", ".claude/skills/up-ship/SKILL.md"],
+          ]
+        );
+      })
+  );
+
+  inProject.effect(
     "saves the design skill into the repository for agents outside the tool, whole and replaced",
     () =>
       Effect.gen(function* () {
