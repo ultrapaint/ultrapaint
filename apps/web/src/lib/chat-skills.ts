@@ -15,3 +15,10 @@ export const chosenSkills = (
   skills: readonly Skill[]
 ): readonly string[] =>
   thread.skills ?? skills.filter((s) => s.enabled).map(skillKey);
+
+/** The chosen skills by their titles, a skill the project no longer has by its key. */
+export const chosenTitles = (
+  chosen: readonly string[],
+  skills: readonly Skill[]
+): readonly string[] =>
+  chosen.map((key) => skills.find((s) => skillKey(s) === key)?.title ?? key);

@@ -1,6 +1,6 @@
 import type { Skill } from "@ultrapaint/contracts/skills";
 import { describe, expect, it } from "vitest";
-import { chosenSkills, skillKey } from "./chat-skills.ts";
+import { chosenSkills, chosenTitles, skillKey } from "./chat-skills.ts";
 
 const skill = (o: Partial<Skill> & Pick<Skill, "name">): Skill => ({
   enabled: false,
@@ -45,5 +45,11 @@ describe("a chat's design skills", () => {
       ])
     ).toEqual([".claude/skills/grilling/SKILL.md"]);
     expect(chosenSkills({ skills: [] }, [design])).toEqual([]);
+  });
+
+  it("are read by their titles, one the project no longer has by its file", () => {
+    expect(
+      chosenTitles(["ultrapaint", ".claude/skills/gone/SKILL.md"], [design])
+    ).toEqual(["ultrapaint", ".claude/skills/gone/SKILL.md"]);
   });
 });

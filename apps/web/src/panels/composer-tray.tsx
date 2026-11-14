@@ -21,8 +21,13 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { trayTrigger } from "../components/composer-style.ts";
-import { chosenSkills, skillKey } from "../lib/chat-skills.ts";
+import { chosenSkills, chosenTitles, skillKey } from "../lib/chat-skills.ts";
 import { api } from "../state/connection.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { useSkills } from "../state/skills.ts";
@@ -59,13 +64,12 @@ const setSkills = (
 };
 
 /** "Ultrapaint", "Ultrapaint +1", "None": the tray's words for the chosen skills. */
-const chosenLabel = (chosen: readonly string[], skills: readonly Skill[]) => {
-  const [first] = chosen;
+const chosenLabel = (titles: readonly string[]) => {
+  const [first] = titles;
   if (first === undefined) {
     return "None";
   }
-  const title = skills.find((s) => skillKey(s) === first)?.title ?? first;
-  return chosen.length > 1 ? `${title} +${chosen.length - 1}` : title;
+  return titles.length > 1 ? `${first} +${titles.length - 1}` : first;
 };
 
 /** A skill in the picker: checked when the chat is told it, "Default" when the project's is. */
@@ -119,6 +123,7 @@ const SkillPicker = ({ thread }: { thread: Thread }) => {
   }
   const defaults = skills.filter((s) => s.enabled).map(skillKey);
   const chosen = chosenSkills(thread, skills);
+  const titles = chosenTitles(chosen, skills);
   // The design skill, the project's defaults and what this chat chose; the others a level down.
   const near = skills.filter(
     (s) => s.source === "built-in" || s.enabled || chosen.includes(skillKey(s))
@@ -132,24 +137,38 @@ const SkillPicker = ({ thread }: { thread: Thread }) => {
     );
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label={`Design skills: ${chosenLabel(chosen, skills)}`}
-            className={trayTrigger}
-            variant="ghost"
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  aria-label={`Design skills: ${titles.length > 0 ? titles.join(", ") : "None"}`}
+                  className={trayTrigger}
+                  variant="ghost"
+                />
+              }
+            />
+          }
+        >
+          Skills
+          <span className="truncate text-foreground">
+            {chosenLabel(titles)}
+          </span>
+          <ChevronDown
+            className="size-3.5 shrink-0 opacity-70"
+            data-icon="inline-end"
           />
-        }
-      >
-        Skills
-        <span className="truncate text-foreground">
-          {chosenLabel(chosen, skills)}
-        </span>
-        <ChevronDown
-          className="size-3.5 shrink-0 opacity-70"
-          data-icon="inline-end"
-        />
-      </DropdownMenuTrigger>
+        </TooltipTrigger>
+        {/* The names "+2" stands for, one a line; one skill's name is on the button already. */}
+        {titles.length > 1 ? (
+          <TooltipContent align="start" className="flex flex-col items-start">
+            {titles.map((title) => (
+              <span key={title}>{title}</span>
+            ))}
+          </TooltipContent>
+        ) : null}
+      </Tooltip>
       <DropdownMenuContent align="start" className="w-72" side="top">
         <DropdownMenuGroup>
           <DropdownMenuLabel>Design skills</DropdownMenuLabel>
