@@ -175,7 +175,7 @@ describe("a change to the designs from outside the editor", () => {
 
   // real clock: the real watcher, and the real wait for a directory that is not there yet.
   it.live(
-    "in a designs directory made after the folder opened is seen once the directory is there, and its pages listed",
+    "in a designs directory made after the folder opened is seen once the directory is there, its pages listed, and again once it is made anew",
     () =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -221,10 +221,27 @@ describe("a change to the designs from outside the editor", () => {
           (ids) => ids.some((id) => id.includes("home")),
           { every: "100 millis", within: "10 seconds" }
         );
+
+        // Removed, then made again by a checkout: watched again.
+        yield* fs.remove(path.join(folder, "docs/designs"), {
+          recursive: true,
+        });
+        // real clock: the watcher must find the directory gone before a checkout makes it again.
+        yield* Effect.sleep("1500 millis");
+        yield* fs.makeDirectory(path.join(folder, "docs/designs"));
+        yield* fs.writeFileString(
+          path.join(folder, "docs/designs/pricing.page.json"),
+          `${JSON.stringify({ root: { children: [], id: "root", type: "page" } }, null, 2)}\n`
+        );
+        yield* waitFor(
+          Ref.get(listed),
+          (ids) => ids.some((id) => id.includes("pricing")),
+          { every: "100 millis", within: "10 seconds" }
+        );
       }).pipe(
         Effect.provide(ProjectTest({ storage: "saveOnChange", watch: true })),
         Effect.scoped
       ),
-    15_000
+    30_000
   );
 });

@@ -244,23 +244,43 @@ export class DesignFiles extends Context.Service<
       // A folder opened for the first time has no designs directory until its first change
       // makes it (ADR 0092), or an agent's shell or a checkout does: it is looked for until it
       // is there, then watched, and what was written into it before the watch began is told.
-      const opened = yield* there;
-      yield* Effect.gen(function* () {
+      // A watch that ends (the directory removed, or one that could not be watched) starts the
+      // looking again, so a directory that comes back is watched again.
+      let toldAlready = yield* there;
+      const watching = Effect.gen(function* () {
         yield* Effect.repeat(there, {
           schedule: Schedule.spaced(DESIGNS_LOOKED_FOR_EVERY),
           until: (found) => found,
         });
-        yield* watch.pipe(
-          // A directory that cannot be watched only means its changes are seen later.
-          Effect.ignore({ log: true }),
-          Effect.forkScoped
+        const told = toldAlready ? Effect.void : present;
+        toldAlready = false;
+        // A recursive watch goes on after its directory is removed, hearing nothing more: it
+        // ends as the directory is found gone.
+        const gone = Effect.repeat(there, {
+          schedule: Schedule.spaced(DESIGNS_LOOKED_FOR_EVERY),
+          while: (found) => found,
+        });
+        yield* Effect.all(
+          [
+            Effect.raceFirst(
+              // A directory that cannot be watched only means its changes are seen later.
+              Effect.ignore(watch, { log: true }),
+              gone
+            ),
+            // A directory that cannot be listed leaves what was in it for the watcher to tell.
+            Effect.ignore(told, { log: true }),
+          ],
+          { concurrency: "unbounded", discard: true }
         );
-        if (!opened) {
-          yield* present;
-        }
-      }).pipe(
-        // A directory that cannot be listed leaves what was in it for the watcher to tell.
-        Effect.ignore({ log: true }),
+      });
+      yield* watching.pipe(
+        // A watch that keeps failing is tried again less and less often, at least each minute.
+        Effect.repeat(
+          Schedule.min([
+            Schedule.exponential(DESIGNS_LOOKED_FOR_EVERY),
+            Schedule.spaced("1 minute"),
+          ])
+        ),
         Effect.forkScoped
       );
       return service;

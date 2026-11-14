@@ -51,7 +51,8 @@ the editor just starts.
   saved that keep the designs directory in force (a setting changed, Save to file…) make it as
   they are saved, so they count as that first change too. Until then
   the designs' watcher looks for the directory each second, and once it is there tells what is
-  in it and watches it, so an agent's shell that makes it is seen too.
+  in it and watches it, so an agent's shell that makes it is seen too; a directory removed (a
+  checkout) is looked for again the same way.
 - Settings is for changing things later. Its Repository section's "Detected, not saved yet" and
   Save to file… describe a state a session leaves at its first change; Save to file… stays for a
   session that hasn't changed anything yet, or that runs with `--ephemeral`.

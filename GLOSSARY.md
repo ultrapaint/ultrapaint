@@ -578,7 +578,7 @@ refactor and the board view left.
   checkout), sorted once by kind (a page, the canvases, a component, the design system, its
   tokens, the notes, a skill, the link to the code, the comments) and told once per content
   (`DesignFiles`); its adapters are a watch of the designs directory (looked for each second
-  until a first change makes it, then what is in it told), or what a test reports. The
+  until a first change makes it, then what is in it told, and looked for again once removed), or what a test reports. The
   wire's `file.changed` is one output of it. A change is told with its **writer** (`Writer`): a
   thread's agent (a file the editor wrote for it, an MCP call it made), the editor's user, or
   nobody known (what the watcher sees).
