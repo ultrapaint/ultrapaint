@@ -742,9 +742,11 @@ describe("an unsaved session in a directory the command lends", () => {
       yield* Effect.scoped(
         Effect.gen(function* () {
           const service = yield* SettingsService;
+          // A designs directory not made yet is the first change's to make (ADR 0092); a
+          // components directory that is not there is a mistake.
           const missing = yield* service.adopt({
             ...settings,
-            designsDir: "docs/designs",
+            libraryDirs: ["src/missing"],
           });
           assert.isFalse(missing.ok);
           assert.isNull(yield* service.get);

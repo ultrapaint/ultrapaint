@@ -86,7 +86,7 @@ const savesTold = Effect.gen(function* () {
 describe("a first run", () => {
   eachTest(ProjectTest({ storage: "saveOnChange" }))((it) => {
     it.effect(
-      "opens a folder with nothing in it, its designs directory made and nothing else written",
+      "opens a folder with nothing in it and writes nothing there until the first change, which makes its designs directory",
       () =>
         Effect.gen(function* () {
           const project = yield* ProjectManager;
@@ -99,11 +99,18 @@ describe("a first run", () => {
           assert.strictEqual(info.setup, "detected");
           assert.strictEqual(info.designsDir, "docs/designs");
           assert.isTrue(info.storage.saveOnChange);
-          assert.deepStrictEqual(yield* fs.readDirectory(folder), ["docs"]);
+          assert.deepStrictEqual(yield* fs.readDirectory(folder), []);
+
+          const saves = yield* savesTold;
+          yield* project.changed;
+          assert.deepStrictEqual(yield* saves.told, [
+            { configPath: `${folder}/ultrapaint.config.json`, problems: [] },
+          ]);
           assert.deepStrictEqual(
             yield* fs.readDirectory(`${folder}/docs/designs`),
             []
           );
+          assert.strictEqual((yield* project.info).storage.mode, "file");
         })
     );
 
