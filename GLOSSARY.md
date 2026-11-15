@@ -117,6 +117,12 @@ refactor and the board view left.
   page's frame. A page without one is a **draft** (the web's `isDraft`): drawn and edited on the
   canvas, never in the prototype; a link to it is given a route when it is picked. _Avoid_ "URL"
   for it in the editor's words; the URL is what a route is written as.
+- **Variation**: another way to draw something on the canvas (a page, a container, a component's
+  main tree, a text, an image), kept with it (ADR 0098). Of a thing's variations one is **in use**,
+  the **original** first; each keeps its own edits. Made by Ask an agent or the inspector's +,
+  chosen among them laid out beside the page, with the thing in its page as the **preview**, where
+  only Use this writes; kept in a designs file beside the page (`notes.variations.json`). What page
+  variants were. _Avoid_ "variant" for it: a component's members are its variants.
 - **Operation**: one change to a document (contracts' `DocOp`, design-document's `applyOps`),
   one undo step per request: insert, remove, move, update, set props, wrap, unwrap, duplicate,
   and **replace**, which puts a node where sibling nodes were (an instance drawn as now, detached
