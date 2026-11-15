@@ -3,7 +3,7 @@ name: up-diagnose
 description: Diagnoses a failure in this codebase — a bug, an error, a failing or flaky test, a slowdown — with a loop that goes red on it before any theory, then fixes it under a regression test. Use when something is broken, failing or slow, or the user asks to debug or investigate why.
 metadata:
   pack: epicparty/skills
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Diagnose
@@ -74,7 +74,7 @@ Each probe maps to one prediction from § 3. Change one variable at a time.
 
 Prefer a debugger or REPL where the environment has one — one breakpoint beats ten logs — then targeted logs at the boundaries that tell hypotheses apart. **Tag every debug log** with a unique prefix, such as `[DEBUG-a4f2]`, so the cleanup is one search.
 
-**A slowdown** takes measurement, not logs: probe with the § 1 measurement, one change at a time.
+**A slowdown** takes measurement, not logs: probe with the § 1 measurement, one change at a time, and read every timing against its noise floor ([`VERIFY.md`](../up-implement/VERIFY.md) `## Baseline and noise floor`). A speed-up you cannot explain is not yet a cause (`## Explain the number`).
 
 Done when one hypothesis survives with the evidence that killed the others.
 
@@ -94,7 +94,11 @@ With a correct seam:
 4. Watch it pass.
 5. Re-run the § 1 loop against the original, unminimised scenario.
 
-Then validate with `/up-implement`'s **Scoped check** where it is set, or the project's own typecheck and test scripts, the way [its § 6](../up-implement/SKILL.md#6-validate) does, and review the diff as its § 7 does.
+<!-- upstream: backnotprop/pstack skills/principle-attack-the-premise/SKILL.md -->
+
+**A fix that leaves the test red** sends you back to § 3 with what it taught you. After two failed fixes that share a **premise** — the same belief about where the cause lives — write that premise down as a hypothesis with its prediction, and test it before a third fix: the premise is now the likeliest thing wrong.
+
+Then validate with `/up-implement`'s **Scoped check** where it is set, or the project's own typecheck and test scripts, the way [its § 6](../up-implement/SKILL.md#6-validate) does, and review the diff as its § 8 does.
 
 Done when the test is green, the original loop is green, and the check passes.
 
@@ -107,7 +111,7 @@ Done when the test is green, the original loop is green, and the check passes.
 
 Commit per `/up`'s [`GIT.md`](../up/GIT.md) `## Commits`, and state the hypothesis that proved correct in the commit body, so the next debugger learns from it. Then [`/up-to-pr`](../up-to-pr/SKILL.md) opens the pull request.
 
-Report the symptom, the loop, the hypothesis that held and the ones ruled out, the fix, and every finding and **open question** you are leaving.
+Report the symptom, the loop, the hypothesis that held and the ones ruled out, the fix, and every finding and **open question** you are leaving. Name, as a finding, the cheap signal that would have shown this bug sooner — an assertion, a log line, a metric, a lint rule.
 
 ## Settings
 

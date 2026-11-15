@@ -3,7 +3,7 @@ name: up-babysit
 description: Sweeps an open PR toward merged. Use when a PR needs watching, a red check fixed, or a merge once its gate is clear.
 metadata:
   pack: epicparty/skills
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Babysit
@@ -34,7 +34,7 @@ One read, covering all of:
 
 - **head SHA** — every judgement in this sweep is against it
 - **state, draft flag, mergeability, review decision**
-- **checks on that head SHA**, each with whether it gates the merge
+- **checks and commit statuses on that head SHA**, each with whether it gates the merge — an automatic reviewer reports its run as one or the other
 - **review threads with their resolved state** — a plain `gh pr view --comments` flattens threads and drops resolution, so reach for the GraphQL `reviewThreads { isResolved }` field or a tool that reports it. Re-litigating a thread someone already resolved is noise on their PR.
 - **PR-level comments** — where bots post their bug reports
 
@@ -91,17 +91,27 @@ Done when every fixed finding has a reply and a resolved thread, and every other
 
 **Ours, on the first sweep and after every push.** Run [`/up-code-review`](../up-code-review/SKILL.md) against the merge-base (`git merge-base HEAD origin/<base>`), passing it the issue the PR closes as its spec, on the first sweep, and on later sweeps only when you pushed. An unchanged diff yields an unchanged review, so re-running it spends tokens to learn nothing. Feed its findings back through step 5. A Standards finding is usually a fix. A Spec finding that names a missing requirement means the feature isn't done — report it and stop short of the gate.
 
-**External, rarely, for a substantial change.** An **external review** comes from a reviewer outside this session — a review bot installed on the repository — and its quota is small. The **External reviewers** setting lists the reviewers enabled, how to request each, and the most reviews each one gives a PR; read it the first time a PR is substantial, per [Settings](#settings). Our review carries most PRs; an external one is the exception:
+**External.** An **external review** comes from a reviewer outside this session — a review bot installed on the repository. The **External reviewers** setting lists each one by kind; read it on the first sweep, per [Settings](#settings).
+
+**An automatic reviewer reviews every PR on its own.** Its review is the PR's external review, whether the change is substantial or not, and every head commit needs a review of its own: the substantial-push rule below is for the normal and security kinds only. Never ask the user about it, and request it only when the head commit has **no review** from it:
+
+- **No review** is what its row defines; by default, its check or status missing on the head SHA once the PR's other checks there have finished, or ended skipped, rate limited or neutral. A skip the row counts as a review — every file filtered out by the bot's config, "No files to review" — is its review.
+- **Then post its re-request comment.** After a rate limit, post it only once the limit has lifted — the bot's message says when; a sweep before then reports the wait and posts nothing.
+- **Each request counts against the row's cap** of requests per PR. With the cap spent and still no review on the head SHA, request no more: the gate holds the PR open, and the report says so.
+
+Its findings, in review threads or PR comments, go through steps 4 and 5 like any bot's.
+
+**A normal or security reviewer reviews only when asked, rarely, for a substantial change.** Its quota is small: the setting gives how to request each and the most reviews each one gives a PR. Our review carries most PRs; a requested one is the exception:
 
 - **Substantial** means the diff changes architecture or core logic: a module boundary, a schema or migration, auth and permissions, a shared package other code depends on, the rules of a domain flow. Copy, styling, docs and test-only changes are not substantial.
 - **Requested without asking** when the user asked for an external review, or for a deep or deeper review.
 - **Otherwise asked once.** For a substantial change, ask the user once per PR whether they want an external review, and from which reviewer when more than one is enabled. Record the answer in the PR body, so a later sweep reads it rather than asking again. A change that is not substantial gets no ask. Under [`/up-deliver`](../up-deliver/SKILL.md) nobody is there to answer, so a substantial change gets its external review without asking, within the caps.
-- **One big review of each kind.** Request it once our review's findings are fixed and pushed, so it reads the shape that will merge. A later push earns another only when that push is substantial on its own — a rebase whose conflicts touched architecture or core logic, for example — and only within that kind's cap.
+- **One big review of each requested kind.** Request it once our review's findings are fixed and pushed, so it reads the shape that will merge. A later push earns another only when that push is substantial on its own — a rebase whose conflicts touched architecture or core logic, for example — and only within that kind's cap.
 - **A security review** is for a change to auth, permissions or secrets themselves, not to code beside them. Spend its cap by how sensitive the code is: a later push earns another only when it touches that code again.
 
 A later sweep reads its findings at step 3 and dispositions them at step 5 like any other bot.
 
-Done when the current diff has had our review, the PR's external review is settled — requested, not wanted, or not earned — and every finding raised carries a disposition.
+Done when the current diff has had our review, every automatic reviewer has reviewed the head commit or has a re-request out, a rate limit to wait for, or its cap spent, the requested kinds are settled — requested, not wanted, or not earned — and every finding raised carries a disposition.
 
 ## 9. The merge gate
 
@@ -112,7 +122,8 @@ Take a fresh read **after** your last push — a gate judged on state from befor
 - no check still running
 - no unresolved thread, and no reviewer sitting on changes-requested
 - every **open question** in the PR body has an answer — a call you made *for* the user is theirs to take while the diff is open, and this merge is what closes that window
-- the PR's external review is settled (step 8), and every external review requested has landed; merging while one is still running throws away quota you spent
+- every **automatic** reviewer has reviewed **that head SHA** — its run finished there, and not as **no review** (step 8) — and every finding it raised carries a disposition. No review there with its cap spent holds the gate: report it, and the user decides whether to merge without it
+- the requested kinds are settled (step 8), and every external review requested has landed; merging while one is still running throws away quota you spent
 - code-review findings fixed or dispositioned
 - where the **Full suite** runs locally, the PR body's suite report names **this** head SHA — that report is the only evidence the merging commit was ever tested
 
@@ -154,11 +165,11 @@ This skill reads two settings `/up` `## Settings` defines — **Full suite** at 
 
 ### External reviewers
 
-Topic `reviewers`. Question: *Which review bots outside this session may be asked to review a substantial PR, and how often?*
+Topic `reviewers`. Question: *Which review bots outside this session review this repository's PRs — on their own, or when asked — and how often may each be asked?*
 
 | Option | Follow-up | Recommend when |
 | --- | --- | --- |
-| **These reviewers** | One row per reviewer and kind — normal or security — with the PR comment that requests it, the most requests per PR, and any rule its trigger needs | A review bot has posted on the repository's recent PRs (`gh pr list --state merged --limit 20 --json comments,reviews`) |
+| **These reviewers** | One row per reviewer and kind. **Automatic** — it reviews every PR on its own: the check or status name its run shows on the head commit, such as `CodeRabbit`; the comment that re-requests it, such as `@coderabbitai review`; the most requests per PR; and what counts as **no review** from it — by default its run missing, or ended skipped, rate limited or neutral — with any skip that counts as a review, such as every file filtered out by its config ("No files to review"). **Normal** or **security** — it reviews only when asked: the PR comment that requests it, the most requests per PR, and any rule its trigger needs | A review bot is installed — `gh api orgs/<owner>/installations` where the owner is an organisation — or has reviewed, commented or reported a check on the repository's recent PRs (`gh pr list --state merged --limit 20 --json number,comments,reviews`, then `gh pr checks <n>` on a few). A bot whose review or check appears on PRs where nobody asked for it is **automatic**: CodeRabbit, Copilot code review. One that only answers a request is **normal** |
 | **None** | — | No review bot is installed: step 8 runs our review alone |
 
-A reviewer the setting does not list is never requested. Enabling one means installing it on the repository first, then adding its row.
+A reviewer the setting does not list is never requested, and an automatic one it does not list is a bot like any other: its findings still go through step 5, but the gate does not wait for it. Enabling one means installing it on the repository first, then adding its row.

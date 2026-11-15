@@ -3,7 +3,7 @@ name: up-implement
 description: Builds one story on one branch — test-first, validated, reviewed, committed. Use when an issue is ready to build.
 metadata:
   pack: epicparty/skills
-  version: 0.1.0
+  version: 0.3.0
 ---
 
 # Implement
@@ -16,9 +16,9 @@ The story is the spec. Where it and your judgement disagree, the story wins unti
 
 Fetch the issue **and its comments** — the comments often carry decisions the body never got. The tracker is the **Tracker** setting when the settings home has one, or GitHub when `gh repo view` finds the repo. Where the work arrived with no issue, say so and build from what the conversation settled.
 
-Check this checkout before anything runs, the way `/up-deliver`'s worker § 1 does — clean, at `origin/<default>` — on the default branch, or a fresh branch with no commits past it — and set up for its kind per the **Checkout** setting where it is set. A checkout that fails is somebody's work: stop, name what fails, and change nothing. A worker `/up-deliver` started has done this already.
+Check this checkout before anything runs, the way `/up-deliver`'s worker § 1 does — clean, at `origin/<default>` — on the default branch, or a fresh branch with no commits past it, or the story's own pushed branch when resuming a parked story — and set up for its kind per the **Checkout** setting where it is set. A checkout that fails is somebody's work: stop, name what fails, and change nothing. A worker `/up-deliver` started has done this already.
 
-Then claim it: assign yourself — on GitHub, `gh issue edit <n> --add-assignee @me` — and, where the project keeps a board, move the item to the Building stage (`/up`'s [`BOARD.md`](../up/BOARD.md)). Write the status **before** cutting the branch, and re-read the item afterwards — the write is what claims the story against other workers, and an issue still reading as ready to start invites one of them to claim it too. A worker that does not see itself as the writer lost the race and stops here. Run directly, the user's request is the go-ahead: claim the story from whatever stage it is in. Hold it to the Ready bar ([`STORIES.md`](../up-to-story/STORIES.md) `## Ready`) all the same — a gap is an **open question** you raise before building, not a reason to stop.
+Then, with an issue, claim it the way `/up-deliver`'s [worker § 2](../up-deliver/SKILL.md#2-claim-it) does — a claim comment read back, then the assignee and the Building stage — **before** cutting the branch: the claim comment is what holds the story against other workers. A worker that loses the race stops here, and one `/up-deliver` started has claimed already. Without an issue there is nothing to claim. Run directly, the user's request is the go-ahead: claim the story from whatever stage it is in. Hold it to the Ready bar ([`STORIES.md`](../up-to-story/STORIES.md) `## Ready`) all the same — a gap is an **open question** you raise before building, not a reason to stop.
 
 Done when you can state the outcome, the seams, and the test level the story named.
 
@@ -26,9 +26,11 @@ Done when you can state the outcome, the seams, and the test level the story nam
 
 Name it per `/up`'s [`GIT.md`](../up/GIT.md) `## Naming an issue, a PR and a branch`. The type follows the issue's type label where the **Labels** setting defines a type axis and the label names a Conventional Commit type — `fix`, `refactor`, `chore` — and the change otherwise: a label such as `feature` or `improvement` is `feat` when the change adds behaviour, `fix` when it repairs it. Where the change contradicts the label — a defect fix labelled a chore — the change decides, and the hand-off names the mismatch. The scope follows the issue's title — from the **Scopes** vocabulary where the project has one.
 
-Branch off the default branch unless the user asked to stack this on another, and link the branch to the issue: on GitHub, create it with `gh issue develop <n> --name <branch> --base <default> --checkout`; on another tracker, comment its name on the issue. The link is how `/up-deliver` finds a branch before its PR exists.
+Branch off the default branch unless the user asked to stack this on another. With an issue, link the branch to it: on GitHub, create it with `gh issue develop <n> --name <branch> --base <default> --checkout`; on another tracker, comment its name on the issue. The link is how `/up-deliver` finds a branch before its PR exists. Without an issue, create it with `git switch -c <branch> origin/<default>`.
 
-Done when you are on a fresh branch named to the standard, cut from an up-to-date base.
+**Resuming a parked story**, the branch exists: stay on it, read its commits, and continue at the step its park comment records (`/up-deliver` [Park, do not wait](../up-deliver/SKILL.md#park-do-not-wait)) — or, with no record, at the first step whose Done-when the branch does not meet yet.
+
+Done when you are on a fresh branch named to the standard, cut from an up-to-date base — or back on a resumed story's branch.
 
 ## 3. Route the standards
 
@@ -68,7 +70,7 @@ Test the externally observable behaviour, never the implementation. Reuse the fi
 
 Typecheck the package you are in with its own script, and run the single test file as you go, with the level's run command from **Test levels**; the full check comes next. A tight loop is what makes the slices cheap.
 
-Done when every row of the map has a test that has been run, and every numbered user story reads true against the running code.
+Done when every row of the map has a test that has been seen red, then green.
 
 ## 6. Validate
 
@@ -78,7 +80,20 @@ A change to code that other parts depend on validates those parts too, not only 
 
 Done when the check passes, or its failure is understood and fixed rather than worked around.
 
-## 7. Review the diff
+## 7. Prove it
+
+<!-- upstream: backnotprop/pstack skills/create-verification-skill/SKILL.md -->
+
+Tests prove the code at its seams; the **proof** shows each story working where its user meets it. For each numbered user story, exercise the change through that surface — the app in a browser, the CLI, the endpoint, the job — started the way the project's agent files or **Test levels** say, and keep the **evidence**: the command and its output, the request and its response, or a screenshot.
+
+- **The user's surface, or inconclusive.** A unit test, a compiling type or a call into the module shows the code, not the story: evidence from any other surface is reported as **inconclusive**, never as a pass.
+- **A check you have seen fail.** A check written for this step — a script, a request with an expected response — runs once against `origin/<default>`, or with the change reverted, and comes out wrong before you trust it. One never seen failing proves nothing.
+- **A measured target** — a **Measure** line in the story's `## Testing Decisions`, or an outcome that is a number — is proven by measuring it, per [`VERIFY.md`](./VERIFY.md). Read it before the first measurement.
+- **A manual row** from § 4 — a real device, a third-party dashboard — keeps its manual check, reported as still to do.
+
+Done when every numbered user story has evidence from its user's surface, or is reported as inconclusive or manual with the reason, and every measured target is met or reported with its numbers.
+
+## 8. Review the diff
 
 Run [`/up-code-review`](../up-code-review/SKILL.md) against the merge-base, and pass it the story as its spec — the issue with its comments, or what the conversation settled when there is none. It reviews on two axes: **Standards**, whether the code follows the project's documented rules, and **Spec**, whether it does what the story asked.
 
@@ -86,7 +101,7 @@ Fix the Standards findings. A Spec finding naming a missing requirement means th
 
 Done when the diff has been reviewed and every finding is fixed or dispositioned with a stated reason.
 
-## 8. Commit
+## 9. Commit
 
 Commit per [`GIT.md`](../up/GIT.md) `## Commits`: Conventional Commit subjects, each commit standing alone, written for the reader who finds it on the default branch.
 
@@ -94,12 +109,12 @@ Done when your work is committed and `git status` shows nothing of yours left be
 
 ## Hand off
 
-Report the branch, the issue, what you built, the validation result, every **small fix** you committed, every larger finding, and every **open question** you are leaving — the calls you made *for* the user. Then [`/up-to-pr`](../up-to-pr/SKILL.md) opens the pull request, carrying the findings and the questions into its body, and [`/up-ship`](../up-ship/SKILL.md) carries it to merged and into production.
+Report the branch, the issue, what you built, the validation result, the proof — each story's evidence, and each inconclusive or manual one —, every **small fix** you committed, every larger finding, and every **open question** you are leaving — the calls you made *for* the user. Then [`/up-to-pr`](../up-to-pr/SKILL.md) opens the pull request, carrying the proof, the findings and the questions into its body, and [`/up-ship`](../up-ship/SKILL.md) carries it to merged and into production.
 
 ## Guardrails
 
 - **The story's goal is this branch's scope, and a small fix rides along.** What the goal needs is built here and written into the story (step 4). A **small fix** the work turns up lands here as its own commit, and anything larger goes under **Found in passing** in the PR body. A **sibling** of the defect you are fixing is an **open question**: ask before it ships (`/up` `## Vocabulary`).
-- **Validation is evidence.** Make the code satisfy the gate, and leave the gate's config alone.
+- **Validation is evidence.** Make the code satisfy the gate, and leave the gate's config alone. The same holds for the tests once red ([`TDD.md`](./TDD.md) `## Rules of the loop`) and for a measured target's harness (`VERIFY.md`).
 - **A test you had to reach into the implementation to write is telling you the seam is wrong.** Raise it rather than reaching further.
 
 ## Settings

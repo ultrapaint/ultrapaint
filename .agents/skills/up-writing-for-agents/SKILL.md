@@ -3,7 +3,7 @@ name: up-writing-for-agents
 description: Writing documents for agents. Use when creating or editing skills, or modifying AGENTS.md or CLAUDE.md.
 metadata:
   pack: epicparty/skills
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Writing for agents
@@ -86,3 +86,17 @@ You win twice: fewer tokens, and a sharper hook for the agent to hang its thinki
 - The **environment** is a source of truth too (`package.json` scripts, config files, the directory layout, `--help` output), and a document that restates it is a **cache**: a copy of a lookup, earning its load only when the lookup is expensive. Cache what the agent cannot find by looking: the unwritten convention, the reason behind a choice, the gotcha no config confesses. Leave the one-file, one-command lookups to the environment, where they cannot go stale.
 - Check every line for **relevance**: does it still bear on what the document does? A line loses relevance by never bearing on the task (mere exposition, or a branch that should be disclosed) or by going stale as the behaviour or world it describes changes. Shorter documents are easier to keep relevant. Without a pruning discipline the default fate is **sediment**: stale layers that settle because adding feels safe and removing feels risky, until you must core down through them to find what is still live.
 - Hunt **no-ops** sentence by sentence: an instruction the model already obeys by default pays load to say nothing. The test (does it change behaviour versus the default?) is model-relative, not reader-relative: two people disagreeing about a no-op disagree about the default, and settle it by running the document, not by debate. When a sentence fails, delete the whole sentence rather than trim words from it. The test also grades leading words: a word too weak to beat the default (_be thorough_ when the agent is already thorough-ish) is a no-op, and the fix is a stronger word (_relentless_), not a different technique.
+
+## Encode the lesson
+
+<!-- upstream: backnotprop/pstack skills/correct/SKILL.md -->
+
+A document is the weakest place to stop a mistake an agent keeps making: it is read, weighed against everything else in context, and sometimes lost. When the same mistake comes back, fix it on the highest rung that holds, and write prose last:
+
+1. **The shape of the code** — an interface that cannot be called the wrong way.
+2. **A type**, so the wrong call does not compile.
+3. **A lint rule** whose error message names the fix.
+4. **A test** that fails on the mistake — run once against the mistake, since a check never seen failing proves nothing.
+5. **The document** — a line in `AGENTS.md` or a skill, for what no check can see.
+
+Pair each rule with what enforces it. A rule a check could hold, held only by prose, is the next repeat.

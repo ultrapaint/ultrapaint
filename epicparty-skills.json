@@ -1,6 +1,6 @@
 {
   "prefix": "up",
-  "version": "0.1.1",
+  "version": "0.5.0",
   "source": "@epicparty/skills",
   "agents": [
     "claude-code",
@@ -8,23 +8,24 @@
   ],
   "skills": {
     "up-architect": "0.1.0",
-    "up-babysit": "0.1.0",
-    "up-code-review": "0.1.0",
+    "up-babysit": "0.2.0",
+    "up-code-review": "0.2.0",
     "up-copy": "0.1.0",
-    "up-deliver": "0.1.0",
-    "up-diagnose": "0.1.0",
-    "up-explore": "0.1.0",
+    "up-deliver": "0.2.0",
+    "up-diagnose": "0.2.0",
+    "up-explore": "0.1.1",
     "up-grill": "0.1.0",
-    "up-implement": "0.1.0",
+    "up-implement": "0.3.0",
     "up-outdated": "0.1.0",
+    "up-release": "0.2.0",
     "up-research": "0.1.0",
-    "up": "0.1.0",
-    "up-setup": "0.1.0",
-    "up-ship": "0.1.0",
-    "up-to-pr": "0.1.0",
-    "up-to-story": "0.1.0",
+    "up": "0.3.0",
+    "up-setup": "0.2.0",
+    "up-ship": "0.2.0",
+    "up-to-pr": "0.2.0",
+    "up-to-story": "0.2.0",
     "up-triage": "0.1.0",
     "up-upgrade": "0.1.0",
-    "up-writing-for-agents": "0.1.0"
+    "up-writing-for-agents": "0.2.0"
   }
 }

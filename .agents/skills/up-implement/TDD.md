@@ -8,6 +8,8 @@ The red → green loop of [`/up-implement` § 5](./SKILL.md#5-build-it-test-firs
 
 Tests verify behaviour through public interfaces, not implementation details. Code can change entirely; tests should not. A good test reads like a specification — "user can checkout with valid cart" says exactly what capability exists — and survives refactors because it does not care about internal structure.
 
+A good test fails when the behaviour a user or another system relies on breaks. Prefer the larger unit — a module, a feature — over a tiny isolated function where the seam allows it, and spend the tests on edge cases, error paths and meaningful transformations.
+
 ## Seams — where tests go
 
 A **seam** is the public boundary you test at: the interface where you observe behaviour without reaching inside. Tests live at seams, never against internals.
@@ -19,14 +21,17 @@ When the shape of the interface is itself in question — how deep the module is
 ## Anti-patterns
 
 - **Implementation-coupled** — mocks internal collaborators, tests private methods, or verifies through a side channel (querying the database instead of using the interface). The tell: the test breaks on a refactor that changed no behaviour.
-- **Tautological** — the assertion recomputes the expected value the way the code does (`expect(add(a, b)).toBe(a + b)`, a snapshot derived by hand the same way, a constant asserted equal to itself), so it passes by construction and can never disagree with the code. Expected values come from an independent source of truth: a known-good literal, a worked example, the spec.
+- **Tautological** — the test adds no verification: it restates the implementation, checks a trivial constant, or asserts what is true by construction, so it passes even when the behaviour is wrong. The common shapes: an expected value recomputed the way the code computes it (`expect(add(a, b)).toBe(a + b)`); a constant string checked for substrings of itself; a function asserted to return the value it is hardcoded to return; a snapshot of internal details that always matches the code. Expected values come from an independent source of truth: a known-good literal, a worked example, the spec.
+- **Testing what has no logic** — a pure constant or a mapping with no logic is used, not tested: its test is a copy of it. Test the behaviour that uses it instead.
 - **Horizontal slicing** — writing all tests first, then all implementation. Bulk tests verify _imagined_ behaviour: they test the _shape_ of things rather than what the user sees, they go insensitive to real changes, and they commit to a test structure before the implementation is understood. Work in **vertical slices** instead — one test → one implementation → repeat, each test a **tracer bullet** that responds to what the last cycle taught you.
 
 ## Rules of the loop
 
+- **Would it catch a real bug?** Before writing a test, ask: if I introduced a real bug in the logic, would this test fail? That is its **P** in [`TEST-VALUE.md`](./TEST-VALUE.md): a test that cannot fail on a plausible defect is not written. Where a defect costs what a person sees, stored data, a permission or money, make the answer observable: break the logic by hand, watch the test go red, and revert.
+- **Red tests are frozen.** Once a story's test has gone red, the build changes the code, not the test. The code is correct for every valid input the story covers, never shaped around the test's own inputs. A test that turns out wrong is fixed as a test, and the change and its reason go in the hand-off; a test whose expectation you doubt is an **open question** for the user.
 - **Red before green.** Write the failing test first, then only enough code to pass it. Do not anticipate future tests or add speculative features.
 - **One slice at a time.** One seam, one test, one minimal implementation per cycle.
-- **Refactoring is not part of the loop.** It belongs to the review, [`/up-implement` § 7](./SKILL.md#7-review-the-diff), not the red → green cycle.
+- **Refactoring is not part of the loop.** It belongs to the review, [`/up-implement` § 8](./SKILL.md#8-review-the-diff), not the red → green cycle.
 
 ## Good and bad tests
 
@@ -88,6 +93,17 @@ test("calculateTotal sums line items", () => {
 // GOOD: expected value is an independent, known literal
 test("calculateTotal sums line items", () => {
   expect(calculateTotal([{ price: 10 }, { price: 5 }])).toBe(15);
+});
+
+// BAD: a constant checked against itself — passes whatever signup does
+test("invalid email message mentions the email", () => {
+  expect(INVALID_EMAIL_MESSAGE).toContain("email");
+});
+
+// GOOD: the behaviour that uses the constant
+test("signup rejects an invalid email", async () => {
+  const result = await signup({ email: "not-an-email" });
+  expect(result.error).toBe(INVALID_EMAIL_MESSAGE);
 });
 ```
 
