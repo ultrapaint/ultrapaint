@@ -3,7 +3,7 @@ name: up-explore
 description: Maps what a piece of work involves before anything is decided — provenance, seams, prior art, open questions. Use at the start of unfamiliar work.
 metadata:
   pack: epicparty/skills
-  version: 0.1.0
+  version: 0.1.1
 ---
 
 # Explore
@@ -22,11 +22,11 @@ Done when the restatement uses the domain's vocabulary and the user would recogn
 
 ## 2. Find the provenance
 
-Only when the user named no issue. Search the tracker for one that already describes this work, with the request's own nouns. The tracker is the **Tracker** setting when the settings home has one — read it, never ask for it — or GitHub when `gh repo view` finds the repo: `gh issue list --search "<keywords>" --state all`, then `gh issue view <n> --comments` on a hit. With neither, say no tracker was searched. A hit describing the same work is the provenance; an adjacent one is context, never provenance.
+The tracker is the **Tracker** setting when the settings home has one — read it, never ask for it — or GitHub when `gh repo view` finds the repo. An issue the user named is the provenance: read it with its comments, `gh issue view <n> --comments`, and search no further. Otherwise search the tracker for one that already describes this work, with the request's own nouns: `gh issue list --search "<keywords>" --state all`, then `gh issue view <n> --comments` on a hit. With neither, say no tracker was searched. A hit describing the same work is the provenance; an adjacent one is context, never provenance.
 
 A hit is worth more than anything the codebase will tell you: it carries decisions already made, and its comments carry the ones that never reached the body. A closed hit is worth as much — the work may already be done.
 
-Done when you have the issue, or have searched and found none, or have said no tracker was searched.
+Done when you have read the issue the user named, or found one, or have searched and found none, or have said no tracker was searched.
 
 ## 3. Locate the work
 

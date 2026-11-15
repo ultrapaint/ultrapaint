@@ -51,8 +51,8 @@ merged PR. The usual route is `/up-explore` → `/up-to-story` → `/up-implemen
 column; only a person moves a card there. `/up-grill` stress-tests a plan and keeps
 `GLOSSARY.md` and the ADRs, `/up-diagnose` investigates a failure, `/up-architect` judges a
 design, `/up handoff` hands a thread to a fresh agent, and `/up-writing-for-agents` governs
-skills and agent files. A person types `/up`, `/up-setup`, `/up-deliver` and `/up-upgrade`
-themselves; an agent cannot start them.
+skills and agent files. `/up-release` cuts a release when a batch is ready. A person types `/up`,
+`/up-setup`, `/up-deliver`, `/up-upgrade` and `/up-release` themselves; an agent cannot start them.
 
 They are the [`epicparty/skills`](https://github.com/epicparty/skills) pack, installed under the
 prefix `up` by its CLI; `epicparty-skills.json` records the prefix, the version and the agents.

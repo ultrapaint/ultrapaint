@@ -3,7 +3,7 @@ name: up-code-review
 description: Reviews code on two axes, Standards and — when given a spec — Spec. Use before opening a PR, or when asked to review a branch, a commit range, working changes or a few files.
 metadata:
   pack: epicparty/skills
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Code Review
@@ -22,13 +22,15 @@ Both axes run as **parallel sub-agents**, so neither pollutes the other's contex
 Take the first that fits:
 
 - **Files the user named** — read whole; there is no diff and no commit list.
-- **A commit, tag, or range the user named** — `git diff <ref>...HEAD`.
-- **Uncommitted changes**, when the user asked for working changes or the branch has no commits of its own — `git diff HEAD`.
-- **The branch** — the default: the merge-base with the default branch, `git merge-base HEAD origin/<default>`, the default from `git symbolic-ref refs/remotes/origin/HEAD`, or `gh repo view --json defaultBranchRef` where that is unset. This is what a branch review means and what `/up-implement` and `/up-babysit` ask for.
+- **One commit the user named** — that commit's own change: `git show <sha>`, and its commit list is that commit alone.
+- **A range the user named**, `<a>..<b>` — `git diff <a>...<b>`, and its commits `git log <a>..<b> --oneline`.
+- **Everything since a ref the user named**, such as a tag — `git diff <ref>...HEAD`, and its commits `git log <ref>..HEAD --oneline`.
+- **Uncommitted changes**, when the user asked for working changes or the branch has no commits of its own — `git diff HEAD` for the tracked files, plus every untracked one, `git ls-files --others --exclude-standard`, read whole as new. Work that is only new files has an empty `git diff HEAD`.
+- **The branch** — the default: the merge-base with the default branch, `git merge-base HEAD origin/<default>`, the default from `git symbolic-ref refs/remotes/origin/HEAD`, or `gh repo view --json defaultBranchRef` where that is unset — `git diff <merge-base>...HEAD`, and its commits `git log <merge-base>..HEAD --oneline`. This is what a branch review means and what `/up-implement` and `/up-babysit` ask for.
 
-Capture a diff once — three-dot, so the comparison is against the merge-base and not against whatever else has landed since — and note its commits with `git log <fixed-point>..HEAD --oneline`. Confirm the ref resolves (`git rev-parse`) and the diff is non-empty before going further. A bad ref should fail here, not inside two sub-agents.
+Capture the diff once. Where it compares against another line of work, it is three-dot, so the comparison is against the merge-base and not against whatever else has landed since. Confirm every ref resolves (`git rev-parse`) and the code is non-empty — a diff, or untracked files — before going further. A bad ref should fail here, not inside two sub-agents.
 
-Done when you have the code to review — a non-empty diff with its commits, or the named files.
+Done when you have the code to review — a non-empty diff with its commits, the untracked files with it, or the named files.
 
 ## 2. Take the spec
 
@@ -61,9 +63,11 @@ Done when you have the `AGENTS.md` chain, the routed standards for every touched
 
 > Report, per file or hunk: (a) every place the diff violates a documented standard — cite the standard by file and rule; (b) any baseline smell — name it and quote the hunk. Mark documented-standard breaches as hard findings and baseline smells as judgement calls. A documented project standard overrides the baseline. Skip anything the formatter, linter or typechecker enforces. Under 400 words.
 
+<!-- upstream: backnotprop/pstack skills/blast-radius/SKILL.md -->
+
 **Spec sub-agent** — give it the diff command or the files, the commit list, and the spec — for an issue, its body **and comments**. The brief:
 
-> Report: (a) requirements the spec asks for that are missing or partial — check every numbered user story and every acceptance criterion; (b) behaviour in the code the spec never asked for, which is scope creep; (c) requirements that look implemented but look wrong. Quote the spec line for each finding. Under 400 words.
+> Report: (a) requirements the spec asks for that are missing or partial — check every numbered user story and every acceptance criterion; (b) behaviour in the code the spec never asked for, which is scope creep; (c) requirements that look implemented but look wrong; (d) code shaped around the tests rather than the requirement — a branch on a test's own inputs, a hardcoded expected value — and tests weakened in the same diff that touches the code they cover; (e) the **blast radius**: the one fact this change is safe because of — what, if false, breaks behaviour the spec never touched — and the strongest evidence the diff and its commits give for it, ranked: asserted < cited `file:line` < shown the bad case cannot happen < run < reproduced in the product. Quote the spec line for each finding in (a)–(d). Under 500 words.
 
 Skip the Spec sub-agent when step 2 holds no spec.
 

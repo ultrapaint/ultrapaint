@@ -7,7 +7,7 @@ defines each one.
 
 None. Nothing deploys on a merge to `main`, so ship ends at the merge and says so.
 
-A release is made by hand, and only when the person asks for one: the **Release** workflow
+A release is made by hand, and only when the person asks for one (`/up-release`, [`release.md`](./release.md)): the **Release** workflow
 ([`.github/workflows/release.yml`](../../.github/workflows/release.yml), run from the Actions tab
 on `main`) raises the version in `package.json`, tags `v<version>`, attaches the command's
 package to a draft release, builds the desktop app on Linux and macOS, and publishes the release

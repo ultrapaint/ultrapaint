@@ -45,8 +45,8 @@ The triage label outranks a priority deliberately. The two co-occur on real issu
 - **When creating an issue, leave the status alone.** The automation adds the item asynchronously, so anything set in the same breath as the create races it and silently does nothing. Get the labels right instead; the board catches up on its own.
 - **When filing an idea, create a draft on the board, never an issue.** A draft is the one item you add by hand, because no automation can. An add automation may still write Triage on it, asynchronously, so `board_idea` below sets Ideas and re-reads until it holds.
 - **When labels move an issue along**, set the new stage in the same pass. By then the item exists.
-- **Only the user queues a story.** No skill puts an issue in Queued that the user did not put there. A user's explicit yes to a skill's offer — `/up-triage` offers it on a ready story — is the user queuing it. An agent that queues its own work has removed the control the gate exists to give. The one write a skill makes is a **return**: a story the user queued, whose claim produced no branch and no PR, goes back to Queued (`/up-deliver` § 1). The user wanted it started, and a worker that died does not cancel that.
-- **A claim is one write, then a read.** Write Building **before** cutting the branch, then re-read the item. A worker that does not see itself as the writer lost the race. This is the only thing stopping two workers building one story.
+- **Only the user queues a story.** No skill puts an issue in Queued that the user did not put there. A user's explicit yes to a skill's offer — `/up-triage` offers it on a ready story — is the user queuing it. An agent that queues its own work has removed the control the gate exists to give. The one write a skill makes is a **return**: a story the user queued, whose claim produced no branch and no PR, goes back to Queued once its worker is gone (`/up-deliver` § 1). The user wanted it started, and a worker that died does not cancel that.
+- **A claim is a comment, not a status.** A status records no owner, and two workers can both write Building and both read it back. The lock is the claim comment of `/up-deliver`'s [worker § 2](../up-deliver/SKILL.md#2-claim-it), posted and read back before the branch is cut; Building is written once that claim is won, and only shows it.
 - **Review when the PR opens**, not after CI goes green: Review covers "PR open, awaiting CI and review", so an amber build belongs there too. The write may agree with an automation that already made it; it costs one call and covers a PR opened without a link.
 - **Shipping immediately *before* the merge**, not after. The merge closes the issue, and a close automation then writes Done; a later Shipping write would land on top of Done and stick, because that trigger is spent.
 - **Never set Done by hand**, except when reconciling: moving an issue you have just read as **closed** confirms rather than asserts. Setting Done on anything else only masks whether the issue actually closed.
@@ -74,20 +74,29 @@ Never queue a story the user did not queue: the only Queued write is the return 
 
 ## GitHub Projects commands
 
-For a GitHub Project linked to the repository, with a single-select `Status` field. `board` finds the one open board linked to the repo — by that link, not by its title, so renaming it changes nothing. `board_status` sets the status of an issue already on it; `board_idea` saves an idea as a draft and prints the draft's id. Pass the board's own status names, from the **Tracker** setting. An empty item id in `board_status` means the automation has not added the issue yet; leave it, do not add it yourself.
+For a GitHub Project linked to the repository, with a single-select `Status` field. Set `BOARD` to the project number the **Tracker** setting names before calling them. `board` resolves that board among the open ones linked to the repo — by number and link, not by title, so renaming it changes nothing. A setting that names no number falls back to the one open board linked to the repo, and fails when several are: a skill then writes to no board, and says the **Tracker** setting should name one. `board_status` sets the status of an issue already on it; `board_idea` saves an idea as a draft and prints the draft's id. Pass the board's own status names, from the **Tracker** setting. An empty item id in `board_status` means the automation has not added the issue yet; leave it, do not add it yourself.
 
 ```sh
 repo() { # prints "<owner> <name>"
   gh repo view --json owner,name --jq '"\(.owner.login) \(.name)"'
 }
 
-board() { # prints "<number> <project-id>": the one open board linked to this repo
-  local owner name
+board() { # prints "<number> <project-id>": board $BOARD, or the one open board linked to this repo
+  local owner name boards
   read -r owner name < <(repo)
-  gh api graphql -f query='
+  boards=$(gh api graphql -f query='
     query($o:String!,$r:String!){ repository(owner:$o,name:$r){
-      projectsV2(first:10){ nodes{ number id closed } } } }' -f o="$owner" -f r="$name" \
-    --jq '[.data.repository.projectsV2.nodes[] | select(.closed==false)][0] | "\(.number) \(.id)"'
+      projectsV2(first:20){ nodes{ number id closed } } } }' -f o="$owner" -f r="$name" \
+    --jq '.data.repository.projectsV2.nodes[] | select(.closed==false) | "\(.number) \(.id)"') || return 1
+  if [[ -n "${BOARD:-}" ]]; then
+    grep "^$BOARD " <<<"$boards" ||
+      { echo "board $BOARD is not an open project linked to this repo" >&2; return 1; }
+  elif [[ -n "$boards" && $(wc -l <<<"$boards") -eq 1 ]]; then
+    echo "$boards"
+  else
+    echo "no single open board linked to this repo: set BOARD from the Tracker setting" >&2
+    return 1
+  fi
 }
 
 board_option() { # board_option <project-number> <status-name>: prints "<field-id> <option-id>"
@@ -117,7 +126,7 @@ board_status() { # board_status <issue-number> <status-name>
   local issue="$1" target="$2" # not `status`: zsh reserves that name
   local owner name number project_id field_id option_id item_id
   read -r owner name < <(repo)
-  read -r number project_id < <(board)
+  read -r number project_id < <(board) || return 1
   read -r field_id option_id < <(board_option "$number" "$target")
 
   item_id=$(gh api graphql -f query='
@@ -136,7 +145,7 @@ board_status() { # board_status <issue-number> <status-name>
 board_idea() { # board_idea <title> <body> <ideas-status-name>: prints the draft's item id
   local owner name number project_id field_id option_id item_id
   read -r owner name < <(repo)
-  read -r number project_id < <(board)
+  read -r number project_id < <(board) || return 1
   read -r field_id option_id < <(board_option "$number" "$3")
   item_id=$(gh project item-create "$number" --owner "$owner" \
     --title "$1" --body "$2" --format json --jq '.id')

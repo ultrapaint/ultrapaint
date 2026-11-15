@@ -33,7 +33,8 @@ Ultrapaint adds, and wins where the two differ:
 
 ## Tracker
 
-GitHub Issues, with the issue prefix `UP-`, and the **Ultrapaint Board** (see `## Project board`).
+GitHub Issues, with the issue prefix `UP-`, and the **Ultrapaint Board**, project number `1`
+(see `## Project board`).
 
 **Referring to an issue.** Write **`UP-42` for an issue** and **`#42` for a pull request**:
 GitHub shares one number space across both. The first mention in a chat reply, a report or a PR

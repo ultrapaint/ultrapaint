@@ -3,7 +3,7 @@ name: up-ship
 description: Takes a PR to merged, confirms the production deploy landed, and returns the checkout to a clean slate. Use when asked to ship or deploy.
 metadata:
   pack: epicparty/skills
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Ship
@@ -95,7 +95,7 @@ Three sections, in this order. The message lands in a chat the user reads from t
 
 **Details** — the evidence: findings and their dispositions, each deploy run, anything skipped and why, the commands you ran.
 
-**TL;DR** — five lines at most, one per thing that is true at the end: the issue, the PR and its merge commit, each deploy's outcome, the receipt now live, the state of the checkout.
+**TL;DR** — five lines at most, one per thing that is true at the end: the issue, the PR and its merge commit, each deploy's outcome, the receipt now live, the state of the checkout. Where the **Releases** setting is set and not **None**, the merge waits for the next release: say so, and that `/up-release` cuts it when the user judges the batch ready.
 
 **Your turn** — closes the message. The actions only a human can take, numbered, each naming the thing to do and where to do it. When the list is empty, write **"Nothing — merged, deployed, and the checkout is clean."** and mean it. A user who cannot tell an empty list from a forgotten one has to go and check for themselves. Anything you are asking them to weigh is an item on this list, and reaching this section means it is already too late to be one — a report that says `Nothing` here and offers opinions up in the details is naming work the merge just made expensive.
 
@@ -110,7 +110,7 @@ What earns a line in the last two sections is what **changes what the user does 
 
 ## Settings
 
-This skill reads one setting `/up` `## Settings` defines — **Checkout** at § 3, shared with `/up-deliver` — and one of its own, **Deploy** at § 2. It acts on what they name, so it asks for each one that is missing. Each `###` heading below is one setting: its topic, its question, and its options. `/up-setup` reads the same headings to ask every setting up front.
+This skill reads two settings `/up` `## Settings` defines — **Checkout** at § 3, shared with `/up-deliver`, and **Releases** at § 4 when it is set — and one of its own, **Deploy** at § 2. It acts on what they name, so it asks for each one that is missing. Each `###` heading below is one setting: its topic, its question, and its options. `/up-setup` reads the same headings to ask every setting up front.
 
 1. **The settings home.** The `## Agent skills` block of the root `AGENTS.md` — or `CLAUDE.md`, whichever the project has — names where `up-*` settings live and in what form. With neither file present, first ask which to create, recommending `AGENTS.md`, which most agents read. With no such line, ask the user where to keep them, the default first:
    - **`docs/agents/<topic>.md`** (default) — one Markdown file per topic, one `##` heading per setting, named as the setting. Other headings in the file are the project's own notes.

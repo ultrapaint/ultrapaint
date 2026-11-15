@@ -26,7 +26,9 @@ Iterate until the user approves. A split nobody agreed to is a split that gets r
 
 ## Publish
 
-In dependency order — blockers first, so each story's edges can name a real issue number.
+Read the **Tracker** setting first, as [`/up-to-story`](./SKILL.md) § 5 does. With **Tracker** at **None**, create nothing: print each story in dependency order — its title and its body, its blockers named by title in `## Blocked by` — say no issue was created, and skip the parent link, the labels, the edges and the board below.
+
+Otherwise publish in dependency order — blockers first, so each story's edges can name a real issue number.
 
 - **Parent**, where the set has one: promote it to an epic and let its `## Stories` checklist be the children, or keep it a story with the children linked under it. Either way it stays open and otherwise untouched.
 - **Without a parent**, each story takes the full story body from [`STORIES.md`](./STORIES.md).
@@ -50,4 +52,4 @@ These are reached rarely, so read them rather than recall them.
 - **Sub-issue**: attach a child to its parent through GitHub's sub-issues endpoint (`gh api`).
 - **Blocking edge**: `gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, where `<blocker-db-id>` is the blocker's numeric **database id** (`gh api repos/<owner>/<repo>/issues/<n> --jq .id`) — _not_ the `#number` or the `node_id`. GitHub reports `issue_dependencies_summary.blocked_by`, which counts open blockers only: that is the live gate. Where dependencies are unavailable, fall back to the `## Blocked by` list in the child body.
 - **Reading the edges**: `gh api repos/<owner>/<repo>/issues/<n>/dependencies/blocked_by` lists what blocks an issue, and `…/dependencies/blocking` what it blocks.
-- **Frontier**: the children with no open blocker. List the parent's open children and drop any with `issue_dependencies_summary.blocked_by > 0`.
+- **Frontier**: the children with no open blocker. List the parent's open children and drop any with `issue_dependencies_summary.blocked_by > 0`. Where the edges fell back to `## Blocked by` lists, that count is zero: drop, too, any child whose list names an issue still open (`gh issue view <n> --json state`).

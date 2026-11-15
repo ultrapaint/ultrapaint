@@ -4,7 +4,7 @@ description: Delivers the stories you marked to start — in sequence in this th
 disable-model-invocation: true
 metadata:
   pack: epicparty/skills
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Deliver
@@ -40,18 +40,21 @@ A beat carries nothing between beats. Every beat re-derives its picture from the
 
 A story is **in flight** from its claim to its deploy, in one of three stages: **building** (claimed, no PR), **review** (PR open) and **shipping** (merged, deploy unfinished). Where the project keeps a board, each stage is a status on it, and the status is a **claim to be checked**: a worker that died mid-story leaves a card reading building forever, and a stale card reads as work in progress.
 
-In flight is every story at a building, review or shipping stage where the project keeps a board. Without one — or to catch what a board missed — it is every open issue a claim assigned, with a branch linked to it, or with an open PR that closes it, plus every open issue whose comments carry the `**A worker needs a decision**` line: on GitHub, `gh search issues --repo <owner>/<repo> --state open --match comments '"A worker needs a decision"'`.
+In flight is every story at a building, review or shipping stage where the project keeps a board. Without one — or to catch what a board missed — it is every open issue a claim comment holds ([worker § 2](#2-claim-it)) or a claim assigned, with a branch linked to it, or with an open PR that closes it, plus every open issue whose comments carry the `**A worker needs a decision**` line: on GitHub, `gh search issues --repo <owner>/<repo> --state open --match comments '"A worker needs a decision"'`.
 
 For every in-flight story, take the first row that matches:
 
 | What exists | Reading |
 | --- | --- |
 | **The issue is closed** | It is finished, whatever the board says. Move it to done. |
-| An unanswered `**A worker needs a decision**` comment, on the issue or its PR | Parked. Resume nothing; list it under Parked. Where the board has a Parked stage, the card reads Parked. |
+| An unanswered `**A worker needs a decision**` comment, on the issue or its PR — [§ 6](#6-relay-what-the-user-said) says what answers one | Parked. Resume nothing; list it under Parked. Where the board has a Parked stage, the card reads Parked. |
 | A merged PR, the deploy unfinished | Shipping |
 | An open PR | Review |
-| A pushed branch linked to the issue (on GitHub, `gh issue develop --list <n>`), no PR | Building — it rejoins at `/up-to-pr` |
-| No branch and no PR | Nothing was built. Remove your claim, and return it to the queue: restore the Ready signal the claim took off, where it took one. A story named on the run only loses your assignment. That return is the one Ready signal write a skill makes. |
+| A pushed branch linked to the issue (on GitHub, `gh issue develop --list <n>`), no PR | Building. Once its worker is gone, the next worker resumes it ([Park, do not wait](#park-do-not-wait)) |
+| No branch and no PR, its worker not gone | Building — the worker is still setting up. Leave it |
+| No branch and no PR, its worker gone | Nothing was built. Release the claim ([worker § 2](#2-claim-it)), and return it to the queue: restore the Ready signal the claim took off, where it took one. A story named on the run only loses its claim. That return is the one Ready signal write a skill makes. |
+
+A worker is **gone** when it released its claim, as a park does, when the thread this coordinator started for it has ended, or, where no thread is visible, when its claim comment is more than an hour old and nothing it wrote since — a commit on the story's branch, a comment — is newer than an hour. A missing branch alone proves nothing: a worker spends its first minutes setting up its checkout and reading the story, with neither a branch nor a PR to show.
 
 The closed row moves a card to done by hand, where a board would usually do it on the close. That is safe here because the closed state **is** the confirmation, read before the write: a card closed before the board's automation existed, or written over afterwards, has no second chance to correct itself.
 
@@ -92,7 +95,7 @@ Done when every queued story is free, or named with the signal that held it.
 ### 4. Deliver, per Orchestration
 
 - **In sequence, in this thread** — before the first claim, run the worker's [§ 1 check](#1-check-this-checkout) on this checkout: a dirty checkout stops the beat before a claim, not after. Then take the first free story, run the [worker](#the-worker) on it here, then come back to step 3. Stop when nothing is free.
-- **Parallel threads it starts** — count the stories in flight. For each free story, up to the setting's most workers at once: [claim it](#2-claim-it), then start one thread with the harness's thread tool, running `/up-deliver <issue>` in a checkout of the kind the **Checkout** setting gives a new story. Name each thread after its story, so the user can find it.
+- **Parallel threads it starts** — count the stories in flight. For each free story, up to the setting's most workers at once: [claim it](#2-claim-it) in the name of the thread it is about to start, then start that thread with the harness's thread tool, running `/up-deliver <issue>` in a checkout of the kind the **Checkout** setting gives a new story. Name each thread after its story, so the user can find it.
 - **Parallel, started by you** — start nothing. Name each free story beside a free checkout of a kind the **Checkout** setting lists, so the user can run `/up-deliver <issue>` there.
 
 Under **Parallel threads it starts**, a harness without a thread tool falls back to **Parallel, started by you** for this beat, and says so.
@@ -130,7 +133,7 @@ Done when every in-flight story has a row whose stage, age and blocker match the
 
 Steering is a **comment**. It survives a crashed session, it works from every tool, and it lands where the decision belongs.
 
-Each beat, read new comments on the in-flight issues and their PRs. A comment that changes what a worker should do gets relayed to the worker holding that story. A question counts as answered once a later comment exists that is not a worker's own — every worker comment opens with a bold marker line. An answer moves that story on: drop the label the question added, where it added one, move a Parked card to the stage its branch or PR reads in § 1, and say so in the report. The next free worker resumes it from there.
+Each beat, read new comments on the in-flight issues and their PRs. A comment that changes what a worker should do gets relayed to the worker holding that story. A question counts as answered once a later comment answers it: written by a person with write access to the repository (on GitHub, `gh api repos/<owner>/<repo>/collaborators/<login>/permission`) — not a bot account, such as a review bot on the PR, and not a worker, whose every comment opens with a bold marker line — and taking a position on the question it follows. A comment that does not — a review, a thank-you, a note about something else — is relayed where it changes the work, and the story stays parked. An answer moves that story on: drop the label the question added, where it added one, move a Parked card to the stage its branch or PR reads in § 1, and say so in the report. The next free worker resumes it from there.
 
 Where a worker is reachable through the harness — a thread this coordinator started — relay immediately and say you did. Where it is not, the comment stands on the issue and the worker picks it up at its next stage boundary. Say that too, because the difference is whether your instruction lands in seconds or in twenty minutes.
 
@@ -148,23 +151,25 @@ One story, in this checkout. Started by the coordinator, in a thread or in seque
 
 ### 1. Check this checkout
 
-`git status --porcelain` empty, no merge or rebase in progress, and at `origin/<default>` — on the default branch, or on a fresh branch with no commits past it, as some checkout kinds start — the local default branch where the repo has no remote. A dirty checkout is **somebody's work** — stop, name the files, and change nothing (`/up` `## Working rules`).
+`git status --porcelain` empty, no merge or rebase in progress, and at `origin/<default>` — on the default branch, or on a fresh branch with no commits past it, as some checkout kinds start — the local default branch where the repo has no remote. A worker resuming a parked story checks out the story's pushed branch instead (`git fetch origin <branch> && git switch <branch>`), clean all the same. A dirty checkout is **somebody's work** — stop, name the files, and change nothing (`/up` `## Working rules`).
 
 Then find this checkout's kind in the **Checkout** setting, and confirm its setup has run. A checkout whose kind lists a setup step that has not run is setup you own: run it, or — when it needs the user — stop and say which checkout needs what. The worker never reaches into a sibling checkout, and never creates one.
 
-Done when the checkout is clean, on the default branch, and set up for its kind — or you have stopped and named what is wrong with it.
+Done when the checkout is clean, on the default branch or the resumed story's branch, and set up for its kind — or you have stopped and named what is wrong with it.
 
 ### 2. Claim it
 
 Skip this when the coordinator already claimed the story for this worker.
 
-Claim it in one write, and read it back:
+A claim is a **claim comment** on the issue, and the earliest one wins. Workers often share one tracker login, so neither an assignee nor a board status can say which worker holds a story; a comment carries its worker's id, and the tracker keeps comments in order.
 
-- **A board column** — move the story from that column to the Building stage (`/up`'s [`BOARD.md`](../up/BOARD.md)), then re-read the item. If it does not read Building with you as the writer, you lost the race.
-- **A label** — assign yourself, then re-read the issue. If someone else is assigned too, you lost the race: unassign yourself. If you are the only one, remove the label.
-- **Named on the run** — assign yourself, and move it to the Building stage where the project keeps a board.
+1. **Post the claim**: one comment opening with the line `**A worker claimed this story**`, then `Worker: <id>` — the name of the thread a coordinator started for this worker, or else this checkout, `<host>:<path>` (`echo "$(hostname):$(git rev-parse --show-toplevel)"`).
+2. **Read it back**: the issue's comments, oldest first. The holder is the worker named in the first claim comment after the latest `**A worker released this story**` comment. Yours: you hold the story. Another's: you lost the race. Post nothing more, say which story you lost, and stop.
+3. **Show it**: assign yourself, then per the **Ready signal** — **A board column**: move the story to the Building stage (`/up`'s [`BOARD.md`](../up/BOARD.md)); **A label**: remove the label; **Named on the run**: move it to Building where the project keeps a board.
 
-This single write is the only thing stopping two workers building one story, so it happens before the branch, not after. A worker that lost the race stops, and says which story it lost.
+The claim comment is the only thing stopping two workers building one story, so it happens before the branch, not after.
+
+**Releasing** a claim — at a park ([Escalation](#escalation)), or when the coordinator returns a gone worker's story (§ 1) — is one comment opening with `**A worker released this story**`, naming the worker and why, then removing the assignee.
 
 A story that fails the Ready bar in [`STORIES.md`](../up-to-story/STORIES.md) `## Ready` is not yours to build or to grill, whatever its labels say. Started by the coordinator, trust its pre-flight: it checked the bar. Started by hand, check the bar yourself. Report a story that fails it and stop; the coordinator's pre-flight is what asks about it.
 
@@ -172,7 +177,7 @@ Done when you hold the claim, or have stopped and said why.
 
 ### 3. Walk the route
 
-`/up-implement`, then `/up-to-pr`, then `/up-ship`. They move the story through building, review and shipping as they cross each boundary, which is what gives the coordinator's table something true to render.
+`/up-implement`, then `/up-to-pr`, then `/up-ship` — a resumed story from the stage [Park, do not wait](#park-do-not-wait) gives it. They move the story through building, review and shipping as they cross each boundary, which is what gives the coordinator's table something true to render.
 
 Read each skill and follow it. Where one stops on a condition it cannot clear, that is a **park**, not a failure — see [Escalation](#escalation).
 
@@ -190,7 +195,7 @@ Two things earn a question, and each has exactly one surface.
 
 Either way, one comment opening with the literal line `**A worker needs a decision**`, then the single question, the options, your recommendation, and what you will do if no answer comes. That first line is how the coordinator finds the question and tells a reply from silence.
 
-Then park the story: remove your claim, and move the card to the board's Parked stage where it has one ([`BOARD.md`](../up/BOARD.md)). Without that stage, the card keeps the stage it had. Never return a parked story to the queue: its branch or PR holds the state, and the next worker resumes from there.
+End that comment with the stage the work stopped in — `Resume at: /up-implement § 5` — so the worker that resumes it starts there. Then park the story: release your claim ([worker § 2](#2-claim-it)), and move the card to the board's Parked stage where it has one ([`BOARD.md`](../up/BOARD.md)). Without that stage, the card keeps the stage it had. Never return a parked story to the queue: its branch or PR holds the state, and the next worker resumes from there.
 
 ### What earns a go/no-go
 
@@ -209,7 +214,7 @@ Everything else you decide, do, and record in the PR body as a decision you made
 
 **The branch is the parking place.** Commit what exists and push it, because work that lives only in a checkout is one reset from gone — `git stash` puts it exactly where the next reset destroys it. A worker started for one story then stops; under **In sequence**, the coordinator goes back to step 3 and takes another.
 
-A parked story is resumed by whichever worker next finds it: an issue with a pushed branch rejoins at `/up-to-pr`, one with an open PR rejoins at `/up-ship`. Ten minutes or a week later costs the same, because the branch and the PR carry the state.
+A parked story is resumed by whichever worker next claims it, on the story's branch, at the stage its park comment records. Without a record — a worker that died rather than parked — a pushed branch with no PR rejoins at `/up-implement`, which continues from the first step the branch has not finished, and an open PR rejoins at `/up-ship`. Never at `/up-to-pr` on a guess: a branch parked mid-build is not ready for review. Ten minutes or a week later costs the same, because the branch and the PR carry the state.
 
 ## Guardrails
 

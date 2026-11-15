@@ -3,7 +3,7 @@ name: up-to-pr
 description: Opens a pull request from a committed branch, carrying its suite report and issue link. Use when a branch is ready for review.
 metadata:
   pack: epicparty/skills
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # To PR
@@ -48,6 +48,8 @@ Done when the suite has run and you can name its result and the SHA it judged, o
 
 Read the **Scopes** setting when it is set, and the **Merge strategy** setting now, per [Settings](#settings): it decides who reads the body.
 
+**A changeset**, under **Releases** at **Changesets**: when the branch changes what the project ships, add one (`npx changeset`) before opening, its bump by the **Bump rules** (`/up` `## Settings`) and its entry in the project's format, and commit it on the branch. A change to tests, CI or tooling alone ships nothing and adds none.
+
 **Title** — the conventional-commit subject that summarises the whole branch, per `GIT.md` `## Naming an issue, a PR and a branch`: `type(<scope>): description`, the scope matching the issue's, the type the branch's dominant change. Individual commits keep their own narrower scopes.
 
 **Body** — check for a template first (`.github/pull_request_template.md`, `.github/PULL_REQUEST_TEMPLATE/`) and fill its headings when one exists. Otherwise write prose covering:
@@ -57,6 +59,7 @@ Read the **Scopes** setting when it is set, and the **Merge strategy** setting n
 - **What to look at** — the decision you are least sure of, the trade-off you made, the file that carries the risk. This is the section that gets you a useful review instead of an approval. Label as **Open question** each call you made *for* the user and would change on their word (`/up` `## Vocabulary`); `/up-babysit` holds the merge until each has an answer, so one left unlabelled ships as decided.
 - **Found in passing** — each **small fix** the branch carries, named by commit, and each larger finding left for the user to make a story of (`/up` `## Vocabulary`). Leave the heading out when there is neither.
 - **The suite report** — the command you ran, the SHA, and the result. Say plainly when it could not run. Leave it out when CI runs the suite.
+- **The proof** — from `/up-implement`'s hand-off: each numbered user story with its evidence from the running product, each one inconclusive or still to check by hand, and a measured target's table. Leave it out when the branch has no story, such as a refactor proven by its tests.
 - **The issue link** from step 2.
 
 Use the domain's own vocabulary ([`DECISIONS.md`](../up/DECISIONS.md)), name other issues with the **Tracker** setting's prefix, and follow the naming rules the project's agent files set for prose. Under a **Squash** merge, write the body as the commit body it becomes: lead with what `git log` needs, and keep the reviewer's notes — what to look at, the open questions — under their own headings below it.
@@ -81,8 +84,9 @@ Done when the PR is open, non-draft, based correctly, linked to its issue, and t
 
 ## Settings
 
-This skill reads four settings, all defined in `/up` `## Settings` together with the steps that find them:
+This skill reads five settings, all defined in `/up` `## Settings` together with the steps that find them:
 
 - **Full suite** at § 3 and **Merge strategy** at § 4. This skill runs the one and writes the body the other shapes, so it asks for each one that is missing.
 - **Tracker** at § 2: read when set, and asked for only when there is an issue to link.
 - **Scopes** at § 4, when it is set.
+- **Releases** at § 4, when it is set: a project that versions nothing never hears of it.
