@@ -318,7 +318,7 @@ export class VariationsService extends Context.Service<
                 message: "the original stays while other variations remain",
               });
             }
-            // The thing stays as it is drawn (the person's answer of 16 Nov): the one in use
+            // The thing stays as it is drawn (ADR 0098): the one in use
             // deleted, none is in use until another is used.
             const inUse = variation === s.inUse ? null : s.inUse;
             const onlyInUse = left.length === 1 && left[0]?.id === inUse;

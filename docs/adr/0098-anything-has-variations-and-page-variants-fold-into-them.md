@@ -30,7 +30,7 @@ Variants section, is accepted.
 variations: a page, a container, a component's main tree, a text, an image. Of a thing's
 variations, **one is in use**: the one its page, the prototype, the agents and the code see. The
 thing as it was before any variation is its first variation, **Original**, in use until another is
-used.
+used. Once the one in use is deleted none is, the thing staying as it is drawn (below).
 
 **Variations are made in two ways, from places that exist.**
 
@@ -101,7 +101,8 @@ used.
 
 **Each variation keeps its own edits** (the person's answer of 16 Nov). An edit lands on the
 variation in use. Switching to another and back finds it as it was left, as a page variant was.
-The history keeps every step as well.
+What the thing draws while none is in use is kept by no variation: using one puts it in, and
+the history keeps every step as well.
 
 **One list:** the inspector's **Variations** section, for every selection. With only its
 original, it is the section's header and its +, so the first variation can be made by hand.

@@ -206,8 +206,8 @@ export const closeVariations = () => {
 };
 
 /**
- * Selecting something on the canvas closes the variations, the one in use kept (the person's
- * answer of 16 Nov), so ← and → walk the selection again. Answers the function that stops it.
+ * Selecting something on the canvas closes the variations, the one in use kept (ADR 0098), so
+ * ← and → walk the selection again. Returns the unsubscribe.
  */
 export const closeOnSelecting = () =>
   useEditor.subscribe((now, before) => {
@@ -223,9 +223,9 @@ export const closeOnSelecting = () =>
 /** Whether the preview shows another than the one in use. */
 export const previewDiffers = (state: VariationsStore): boolean => {
   const set = openSet(state);
-  return state.open !== null && set !== undefined
-    ? state.open.preview !== set.inUse
-    : false;
+  const preview = state.open?.preview ?? null;
+  // The thing as it is drawn is what is in use, whichever that is (an undo may put one back).
+  return set !== undefined && preview !== null && preview !== set.inUse;
 };
 
 /**
