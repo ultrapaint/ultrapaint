@@ -357,6 +357,17 @@ export class OpenProject extends Context.Service<
           if (ask && agreed !== was && !(yield* agreeToStop(action, was))) {
             return false;
           }
+          // The one a switch left open is asked about too, unless the person agreed as the
+          // switch began: declined, both stay.
+          const kept = previous;
+          if (
+            ask &&
+            kept &&
+            !previousAgreed &&
+            !(yield* agreeToStop(action, kept))
+          ) {
+            return false;
+          }
           yield* letGoOfPrevious;
           yield* letGo(was);
           return true;
@@ -685,6 +696,42 @@ export class OpenProject extends Context.Service<
         });
 
         /**
+         * The next project's server is ready: its editor is shown, the shell's steps done and
+         * timed, the one open kept behind it until the editor is ready. Cancelled meanwhile, the
+         * open one stays as it was and the next one goes: false.
+         */
+        const installNext = Effect.fnUntraced(function* (
+          underway: ShownOpening,
+          next: Open,
+          was: Open | null
+        ) {
+          // The shell's steps are done; the editor's begin as its page loads.
+          yield* changeOpening(underway, (o, now) =>
+            reachStep(
+              o,
+              o.steps.find((s) => isEditorStep(s.id))?.id ?? null,
+              now
+            )
+          );
+          // The times are for the next estimate only: a list that cannot be written loses
+          // that, never the server just started.
+          yield* Effect.ignore(
+            store.timed(next.project.id, stepTimes(underway.state))
+          );
+          agreed = null;
+          if (opening !== underway) {
+            yield* Scope.close(next.scope, Exit.void);
+            return false;
+          }
+          // The one open stays behind the next one's editor until that one is ready.
+          previous = was;
+          open = next;
+          yield* store.opened(next.project.id);
+          yield* showEditor(next.server);
+          return true;
+        });
+
+        /**
          * Opens a project in place of the open one, on the splash, stopping one still opening.
          * The open one stays open until the next one's server is ready, so that Cancel, or a
          * failure, leaves it as it was. False when the user kept the open one for its agents,
@@ -701,7 +748,9 @@ export class OpenProject extends Context.Service<
                 if (asked === "stay") {
                   return false;
                 }
-                agreed = was;
+                // An agreement only when the person was asked: with nothing at work there was
+                // nothing to agree to, and an agent that starts meanwhile is asked about.
+                agreed = asked === "agreed" ? was : null;
                 // One left open by a switch before goes now: a third project is coming.
                 yield* letGoOfPrevious;
                 // Asked now, the person is not asked again when it stops; otherwise an agent
@@ -734,33 +783,7 @@ export class OpenProject extends Context.Service<
                   }
                   return false;
                 }
-                const next = launched.value;
-                // The shell's steps are done; the editor's begin as its page loads.
-                yield* changeOpening(underway, (o, now) =>
-                  reachStep(
-                    o,
-                    o.steps.find((s) => isEditorStep(s.id))?.id ?? null,
-                    now
-                  )
-                );
-                // The times are for the next estimate only: a list that cannot be written loses
-                // that, never the server just started.
-                yield* Effect.ignore(
-                  store.timed(project.id, stepTimes(underway.state))
-                );
-                // Cancelled meanwhile, the open project stays as it was: the next one goes.
-                if (opening !== underway) {
-                  agreed = null;
-                  yield* Scope.close(next.scope, Exit.void);
-                  return false;
-                }
-                agreed = null;
-                // The one open stays behind the next one's editor until that one is ready.
-                previous = was;
-                open = next;
-                yield* store.opened(project.id);
-                yield* showEditor(next.server);
-                return true;
+                return yield* installNext(underway, launched.value, was);
               })
             )
           );
@@ -954,8 +977,11 @@ export class OpenProject extends Context.Service<
                 ...times,
               })
             );
-            // The next one is ready: the one a switch left open goes, or the person goes back.
-            yield* settlePrevious(underway.project.name);
+            // The next one is ready: the one a switch left open goes, or the person goes back;
+            // unless another switch began while the times were written, which settles it then.
+            if (opening === null && open?.project.id === underway.project.id) {
+              yield* settlePrevious(underway.project.name);
+            }
           }),
           remove,
           restart: switching.withPermits(1)(
