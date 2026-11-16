@@ -81,6 +81,8 @@ used.
   - Once it differs, they say what it is ("Editorial", or "Original with Editorial's title"),
     followed by **Reset** (back to the one in use) and **Use this**.
   - Enter uses it, and Escape closes the variations, keeping the one in use.
+  - Selecting something on the canvas closes them too, keeping the one in use, so ← and → walk the
+    selection again (the person's answer of 16 Nov).
 - **Use this** puts the preview in use as one undo step, closes the variations, and leaves the thing
   selected. The history keeps what was in use before. A preview made of several variations joins
   the set as a variation of its own.
@@ -109,6 +111,10 @@ original, it is the section's header and its +, so the first variation can be ma
 - The section's header has + (New variation) and ⋯ (Make more…, Clear variations). A row's own
   menu (right-click) has Rename and Delete; Original can be renamed but not deleted while others
   remain.
+- **Deleting a variation never changes the thing** (the person's answer of 16 Nov): using one
+  copies it over the thing, and deleting one, even the one in use, leaves the thing as it is
+  drawn. With the one in use deleted, none is in use until another is used, so three takes made,
+  one chosen and all deleted leave the thing as the chosen one drew it.
 - **Make more…** asks the agent for another round in a new turn, telling it which variation is in
   use and which were made before, so it makes takes unlike those.
 - On a component's main tree it sits under the component's own Variants section. The two are

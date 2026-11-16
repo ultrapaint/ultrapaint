@@ -85,7 +85,10 @@ export class VariationsService extends Context.Service<
     readonly list: (
       canvas: string
     ) => Effect.Effect<VariationsList, EditFailure>;
-    /** One deleted; the original stays while others remain, and one in use leaves it in use. */
+    /**
+     * One deleted, the thing left as it is drawn: the one in use deleted, none is in use. The
+     * original stays while others remain.
+     */
     readonly remove: (
       target: VariationTarget,
       variation: string
@@ -306,27 +309,24 @@ export class VariationsService extends Context.Service<
         target: VariationTarget,
         variation: string
       ) {
-        return yield* change("Delete a variation", target, (set, node) =>
+        return yield* change("Delete a variation", target, (set) =>
           Effect.gen(function* () {
             const { set: s } = yield* variationIn(set, variation);
-            if (variation === ORIGINAL_ID) {
+            const left = s.variations.filter((v) => v.id !== variation);
+            if (variation === ORIGINAL_ID && left.length > 0) {
               return yield* new BadRequest({
                 message: "the original stays while other variations remain",
               });
             }
-            // The one in use goes: the original is put in use in its place.
-            const swapped =
-              variation === s.inUse
-                ? yield* putInUse(s, node, ORIGINAL_ID)
-                : { set: s };
-            const from = swapped.set ?? s;
-            const left = from.variations.filter((v) => v.id !== variation);
+            // The thing stays as it is drawn (the person's answer of 16 Nov): the one in use
+            // deleted, none is in use until another is used.
+            const inUse = variation === s.inUse ? null : s.inUse;
+            const onlyInUse = left.length === 1 && left[0]?.id === inUse;
             return {
-              put: swapped.put,
               set:
-                left.length < 2
+                left.length === 0 || onlyInUse
                   ? null
-                  : { inUse: from.inUse, variations: left },
+                  : { inUse, variations: left },
             } satisfies Decided;
           })
         );

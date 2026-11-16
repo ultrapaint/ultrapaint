@@ -23,9 +23,12 @@ export const Variation = Schema.Struct({
 });
 export type Variation = typeof Variation.Type;
 
-/** A thing's variations, the original first, and which one is in use. */
+/**
+ * A thing's variations, the original first, and which one is in use: none once the one in use is
+ * deleted, the thing drawn as it was until another is used.
+ */
 export const VariationSet = Schema.Struct({
-  inUse: Schema.String,
+  inUse: Schema.NullOr(Schema.String),
   variations: Schema.Array(Variation),
 });
 export type VariationSet = typeof VariationSet.Type;

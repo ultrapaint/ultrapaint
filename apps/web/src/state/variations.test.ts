@@ -14,6 +14,7 @@ import {
   drawnIn,
   loadVariations,
   openVariations,
+  previewDiffers,
   previewedComponents,
   previewOf,
   putPreviewInUse,
@@ -212,6 +213,19 @@ describe("choosing among a thing's variations", () => {
       children: [{ text: "SALE" }, { text: "Ends Sunday" }],
       id: "c-root",
     });
+  });
+
+  it("with none in use, starts from the thing as drawn and steps the variations from it", () => {
+    fakeApi.emit("variations", {
+      doc: HOME,
+      sets: { title: { ...SETS.title, inUse: null } } as VariationSets,
+    });
+    openVariations({ frame: HOME, nodeId: "title" });
+    expect(previewDiffers(useVariations.getState())).toBe(false);
+    expect(drawnIn(useVariations.getState(), HOME)).toBeNull();
+    stepVariation(1);
+    expect(previewOf(useVariations.getState())).toBe("original");
+    expect(previewDiffers(useVariations.getState())).toBe(true);
   });
 
   it("hears a change of the variations from the server", () => {

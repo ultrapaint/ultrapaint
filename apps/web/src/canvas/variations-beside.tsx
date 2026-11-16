@@ -21,6 +21,7 @@ import { frameRefOf } from "../state/frame-ref.ts";
 import { nodeFrameLayout } from "../state/page-layout.ts";
 import {
   besideBoxes,
+  closeOnSelecting,
   type OpenVariations,
   openSet,
   rootOfDocument,
@@ -194,6 +195,10 @@ export const VariationsBeside = ({
   const ids = useMemo(() => set?.variations.map((v) => v.id) ?? [], [set]);
   const boxes =
     page && thing ? besideBoxes(page, thing, ids, heights) : undefined;
+
+  // Open, selecting something closes them.
+  const isOpen = open !== null;
+  useEffect(() => (isOpen ? closeOnSelecting() : undefined), [isOpen]);
 
   // Opened, the camera fits the page, or the board, and its variations.
   const key = open ? `${open.doc}/${open.node}` : null;
