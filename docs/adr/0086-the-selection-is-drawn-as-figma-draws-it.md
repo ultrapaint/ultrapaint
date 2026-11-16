@@ -3,6 +3,9 @@
 Status: accepted, 2026-11-12. Amends 0058 (the bar over the tools, the selection's tag) and 0085
 (a page's notes in its toolbar).
 
+> Amended by [0098](0098-anything-has-variations-and-page-variants-fold-into-them.md), 2026-11-16: Ask an agent's popover has a Variations control
+> under its field (One change, or 2, 3 or 4).
+
 ## Context
 
 The element toolbar was Vibe's (0018): with no inspector, it was the only way to change what was

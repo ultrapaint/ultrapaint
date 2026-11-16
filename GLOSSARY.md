@@ -120,8 +120,8 @@ refactor and the board view left.
 - **Variation**: another way to draw something on the canvas (a page, a container, a component's
   main tree, a text, an image), kept with it (ADR 0098). Of a thing's variations one is **in use**,
   the **original** first; each keeps its own edits. Made by Ask an agent or the inspector's +,
-  chosen among them laid out beside the page, with the thing in its page as the **preview**, where
-  only Use this writes; kept in a designs file beside the page (`notes.variations.json`). Planned
+  chosen among them laid out beside the page, with the thing in its page as the **variation
+  preview** (not the editor's Preview), where choosing writes only on Use this; kept in a designs file beside the page (`notes.variations.json`). Planned
   by ADR 0098 (UP-9), which folds page variants into it: until then the Page, Route and Location
   entries keep page variants. _Avoid_ "variant" for it: a component's members are its variants.
 - **Operation**: one change to a document (contracts' `DocOp`, design-document's `applyOps`),

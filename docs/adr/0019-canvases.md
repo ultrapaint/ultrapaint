@@ -3,6 +3,9 @@
 Status: accepted, 2026-09-30. Amends 0012 (spaces become canvases, variants are built), 0014 (the
 tools take `canvas`) and 0015 (assets are shared).
 
+> Page variants replaced by [0098](0098-anything-has-variations-and-page-variants-fold-into-them.md), 2026-11-16: a page's variants become
+> its root's variations, kept beside the page; the prototype's variant switch goes.
+
 > Snapshots replaced by [0087](0087-the-designs-history-is-ultrapaints-and-git-is-apart.md),
 > 2026-11-12: a named point of the designs' history is a version, a point named rather than a
 > copy; one is opened on the canvas as a snapshot was. The snapshots kept were brought in.
