@@ -9,8 +9,10 @@ Tags by hand, cut by the **Release** workflow
 ([`.github/workflows/release.yml`](../../.github/workflows/release.yml)) run from the Actions tab
 on `main`, never after every merge.
 
-- **The version:** the workflow's `bump` input raises a part of the root `package.json`'s version,
-  or releases it as it is, and commits it.
+- **The version:** raised first in the root `package.json` by a PR of its own, one commit
+  `chore: release v<version>`, rebase-merged once `check` passes; the workflow releases the version
+  `main` holds and pushes only its tag. `main` takes commits only through a PR (ADR 0096), the
+  workflow's included.
 - **The tag:** `v<version>`, such as `v0.1.5`. The batch is the commits since the last one
   (`git describe --tags --abbrev=0`).
 - **What publishes:** a draft GitHub release with the command's package (`pnpm pack:local`), then
