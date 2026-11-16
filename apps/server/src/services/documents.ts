@@ -502,7 +502,10 @@ export class DocumentService extends Context.Service<
           discard: true,
         });
         // Each document's tree once all its edits are made: what its variations are kept against.
-        const finalRoots = new Map<string, DesignNode>();
+        const finalRoots = new Map<
+          string,
+          { readonly doc: string; readonly tree: DesignNode }
+        >();
         const editIn = (tx: EditTransaction) =>
           Effect.fnUntraced(function* (change: DocumentEdit) {
             const loaded = yield* load(change.doc, false);
@@ -535,7 +538,11 @@ export class DocumentService extends Context.Service<
                 }),
             });
             yield* writeDocument(tx, change.doc, loaded, result.root);
-            finalRoots.set(change.doc, result.root);
+            // By its file: two spellings of one page are one document.
+            finalRoots.set(yield* fileOf(change.doc), {
+              doc: change.doc,
+              tree: result.root,
+            });
             created.push(...result.created);
             touched.push(change.doc);
           });
@@ -552,7 +559,7 @@ export class DocumentService extends Context.Service<
               }
             );
             // A node taken out and put back by a later edit of the request keeps its set.
-            for (const [doc, tree] of finalRoots) {
+            for (const { doc, tree } of finalRoots.values()) {
               yield* dropSetsGone(tx, doc, tree);
             }
           })

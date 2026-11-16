@@ -181,7 +181,8 @@ export const stepVariation = (by: 1 | -1) => {
     ...(set.inUse === null ? [null] : []),
     ...set.variations.map((v) => v.id),
   ];
-  const at = ids.indexOf(state.open.preview);
+  // The thing as drawn is the one in use once an undo puts one back.
+  const at = ids.indexOf(state.open.preview ?? set.inUse);
   const next = ids[(at + by + ids.length) % ids.length];
   if (next !== undefined) {
     showVariation(next);
