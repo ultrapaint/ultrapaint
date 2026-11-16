@@ -62,6 +62,7 @@ import type { SnapshotStore } from "./services/snapshot-store.ts";
 import { Storage } from "./services/storage.ts";
 import type { ProjectStyleSystem } from "./services/style-system.ts";
 import type { Thumbnails } from "./services/thumbnails.ts";
+import type { VariationsService } from "./services/variations.ts";
 import type { WorkingTree } from "./services/working-tree.ts";
 
 /** Everything that exists once a target repository is configured. */
@@ -86,6 +87,7 @@ export type ProjectServices =
   | PagesService
   | SkillsService
   | Thumbnails
+  | VariationsService
   | WorkingTree;
 
 /** What the services of an open project are built on: the server's own services. */

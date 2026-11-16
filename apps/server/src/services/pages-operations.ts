@@ -15,6 +15,7 @@ import {
 import type { PageDocument } from "@ultrapaint/contracts/document";
 import { BadRequest, Conflict, NotFound } from "@ultrapaint/contracts/errors";
 import { emptyCanvasLayout, type Page } from "@ultrapaint/contracts/pages";
+import { variationsFileOf } from "@ultrapaint/contracts/variations";
 import {
   pageTemplates,
   renderTemplate,
@@ -285,6 +286,14 @@ export const makePageOperations = (
           paths.relative(target),
           yield* contentIn(tx, page.file)
         );
+        // Its variations too, which name the same ids (ADR 0098).
+        const variations = yield* tx.read(variationsFileOf(page.file));
+        if (variations !== null) {
+          yield* tx.create(
+            variationsFileOf(paths.relative(target)),
+            variations
+          );
+        }
         // The copy serves no URL: two pages cannot serve one.
         yield* updateRoutes(tx, all, page.canvas, (routes) => routes);
         yield* updateFrames(tx, page.canvas, (frames) => {

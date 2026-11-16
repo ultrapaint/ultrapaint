@@ -113,6 +113,11 @@ import {
   ThreadItem,
   ThreadPurpose,
 } from "./threads.ts";
+import {
+  DocumentVariations,
+  VariationsList,
+  VariationTarget,
+} from "./variations.ts";
 
 const PagesError = Schema.Union([
   NotConfigured,
@@ -588,6 +593,46 @@ const requestRpcs = [
     success: Comment,
   }),
 
+  /**
+   * A thing's variations (ADR 0098): those of every document of a canvas and every component;
+   * a new one made by hand from the one in use, one put in use, renamed, deleted, or the whole
+   * set cleared. Each change is one undo step, answered with the document's variations.
+   */
+  Rpc.make("variations.list", {
+    error: EditError,
+    payload: { canvas: CanvasId },
+    success: VariationsList,
+  }),
+  Rpc.make("variations.add", {
+    error: EditError,
+    payload: VariationTarget,
+    success: DocumentVariations,
+  }),
+  Rpc.make("variations.use", {
+    error: EditError,
+    payload: { ...VariationTarget.fields, variation: Schema.String },
+    success: DocumentVariations,
+  }),
+  Rpc.make("variations.rename", {
+    error: EditError,
+    payload: {
+      ...VariationTarget.fields,
+      name: Schema.String.check(Schema.isMinLength(1)),
+      variation: Schema.String,
+    },
+    success: DocumentVariations,
+  }),
+  Rpc.make("variations.remove", {
+    error: EditError,
+    payload: { ...VariationTarget.fields, variation: Schema.String },
+    success: DocumentVariations,
+  }),
+  Rpc.make("variations.clear", {
+    error: EditError,
+    payload: VariationTarget,
+    success: DocumentVariations,
+  }),
+
   Rpc.make("edit.undo", {
     error: EditError,
     success: Schema.NullOr(UndoResult),
@@ -912,6 +957,8 @@ const eventSchemas = {
   skills: SkillList,
   /** The sync's plan, worked out again because something it reads changed. */
   syncPlan: SyncPlan,
+  /** A document's variations changed: a change, an undo, an agent, a checkout (ADR 0098). */
+  variations: DocumentVariations,
 } as const;
 
 export type EventName = keyof typeof eventSchemas;

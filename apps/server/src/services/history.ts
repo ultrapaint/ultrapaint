@@ -583,6 +583,7 @@ export class History extends Context.Service<
           "notes",
           "page",
           "tokens",
+          "variations",
         ])
         .pipe(
           Stream.runForEach((change) => locked(heard(change))),
