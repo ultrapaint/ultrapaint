@@ -1279,43 +1279,69 @@ describe("the editor's requests on a project", () => {
   );
 
   inProject(
-    "keeps a comment on the canvas itself through its pages' renames and deletions, and a page's in its view (ADR 0097)",
+    "keeps a comment on the canvas itself through its pages' renames and deletions (ADR 0097)",
     () =>
       Effect.gen(function* () {
-        const { client, repo } = yield* TestEnv;
-        const fs = yield* FileSystem.FileSystem;
+        const { client } = yield* TestEnv;
         yield* pricingWithComments;
-        // A view is a page's: one on the canvas has none, whatever it is given.
-        const onCanvas = yield* client["comments.create"]({
-          ...commentOn("", null, "Room for a banner"),
-          view: "md",
-        });
-        assert.deepStrictEqual([onCanvas.page, onCanvas.view], [null, null]);
-        const inView = yield* client["comments.create"]({
-          ...commentOn("", HOME, "Tighter"),
-          view: "md",
-        });
-        assert.strictEqual(inView.view, "md");
-
+        const onCanvas = yield* client["comments.create"](
+          commentOn("", null, "Room for a banner")
+        );
         yield* client["pages.rename"]({
           id: "pricing.page.json",
           name: "Plans",
         });
         yield* client["pages.delete"]({ ids: ["plans.page.json"] });
         const after = (yield* client["comments.list"]({ canvas: "" })).comments;
-        assert.deepStrictEqual(commentedPages(after), [HOME, HOME, null]);
         assert.deepStrictEqual(
           after.find((c) => c.id === onCanvas.id),
           onCanvas
         );
+      })
+  );
 
-        // The file says a view only of a comment left in one, as before views had comments.
+  inProject(
+    "makes a comment on the canvas neither a view's nor a behaviour note (ADR 0097)",
+    () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        const created = yield* client["comments.create"]({
+          ...commentOn("", null, "Room for a banner"),
+          kind: "behaviour",
+          view: "md",
+        });
+        assert.deepStrictEqual(
+          [created.page, created.view, created.kind],
+          [null, null, "comment"]
+        );
+        const updated = yield* client["comments.update"]({
+          canvas: "",
+          id: created.id,
+          kind: "behaviour",
+        });
+        assert.strictEqual(updated.kind, "comment");
+      })
+  );
+
+  inProject(
+    "keeps the view a page's comment was left in, and writes it only then (ADR 0097)",
+    () =>
+      Effect.gen(function* () {
+        const { client, repo } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        yield* client["comments.create"](commentOn("", HOME, "Own frame"));
+        const inView = yield* client["comments.create"]({
+          ...commentOn("", HOME, "Tighter"),
+          view: "md",
+        });
+        assert.strictEqual(inView.view, "md");
+        // As before views had comments, one on the page's own frame says nothing of a view.
         const saved = JSON.parse(
           yield* fs.readFileString(path.join(repo, "designs/comments.json"))
         ) as { comments: Record<string, unknown>[] };
         assert.deepStrictEqual(
           saved.comments.map((c) => c.view),
-          [undefined, undefined, "md"]
+          [undefined, "md"]
         );
       })
   );

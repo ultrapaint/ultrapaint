@@ -22,8 +22,8 @@ import { viewportSize } from "../state/camera.ts";
 import { placeOnCanvas, useCanvasGrid } from "../state/canvas-grid.ts";
 import {
   commentFrame,
+  commentLayoutNow,
   deleteComment,
-  groundNow,
   revealComment,
   startComment,
   updateComment,
@@ -388,7 +388,7 @@ const commentOn = (target: Selection, at?: Point) => {
  * a node's beside the pages. None on the canvas itself, nor for a page gone.
  */
 const commentedFrame = (comment: Comment) =>
-  commentFrame(comment, groundNow()) ?? null;
+  commentFrame(comment, commentLayoutNow()) ?? null;
 
 /**
  * Selects the element a comment is pinned on, in the frame it was left in. The prototype shows no
@@ -581,7 +581,8 @@ const runPage = (target: TargetOf<"page">, act: PageAction): unknown => {
     case "unlink":
       return unlinkImplementation(page.id, page.name);
     case "comment":
-      return startComment(page.id, target.at ?? { x: 40, y: 40 });
+      // In the frame the menu was opened on, a view's own (ADR 0097), at the point clicked there.
+      return startComment(target.pageId, target.at ?? { x: 40, y: 40 });
     case "copyLink":
       return copyPageLink(page);
     case "delete":

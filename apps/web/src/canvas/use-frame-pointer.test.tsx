@@ -266,7 +266,7 @@ describe("the comment tool", () => {
     });
   });
 
-  it("on a node beside the pages, starts the canvas's comment on what was clicked in it", () => {
+  it("on a node beside the pages, starts the canvas's comment on that node, which it moves with", () => {
     const card = {
       children: [{ id: "c1", role: "paragraph", text: "Card", type: "text" }],
       id: "card",
@@ -294,22 +294,16 @@ describe("the comment tool", () => {
         />
       )
     );
+    // On an element inside it, still the node's: one of its children may go, the node stays.
     under.chain = ["card", "c1"];
     current().onPlaceComment(pointerAt(12, 8));
     expect(useComments.getState().draft).toEqual({
-      element: "Card",
+      element: "Column",
       frame: nodeFrameOf("card"),
-      nodeId: "c1",
+      nodeId: "card",
       pageId: null,
       x: 12,
       y: 8,
-    });
-    // Over nothing of it, the comment is still on the node, so it moves with it.
-    under.chain = [];
-    current().onPlaceComment(pointerAt(2, 2));
-    expect(useComments.getState().draft).toMatchObject({
-      nodeId: "card",
-      pageId: null,
     });
   });
 });

@@ -711,9 +711,10 @@ describe("a view of a page (ADR 0036)", () => {
     expect(sent("pages.duplicate")).toEqual([{ id: HOME }]);
   });
 
-  it("takes a comment for its page, where it was clicked", async () => {
+  it("takes a comment for its page, in the view, where it was clicked (ADR 0097)", async () => {
     await choose(view, { kind: "comment" });
     expect(useComments.getState().draft).toMatchObject({
+      frame: TABLET,
       pageId: HOME,
       x: 30,
       y: 60,
@@ -721,6 +722,7 @@ describe("a view of a page (ADR 0036)", () => {
     // On a node of the view, too.
     await choose(nodeAt(TABLET, "title"), { kind: "comment" });
     expect(useComments.getState().draft).toMatchObject({
+      frame: TABLET,
       nodeId: "title",
       pageId: HOME,
     });
@@ -729,6 +731,18 @@ describe("a view of a page (ADR 0036)", () => {
 
 describe("the canvas's menu", () => {
   const canvas: MenuTarget = { at: { x: 100, y: 100 }, kind: "canvas" };
+
+  it("starts a comment on the canvas itself, where it was opened (ADR 0097)", async () => {
+    await choose(canvas, { kind: "comment" });
+    expect(useComments.getState().draft).toEqual({
+      element: null,
+      frame: null,
+      nodeId: null,
+      pageId: null,
+      x: 100,
+      y: 100,
+    });
+  });
 
   it("runs the editor's commands, and says what they would do now", async () => {
     await choose(canvas, { id: "toggleComments", kind: "command" });

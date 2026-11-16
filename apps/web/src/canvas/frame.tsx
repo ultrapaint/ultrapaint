@@ -45,7 +45,7 @@ import {
 import { FramePresence, PresenceLabel } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
 import { onScreen, screenPx, UNZOOM } from "./camera.ts";
-import { commentCursor, FrameComments } from "./comments.tsx";
+import { CARD_LIFT, commentCursor, FrameComments } from "./comments.tsx";
 import { frameOf, useFrameDrawing, useFrameEvents } from "./editor-frame.ts";
 import { pickedFramesMoved } from "./frame-gesture.ts";
 import { Highlights, useHoverIn } from "./frame-highlights.tsx";
@@ -82,14 +82,21 @@ const frameName = (page: Page | undefined, root: DesignNode | null) => {
 /**
  * How high a frame stacks over its neighbours. An open card and the selection's toolbar reach past
  * the frame, and a node's frame shows what it draws past its edges: the neighbours must not cover
- * them, and the toolbar is over everything else. Every frame stacks on its own, so the pins in one
- * never rise over a card open in another.
+ * them, and the toolbar is over everything else but the card. The frame holding the card is over
+ * every pin of the others too (`CARD_LIFT`, ADR 0097).
  */
-const liftOf = (holdsSelection: boolean, reachesPast: boolean) => {
+const liftOf = (
+  withCard: boolean,
+  holdsSelection: boolean,
+  isNode: boolean
+) => {
+  if (withCard) {
+    return CARD_LIFT;
+  }
   if (holdsSelection) {
     return 2;
   }
-  return reachesPast ? 1 : 0;
+  return isNode ? 1 : undefined;
 };
 
 /** A frame's corner, which resizing it drags while the opposite one stays put. */
@@ -241,7 +248,7 @@ export const Frame = memo(
           left: frame.x,
           top: frame.y,
           width: frame.width,
-          zIndex: liftOf(holdsSelection, liftedForCard || isNode),
+          zIndex: liftOf(liftedForCard, holdsSelection, isNode),
         }}
       >
         <FrameChrome

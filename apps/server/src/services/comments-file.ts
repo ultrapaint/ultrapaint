@@ -1,6 +1,6 @@
 /**
- * `comments.json`, the comments pinned on a canvas's pages and on the canvas: its codec, the same text whoever
- * writes it. Pure.
+ * `comments.json`, the comments pinned on a canvas's pages and on the canvas: its codec, the same
+ * text whoever writes it. Pure.
  */
 import {
   type CommentList,
