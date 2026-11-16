@@ -26,6 +26,7 @@ import { api } from "./connection.ts";
 import { useDesignSystem } from "./design-system.ts";
 import { trialSystem, useLookPage } from "./look-page.ts";
 import { reportError } from "./project.ts";
+import { previewedComponents, useVariations } from "./variations.ts";
 
 /** One part's style at one place of a system component's look, as it is being typed. */
 export interface StyleDraft {
@@ -97,7 +98,8 @@ const drawnSystem = () =>
 /** The look as it is now. */
 const designLook = (): Look =>
   lookOf(
-    useComponents.getState().components,
+    // A component's variation shown in the preview is drawn, written nowhere (ADR 0098).
+    previewedComponents(useComponents.getState().components),
     useLookDraft.getState().draft,
     drawnSystem()
   );
@@ -121,6 +123,11 @@ export const followLook = (preview: Preview): (() => void) => {
       }
     }),
     useLookDraft.subscribe(changed),
+    useVariations.subscribe((now, before) => {
+      if (now.open !== before.open || now.byDoc !== before.byDoc) {
+        changed();
+      }
+    }),
     useLookPage.subscribe((now, before) => {
       if (now.trial !== before.trial) {
         changed();
