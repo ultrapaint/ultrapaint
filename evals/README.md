@@ -192,6 +192,21 @@ guard exits with the round's own code, or 75 when it stopped the round, and says
 what the guard printed and how it exited, and `systemctl --user stop lab-<name>` stops one with
 everything it started.
 
+A Claude thread also shows as working while the job runs. Right after starting it, the agent runs
+this as a background command (`run_in_background`, `timeout: 86400000`) and passes its task id to
+`t3_background_wait`:
+
+```sh
+export XDG_RUNTIME_DIR=/run/user/$(id -u)
+until s=$(systemctl --user show -p ActiveState --value lab-<name>); [ "$s" = inactive ] || [ "$s" = failed ]; do sleep 30; done
+```
+
+It waits past the end hook, so the end message has arrived when it exits; that message is the one
+the thread acts on, and the waiter's own notice needs a line at most. A background command lasts
+24 hours at most (`BASH_MAX_TIMEOUT_MS` in `~/.claude/settings.json`; 2 hours without it): when it
+times out with the job still running, the agent starts it again. A Codex thread has no such wait
+yet (T3 Code #33333) and goes by the title's "⏳ " alone.
+
 ## Reviews in a round
 
 ADR 0060 has review models look at a design inside its loop, each scoring it out of 100, until
