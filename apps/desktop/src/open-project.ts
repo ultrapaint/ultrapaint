@@ -415,10 +415,15 @@ export class OpenProject extends Context.Service<
         const showServer = Effect.fnUntraced(function* (
           url: string,
           version: Effect.Effect<string | undefined>,
-          view: EditorView = {}
+          view: EditorView & {
+            /** Started outside the app, it was never told the app's origin. */
+            readonly attached?: boolean;
+          } = {}
         ) {
           const own =
-            appEditor !== undefined && (yield* version) === appEditor.version;
+            appEditor !== undefined &&
+            !view.attached &&
+            (yield* version) === appEditor.version;
           yield* showPage({
             _tag: "Editor",
             ...(view.keepLocation ? { keepLocation: true } : {}),
@@ -428,7 +433,10 @@ export class OpenProject extends Context.Service<
 
         /** Shows a server's editor. */
         const showEditor = (server: RunningServer, view: EditorView = {}) =>
-          showServer(server.url, server.version, view);
+          showServer(server.url, server.version, {
+            ...view,
+            attached: server.attached,
+          });
 
         /** Starts a project's server, in a scope of its own; nothing is shown. */
         const startServer = Effect.fn("OpenProject.startServer")(function* (
@@ -441,14 +449,18 @@ export class OpenProject extends Context.Service<
                 remote.start(project, {
                   // The editor at another port, or another server's: loaded there again.
                   // Only while it is the one on screen: during a switch the window is the next's.
+                  // Asked again once the version is in: the window may be another's by then.
                   moved: (movedTo) =>
-                    Effect.suspend(() =>
-                      open?.project.id === project.id && onEditor
-                        ? showServer(movedTo, serverVersion(movedTo), {
-                            keepLocation: true,
-                          })
-                        : Effect.void
-                    ),
+                    Effect.gen(function* () {
+                      const version = yield* serverVersion(movedTo);
+                      const shown = open;
+                      if (shown?.project.id === project.id && onEditor) {
+                        yield* showServer(movedTo, Effect.succeed(version), {
+                          attached: shown.server.attached,
+                          keepLocation: true,
+                        });
+                      }
+                    }),
                   status: shell.status,
                 })
               : Effect.gen(function* () {

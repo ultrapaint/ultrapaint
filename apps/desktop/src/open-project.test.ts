@@ -102,6 +102,25 @@ describe("OpenProject", () => {
   );
 
   it.effect(
+    "opens a server the app only attached to in the editor it serves, as it was never told the app's origin",
+    () =>
+      withApp(
+        (recorded) =>
+          Effect.gen(function* () {
+            const store = yield* ProjectStore;
+            const open = yield* OpenProject;
+            const attached = yield* store.add("/work/attached");
+            yield* open.open(attached.id);
+            assert.deepStrictEqual(recorded.views.at(-1), {
+              _tag: "Editor",
+              url: "http://127.0.0.1/attached",
+            });
+          }),
+        APP
+      )
+  );
+
+  it.effect(
     "opens a project whose server runs another version in the editor that server serves",
     () =>
       withApp(

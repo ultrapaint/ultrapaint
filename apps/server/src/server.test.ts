@@ -413,6 +413,7 @@ describe("server over WebSocket RPC", () => {
         },
         "POST"
       );
+      assert.isAbove(status, 0);
       assert.notStrictEqual(status, 403);
     })
   );
