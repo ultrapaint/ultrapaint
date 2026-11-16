@@ -429,7 +429,7 @@ const noteAnswer = {
   schema: noteSchema,
 };
 
-const studyDir = (root: string, model: string) =>
+export const studyDir = (root: string, model: string) =>
   path.join(root, `${model}-questions-${QUESTIONS}`);
 
 /** A page's pictures as the model reads them, cut once and kept beside its notes. */

@@ -80,6 +80,7 @@ import { review } from "./review.ts";
 import { goalFrom, REVIEW_MODES, type ReviewMode } from "./review-loop.ts";
 import { sections } from "./sections.ts";
 import { DIMENSIONS, studyAnnotate, studyBook } from "./study.ts";
+import { studyGround } from "./study-ground.ts";
 import { studyRead } from "./study-read.ts";
 import { tells } from "./tells.ts";
 import { applyTriage, triage } from "./triage.ts";
@@ -728,6 +729,17 @@ const studyCommand = Command.make("study").pipe(
         "Read each page and screen not yet read with the study's questions (fifth version): sections boxed, the system as values, moves, weak points, tells, craft"
       ),
       Command.provide(Browser.layer)
+    ),
+    Command.make(
+      "ground",
+      { model: model("opus", "whose notes are counted") },
+      Effect.fn(function* (input) {
+        yield* studyGround({ model: input.model });
+      })
+    ).pipe(
+      Command.withDescription(
+        "Count what the read pages share, by kind of page and expression, the well-made ones beside every page: ground.md beside the notes"
+      )
     ),
     Command.make(
       "book",
