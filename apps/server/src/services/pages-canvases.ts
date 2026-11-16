@@ -17,8 +17,10 @@ import {
   type CanvasLayout,
   emptyCanvasLayout,
   type FrameLayout,
+  type Page,
   type PageList,
 } from "@ultrapaint/contracts/pages";
+import { variationsFileOf } from "@ultrapaint/contracts/variations";
 import { ROOT_CANVAS } from "@ultrapaint/shared/canvas";
 import { slugOf } from "@ultrapaint/shared/path";
 import { matchRoute, normaliseRoute } from "@ultrapaint/shared/route";
@@ -272,7 +274,10 @@ export const makeCanvasOperations = (
             .filter((p) => p.canvas === id)
             .map((page) => ({ page, to: null }))
         );
-        yield* tx.remove(yield* canvasFile(id));
+        const file = yield* canvasFile(id);
+        yield* tx.remove(file);
+        // The variations of the nodes beside its pages go with them (ADR 0098).
+        yield* tx.remove(variationsFileOf(file));
         yield* tx.remove(
           paths.relative(
             yield* paths.resolve(path.join(root, id, COMMENTS_FILE))
@@ -357,6 +362,22 @@ export const makeCanvasOperations = (
     return { chosen, creating, from, targetName, to, what };
   });
 
+  /** A page's file copied into a canvas, with its variations, which name its ids (ADR 0098). */
+  const copyPage = Effect.fnUntraced(function* (
+    tx: EditTransaction,
+    page: Page,
+    to: string
+  ) {
+    const copy = paths.relative(
+      yield* paths.resolve(path.join(root, to, page.path))
+    );
+    yield* tx.create(copy, yield* contentIn(tx, page.file));
+    const variations = yield* tx.read(variationsFileOf(page.file));
+    if (variations !== null) {
+      yield* tx.create(variationsFileOf(copy), variations);
+    }
+  });
+
   const copyTo = Effect.fn("PagesService.copyTo")(function* (
     ids: readonly string[],
     target: CopyTarget,
@@ -395,12 +416,7 @@ export const makeCanvasOperations = (
             // is a new design: no comments, no link to the code.
             const source = yield* canvasIn(tx, from);
             for (const page of chosen) {
-              yield* tx.create(
-                paths.relative(
-                  yield* paths.resolve(path.join(root, to, page.path))
-                ),
-                yield* contentIn(tx, page.file)
-              );
+              yield* copyPage(tx, page, to);
             }
             yield* arriveIn(
               tx,

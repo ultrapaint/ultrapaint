@@ -30,6 +30,7 @@ import type {
   Page,
   PageList,
 } from "@ultrapaint/contracts/pages";
+import { variationsFileOf } from "@ultrapaint/contracts/variations";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { applyOps } from "@ultrapaint/design-document/ops";
 import {
@@ -358,12 +359,21 @@ export const makePageMoves = (
     }
     // A move is the old file gone and the new one there, which is also how it is undone.
     for (const { page, to } of moves) {
+      // Its variations are kept beside it, and go where it goes (ADR 0098).
+      const variations = variationsFileOf(page.file);
+      const hasVariations = (yield* tx.read(variations)) !== null;
       if (to === null) {
         yield* tx.remove(page.file);
+        if (hasVariations) {
+          yield* tx.remove(variations);
+        }
       } else {
         const abs = yield* paths.resolve(path.join(root, to.canvas, to.path));
         yield* failIfExists(abs);
         yield* tx.move(page.file, paths.relative(abs));
+        if (hasVariations) {
+          yield* tx.move(variations, variationsFileOf(paths.relative(abs)));
+        }
       }
     }
     const carried: Comment[] = [];

@@ -39,6 +39,7 @@ import {
 } from "./services/threads/thread-session.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
 import { Thumbnails } from "./services/thumbnails.ts";
+import { VariationsService } from "./services/variations.ts";
 
 const RECENT_LOG_LINES = 200;
 
@@ -82,6 +83,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const figma = open.service(FigmaImportService);
     const components = open.service(ComponentService);
     const implementation = open.service(ImplementationService);
+    const variations = open.service(VariationsService);
 
     // Every event as the bus carries it, but a screenshot request: an editor listening for those
     // is one that can draw, which the screenshots count.
@@ -304,6 +306,15 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "thumbnails.get": ({ key }) => thumbnails((t) => t.get(key)),
       "thumbnails.put": ({ dataUrl, key, name }) =>
         thumbnails((t) => t.put(key, name, dataUrl)),
+      "variations.add": (target) => variations((v) => v.add(target)),
+      "variations.clear": (target) => variations((v) => v.clear(target)),
+      "variations.list": ({ canvas }) => variations((v) => v.list(canvas)),
+      "variations.remove": ({ doc, node, variation }) =>
+        variations((v) => v.remove({ doc, node }, variation)),
+      "variations.rename": ({ doc, name, node, variation }) =>
+        variations((v) => v.rename({ doc, node }, variation, name)),
+      "variations.use": ({ doc, node, variation }) =>
+        variations((v) => v.use({ doc, node }, variation)),
     });
   })
 );

@@ -20,6 +20,7 @@ import {
   Stale,
 } from "@ultrapaint/contracts/errors";
 import { ASSETS_DIR, type UploadAssetInput } from "@ultrapaint/contracts/pages";
+import { variationsFileOf } from "@ultrapaint/contracts/variations";
 import { serialiseDocument } from "@ultrapaint/design-document/format";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { applyOps, DocumentOpError } from "@ultrapaint/design-document/ops";
@@ -59,6 +60,11 @@ import { decodePage, messageOf, parseDocument } from "./document-file.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { PagesService } from "./pages.ts";
 import { RepoPaths } from "./repo-paths.ts";
+import {
+  setsStillDrawn,
+  textOfSets,
+  variationsCodec,
+} from "./variations-file.ts";
 
 const decodeNodes = Schema.decodeUnknownEffect(Schema.Array(DesignNode));
 const decodeNode = Schema.decodeUnknownEffect(DesignNode);
@@ -123,6 +129,10 @@ export class DocumentService extends Context.Service<
       input: ApplyInput,
       alongside?: (step: ApplyStep) => Effect.Effect<Alongside, EditFailure>
     ) => Effect.Effect<Applied, EditFailure | Conflict>;
+    /** The document a file of the designs is (repo-relative), or null when it is none. */
+    readonly documentOf: (file: string) => string | null;
+    /** The file behind a document, repo-relative. */
+    readonly fileOf: (doc: string) => Effect.Effect<string, EditFailure>;
     readonly get: (
       doc: string
     ) => Effect.Effect<DocumentState, NotFound | EditFailure>;
@@ -451,6 +461,29 @@ export class DocumentService extends Context.Service<
         }
       });
 
+      /**
+       * The variations of things an edit took out of a document go with them, in its step
+       * (ADR 0098); a set whose thing a variation not in use still draws stays.
+       */
+      const dropSetsGone = Effect.fnUntraced(function* (
+        tx: EditTransaction,
+        doc: string,
+        tree: DesignNode
+      ) {
+        const file = variationsFileOf(yield* fileOf(doc));
+        const text = yield* tx.read(file);
+        if (text === null) {
+          return;
+        }
+        const sets = yield* variationsCodec(file).decode(text);
+        const kept = setsStillDrawn(sets, tree);
+        if (kept === sets) {
+          return;
+        }
+        const next = textOfSets(kept);
+        yield* next === null ? tx.remove(file) : tx.write(file, next);
+      });
+
       const apply = Effect.fn("DocumentService.apply")(function* (
         input: ApplyInput,
         alongside?: (step: ApplyStep) => Effect.Effect<Alongside, EditFailure>
@@ -498,6 +531,7 @@ export class DocumentService extends Context.Service<
                 }),
             });
             yield* writeDocument(tx, change.doc, loaded, result.root);
+            yield* dropSetsGone(tx, change.doc, result.root);
             created.push(...result.created);
             touched.push(change.doc);
           });
@@ -610,6 +644,8 @@ export class DocumentService extends Context.Service<
 
       return DocumentService.of({
         apply,
+        documentOf: docOfFile,
+        fileOf,
         get,
         list,
         upload,

@@ -31,6 +31,7 @@ import {
   type Conflict,
   NotFound,
 } from "@ultrapaint/contracts/errors";
+import { variationsFileOf } from "@ultrapaint/contracts/variations";
 import { appComponentFrom } from "@ultrapaint/design-document/app-components";
 import { newElement } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
@@ -359,8 +360,12 @@ export class ComponentService extends Context.Service<
         if (!exists) {
           return yield* new NotFound({ message: `no component ${name}` });
         }
+        // Its tree's variations go with it (ADR 0098).
         yield* edit.transaction(`Delete the ${name} component`, (tx) =>
-          tx.remove(repoOf(file))
+          Effect.andThen(
+            tx.remove(repoOf(file)),
+            tx.remove(repoOf(variationsFileOf(file)))
+          )
         );
         yield* publish;
       });

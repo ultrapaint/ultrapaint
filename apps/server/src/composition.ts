@@ -60,6 +60,7 @@ import { AgentTasks } from "./services/threads/tasks.ts";
 import { ThreadSessions } from "./services/threads/thread-session.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
 import { Thumbnails } from "./services/thumbnails.ts";
+import { VariationsService } from "./services/variations.ts";
 import { WorkingTree } from "./services/working-tree.ts";
 
 /** What the agents' adapters are built on: the server's own services and the project. */
@@ -112,6 +113,8 @@ export const projectLayer = (
     // The components: a system component's look as the design says it, an app component's tree
     // (ADR 0041).
     Layer.provideMerge(ComponentService.layer),
+    // A thing's variations, kept beside its document and put in it (ADR 0098).
+    Layer.provideMerge(VariationsService.layer),
     Layer.provideMerge(DocumentService.layer),
     // The design system's sides: DESIGN.md mirrors it with the code's tokens and the
     // components' classes; Figma's baseline waits for it.

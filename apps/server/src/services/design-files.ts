@@ -22,6 +22,7 @@ import {
   DESIGN_SYSTEM_FILE,
 } from "@ultrapaint/contracts/design-system";
 import { IMPLEMENTATION_FILE } from "@ultrapaint/contracts/implementation";
+import { VARIATIONS_EXTENSION } from "@ultrapaint/contracts/variations";
 import { isPageFile } from "@ultrapaint/design-document/tree";
 import { CANVAS_FILE, CANVASES_FILE } from "@ultrapaint/shared/canvas";
 import {
@@ -54,6 +55,7 @@ export const DESIGN_KINDS = [
   "notes",
   "page",
   "tokens",
+  "variations",
 ] as const;
 
 /** What a file of the designs is. */
@@ -103,6 +105,9 @@ export const kindOf = (rel: string): DesignKind | null => {
   const inDir = (dir: string) => segments.length === 2 && segments[0] === dir;
   if (isPageFile(name)) {
     return "page";
+  }
+  if (name.endsWith(VARIATIONS_EXTENSION)) {
+    return "variations";
   }
   if (name === CANVAS_FILE) {
     return "canvas";
