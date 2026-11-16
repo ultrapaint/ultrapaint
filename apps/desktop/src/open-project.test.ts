@@ -332,6 +332,92 @@ describe("OpenProject", () => {
   );
 
   it.effect(
+    "asks, once the next editor is ready, about an agent that started meanwhile, and Back to it goes back",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const a = yield* store.add("/work/a");
+          const b = yield* store.add("/work/b");
+          yield* open.open(a.id);
+          yield* open.openingDone({});
+          // Nothing was at work as the switch began: nothing was asked.
+          yield* open.open(b.id);
+          assert.deepStrictEqual(recorded.questions, []);
+          recorded.working.a = 1;
+          recorded.answers.push(false);
+          yield* open.openingDone({});
+          assert.deepStrictEqual(recorded.questions, [
+            "An agent is working in a",
+          ]);
+          assert.deepStrictEqual(recorded.declines, ["Back to a"]);
+          assert.deepStrictEqual(recorded.events, [
+            "start a",
+            "start b",
+            "stop b",
+          ]);
+          assert.deepStrictEqual(recorded.views.at(-1), {
+            _tag: "Editor",
+            url: "http://127.0.0.1/a",
+          });
+          assert.strictEqual(Option.getOrThrow(yield* open.current).id, a.id);
+        })
+      )
+  );
+
+  it.effect(
+    "Stop and switch, once the next editor is ready, stops the agent that started meanwhile",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const a = yield* store.add("/work/a");
+          const b = yield* store.add("/work/b");
+          yield* open.open(a.id);
+          yield* open.openingDone({});
+          yield* open.open(b.id);
+          recorded.working.a = 1;
+          recorded.answers.push(true);
+          yield* open.openingDone({});
+          assert.deepStrictEqual(recorded.events, [
+            "start a",
+            "start b",
+            "stop a",
+          ]);
+          assert.strictEqual(Option.getOrThrow(yield* open.current).id, b.id);
+        })
+      )
+  );
+
+  it.effect(
+    "asks about agents once a switch: agreed as it began, not again once the next editor is ready",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const a = yield* store.add("/work/a");
+          const b = yield* store.add("/work/b");
+          yield* open.open(a.id);
+          yield* open.openingDone({});
+          recorded.working.a = 1;
+          yield* open.open(b.id);
+          yield* open.openingDone({});
+          assert.deepStrictEqual(recorded.questions, [
+            "An agent is working in a",
+          ]);
+          assert.deepStrictEqual(recorded.events, [
+            "start a",
+            "start b",
+            "stop a",
+          ]);
+        })
+      )
+  );
+
+  it.effect(
     "Cancel while the first project's editor does its steps goes to the start screen, and stops it",
     () =>
       withApp((recorded) =>
@@ -393,6 +479,8 @@ describe("OpenProject", () => {
           assert.deepStrictEqual(recorded.questions, [
             "2 agents are working in busy",
           ]);
+          // Declining stays in the open project.
+          assert.deepStrictEqual(recorded.declines, ["Stay in busy"]);
           assert.strictEqual(
             Option.getOrThrow(yield* open.current).id,
             busy.id
