@@ -247,8 +247,9 @@ export const PrototypeComments = ({
   page: Page;
 }) => {
   const all = useComments((s) => s.comments);
+  // The prototype's one frame shows every page in turn: a draft is drawn on the page it was begun on.
   const draft = useComments((s) =>
-    s.draft?.frame === frameId ? s.draft : null
+    s.draft?.frame === frameId && s.draft.pageId === page.id ? s.draft : null
   );
   const comments = useMemo(
     () => all.filter((c) => c.page === page.path),
