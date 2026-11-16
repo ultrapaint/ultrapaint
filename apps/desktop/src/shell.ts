@@ -2,12 +2,14 @@
  * What the app's logic asks of Electron: what the window shows, and the native dialogs. The main
  * process implements it; tests put a fake in its place.
  */
+import type { Opening } from "@ultrapaint/contracts/opening";
 import type { ShellStatus } from "@ultrapaint/contracts/shell-bridge";
 import { Context, type Effect, type Option } from "effect";
 
 /**
  * What the window shows: a project's editor; the page that asks for a project, or says why one
- * could not be opened; or that page saying a project is opening, until its editor loads.
+ * could not be opened; or the app's own page under the splash of a project opening (ADR 0099),
+ * where no editor is on screen to draw it over.
  */
 export type View =
   | {
@@ -20,10 +22,8 @@ export type View =
       readonly url: string;
     }
   | {
+      /** The splash alone, drawn from `opening`. */
       readonly _tag: "Opening";
-      /** Where the project is: its folder, or its host and folder. */
-      readonly detail: string;
-      readonly name: string;
     }
   | {
       readonly _tag: "Welcome";
@@ -53,6 +53,11 @@ export class Shell extends Context.Service<
       readonly defaultPath?: string | undefined;
       readonly title: string;
     }) => Effect.Effect<Option.Option<string>>;
+    /**
+     * Tells the window the project opening, as it goes (`opening`, which the page reads as it
+     * loads too); `null` once none is. The page on screen draws its splash over itself.
+     */
+    readonly opening: (opening: Opening | null) => Effect.Effect<void>;
     readonly show: (view: View) => Effect.Effect<void>;
     /**
      * Tells the window what the app is doing for the open project (`shellStatus`, which the page

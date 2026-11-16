@@ -1,7 +1,9 @@
 /** Fakes of what the app's services ask of Electron and of the server, for tests. */
+import type { Opening } from "@ultrapaint/contracts/opening";
 import type { ShellStatus } from "@ultrapaint/contracts/shell-bridge";
 import { Effect, Layer, Option } from "effect";
 import { ServerStartError } from "./errors.ts";
+import { OpeningReport } from "./opening-report.ts";
 import { ProjectServer, type ServerOptions } from "./project-server.ts";
 import { RemoteProjects } from "./remote-project.ts";
 import { Shell, type View } from "./shell.ts";
@@ -14,6 +16,8 @@ export interface Recorded {
    */
   answers: (boolean | Effect.Effect<boolean>)[];
   events: string[];
+  /** What the window was told of the project opening, in order: `null` once none is. */
+  openings: (Opening | null)[];
   /** The titles of the pickers opened, in order. */
   pickers: string[];
   /** Paths the next pickers return; cancelled when there are none left. */
@@ -38,6 +42,7 @@ export interface Recorded {
 export const makeRecorded = (): Recorded => ({
   answers: [],
   events: [],
+  openings: [],
   pickers: [],
   picks: [],
   questions: [],
@@ -94,6 +99,11 @@ export const fakeShell = (recorded: Recorded) =>
           const answer = recorded.answers.shift() ?? true;
           return typeof answer === "boolean" ? Effect.succeed(answer) : answer;
         }),
+      opening: (opening) =>
+        Effect.sync(() => {
+          recorded.openings.push(opening);
+          tellWatchers(recorded);
+        }),
       openPath: (path) =>
         Effect.sync(() => {
           recordEvent(recorded, `show ${path}`);
@@ -116,8 +126,9 @@ export const fakeShell = (recorded: Recorded) =>
 
 /**
  * A server per start, at `http://127.0.0.1/<folder name>`, whose stop is recorded; a folder
- * named `broken` does not start, one named `attached` has a server running already, and one
- * in `stalled` never says where it listens, once.
+ * named `broken` does not start, one named `attached` has a server running already, one named
+ * `chatty` prints a line as it starts, one named `slow` takes 1.2 s (of the test clock) to, and
+ * one in `stalled` never says where it listens, once.
  */
 export const fakeServers = (recorded: Recorded) =>
   Layer.succeed(
@@ -138,6 +149,13 @@ export const fakeServers = (recorded: Recorded) =>
             );
             recordEvent(recorded, `connect ${name}`);
             return yield* Effect.never;
+          }
+          if (name === "slow") {
+            recordEvent(recorded, "wait slow");
+            yield* Effect.sleep("1200 millis");
+          }
+          if (name === "chatty") {
+            yield* (yield* OpeningReport).line("pnpm install · 214 packages");
           }
           const attached = name === "attached";
           recorded.starts.push(options);
@@ -182,6 +200,8 @@ export const fakeRemoteProjects = (recorded: Recorded) =>
             });
           }
           const name = `${project.host}:${project.path.split("/").at(-1) ?? ""}`;
+          // Connected, as the real one says: the server starts there.
+          yield* (yield* OpeningReport).reached("remote");
           recordEvent(recorded, `start ${name}`);
           yield* Effect.addFinalizer(() =>
             Effect.sync(() => recordEvent(recorded, `stop ${name}`))

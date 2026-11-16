@@ -122,6 +122,23 @@ describe("the settings in force", () => {
           yield* Fiber.join(opening);
         })
     );
+
+    it.effect(
+      "answers the project's info asked while it opens with that project, so the editor's splash waits for it (ADR 0099)",
+      () =>
+        Effect.gen(function* () {
+          const project = yield* ProjectManager;
+          const { settings } = yield* ProjectFixture;
+          yield* project.close;
+          assert.isFalse((yield* project.info).configured);
+          const opening = yield* Effect.forkChild(
+            project.apply(settings, "a test"),
+            { startImmediately: true }
+          );
+          assert.isTrue((yield* project.info).configured);
+          yield* Fiber.join(opening);
+        })
+    );
   });
 
   eachTest(

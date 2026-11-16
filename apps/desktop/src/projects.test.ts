@@ -22,6 +22,28 @@ const inTemp = <A, E>(
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
 
 describe("ProjectStore", () => {
+  it.effect(
+    "keeps each step's time of a project's opening, the editor's over the shell's, across a restart",
+    () =>
+      inTemp((dir) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const a = yield* store.add("/work/a");
+          yield* store.timed(a.id, { canvas: 900, server: 400 });
+          yield* store.timed(a.id, { canvas: 300, project: 200 });
+          const reread = yield* Effect.provide(
+            ProjectStore.use((s) => s.get(a.id)),
+            ProjectStore.layer(dir)
+          );
+          assert.deepStrictEqual(reread.lastOpening, {
+            canvas: 300,
+            project: 200,
+            server: 400,
+          });
+        })
+      )
+  );
+
   it.effect("starts empty, with no file until a project is added", () =>
     inTemp((dir) =>
       Effect.gen(function* () {

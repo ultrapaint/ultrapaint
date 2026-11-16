@@ -52,6 +52,12 @@
 @theme {
   --animate-ray: ray 1s ease-in-out infinite;
   --animate-agent-sweep: agent-sweep 1.8s linear infinite;
+  /* The splash's bar: the wet paint behind the brush shines, and the splash wipes away left to
+     right once the editor is ready, or fades under reduced motion (ADR 0099). */
+  --animate-splash-wet: splash-wet 700ms ease-in-out infinite alternate;
+  --animate-splash-wipe: splash-wipe 700ms cubic-bezier(0.23, 1, 0.32, 1)
+    forwards;
+  --animate-splash-fade: splash-fade 200ms linear forwards;
   /* Motion: entering and leaving, moving on screen, sheets. */
   --ease-enter: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-move: cubic-bezier(0.77, 0, 0.175, 1);
@@ -82,6 +88,27 @@
     }
     50% {
       opacity: 1;
+    }
+  }
+  @keyframes splash-wet {
+    from {
+      opacity: 0.12;
+    }
+    to {
+      opacity: 0.42;
+    }
+  }
+  @keyframes splash-wipe {
+    from {
+      clip-path: inset(0 0 0 0);
+    }
+    to {
+      clip-path: inset(0 0 0 100%);
+    }
+  }
+  @keyframes splash-fade {
+    to {
+      opacity: 0;
     }
   }
   @keyframes shimmer {

@@ -281,7 +281,10 @@ export class ProjectManager extends Context.Service<
                 : Effect.fail(notConfigured())
           );
 
-        const openInfo = use(
+        // Once any opening under way has ended: asked while the server opens its project, the
+        // answer is that project, not that none is open, so the editor's splash waits for it
+        // (ADR 0099).
+        const openInfo = useOnceOpened(
           Effect.gen(function* () {
             const paths = yield* RepoPaths;
             const git = yield* GitService;

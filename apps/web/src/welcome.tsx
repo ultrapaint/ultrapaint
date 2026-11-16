@@ -45,6 +45,7 @@ import { FileDropBox, FilesInput } from "./components/file-drop.tsx";
 import { IconButton } from "./components/icon-button.tsx";
 import { ImageThumb } from "./components/image-thumb.tsx";
 import { Lockup } from "./components/logo.tsx";
+import { OpeningSplash } from "./components/opening-splash.tsx";
 import { QuietSelect } from "./components/quiet-select.tsx";
 import {
   canAddRemoteProjects,
@@ -65,6 +66,7 @@ import {
   type PlatformProject,
   platform,
 } from "./platform.ts";
+import { useOpening } from "./state/opening.ts";
 import { isSendKey, useSendKey } from "./state/send-key.ts";
 import { useWindowChrome } from "./state/window-controls.ts";
 
@@ -604,11 +606,9 @@ const Welcome = () => {
     return message ? problemOf(message) : null;
   });
   const say = (error: unknown) => setProblem(problemOf(error));
-  // The project the app is opening, until its editor takes the window's place.
-  const [opening] = useState(() => {
-    const name = query.get("opening");
-    return name ? { detail: query.get("detail") ?? "", name } : null;
-  });
+  // The project the app is opening, drawn on the splash until its editor takes the window's
+  // place (ADR 0099).
+  const opening = useOpening();
   // The project left open behind this page, to go back to.
   const [back] = useState(() => query.get("back"));
 
@@ -644,6 +644,17 @@ const Welcome = () => {
       .then((id) => (id ? projects.open(id) : undefined))
       .catch(say);
 
+  if (opening) {
+    // Why it failed is the splash's to say: its Cancel comes back to this page as it was.
+    return (
+      <OpeningSplash
+        onCancel={() => projects?.stopOpening().catch(say)}
+        onRetry={() => projects?.retryOpening().catch(say)}
+        opening={opening}
+      />
+    );
+  }
+
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-12 px-6 py-16">
       {back ? (
@@ -670,37 +681,6 @@ const Welcome = () => {
         </header>
         <StartComposer onProblem={say} />
       </section>
-      {opening ? (
-        <div className="flex items-start gap-3 rounded-lg border bg-card p-3">
-          <Spinner className="mt-0.5 shrink-0 text-muted-foreground" />
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="truncate font-body-medium">
-              Opening {opening.name}…
-            </span>
-            {opening.detail ? (
-              <span
-                className="truncate font-body-small text-muted-foreground"
-                title={opening.detail}
-              >
-                {opening.detail}
-              </span>
-            ) : null}
-            <span className="mt-1 text-pretty font-body-small text-muted-foreground">
-              Starting its server. A machine that is off or out of reach can
-              take a minute to give up.
-            </span>
-          </div>
-          {projects ? (
-            <Button
-              onClick={() => projects.stopOpening().catch(say)}
-              size="sm"
-              variant="outline"
-            >
-              Stop
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
       {problem ? (
         <Alert variant="destructive">
           <CircleAlert />
@@ -723,7 +703,8 @@ const Welcome = () => {
               <ProjectRow
                 isOpen={project.id === current}
                 key={project.id}
-                onOpen={() => projects?.open(project.id).catch(say)}
+                // A project that could not be opened says why on the splash.
+                onOpen={() => projects?.open(project.id).catch(() => undefined)}
                 onRemove={() => remove(project)}
                 project={project}
               />

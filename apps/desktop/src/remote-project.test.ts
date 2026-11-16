@@ -2,6 +2,7 @@ import { assert, describe, it } from "@effect/vitest";
 import type { ShellStatus } from "@ultrapaint/contracts/shell-bridge";
 import { Deferred, Duration, Effect, Exit, Fiber, Layer, Scope } from "effect";
 import { TestClock } from "effect/testing";
+import { OpeningReport } from "./opening-report.ts";
 import type { SshProject } from "./projects.ts";
 import {
   type RemoteHooks,
@@ -198,6 +199,24 @@ describe("reconnectDelay", () => {
 });
 
 describe("RemoteProjects", () => {
+  it.effect(
+    "tells the open under way it reached the server's start once connected",
+    () =>
+      withMachine((_machine, seen) =>
+        Effect.gen(function* () {
+          const reached: string[] = [];
+          const remote = yield* RemoteProjects;
+          yield* remote.start(project, hooksFor(seen)).pipe(
+            Effect.provideService(OpeningReport, {
+              line: () => Effect.void,
+              reached: (step) => Effect.sync(() => reached.push(step)),
+            })
+          );
+          assert.deepStrictEqual(reached, ["remote"]);
+        })
+      )
+  );
+
   it.effect(
     "reconnects after a drop with a growing wait, on the same port, attached to the server still running, and stops it at the end",
     () =>

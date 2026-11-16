@@ -4,7 +4,8 @@ Status: accepted, 2026-11-05. Amends 0050 (an agent drawing in a project with no
 one) and 0023 (the setup's steps start from the Design system tab). The flows are drawn on the
 Onboarding canvas, `docs/designs/onboarding/`. The setup started on opening is replaced by a
 suggestion in 0073, and any folder opens as a project, its settings saved on the first change, in
-0092.
+0092. A project opening is no longer a card on the start screen but a splash of its own, in
+0099.
 
 ## Context
 

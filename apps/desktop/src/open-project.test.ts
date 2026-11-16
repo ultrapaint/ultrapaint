@@ -2,6 +2,7 @@ import path from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import { Deferred, Effect, Fiber, FileSystem, Layer, Option } from "effect";
+import { TestClock } from "effect/testing";
 import { Agents, makeRuntime } from "./agents.ts";
 import { Folders } from "./folders.ts";
 import { LoginShell } from "./login-shell.ts";
@@ -84,10 +85,22 @@ describe("OpenProject", () => {
         yield* store.opened(second.id);
         yield* open.start;
         assert.deepStrictEqual(recorded.events, ["start second"]);
+        // The splash on the app's own page, then the editor, which finishes the open.
         assert.deepStrictEqual(recorded.views, [
-          { _tag: "Opening", detail: "/work/second", name: "second" },
+          { _tag: "Opening" },
           { _tag: "Editor", url: "http://127.0.0.1/second" },
         ]);
+        const told = recorded.openings.at(-1);
+        assert.strictEqual(told?.name, "second");
+        assert.strictEqual(told?.where, "/work/second");
+        assert.deepStrictEqual(
+          told?.steps.map((s) => [s.id, s.state]),
+          [
+            ["server", "done"],
+            ["project", "now"],
+            ["canvas", "next"],
+          ]
+        );
         assert.strictEqual(
           Option.getOrThrow(yield* open.current).id,
           second.id
@@ -96,27 +109,29 @@ describe("OpenProject", () => {
     )
   );
 
-  it.effect("stops one project's server before it starts the next one's", () =>
-    withApp((recorded) =>
-      Effect.gen(function* () {
-        const store = yield* ProjectStore;
-        const open = yield* OpenProject;
-        const a = yield* store.add("/work/a");
-        const b = yield* store.add("/work/b");
-        yield* open.open(a.id);
-        yield* open.open(b.id);
-        // Opening the one open already does nothing.
-        yield* open.open(b.id);
-        assert.isTrue(yield* open.stop({ ask: true }));
-        assert.deepStrictEqual(recorded.events, [
-          "start a",
-          "stop a",
-          "start b",
-          "stop b",
-        ]);
-        assert.isTrue(Option.isNone(yield* open.current));
-      })
-    )
+  it.effect(
+    "keeps the open project's server until the next one's is ready",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const a = yield* store.add("/work/a");
+          const b = yield* store.add("/work/b");
+          yield* open.open(a.id);
+          yield* open.open(b.id);
+          // Opening the one open already does nothing.
+          yield* open.open(b.id);
+          assert.isTrue(yield* open.stop({ ask: true }));
+          assert.deepStrictEqual(recorded.events, [
+            "start a",
+            "start b",
+            "stop a",
+            "stop b",
+          ]);
+          assert.isTrue(Option.isNone(yield* open.current));
+        })
+      )
   );
 
   it.effect(
@@ -139,21 +154,209 @@ describe("OpenProject", () => {
       )
   );
 
-  it.effect("says why a project could not be opened, on the welcome page", () =>
+  it.effect(
+    "says why a project could not be opened on the splash, and Cancel goes to the start screen",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const broken = yield* store.add("/work/broken");
+          const error = yield* Effect.flip(open.open(broken.id));
+          assert.strictEqual(error._tag, "ServerStartError");
+          assert.deepStrictEqual(recorded.views, [{ _tag: "Opening" }]);
+          const told = recorded.openings.at(-1);
+          assert.deepStrictEqual(told?.problem, { reason: "it broke." });
+          assert.strictEqual(told?.steps[0]?.state, "failed");
+          assert.isTrue(Option.isNone(yield* open.current));
+          yield* open.stopOpening;
+          assert.isNull(recorded.openings.at(-1));
+          assert.deepStrictEqual(recorded.views.at(-1), { _tag: "Welcome" });
+        })
+      )
+  );
+
+  it.effect("Try again runs the open that failed again", () =>
     withApp((recorded) =>
       Effect.gen(function* () {
         const store = yield* ProjectStore;
         const open = yield* OpenProject;
         const broken = yield* store.add("/work/broken");
-        const error = yield* Effect.flip(open.open(broken.id));
-        assert.strictEqual(error._tag, "ServerStartError");
-        assert.deepStrictEqual(recorded.views, [
-          { _tag: "Opening", detail: "/work/broken", name: "broken" },
-          { _tag: "Welcome", problem: "it broke" },
-        ]);
-        assert.isTrue(Option.isNone(yield* open.current));
+        yield* Effect.ignore(open.open(broken.id));
+        const failedAt = recorded.openings.length;
+        yield* open.retryOpening;
+        // Begun again from its first step, and failed there again: still on the splash.
+        const again = recorded.openings.slice(failedAt);
+        assert.strictEqual(again[0]?.problem, undefined);
+        assert.strictEqual(again[0]?.steps[0]?.state, "now");
+        assert.isDefined(again.at(-1)?.problem);
       })
     )
+  );
+
+  it.effect("Try again does nothing when no open failed", () =>
+    withApp((recorded) =>
+      Effect.gen(function* () {
+        const open = yield* OpenProject;
+        yield* open.retryOpening;
+        assert.deepStrictEqual(recorded.openings, []);
+        assert.deepStrictEqual(recorded.events, []);
+      })
+    )
+  );
+
+  it.effect(
+    "a switch shows its splash over the open editor, and Cancel leaves that one as it was",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const here = yield* store.add("/work/here");
+          const off = yield* store.addRemote({ host: "silent", path: "/srv" });
+          yield* open.open(here.id);
+          yield* open.openingDone({ canvas: 100, project: 200 });
+          const switching = yield* Effect.forkChild(open.open(off.id), {
+            startImmediately: true,
+          });
+          yield* connected(recorded);
+          const told = recorded.openings.at(-1);
+          assert.strictEqual(told?.back, "here");
+          assert.strictEqual(told?.remote, true);
+          assert.deepStrictEqual(
+            told?.steps.map((s) => s.label),
+            [
+              "Connecting to silent",
+              "Starting ultrapaint there",
+              "Loading the editor",
+              "Reading the project",
+            ]
+          );
+          yield* open.stopOpening;
+          yield* Fiber.join(switching);
+          // No page of its own: the editor on screen drew the splash, and stays.
+          assert.deepStrictEqual(recorded.views, [
+            { _tag: "Opening" },
+            { _tag: "Editor", url: "http://127.0.0.1/here" },
+          ]);
+          assert.isNull(recorded.openings.at(-1));
+          assert.deepStrictEqual(recorded.events, [
+            "start here",
+            "connect silent:srv",
+            "give up silent:srv",
+          ]);
+          assert.strictEqual(
+            Option.getOrThrow(yield* open.current).id,
+            here.id
+          );
+        })
+      )
+  );
+
+  it.effect(
+    "keeps each step's time for the next opening's estimate, the editor's with the shell's",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const shop = yield* store.add("/work/slow");
+          const opening = yield* Effect.forkChild(open.open(shop.id), {
+            startImmediately: true,
+          });
+          // The server takes 1.2 s to say where it listens.
+          yield* until(recorded, ({ events }) => events.includes("wait slow"));
+          yield* TestClock.adjust("1200 millis");
+          yield* Fiber.join(opening);
+          assert.isUndefined(recorded.openings.at(-1)?.estimate);
+          yield* open.openingDone({ canvas: 300, project: 200 });
+          assert.isNull(recorded.openings.at(-1));
+          const kept = yield* store.get(shop.id);
+          assert.deepStrictEqual(kept.lastOpening, {
+            canvas: 300,
+            project: 200,
+            server: 1200,
+          });
+          // Opened again, it has an estimate: their sum.
+          const other = yield* store.add("/work/other");
+          yield* open.open(other.id);
+          yield* open.openingDone({});
+          yield* Effect.forkChild(open.open(shop.id), {
+            startImmediately: true,
+          });
+          yield* until(
+            recorded,
+            ({ openings }) => openings.at(-1)?.name === "slow"
+          );
+          assert.strictEqual(recorded.openings.at(-1)?.estimate, 1700);
+        })
+      )
+  );
+
+  it.effect("shows the last line the server printed as it starts", () =>
+    withApp((recorded) =>
+      Effect.gen(function* () {
+        const store = yield* ProjectStore;
+        const open = yield* OpenProject;
+        const shop = yield* store.add("/work/chatty");
+        yield* open.open(shop.id);
+        assert.deepStrictEqual(recorded.openings.at(-1)?.log, [
+          "pnpm install · 214 packages",
+        ]);
+      })
+    )
+  );
+
+  it.effect(
+    "stops the open project's server only once the next one's editor is ready",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const a = yield* store.add("/work/a");
+          const b = yield* store.add("/work/b");
+          yield* open.open(a.id);
+          yield* open.openingDone({});
+          yield* open.open(b.id);
+          // The editor of b does its steps: a is still there to go back to.
+          assert.deepStrictEqual(recorded.events, ["start a", "start b"]);
+          yield* open.openingDone({ canvas: 100, project: 100 });
+          assert.deepStrictEqual(recorded.events, [
+            "start a",
+            "start b",
+            "stop a",
+          ]);
+        })
+      )
+  );
+
+  it.effect(
+    "Cancel while the next editor does its steps shows the open project again, and stops the next",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const a = yield* store.add("/work/a");
+          const b = yield* store.add("/work/b");
+          yield* open.open(a.id);
+          yield* open.openingDone({});
+          yield* open.open(b.id);
+          yield* open.stopOpening;
+          assert.deepStrictEqual(recorded.events, [
+            "start a",
+            "start b",
+            "stop b",
+          ]);
+          assert.deepStrictEqual(recorded.views.at(-1), {
+            _tag: "Editor",
+            url: "http://127.0.0.1/a",
+          });
+          assert.isNull(recorded.openings.at(-1));
+          assert.strictEqual(Option.getOrThrow(yield* open.current).id, a.id);
+        })
+      )
   );
 
   it.effect(
@@ -323,13 +526,15 @@ describe("OpenProject", () => {
           });
           // The same folder again is the one open: nothing restarts.
           yield* open.addRemote({ host: "devbox", path: "~/code/shop/" });
+          yield* open.openingDone({});
           yield* open.open(local.id);
+          yield* open.openingDone({});
           assert.deepStrictEqual(recorded.events, [
             "start here",
-            "stop here",
             "start devbox:shop",
-            "stop devbox:shop",
+            "stop here",
             "start here",
+            "stop devbox:shop",
           ]);
         })
       )
@@ -344,10 +549,10 @@ describe("OpenProject", () => {
           () => ({ opened: false })
         );
         assert.isFalse(opened);
-        assert.deepStrictEqual(recorded.views, [
-          { _tag: "Opening", detail: "down:/srv", name: "srv" },
-          { _tag: "Welcome", problem: "down could not be reached" },
-        ]);
+        assert.deepStrictEqual(recorded.views, [{ _tag: "Opening" }]);
+        assert.deepStrictEqual(recorded.openings.at(-1)?.problem, {
+          reason: "down could not be reached.",
+        });
       })
     )
   );
@@ -366,9 +571,8 @@ describe("OpenProject", () => {
           });
           yield* connected(recorded);
           // The machine has not answered, and the window already says what it is waiting for.
-          assert.deepStrictEqual(recorded.views, [
-            { _tag: "Opening", detail: "silent:/srv", name: "srv" },
-          ]);
+          assert.deepStrictEqual(recorded.views, [{ _tag: "Opening" }]);
+          assert.strictEqual(recorded.openings.at(-1)?.where, "silent:/srv");
           yield* open.stopOpening;
           yield* Fiber.join(starting);
           assert.deepStrictEqual(recorded.views.at(-1), { _tag: "Welcome" });
@@ -437,9 +641,7 @@ describe("OpenProject", () => {
             ]);
             // Nothing was open to ask about, and the window goes as it is.
             assert.deepStrictEqual(recorded.questions, []);
-            assert.deepStrictEqual(recorded.views, [
-              { _tag: "Opening", detail: "silent:/srv", name: "srv" },
-            ]);
+            assert.deepStrictEqual(recorded.views, [{ _tag: "Opening" }]);
             assert.isTrue(Option.isNone(yield* open.current));
           })
         )

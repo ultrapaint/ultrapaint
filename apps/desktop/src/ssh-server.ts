@@ -21,6 +21,7 @@ import {
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { LoginShell } from "./login-shell.ts";
+import { OpeningReport } from "./opening-report.ts";
 import type { SshProject } from "./projects.ts";
 import { DEFAULT_REMOTE_COMMAND } from "./projects.ts";
 import { type ReadyLine, watchReadyLine } from "./ready-line.ts";
@@ -254,14 +255,18 @@ export class RemoteServers extends Context.Service<
             stdin: "pipe",
           });
           const said: string[] = [];
+          const report = yield* OpeningReport;
           yield* master.stderr.pipe(
             Stream.decodeText(),
             Stream.splitLines,
             Stream.runForEach((line) =>
-              Effect.sync(() => {
-                keepLines(said, line);
-                process.stderr.write(`[ssh ${project.host}] ${line}\n`);
-              })
+              Effect.andThen(
+                Effect.sync(() => {
+                  keepLines(said, line);
+                  process.stderr.write(`[ssh ${project.host}] ${line}\n`);
+                }),
+                report.line(line)
+              )
             ),
             Effect.ignore,
             Effect.forkScoped
@@ -372,14 +377,18 @@ export class RemoteServers extends Context.Service<
             })
           );
           const said: string[] = [];
+          const report = yield* OpeningReport;
           const logs = yield* session.stderr.pipe(
             Stream.decodeText(),
             Stream.splitLines,
             Stream.runForEach((line) =>
-              Effect.sync(() => {
-                keepLines(said, line);
-                process.stderr.write(`[server ${project.host}] ${line}\n`);
-              })
+              Effect.andThen(
+                Effect.sync(() => {
+                  keepLines(said, line);
+                  process.stderr.write(`[server ${project.host}] ${line}\n`);
+                }),
+                report.line(line)
+              )
             ),
             Effect.ignore,
             Effect.forkScoped
