@@ -202,7 +202,9 @@ until s=$(systemctl --user show -p ActiveState --value lab-<name>); [ "$s" = ina
 ```
 
 It waits past the end hook, so the end message has arrived when it exits; that message is the one
-the thread acts on, and the waiter's own notice needs a line at most. A background command lasts
+the thread acts on, and the waiter's own notice needs a line at most. When the waiter's notice comes
+and no end message did, the send failed: the thread reads `journalctl --user -u lab-<name>` and
+acts on what it says as it would on the message. A background command lasts
 24 hours at most (`BASH_MAX_TIMEOUT_MS` in `~/.claude/settings.json`; 2 hours without it): when it
 times out with the job still running, the agent starts it again. A Codex thread has no such wait
 yet (T3 Code #33333) and goes by the title's "⏳ " alone.
