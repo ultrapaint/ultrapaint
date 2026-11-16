@@ -4,6 +4,8 @@ Status: accepted, 2026-11-06; amended the same day by the lab (the lighter revie
 replaces the editor part of `docs/plans/PLAN-review-loop.md` phase 5. Plan:
 `docs/plans/done/PLAN-design-chat.md`, mocks in `docs/plans/done/design-chat/`.
 
+> Amended by [0098](0098-anything-has-variations-and-page-variants-fold-into-them.md), 2026-11-16: the review loop never runs on a Variations turn.
+
 > Amended by [0066](0066-findings-are-kept-by-the-person-and-triaged-into-gaps.md), 2026-11-06:
 > keeping the findings is the person's choice, in their profile (Settings › Preferences › Keep
 > findings) and for every project, where this kept it in the project's `review` settings; a

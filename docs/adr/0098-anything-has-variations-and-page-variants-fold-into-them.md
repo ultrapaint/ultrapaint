@@ -1,6 +1,6 @@
 # ADR 0098: Anything on the canvas has variations, and page variants are folded into them
 
-Status: accepted, 2026-11-16. Amends 0086 (the Ask an agent popover), 0063 (a turn the review
+Status: accepted, 2026-11-16. Amends 0086 (the selection, its Ask an agent popover), 0063 (a turn the review
 skips) and 0018 (links). Replaces 0019's page variants. Built by UP-9.
 
 ## Context
@@ -40,7 +40,8 @@ used.
   - Enter makes that many in a new chat in front (ADR 0074). The field's text says what should
     vary, and empty lets the agent pick.
   - The count is remembered in the browser.
-  - The right-click menu's **Make variations…** opens the same popover set to 3.
+  - The right-click menu's **Make variations…** opens the same popover, set to the count chosen
+    last (3 the first time).
 - **By hand:** the **+** of the inspector's Variations section copies the variation in use as a
   new one ("Variation 2"), and puts it in use to be edited. This replaces "Draw a variant".
 
@@ -69,7 +70,8 @@ used.
     it, with its name and what it varied above it. Original comes first, marked In use.
   - The camera fits the page and its variations.
   - The right panel stays closed until something is selected.
-- The thing in its page is the **preview**.
+- The thing in its page is the **preview** (the variation preview; the editor's Preview, which
+  draws frames, is another thing).
   - A click on a variation shows it there, outlined **dashed** while it is not in use. Nothing is
     written.
   - ← and → move the preview through the variations.
@@ -91,7 +93,8 @@ used.
     part also holds moves into the part, where the variation has it, so each id stays in one
     place.
   - Where the preview lacks the parent too, the button is disabled and says why.
-- While the agent works, the variations still to come are placeholders. One that failed is a red
+- While the agent works, the variations still to come are placeholders, and the preview's
+  controls say how many are coming ("2 more coming"). One that failed is a red
   box with **Try again**, and the chat has its line.
 
 **Each variation keeps its own edits** (the person's answer of 16 Nov). An edit lands on the
@@ -103,7 +106,11 @@ original, it is the section's header and its +, so the first variation can be ma
 - A row per variation, with In use beside the one in use. A text's rows are its words, an image's
   its picture, anything else's its name and what it varied.
 - A click on a row lays the variations out with that one in the preview.
-- The section's header has + (New variation) and ⋯ (Make more…, Clear variations).
+- The section's header has + (New variation) and ⋯ (Make more…, Clear variations). A row's own
+  menu (right-click) has Rename and Delete; Original can be renamed but not deleted while others
+  remain.
+- **Make more…** asks the agent for another round in a new turn, telling it which variation is in
+  use and which were made before, so it makes takes unlike those.
 - On a component's main tree it sits under the component's own Variants section. The two are
   told apart by their rows: members on one side, takes on the other.
 
@@ -117,12 +124,17 @@ file (`canvas.variations.json` beside `canvas.json`), which goes with the node.
 - Deleting a thing removes its variations in the same undo step.
 
 **Page variants are folded in.**
-- `pricing@bold.page.json` becomes the variation **Bold** of the page `pricing`'s root, converted
-  once. `canvas.json`'s `variants` goes.
+- `pricing@bold.page.json` becomes the variation **Bold** of the page `pricing`'s root. The
+  conversion runs once, when the server first reads a canvas that still has variant files: each
+  is written into its page's `.variations.json`, then the variant file and `canvas.json`'s
+  `variants` are removed, as one history point.
 - **The prototype's variant switch goes.** The prototype shows each page's variation in use, as
   its page does. To present Bold, the person puts Bold in use. The editor's URL loses `&variant=`,
   and the router serves one page per route.
 - A link's `variant=bold` opens its page with its variations laid out and **Bold** in the preview.
+  A node reference to a variant's file (`orders@bold.page.json#c_8x2k1q`) is read the same way,
+  on that node of the variation Bold.
+- The Routes panel lists no variants under a route.
 - The chat starter "Make three variants of it" goes: Ask an agent's Variations does it.
 - A page's **states** (ADR 0044) are not variations and stay as they are.
 
@@ -142,5 +154,3 @@ file (`canvas.variations.json` beside `canvas.json`), which goes with the node.
   and the preview carries its own controls.
 - A variation drawn out of its page needs what its look depends on (its parent's layout, its
   theme). Building it measures this first.
-- A component's inspector shows Variants and Variations near each other. The name was chosen
-  knowing it.
