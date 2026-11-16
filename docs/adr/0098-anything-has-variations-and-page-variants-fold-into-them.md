@@ -62,7 +62,8 @@ used.
 **One way to choose, for every kind of thing: the variations laid out beside the page.**
 
 - When an agent's first variation is ready, or when the person opens a thing's variations, the
-  canvas lays them out beside the thing's page, in Canvas mode. There is no other view and no
+  canvas lays them out beside the thing's page, in Canvas mode. A node on the canvas beside the
+  pages, which has no page, has its variations laid out beside it, and it is its own preview. There is no other view and no
   stepping mode.
   - Each variation is drawn straight on the canvas background, with no card or container around
     it, with its name and what it varied above it. Original comes first, marked In use.
@@ -86,7 +87,9 @@ used.
     in the right panel, read-only.
   - An arrow button on the part's edge, pointing at the page, puts it in the preview. **Use in
     preview** replaces the preview's part with that id. **Add to preview** puts a part the preview
-    lacks in the same place in its parent.
+    lacks in the same place in its parent. Either way, a node of the preview whose id the added
+    part also holds moves into the part, where the variation has it, so each id stays in one
+    place.
   - Where the preview lacks the parent too, the button is disabled and says why.
 - While the agent works, the variations still to come are placeholders. One that failed is a red
   box with **Try again**, and the chat has its line.
@@ -95,8 +98,8 @@ used.
 variation in use. Switching to another and back finds it as it was left, as a page variant was.
 The history keeps every step as well.
 
-**One list:** the inspector's **Variations** section, while the selected thing has more than its
-original.
+**One list:** the inspector's **Variations** section, for every selection. With only its
+original, it is the section's header and its +, so the first variation can be made by hand.
 - A row per variation, with In use beside the one in use. A text's rows are its words, an image's
   its picture, anything else's its name and what it varied.
 - A click on a row lays the variations out with that one in the preview.
@@ -106,7 +109,8 @@ original.
 
 **Where they are kept.** A page's variations, of its root and of anything in it, are one designs
 file beside it (`notes.variations.json` for `notes.page.json`), shared through git. A component's
-are beside its file.
+are beside its file. A node on the canvas beside the pages keeps its variations in its canvas's
+file (`canvas.variations.json` beside `canvas.json`), which goes with the node.
 - The file is written through the designs' one write path: its changes are undo steps and history
   points.
 - It is renamed, moved and deleted with its page.
