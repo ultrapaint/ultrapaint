@@ -17,6 +17,7 @@ import { useEditor } from "../state/editor.ts";
 import { select } from "../state/selection.ts";
 import { followServer } from "../state/server-data.ts";
 import {
+  closeVariations,
   loadVariations,
   openVariations,
   useVariations,
@@ -35,16 +36,41 @@ vi.mock(
 const renders = vi.hoisted(
   () => [] as { frame: string; request: RenderRequest }[]
 );
+/** What each frame tells the editor, by frame: a size it drew at, as a frame reports one. */
+const told = vi.hoisted(
+  () =>
+    new Map<
+      string,
+      { size?: (size: { height: number; width: number }) => void }
+    >()
+);
+/** How often the camera was fitted to the variations. */
+const fits = vi.hoisted(() => ({ count: 0 }));
+vi.mock("../state/camera.ts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../state/camera.ts")>()),
+  zoomToBoxes: () => {
+    fits.count += 1;
+  },
+}));
 vi.mock("./preview-module.ts", () => {
   const preview = {
     fromFrame: () => false,
-    mountFrame: (_host: unknown, options: { frame: string }) =>
+    mountFrame: (
+      _host: unknown,
+      options: {
+        events: {
+          size?: (size: { height: number; width: number }) => void;
+        };
+        frame: string;
+      }
+    ) =>
       ({
         editText: () => undefined,
         hitTest: () => [],
         measure: () => ({}),
         render: (request: RenderRequest) => {
           renders.push({ frame: options.frame, request });
+          told.set(options.frame, options.events);
         },
         screenshot: () => Promise.resolve(null),
         scrollIntoView: () => undefined,
@@ -151,6 +177,8 @@ const initialVariations = useVariations.getState();
 beforeEach(async () => {
   fakeApi.reset();
   renders.length = 0;
+  told.clear();
+  fits.count = 0;
   useEditor.setState(initialEditor, true);
   useDocuments.setState(initialDocuments, true);
   useVariations.setState(initialVariations, true);
@@ -271,5 +299,30 @@ describe("a thing's variations laid out beside its page", () => {
     // → walks the selection again: into the page, to its heading.
     press("arrowright");
     expect(useEditor.getState().selection?.nodeId).toBe("title");
+  });
+
+  it("fits the camera again once each thing opened has its variations measured", () => {
+    show();
+    const measure = (node: string, height: number) =>
+      act(() => {
+        for (const id of ["original", "v2", "v3"]) {
+          told
+            .get(`variation:${HOME}/${node}/${id}`)
+            ?.size?.({ height, width: 600 });
+        }
+      });
+    measure("title", 50);
+    expect(fits.count).toBe(2);
+
+    // Another thing, whose variations have the same ids, is measured on its own.
+    fakeApi.emit("variations", {
+      doc: HOME,
+      sets: { ...SETS, lede: SETS.title } as VariationSets,
+    });
+    act(() => closeVariations());
+    act(() => openVariations({ frame: HOME, nodeId: "lede" }));
+    expect(fits.count).toBe(3);
+    measure("lede", 200);
+    expect(fits.count).toBe(4);
   });
 });

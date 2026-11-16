@@ -38,6 +38,19 @@ import { PreviewSurface } from "./preview-surface.tsx";
 const variationFrameOf = (open: OpenVariations, variation: string) =>
   `variation:${open.doc}/${open.node}/${variation}`;
 
+/** The heights its variations were drawn at, by variation, from those told by frame. */
+const heightsOf = (
+  open: OpenVariations,
+  ids: readonly string[],
+  byFrame: Readonly<Record<string, number>>
+): Record<string, number> =>
+  Object.fromEntries(
+    ids.flatMap((id) => {
+      const height = byFrame[variationFrameOf(open, id)];
+      return height === undefined ? [] : [[id, height]];
+    })
+  );
+
 /** The box of the frame the preview is drawn in, on the canvas: a page's, or a node's beside them. */
 const useFrameBox = (frameId: string | null): Box | null => {
   const page = useEditor((s) => (frameId ? s.frames[frameId] : undefined));
@@ -72,7 +85,8 @@ const VariationFrame = memo(
     box: Box;
     frameId: string;
     inUse: boolean;
-    onHeight: (id: string, height: number) => void;
+    /** Tells the height it is drawn at, by its frame. */
+    onHeight: (frame: string, height: number) => void;
     /** It is a whole page, drawn at the page's width. */
     page: boolean;
     /** The width of the page it is from, whose breakpoint it is drawn at. */
@@ -112,9 +126,9 @@ const VariationFrame = memo(
     const listeners = useMemo(
       () => ({
         size: (size: { height: number; width: number }) =>
-          onHeight(variation.id, size.height),
+          onHeight(frameId, size.height),
       }),
-      [onHeight, variation.id]
+      [onHeight, frameId]
     );
     return (
       <div
@@ -178,10 +192,11 @@ export const VariationsBeside = ({
   const docs = useDocuments((s) => s.docs);
   const components = useComponents((s) => s.components);
   const docRoot = open ? rootOfDocument(docs, components, open.doc) : null;
-  const [heights, setHeights] = useState<Record<string, number>>({});
+  // By each variation's frame, which names its thing: two things' variations share ids.
+  const [drawnHeights, setHeights] = useState<Record<string, number>>({});
   const onHeight = useMemo(
-    () => (id: string, height: number) =>
-      setHeights((h) => (h[id] === height ? h : { ...h, [id]: height })),
+    () => (frame: string, height: number) =>
+      setHeights((h) => (h[frame] === height ? h : { ...h, [frame]: height })),
     []
   );
   // A page's own root is drawn as a page; a component's main tree as wide as it draws.
@@ -193,6 +208,7 @@ export const VariationsBeside = ({
       ? { ...rect, x: page.x + rect.x, y: page.y + rect.y }
       : page;
   const ids = useMemo(() => set?.variations.map((v) => v.id) ?? [], [set]);
+  const heights = open ? heightsOf(open, ids, drawnHeights) : {};
   const boxes =
     page && thing ? besideBoxes(page, thing, ids, heights) : undefined;
 
