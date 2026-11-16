@@ -517,8 +517,13 @@ export class OpenProject extends Context.Service<
         /** What a start tells `underway`: its lines, and the steps it reaches. */
         const reportTo = (underway: ShownOpening): OpeningReport => ({
           line: (text) => changeOpening(underway, (o) => noteLine(o, text)),
+          // A step reached again (a reconnection while the editor does its steps) changes nothing.
           reached: (step) =>
-            changeOpening(underway, (o, now) => reachStep(o, step, now)),
+            changeOpening(underway, (o, now) =>
+              o.steps.some((s) => s.id === step && s.state !== "next")
+                ? o
+                : reachStep(o, step, now)
+            ),
         });
 
         /**
@@ -583,19 +588,23 @@ export class OpenProject extends Context.Service<
 
         /**
          * Cancel while the next project's editor does its steps: the one a switch left open is
-         * the open one again, its editor on screen, and the next one's server stops.
+         * the open one again, its editor on screen, or the start screen when none was; the next
+         * one's server stops.
          */
         const backToPrevious = Effect.suspend(() => {
           const was = previous;
           const next = open;
-          if (!(opening && was && next?.project.id === opening.project.id)) {
+          if (!(opening && next?.project.id === opening.project.id)) {
             return Effect.void;
           }
           previous = null;
           open = was;
           opening = null;
           return Effect.andThen(
-            Effect.andThen(tellOpening, showEditor(was.server)),
+            Effect.andThen(
+              tellOpening,
+              was ? showEditor(was.server) : showPage({ _tag: "Welcome" })
+            ),
             letGo(next)
           );
         });
@@ -655,7 +664,17 @@ export class OpenProject extends Context.Service<
                     now
                   )
                 );
-                yield* store.timed(project.id, stepTimes(underway.state));
+                // The times are for the next estimate only: a list that cannot be written loses
+                // that, never the server just started.
+                yield* Effect.ignore(
+                  store.timed(project.id, stepTimes(underway.state))
+                );
+                // Cancelled meanwhile, the open project stays as it was: the next one goes.
+                if (opening !== underway) {
+                  agreed = null;
+                  yield* Scope.close(next.scope, Exit.void);
+                  return false;
+                }
                 agreed = null;
                 // The one open stays behind the next one's editor until that one is ready.
                 previous = was;

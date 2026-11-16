@@ -23,11 +23,11 @@ so locally the problem was how it looked; over SSH it is longer, with nothing to
   - "Opening <project>" and where the project is;
   - a bar estimated from that project's last open (none on a first open);
   - every step with its time;
-  - Cancel.
+  - in the desktop app, Cancel, and Escape for it (a browser has nothing to go back to).
 
   Past the estimate it says "Longer than last time" and shows the step's last printed line. Over
   SSH, Show log opens what ssh and the remote server printed. The bar and the steps appear after
-  half a second, so a quick open shows the project alone. Escape is Cancel.
+  half a second, so a quick open shows the project alone.
 - **An opening is a value both sides share** (`@ultrapaint/contracts/opening`):
   - **What it holds:** the project, its steps (`server`, `connect`, `remote`, `editor`,
     `project`, `canvas`), each step's state and time, the estimate, the log, the problem, and

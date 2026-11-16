@@ -644,19 +644,17 @@ const Welcome = () => {
       .then((id) => (id ? projects.open(id) : undefined))
       .catch(say);
 
-  if (opening) {
-    // Why it failed is the splash's to say: its Cancel comes back to this page as it was.
-    return (
-      <OpeningSplash
-        onCancel={() => projects?.stopOpening().catch(say)}
-        onRetry={() => projects?.retryOpening().catch(say)}
-        opening={opening}
-      />
-    );
-  }
-
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-12 px-6 py-16">
+      {/* Over the page, which stays as it was under it (the prompt being written, say): why an
+          opening failed is the splash's to say, and its Cancel comes back to the page. */}
+      {opening ? (
+        <OpeningSplash
+          onCancel={() => projects?.stopOpening().catch(say)}
+          onRetry={() => projects?.retryOpening().catch(say)}
+          opening={opening}
+        />
+      ) : null}
       {back ? (
         <Button
           className="fixed top-12 left-4 text-muted-foreground"
@@ -703,8 +701,15 @@ const Welcome = () => {
               <ProjectRow
                 isOpen={project.id === current}
                 key={project.id}
-                // A project that could not be opened says why on the splash.
-                onOpen={() => projects?.open(project.id).catch(() => undefined)}
+                // A project that could not be opened says why on the splash; what failed before
+                // one began (gone from the list, say) is said here.
+                onOpen={() =>
+                  projects?.open(project.id).catch((error: unknown) => {
+                    if (!platform().opening?.current()) {
+                      say(error);
+                    }
+                  })
+                }
                 onRemove={() => remove(project)}
                 project={project}
               />
