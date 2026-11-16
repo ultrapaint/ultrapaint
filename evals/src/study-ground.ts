@@ -3,8 +3,9 @@
  * ground). Each note is laid flat into its fields (`type.sizes.body`, `components.buttons`,
  * `imagery.kinds[]=photography`, `sections.has=hero`); a field with few values is counted as the
  * share of pages giving each, a number as its median and middle half. The pages are grouped: every
- * page, each kind of page, then each kind of page by expression, a group kept when it has enough
- * pages to say something. The well-made pages (craft 3) are counted beside every page: the common
+ * page, each kind of page, then each kind of page by expression and by the skill's character
+ * (technical, humanistic, expressive: the note's domain, its "culture" the skill's expressive), a
+ * group kept when it has enough pages to say something. The well-made pages (craft 3) are counted beside every page: the common
  * ground is what they share.
  *
  * What a person or a model reads to write the skill's references from, never the references
@@ -67,6 +68,8 @@ export type Value = string | number | boolean;
 
 /** One page as the counts see it. */
 export interface Flat {
+  /** The skill's character: technical, humanistic or expressive. */
+  readonly character: string;
   readonly craft: number;
   readonly expression: string;
   readonly fields: ReadonlyMap<string, Value>;
@@ -74,6 +77,13 @@ export interface Flat {
   /** Values of a list: present or not, one field per value. */
   readonly present: ReadonlySet<string>;
 }
+
+/** The note's domain as the skill names the character (`references/character.md`). */
+const CHARACTER: Readonly<Record<string, string>> = {
+  culture: "expressive",
+  humanistic: "humanistic",
+  technical: "technical",
+};
 
 const isHex = (v: unknown) => typeof v === "string" && v.startsWith("#");
 
@@ -134,6 +144,7 @@ export const flatten = (
     }
   }
   return {
+    character: CHARACTER[String(note.domain)] ?? "unknown",
     craft: typeof note.craft === "number" ? note.craft : 0,
     expression: Predicate.isString(note.expression)
       ? note.expression
@@ -268,7 +279,7 @@ const groupOf = (
   return { fields, name, pages: pages.length, present, wellMade: good.length };
 };
 
-/** Every page, each kind of page, each kind by expression: the groups with enough pages. */
+/** Every page, each kind of page, each kind by expression and by character: the groups with enough pages. */
 export const groundOf = (pages: readonly Flat[]): readonly Group[] => {
   const counted = fieldsOf(pages);
   const by = (key: (p: Flat) => string) => {
@@ -290,6 +301,9 @@ export const groundOf = (pages: readonly Flat[]): readonly Group[] => {
       .filter(([, ps]) => ps.length >= MIN_PAGES)
       .map(([kind, ps]) => groupOf(kind, ps, counted)),
     ...by((p) => `${p.pageKind} · ${p.expression}`)
+      .filter(([, ps]) => ps.length >= MIN_KIND_EXPRESSION)
+      .map(([kind, ps]) => groupOf(kind, ps, counted)),
+    ...by((p) => `${p.pageKind} · ${p.character} character`)
       .filter(([, ps]) => ps.length >= MIN_KIND_EXPRESSION)
       .map(([kind, ps]) => groupOf(kind, ps, counted)),
   ];
