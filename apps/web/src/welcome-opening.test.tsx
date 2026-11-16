@@ -15,8 +15,8 @@ import { WelcomePage } from "./welcome.tsx";
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-/** The shell's opening, as the bridge holds it, and who listens to it. */
-let opening: Opening | null = reachStep(
+/** The opening the shell begins once the page is up. */
+const bikeShop: Opening = reachStep(
   {
     log: [],
     name: "bike-shop",
@@ -28,6 +28,14 @@ let opening: Opening | null = reachStep(
   "server",
   Date.now()
 );
+/** The shell's opening, as the bridge holds it, and who listens to it. */
+let opening: Opening | null = null;
+const tell = (next: Opening | null) => {
+  opening = next;
+  for (const listener of listeners) {
+    listener(next);
+  }
+};
 const listeners = new Set<(value: Opening | null) => void>();
 const calls: string[] = [];
 
@@ -49,10 +57,7 @@ setPlatform({
     stopOpening: () => {
       calls.push("stop");
       // The shell lets go of the opening: the page shows itself again.
-      opening = null;
-      for (const listener of listeners) {
-        listener(null);
-      }
+      tell(null);
       return Promise.resolve();
     },
   },
@@ -76,15 +81,35 @@ const button = (name: string) =>
     (b) => b.textContent === name
   );
 
+const splash = () => document.querySelector("[aria-busy]");
+
+/** Types into the prompt as a person would, through React's own setter. */
+const typePrompt = (value: string) =>
+  act(() => {
+    const field = document.querySelector("textarea") as HTMLTextAreaElement;
+    Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value"
+    )?.set?.call(field, value);
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
 describe("the start page while a project opens", () => {
-  it("is the splash, whose Cancel gives the page back", async () => {
-    expect(document.querySelector("h1")?.textContent).toBe("Opening bike-shop");
-    expect(document.body.textContent).not.toContain("Start a new project");
+  it("draws the splash over itself, whose Cancel gives the page back as it was", async () => {
+    await typePrompt("A habit tracker for students");
+    act(() => tell(bikeShop));
+    expect(splash()?.querySelector("h1")?.textContent).toBe(
+      "Opening bike-shop"
+    );
     await act(async () => {
       button("Cancel")?.click();
       await Promise.resolve();
     });
     expect(calls).toEqual(["stop"]);
-    expect(document.body.textContent).toContain("Start a new project");
+    expect(splash()).toBeNull();
+    // What was being written is still there.
+    expect(document.querySelector("textarea")?.value).toBe(
+      "A habit tracker for students"
+    );
   });
 });

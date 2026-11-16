@@ -124,6 +124,23 @@ describe("the settings in force", () => {
     );
 
     it.effect(
+      "ends an opening that fails, telling the editor no project is open, rather than waiting on itself",
+      () =>
+        Effect.gen(function* () {
+          const project = yield* ProjectManager;
+          const { settings } = yield* ProjectFixture;
+          const told = yield* toldOf(
+            (info) => !info.configured,
+            project
+              .apply({ ...settings, repoPath: "/no/such/folder" }, "a test")
+              .pipe(Effect.timeout("10 seconds"))
+          );
+          assert.isFalse(told.told?.configured);
+          assert.isFalse((yield* project.info).configured);
+        })
+    );
+
+    it.effect(
       "answers the project's info asked while it opens with that project, so the editor's splash waits for it (ADR 0099)",
       () =>
         Effect.gen(function* () {

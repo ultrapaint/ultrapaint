@@ -160,7 +160,7 @@ const Library = libraryPanel.Component;
 const Routes = routesPanel.Component;
 const SettingsPage = settingsPanel.Component;
 
-/** How long the splash waits at most: a server that does not answer leaves the editor to say so. */
+/** How long the splash waits for the server before it says it has not answered. */
 const SPLASH_LIMIT_MS = 10_000;
 
 /** How long the splash waits for the frames on screen, once everything else is in. */
@@ -248,14 +248,11 @@ const StartSplash = () => {
       panels = true;
       reach("editor");
     });
-    // A server that does not answer leaves the splash saying so, with Try again; one that did
-    // but is slow to read leaves the editor to say the rest.
+    // A server that has not answered by then is said not to, with Try again; the checks go on,
+    // so one that answers later still opens. A project read but slow to bring its designs keeps
+    // the splash until they are in: the editor is never shown without them.
     const limit = setTimeout(() => {
-      if (useProject.getState().loaded) {
-        reach("project");
-        reach("canvas");
-      } else {
-        cancelAnimationFrame(frame);
+      if (!useProject.getState().loaded) {
         setProblem(true);
       }
     }, SPLASH_LIMIT_MS);

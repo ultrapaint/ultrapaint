@@ -281,56 +281,60 @@ export class ProjectManager extends Context.Service<
                 : Effect.fail(notConfigured())
           );
 
-        // Once any opening under way has ended: asked while the server opens its project, the
-        // answer is that project, not that none is open, so the editor's splash waits for it
-        // (ADR 0099).
-        const openInfo = useOnceOpened(
-          Effect.gen(function* () {
-            const paths = yield* RepoPaths;
-            const git = yield* GitService;
-            const gitRepository = yield* git.repository;
-            return {
-              // A detached HEAD or a broken git must not hide the rest of the project.
-              branch: gitRepository
-                ? yield* Effect.orElseSucceed(git.branch, () => "")
-                : "",
-              configured: true,
-              designsDir: paths.settings.designsDir,
-              gitRepository,
-              gitUser: yield* git.user,
-              name: path.basename(paths.root),
-              repoPath: paths.root,
-              setup: (yield* settingsService.detected)
-                ? ("detected" as const)
-                : ("saved" as const),
-            };
-          })
-        ).pipe(
-          Effect.orElseSucceed(() => ({
-            configured: false,
-          }))
-        );
-        const info: Effect.Effect<ProjectInfo> = Effect.gen(function* () {
-          const { displayName } = yield* profile.get;
-          const settings = yield* settingsService.get;
-          // Asked each time: a session saved meanwhile has its state beside its configuration.
-          const target = yield* storage.target;
+        /** What the open project is, read from its services: none when none is open. */
+        const projectFacts = Effect.gen(function* () {
+          const paths = yield* RepoPaths;
+          const git = yield* GitService;
+          const gitRepository = yield* git.repository;
           return {
-            ...(yield* openInfo),
-            ...(displayName === undefined ? {} : { displayName }),
-            folders: {
-              ...(target.mode === "file" ? { project: target.stateDir } : {}),
-              user: userDir,
-            },
-            ...(settings === null ? {} : { settings }),
-            storage: yield* storage.info,
+            // A detached HEAD or a broken git must not hide the rest of the project.
+            branch: gitRepository
+              ? yield* Effect.orElseSucceed(git.branch, () => "")
+              : "",
+            configured: true,
+            designsDir: paths.settings.designsDir,
+            gitRepository,
+            gitUser: yield* git.user,
+            name: path.basename(paths.root),
+            repoPath: paths.root,
+            setup: (yield* settingsService.detected)
+              ? ("detected" as const)
+              : ("saved" as const),
           };
         });
+
+        /**
+         * The project's info. `waiting`, once any opening under way has ended: for whoever asks
+         * (`project.info`), the answer is the project being opened, not that none is, so the
+         * editor's splash waits for it (ADR 0099). Not waiting, as it is now: for what the server
+         * tells on its own, which an opening may itself be waiting on.
+         */
+        const infoWith = (waiting: boolean): Effect.Effect<ProjectInfo> =>
+          Effect.gen(function* () {
+            const { displayName } = yield* profile.get;
+            const settings = yield* settingsService.get;
+            // Asked each time: a session saved meanwhile has its state beside its configuration.
+            const target = yield* storage.target;
+            return {
+              ...(yield* (waiting ? useOnceOpened : use)(projectFacts).pipe(
+                Effect.orElseSucceed(() => ({ configured: false }))
+              )),
+              ...(displayName === undefined ? {} : { displayName }),
+              folders: {
+                ...(target.mode === "file" ? { project: target.stateDir } : {}),
+                user: userDir,
+              },
+              ...(settings === null ? {} : { settings }),
+              storage: yield* storage.info,
+            };
+          });
+        const info = infoWith(true);
+        const infoNow = infoWith(false);
 
         /** Tells the editor the project's info, when it is not what it was last told. */
         const publishInfo = publishing.withPermits(1)(
           Effect.gen(function* () {
-            const value = yield* info;
+            const value = yield* infoNow;
             const text = JSON.stringify(value);
             if (text === published) {
               return;

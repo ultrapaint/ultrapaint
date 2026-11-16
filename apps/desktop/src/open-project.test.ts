@@ -332,6 +332,24 @@ describe("OpenProject", () => {
   );
 
   it.effect(
+    "Cancel while the first project's editor does its steps goes to the start screen, and stops it",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const a = yield* store.add("/work/a");
+          yield* open.open(a.id);
+          yield* open.stopOpening;
+          assert.deepStrictEqual(recorded.events, ["start a", "stop a"]);
+          assert.deepStrictEqual(recorded.views.at(-1), { _tag: "Welcome" });
+          assert.isNull(recorded.openings.at(-1));
+          assert.isTrue(Option.isNone(yield* open.current));
+        })
+      )
+  );
+
+  it.effect(
     "Cancel while the next editor does its steps shows the open project again, and stops the next",
     () =>
       withApp((recorded) =>
