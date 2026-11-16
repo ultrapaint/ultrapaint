@@ -60,6 +60,8 @@ const MIN_PAGES = 30;
 const MIN_KIND_EXPRESSION = 20;
 /** A value shown when at least this share of the group gives it. */
 const SHOWN_SHARE = 0.05;
+/** A list's value kept in a group's counts when this share of its pages has it. */
+const MIN_PRESENT = 0.02;
 
 export type Value = string | number | boolean;
 
@@ -87,7 +89,9 @@ const walk = (
   if (Array.isArray(value)) {
     if (value.every(Predicate.isString)) {
       for (const v of value) {
-        present.add(`${at}[]=${v}`);
+        if (!isHex(v)) {
+          present.add(`${at}[]=${v}`);
+        }
       }
     } else {
       fields.set(`${at}.count`, value.length);
@@ -219,11 +223,8 @@ export const fieldsOf = (pages: readonly Flat[]) => {
     .filter(([, vs]) => vs.has("#number") || vs.size <= MAX_VALUES)
     .map(([field]) => field)
     .sort();
-  const present = [...new Set(pages.flatMap((p) => [...p.present]))]
-    .filter(
-      (f) => pages.filter((p) => p.present.has(f)).length >= pages.length * 0.02
-    )
-    .sort();
+  // Every list value: each group keeps those common enough in it (`groupOf`).
+  const present = [...new Set(pages.flatMap((p) => [...p.present]))].sort();
   return { fields, present };
 };
 
@@ -257,10 +258,12 @@ const groupOf = (
   }
   const present: Record<string, { all: number; wellMade?: number }> = {};
   for (const field of counted.present) {
-    present[field] = {
-      all: countPresent(pages, field),
-      ...(withGood && { wellMade: countPresent(good, field) }),
-    };
+    const all = countPresent(pages, field);
+    const wellMade = withGood ? countPresent(good, field) : undefined;
+    // Kept when common enough in this group, however rare across every page.
+    if (Math.max(all, wellMade ?? 0) >= MIN_PRESENT) {
+      present[field] = { all, ...(wellMade !== undefined && { wellMade }) };
+    }
   }
   return { fields, name, pages: pages.length, present, wellMade: good.length };
 };
@@ -272,7 +275,12 @@ export const groundOf = (pages: readonly Flat[]): readonly Group[] => {
     const map = new Map<string, Flat[]>();
     for (const p of pages) {
       const k = key(p);
-      map.set(k, [...(map.get(k) ?? []), p]);
+      const bucket = map.get(k);
+      if (bucket) {
+        bucket.push(p);
+      } else {
+        map.set(k, [p]);
+      }
     }
     return [...map].sort((a, b) => b[1].length - a[1].length);
   };
