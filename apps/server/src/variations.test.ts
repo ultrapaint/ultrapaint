@@ -614,3 +614,37 @@ inProject("a page is never named so its variations would be its canvas's", () =>
     assert.notStrictEqual(page.id, "canvas.page.json");
   })
 );
+
+inProject(
+  "a thing taken out under one spelling of its page and put back under another keeps its variations",
+  () =>
+    Effect.gen(function* () {
+      const { client } = yield* TestEnv;
+      yield* client["variations.add"]({ doc: HOME, node: "heading" });
+      yield* client["documents.apply"]({
+        edits: [
+          { doc: HOME, ops: [{ id: "heading", op: "remove" }] },
+          {
+            doc: `./${HOME}`,
+            ops: [
+              {
+                node: {
+                  id: "heading",
+                  level: 1,
+                  role: "heading",
+                  text: "Hello",
+                  type: "text",
+                },
+                op: "insert",
+                parent: "root",
+              },
+            ],
+          },
+        ],
+      });
+      const { documents } = yield* client["variations.list"]({ canvas: "" });
+      assert.deepStrictEqual(Object.keys(documents[0]?.sets ?? {}), [
+        "heading",
+      ]);
+    })
+);

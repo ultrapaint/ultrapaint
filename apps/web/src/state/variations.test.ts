@@ -278,6 +278,20 @@ describe("choosing among a thing's variations", () => {
     expect(previewOf(useVariations.getState())).toBe("v3");
   });
 
+  it("steps from the one in use once an undo puts one back while the thing as drawn is shown", () => {
+    fakeApi.emit("variations", {
+      doc: HOME,
+      sets: { title: { ...SETS.title, inUse: null } } as VariationSets,
+    });
+    openVariations({ frame: HOME, nodeId: "title" });
+    fakeApi.emit("variations", { doc: HOME, sets: SETS });
+    stepVariation(-1);
+    expect(previewOf(useVariations.getState())).toBe("v3");
+    stepVariation(1);
+    stepVariation(1);
+    expect(previewOf(useVariations.getState())).toBe("v2");
+  });
+
   it("hears a change of the variations from the server", () => {
     fakeApi.emit("variations", { doc: HOME, sets: {} });
     expect(useVariations.getState().byDoc[HOME]).toBeUndefined();
