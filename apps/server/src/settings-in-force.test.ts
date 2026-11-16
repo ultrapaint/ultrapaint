@@ -165,6 +165,33 @@ describe("the settings in force", () => {
     })
   )((it) => {
     it.effect(
+      "answers the project's info asked while detection opens it with the settings it adopted (ADR 0099)",
+      () =>
+        Effect.gen(function* () {
+          const project = yield* ProjectManager;
+          const { repo } = yield* ProjectFixture;
+          const adopting = yield* Effect.forkChild(
+            project.adoptDetected(repo),
+            {
+              startImmediately: true,
+            }
+          );
+          const info = yield* project.info;
+          assert.strictEqual(info.setup, "detected");
+          // Read as the opening left it: the settings it adopted, not the none there were before.
+          assert.strictEqual(info.settings?.repoPath, repo);
+          yield* Fiber.join(adopting);
+        })
+    );
+  });
+
+  eachTest(
+    ProjectTest({
+      files: { "designs/package.json": DETECTED_PACKAGE },
+      storage: "ephemeral",
+    })
+  )((it) => {
+    it.effect(
       "tells the editor when detected settings are saved, and keeps the project open",
       () =>
         Effect.gen(function* () {

@@ -311,14 +311,16 @@ export class ProjectManager extends Context.Service<
          */
         const infoWith = (waiting: boolean): Effect.Effect<ProjectInfo> =>
           Effect.gen(function* () {
+            // First: waited for, the rest is read as the opening left it (its settings in force).
+            const facts = yield* (waiting ? useOnceOpened : use)(
+              projectFacts
+            ).pipe(Effect.orElseSucceed(() => ({ configured: false })));
             const { displayName } = yield* profile.get;
             const settings = yield* settingsService.get;
             // Asked each time: a session saved meanwhile has its state beside its configuration.
             const target = yield* storage.target;
             return {
-              ...(yield* (waiting ? useOnceOpened : use)(projectFacts).pipe(
-                Effect.orElseSucceed(() => ({ configured: false }))
-              )),
+              ...facts,
               ...(displayName === undefined ? {} : { displayName }),
               folders: {
                 ...(target.mode === "file" ? { project: target.stateDir } : {}),

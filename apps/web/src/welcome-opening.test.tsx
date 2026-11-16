@@ -101,12 +101,17 @@ describe("the start page while a project opens", () => {
     expect(splash()?.querySelector("h1")?.textContent).toBe(
       "Opening bike-shop"
     );
+    // The page under it takes no focus while it is up.
+    expect(
+      document.querySelector("textarea")?.closest("[inert]")
+    ).not.toBeNull();
     await act(async () => {
       button("Cancel")?.click();
       await Promise.resolve();
     });
     expect(calls).toEqual(["stop"]);
     expect(splash()).toBeNull();
+    expect(document.querySelector("[inert]")).toBeNull();
     // What was being written is still there.
     expect(document.querySelector("textarea")?.value).toBe(
       "A habit tracker for students"

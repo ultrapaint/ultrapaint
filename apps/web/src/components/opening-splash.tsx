@@ -19,7 +19,7 @@ import {
   Copy,
   LoaderCircle,
 } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { type RefObject, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -312,6 +312,42 @@ const Footer = ({
     </footer>
   ) : null;
 
+/**
+ * While the splash is up, the page under it takes no focus and no pointer (`inert`): the splash
+ * has it, and gives it back to what had it once it goes.
+ */
+const useModal = (area: RefObject<HTMLElement | null>) =>
+  useEffect(() => {
+    const root = area.current;
+    if (!root) {
+      return;
+    }
+    const before =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const covered: Element[] = [];
+    for (
+      let node: Element | null = root;
+      node?.parentElement && node !== document.body;
+      node = node.parentElement
+    ) {
+      for (const sibling of node.parentElement.children) {
+        if (sibling !== node && !sibling.hasAttribute("inert")) {
+          sibling.setAttribute("inert", "");
+          covered.push(sibling);
+        }
+      }
+    }
+    root.focus();
+    return () => {
+      for (const element of covered) {
+        element.removeAttribute("inert");
+      }
+      before?.focus();
+    };
+  }, [area]);
+
 /** Escape calls `cancel`, while there is one. */
 const useEscape = (cancel: (() => void) | undefined) =>
   useEffect(() => {
@@ -349,7 +385,9 @@ export const OpeningSplash = ({
   const now = useNow(!(failed || done || leaving));
   const elapsed = Math.max(0, now - opening.since);
   const [showLog, setShowLog] = useState(false);
+  const titleId = useId();
   useEscape(onCancel);
+  useModal(area);
 
   const fraction = barAt(opening, elapsed, done);
   const settled = failed || done || elapsed >= SETTLE_MS;
@@ -358,12 +396,16 @@ export const OpeningSplash = ({
   return (
     <div
       aria-busy={!failed}
+      aria-labelledby={titleId}
+      aria-modal="true"
       className={cn(
         "fixed inset-0 z-50 cursor-cell overflow-auto bg-canvas text-foreground",
         leaving &&
           "pointer-events-none motion-safe:animate-splash-wipe motion-reduce:animate-splash-fade"
       )}
       ref={area}
+      role="dialog"
+      tabIndex={-1}
     >
       <PaintLayer over={area} />
       {/* The header where the static splash of `index.html` puts it: React's takes its place
@@ -372,7 +414,7 @@ export const OpeningSplash = ({
         <header className="flex flex-col items-center gap-8">
           <Lockup className="h-7.5" />
           <div className="flex w-full flex-col items-center gap-1 text-center">
-            <h1 className="text-balance font-heading-medium">
+            <h1 className="text-balance font-heading-medium" id={titleId}>
               {failed
                 ? `${opening.name} didn’t open`
                 : `Opening ${opening.name}`}
