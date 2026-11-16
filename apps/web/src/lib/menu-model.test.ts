@@ -148,7 +148,7 @@ describe("the node menu", () => {
     );
   });
 
-  it("comments only on a page, and selects a parent only when there is one", () => {
+  it("comments on a node beside the pages, and selects a parent only when there is one", () => {
     const loose = kinds(
       nodeEntries(
         facts({
@@ -157,7 +157,7 @@ describe("the node menu", () => {
         })
       )
     );
-    expect(loose).not.toContain("comment");
+    expect(loose).toContain("comment");
     expect(loose).not.toContain("selectParent");
   });
 
@@ -404,6 +404,19 @@ describe("the canvas menu", () => {
     ).toMatchObject({ label: "Hide comments" });
   });
 
+  it("adds a comment where it was opened", () => {
+    expect(
+      find(
+        canvasEntries({
+          canPaste: false,
+          commentsVisible: false,
+          gridVisible: false,
+        }),
+        "comment"
+      )
+    ).toMatchObject({ label: "Add a comment" });
+  });
+
   it("names the grid toggle after what it does", () => {
     const entries = (gridVisible: boolean) =>
       canvasEntries({ canPaste: true, commentsVisible: true, gridVisible });
@@ -424,6 +437,7 @@ describe("the comment menu", () => {
     const busy = commentEntries({
       current: { busy: true, id: "t1", title: "Work" },
       hasElement: false,
+      onPage: true,
       resolved: false,
     });
     expect(find(busy, { kind: "send", threadId: "t1" })).toMatchObject({
@@ -433,6 +447,7 @@ describe("the comment menu", () => {
     const none = commentEntries({
       current: null,
       hasElement: true,
+      onPage: true,
       resolved: true,
     });
     expect(find(none, "send")).toMatchObject({ label: "Send to an agent" });
@@ -441,6 +456,16 @@ describe("the comment menu", () => {
       label: "Current chat",
     });
     expect(find(none, "resolve")).toMatchObject({ label: "Reopen" });
+  });
+
+  it("makes a behaviour note only of a comment on a page, the canvas being implemented as none", () => {
+    const said = { current: null, hasElement: false, resolved: false };
+    expect(
+      find(commentEntries({ ...said, onPage: true }), "note")
+    ).toMatchObject({ label: "Make it a behaviour note" });
+    expect(kinds(commentEntries({ ...said, onPage: false }))).not.toContain(
+      "note"
+    );
   });
 });
 

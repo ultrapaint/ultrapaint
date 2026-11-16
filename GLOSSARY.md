@@ -430,6 +430,10 @@ refactor and the board view left.
 - **Frame ref**: what a frame's id names, a page, a view of one, a node on the canvas or a board
   (the web's `frame-ref`), and what each allows: comments, prototype links, the document shown,
   the width its breakpoint is read at.
+- **Comment**: a note left on the page canvas, kept in the canvas's `comments.json`: on a page, in
+  the frame it was left in, the page's own or one of its views (`view`); or on the canvas itself
+  (`page` null), on a node beside the pages, which it moves with, or at a point of the canvas. Each
+  is drawn in one place (`commentFrame`, ADR 0097). A behaviour note (ADR 0030) is a page's.
 - **Surface**: the main area, the page canvas or a board view (the web's `surface`, two adapters):
   its frames, which take a selection, its tools, rail and right panel, its background, the
   commands it offers, what a press or a drop on its ground does, and its step back on Escape.

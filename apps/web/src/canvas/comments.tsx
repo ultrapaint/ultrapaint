@@ -16,6 +16,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
+  useMemo,
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
@@ -38,9 +39,13 @@ import { IconButton } from "../components/icon-button.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { initialsOf } from "../lib/initials.ts";
 import {
+  type CommentDraft,
+  type CommentGround,
+  commentFrame,
   deleteComment,
   deleteReply,
   hasSpot,
+  holdsCard,
   postDraft,
   replyTo,
   startComment,
@@ -48,8 +53,14 @@ import {
   useComments,
 } from "../state/comments.ts";
 import { openMenuAt } from "../state/context-menu.ts";
-import { nodeIn, useDocuments } from "../state/documents.ts";
+import {
+  drawnRootOf,
+  frameOfCanvasNode,
+  nodeIn,
+  useDocuments,
+} from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { useProject } from "../state/project.ts";
 import { UNZOOM } from "./camera.ts";
 import { frameOf } from "./editor-frame.ts";
 import { SendToAgent } from "./send-to-agent.tsx";
@@ -137,51 +148,132 @@ export const relativeTime = (at: number, now = Date.now()) => {
 };
 
 /**
- * Starts a comment where a page was clicked, pinned on the innermost element there. `frame` is
- * the preview the page is drawn in; `pageId` the page, or the view of it clicked on the canvas.
+ * Starts a comment where a frame was clicked, pinned on the innermost element there: a page's
+ * frame, one of its views, a node's beside the pages (on that node at least, so the comment moves
+ * with it), or the prototype's, which `pageId` says the page of.
  */
 export const placeComment = (
   frame: string,
-  pageId: string,
-  at: { x: number; y: number }
+  at: { x: number; y: number },
+  pageId?: string
 ) => {
+  const { docs } = useDocuments.getState();
+  const { canvas } = useEditor.getState();
+  // The prototype's frame is no frame of the canvas: its nodes are the page's.
+  const docFrame = pageId ?? frame;
   const id = frameOf(frame).hitTest(Math.round(at.x), Math.round(at.y)).at(-1);
-  const node = id
-    ? nodeIn(
-        useDocuments.getState().docs,
-        useEditor.getState().canvas,
-        pageId,
-        id
-      )
-    : null;
-  startComment(pageId, at, node);
+  const hit = id ? nodeIn(docs, canvas, docFrame, id) : null;
+  const node = hit ?? drawnRootOf(docs, canvas, docFrame);
+  startComment(frame, at, node, pageId);
 };
+
+/** Starts a comment at a point of the canvas itself, on no page and no node (ADR 0097). */
+export const placeCanvasComment = (at: { x: number; y: number }) =>
+  startComment(null, at);
 
 // The card and the pins take their own pointer events: the canvas must not start a drag, and
 // the frame under them must not pick an element.
 const stop = (e: ReactPointerEvent) => e.stopPropagation();
 
 /**
- * Pins, the open card and the comment being written, for one page. Drawn in the page's own
- * pixels and scaled back by `inv` so they keep their size at any zoom.
+ * The ground a frame of the page canvas draws its comments on, kept up with the pages, their
+ * views and the nodes beside them.
  */
-export const FrameComments = ({
+const useGround = (): CommentGround => {
+  const canvas = useEditor((s) => s.canvas);
+  const frames = useEditor((s) => s.frames);
+  const docs = useDocuments((s) => s.docs);
+  const pages = useProject((s) => s.pages);
+  return useMemo(() => {
+    const here = pages.filter((p) => p.canvas === canvas);
+    return {
+      nodeFrame: (nodeId) => frameOfCanvasNode(docs, canvas, nodeId),
+      pageId: (path) => here.find((p) => p.path === path)?.id,
+      views: (pageId) => (frames[pageId]?.views ?? []).map((v) => v.id),
+    };
+  }, [canvas, frames, docs, pages]);
+};
+
+/**
+ * The comments one frame of the page canvas draws, or the canvas itself (`frameId` null): each
+ * comment is drawn in one place alone (`commentFrame`), and so is the one being written.
+ */
+export const FrameComments = ({ frameId }: { frameId: string | null }) => {
+  const ground = useGround();
+  const all = useComments((s) => s.comments);
+  const draft = useComments((s) =>
+    s.draft?.frame === frameId ? s.draft : null
+  );
+  const comments = useMemo(
+    () => all.filter((c) => commentFrame(c, ground) === frameId),
+    [all, ground, frameId]
+  );
+  return (
+    <CommentPins
+      comments={comments}
+      draft={draft}
+      frameId={frameId ?? undefined}
+    />
+  );
+};
+
+/**
+ * The comments of the canvas itself, beside the pages (ADR 0097), in the canvas's own pixels:
+ * above the frames, and above everything while one of them is open or being written.
+ */
+export const CanvasComments = () => {
+  const lifted = useComments((s) => holdsCard(s, null));
+  return (
+    <div
+      className="absolute top-0 left-0 size-0"
+      style={{ zIndex: lifted ? 3 : 1 }}
+    >
+      <FrameComments frameId={null} />
+    </div>
+  );
+};
+
+/** The comments of the page the prototype shows, from whichever of its frames they were left in. */
+export const PrototypeComments = ({
   frameId,
   inv,
   page,
 }: {
+  frameId: string;
+  inv: number;
+  page: Page;
+}) => {
+  const all = useComments((s) => s.comments);
+  const draft = useComments((s) =>
+    s.draft?.frame === frameId ? s.draft : null
+  );
+  const comments = useMemo(
+    () => all.filter((c) => c.page === page.path),
+    [all, page.path]
+  );
+  return <CommentPins comments={comments} draft={draft} inv={inv} />;
+};
+
+/**
+ * Pins, the open card and the comment being written, for one place: drawn in its own pixels and
+ * scaled back by `inv` so they keep their size at any zoom.
+ */
+const CommentPins = ({
+  comments,
+  draft,
+  frameId,
+  inv,
+}: {
+  /** The comments of the place, resolved ones and ones without a spot included. */
+  comments: readonly Comment[];
+  draft: CommentDraft | null;
   /** The frame drawn in, whose elements' places a note without a spot is drawn at. */
   frameId?: string;
   /** The prototype's own scale; on the canvas, the canvas's zoom (`--inv`). */
   inv?: number;
-  page: Page;
 }) => {
   const visible = useComments((s) => s.visible);
   const open = useComments((s) => s.open);
-  const draft = useComments((s) =>
-    s.draft?.pageId === page.id ? s.draft : null
-  );
-  const all = useComments((s) => s.comments);
   const rects = useEditor((s) =>
     frameId === undefined ? undefined : s.rects[frameId]
   );
@@ -190,9 +282,8 @@ export const FrameComments = ({
   }
   // A resolved comment is gone from the canvas, and one without a spot is the page's own, in its
   // toolbar (ADR 0085): either is drawn only while its card is open.
-  const shown = all.filter(
-    (c) =>
-      c.page === page.path && ((!c.resolved && hasSpot(c)) || c.id === open)
+  const shown = comments.filter(
+    (c) => (!c.resolved && hasSpot(c)) || c.id === open
   );
   return (
     <>
@@ -218,7 +309,7 @@ export const FrameComments = ({
       {draft ? (
         <Anchor inv={inv} raised x={draft.x} y={draft.y}>
           <span className={cn(PIN, "size-8 bg-primary")} />
-          <Composer />
+          <Composer onPage={draft.pageId !== null} />
         </Anchor>
       ) : null}
     </>
@@ -548,27 +639,31 @@ const ReplyInput = ({ commentId }: { commentId: string }) => {
 };
 
 /**
- * Where a new comment is written, next to the spot it was placed on: a comment on the design, or
- * a behaviour note (ADR 0030), what the code must do that the design cannot show.
+ * Where a new comment is written, next to the spot it was placed on: a comment on the design, or,
+ * on a page, a behaviour note (ADR 0030), what the code must do that the design cannot show. The
+ * canvas beside the pages is implemented as no page, so a comment there is a comment.
  */
-const Composer = () => {
+const Composer = ({ onPage }: { onPage: boolean }) => {
   const cancel = () => useComments.getState().setDraft(null);
-  const [kind, setKind] = useState<"comment" | "behaviour">("comment");
+  const [chosen, setKind] = useState<"comment" | "behaviour">("comment");
+  const kind = onPage ? chosen : "comment";
   return (
     <div className={cardClass} onPointerDown={stop}>
-      <Segmented
-        onChange={setKind}
-        options={[
-          { label: "Comment", value: "comment" as const },
-          {
-            label: "Behaviour note",
-            title:
-              "What the code must do that the design cannot show: it goes to the code when the page is implemented",
-            value: "behaviour" as const,
-          },
-        ]}
-        value={kind}
-      />
+      {onPage ? (
+        <Segmented
+          onChange={setKind}
+          options={[
+            { label: "Comment", value: "comment" as const },
+            {
+              label: "Behaviour note",
+              title:
+                "What the code must do that the design cannot show: it goes to the code when the page is implemented",
+              value: "behaviour" as const,
+            },
+          ]}
+          value={kind}
+        />
+      ) : null}
       <TextInput
         onCancel={cancel}
         onSubmit={(text) => postDraft(text, kind)}

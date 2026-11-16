@@ -6,6 +6,7 @@
  */
 
 import { familyOf } from "@ultrapaint/contracts/canvas-layout";
+import type { Comment } from "@ultrapaint/contracts/comments";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { isBusy } from "@ultrapaint/contracts/threads";
 import { pageOfLink } from "@ultrapaint/shared/link";
@@ -20,8 +21,9 @@ import { openBoard } from "../state/board.ts";
 import { viewportSize } from "../state/camera.ts";
 import { placeOnCanvas, useCanvasGrid } from "../state/canvas-grid.ts";
 import {
+  commentFrame,
   deleteComment,
-  pageOfComment,
+  groundNow,
   revealComment,
   startComment,
   updateComment,
@@ -278,7 +280,8 @@ const commentMenu = (commentId: string) => {
     current: current
       ? { busy: isBusy(current.status), id: current.id, title: current.title }
       : null,
-    hasElement: !!comment.nodeId && !!pageOfComment(comment),
+    hasElement: !!comment.nodeId && !!commentedFrame(comment),
+    onPage: comment.page !== null,
     resolved: comment.resolved,
   });
 };
@@ -356,8 +359,8 @@ const copyText = (text: string, what = text) =>
   );
 
 /**
- * Starts a comment on the node: where it was clicked, else in the middle of it. Comments are
- * pinned on pages, so a node of the canvas has none.
+ * Starts a comment on the node: where it was clicked, else in the middle of it. A node of a page
+ * or of the canvas takes one; a board's, generated, does not.
  */
 const commentOn = (target: Selection, at?: Point) => {
   const { docs } = useDocuments.getState();
@@ -381,11 +384,19 @@ const commentOn = (target: Selection, at?: Point) => {
 };
 
 /**
- * Selects the element a comment is pinned on. The prototype shows no selection, so from there it
- * is selected on the canvas, in the design workspace, and brought into view.
+ * The frame whose element a comment is pinned on: the one it is drawn in, a page's, a view's or
+ * a node's beside the pages. None on the canvas itself, nor for a page gone.
  */
-const selectCommented = (pageId: string, nodeId: string) => {
-  const target = { frame: pageId, nodeId };
+const commentedFrame = (comment: Comment) =>
+  commentFrame(comment, groundNow()) ?? null;
+
+/**
+ * Selects the element a comment is pinned on, in the frame it was left in. The prototype shows no
+ * selection, so from there it is selected on the canvas, in the design workspace, and brought
+ * into view.
+ */
+const selectCommented = (frame: string, nodeId: string) => {
+  const target = { frame, nodeId };
   if (useEditor.getState().workspace === "prototype") {
     return reveal(target);
   }
@@ -619,6 +630,8 @@ const runCanvas = (target: TargetOf<"canvas">, act: CanvasAction): unknown => {
   switch (act.kind) {
     case "paste":
       return pasteAt(target.at);
+    case "comment":
+      return startComment(null, target.at);
     case "command":
       return runCommand(act.id);
     default:
@@ -638,9 +651,9 @@ const runComment = async (
     case "open":
       return revealComment(comment);
     case "selectElement": {
-      const page = pageOfComment(comment);
-      return page && comment.nodeId
-        ? selectCommented(page.id, comment.nodeId)
+      const frame = commentedFrame(comment);
+      return frame && comment.nodeId
+        ? selectCommented(frame, comment.nodeId)
         : undefined;
     }
     case "resolve":

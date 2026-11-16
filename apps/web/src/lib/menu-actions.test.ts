@@ -247,6 +247,7 @@ const setUp = () => {
         resolved: false,
         text: "Bigger",
         updatedAt: 0,
+        view: null,
         x: 10,
         y: 10,
       },
@@ -528,12 +529,13 @@ describe("a node's menu", () => {
     ]);
   });
 
-  it("beside the pages, has no comment, link or app component", async () => {
+  it("beside the pages, takes a comment but has no link or app component", async () => {
     const note = nodeAt("node:note", "note");
     const kinds = itemsOf(menuFor(note) ?? []).map((e) =>
       e.kind === "item" ? e.action.act.kind : e.kind
     );
-    for (const kind of ["comment", "link", "linkUrl", "makeApp"]) {
+    expect(kinds).toContain("comment");
+    for (const kind of ["link", "linkUrl", "makeApp"]) {
       expect(kinds).not.toContain(kind);
     }
     await choose(note, { kind: "hide" });
@@ -767,7 +769,7 @@ describe("the canvas's menu", () => {
  * added, and the sweep below finds it in a menu and runs it.
  */
 const EVERY_ACTION = {
-  canvas: { command: true, paste: true },
+  canvas: { command: true, comment: true, paste: true },
   canvasEntry: {
     adopt: true,
     delete: true,

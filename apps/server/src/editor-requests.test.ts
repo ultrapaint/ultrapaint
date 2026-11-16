@@ -52,7 +52,7 @@ const editorTest =
 const inProject = editorTest();
 const inGitProject = editorTest({ git: true });
 
-const commentOn = (canvas: string, page: string, text: string) => ({
+const commentOn = (canvas: string, page: string | null, text: string) => ({
   canvas,
   element: null,
   nodeId: null,
@@ -62,8 +62,9 @@ const commentOn = (canvas: string, page: string, text: string) => ({
   y: 10,
 });
 
-const commentedPages = (comments: readonly { readonly page: string }[]) =>
-  comments.map((c) => c.page).sort();
+const commentedPages = (
+  comments: readonly { readonly page: string | null }[]
+) => comments.map((c) => c.page).sort();
 
 const frameAt = (x: number) =>
   ({ height: 600, preset: "custom", width: 800, x, y: 0 }) as const;
@@ -1275,6 +1276,48 @@ describe("the editor's requests on a project", () => {
         [HOME, "pricing.page.json", "pricing@bold.page.json"]
       );
     })
+  );
+
+  inProject(
+    "keeps a comment on the canvas itself through its pages' renames and deletions, and a page's in its view (ADR 0097)",
+    () =>
+      Effect.gen(function* () {
+        const { client, repo } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        yield* pricingWithComments;
+        // A view is a page's: one on the canvas has none, whatever it is given.
+        const onCanvas = yield* client["comments.create"]({
+          ...commentOn("", null, "Room for a banner"),
+          view: "md",
+        });
+        assert.deepStrictEqual([onCanvas.page, onCanvas.view], [null, null]);
+        const inView = yield* client["comments.create"]({
+          ...commentOn("", HOME, "Tighter"),
+          view: "md",
+        });
+        assert.strictEqual(inView.view, "md");
+
+        yield* client["pages.rename"]({
+          id: "pricing.page.json",
+          name: "Plans",
+        });
+        yield* client["pages.delete"]({ ids: ["plans.page.json"] });
+        const after = (yield* client["comments.list"]({ canvas: "" })).comments;
+        assert.deepStrictEqual(commentedPages(after), [HOME, HOME, null]);
+        assert.deepStrictEqual(
+          after.find((c) => c.id === onCanvas.id),
+          onCanvas
+        );
+
+        // The file says a view only of a comment left in one, as before views had comments.
+        const saved = JSON.parse(
+          yield* fs.readFileString(path.join(repo, "designs/comments.json"))
+        ) as { comments: Record<string, unknown>[] };
+        assert.deepStrictEqual(
+          saved.comments.map((c) => c.view),
+          [undefined, undefined, "md"]
+        );
+      })
   );
 
   inProject(

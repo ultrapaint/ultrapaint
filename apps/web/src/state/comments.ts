@@ -12,17 +12,25 @@ import { attachmentsOf, chipOfComment } from "./attachments.ts";
 import { setView, viewportSize } from "./camera.ts";
 import { commentPrompt, commentThreadTitle } from "./comment-prompt.ts";
 import { api } from "./connection.ts";
+import { frameOfCanvasNode, useDocuments } from "./documents.ts";
 import { pagesOfCanvas, useEditor } from "./editor.ts";
-import { ownFrameOf } from "./frame-ref.ts";
+import { frameRefOf, pageOfRef, viewFrameOf } from "./frame-ref.ts";
 import { goTo } from "./location.ts";
+import { pageCanvasFrames } from "./page-layout.ts";
 import { reportError } from "./project.ts";
 import { follow } from "./server-data.ts";
 
 /** A comment being written: where it was placed, before it has any text. */
-interface CommentDraft {
+export interface CommentDraft {
   element: string | null;
+  /**
+   * The frame it was placed in, which alone draws it, in whose pixels `x`/`y` are: a page's own,
+   * one of its views, a node's beside the pages, the prototype's; null on the canvas itself.
+   */
+  frame: string | null;
   nodeId: string | null;
-  pageId: string;
+  /** The page it is on, by id; null on the canvas, beside the pages. */
+  pageId: string | null;
   x: number;
   y: number;
 }
@@ -85,19 +93,82 @@ const commentsData = follow({
   read: (canvas) => api().request("comments.list", { canvas }),
 });
 
-/** The page a comment is on, among the pages of the open canvas. */
+/** The page a comment is on, among the pages of the open canvas; none for one on the canvas. */
 export const pageOfComment = (comment: Comment): Page | undefined =>
-  pagesOfCanvas(useEditor.getState().canvas).find(
-    (p) => p.path === comment.page
-  );
+  comment.page === null
+    ? undefined
+    : pagesOfCanvas(useEditor.getState().canvas).find(
+        (p) => p.path === comment.page
+      );
 
 /**
  * Whether a comment has a spot on its page. One written through a tool (an agent's behaviour
  * note, ADR 0030) was never placed and sits at the page's corner, 0 0: it is not pinned on the
  * canvas but listed in the inspector of what it is on and in the Comments panel (ADR 0085, 0086).
+ * One on the canvas itself was always placed.
  */
-export const hasSpot = (comment: Pick<Comment, "x" | "y">) =>
-  comment.x !== 0 || comment.y !== 0;
+export const hasSpot = (comment: Pick<Comment, "page" | "x" | "y">) =>
+  comment.page === null || comment.x !== 0 || comment.y !== 0;
+
+/** What the page canvas holds that says where a comment is drawn. */
+export interface CommentGround {
+  /** The frame of the node of the canvas a node is in, when it is one of them. */
+  readonly nodeFrame: (nodeId: string) => string | null;
+  /** A page of the canvas's id, by its path. */
+  readonly pageId: (path: string) => string | undefined;
+  /** The views a page has, by id (ADR 0036). */
+  readonly views: (pageId: string) => readonly string[];
+}
+
+/**
+ * The one place of the page canvas a comment is drawn (ADR 0097): a frame, by id, or the canvas
+ * itself (null). A page's comment is in the view it was left in, else in the page's own frame,
+ * which also takes back the comments of a view taken away. A comment on the canvas is in the frame
+ * of the node it was left on, beside the pages, so it moves with it, else on the canvas. Undefined
+ * when it is drawn nowhere: its page is not on this canvas.
+ */
+export const commentFrame = (
+  comment: Pick<Comment, "nodeId" | "page" | "view">,
+  ground: CommentGround
+): string | null | undefined => {
+  if (comment.page === null) {
+    return comment.nodeId === null ? null : ground.nodeFrame(comment.nodeId);
+  }
+  const page = ground.pageId(comment.page);
+  if (page === undefined) {
+    return;
+  }
+  return comment.view !== null && ground.views(page).includes(comment.view)
+    ? viewFrameOf(page, comment.view)
+    : page;
+};
+
+/** The page canvas as it is now, for `commentFrame`. */
+export const groundNow = (): CommentGround => {
+  const { canvas, frames } = useEditor.getState();
+  const { docs } = useDocuments.getState();
+  const pages = pagesOfCanvas(canvas);
+  return {
+    nodeFrame: (nodeId) => frameOfCanvasNode(docs, canvas, nodeId),
+    pageId: (path) => pages.find((p) => p.path === path)?.id,
+    views: (pageId) => (frames[pageId]?.views ?? []).map((v) => v.id),
+  };
+};
+
+/**
+ * Whether a frame of the page canvas, or the canvas itself (null), holds the card that is open or
+ * the comment being written: it is lifted over its neighbours, so they do not cover the card.
+ */
+export const holdsCard = (
+  s: Pick<CommentsStore, "comments" | "draft" | "open">,
+  frame: string | null
+): boolean => {
+  if (s.draft) {
+    return s.draft.frame === frame;
+  }
+  const open = s.open === null ? null : s.comments.find((c) => c.id === s.open);
+  return open ? commentFrame(open, groundNow()) === frame : false;
+};
 
 /**
  * The open behaviour notes on one thing of a page, oldest first: on the page as a whole
@@ -120,29 +191,43 @@ export const behaviourNotesOf = (
 
 const currentCanvas = () => useComments.getState().canvas ?? "";
 
+/** The view of a page a comment placed in a frame is on: none but in a view's frame. */
+const viewOfFrame = (frame: string | null) => {
+  const ref = frame === null ? null : frameRefOf(frame);
+  return ref?.kind === "view" ? ref.view : null;
+};
+
 /**
  * Posts the comment being written; a behaviour note (ADR 0030) says what the code must do that
- * the design cannot show, and goes to the code when the page is implemented.
+ * the design cannot show, and goes to the code when the page is implemented: a comment on the
+ * canvas is never one.
  */
 export const postDraft = async (
   text: string,
   kind: "comment" | "behaviour" = "comment"
 ) => {
   const { draft } = useComments.getState();
-  const page = pagesOfCanvas(useEditor.getState().canvas).find(
-    (p) => p.id === draft?.pageId
-  );
-  if (!(draft && page && text.trim())) {
+  if (!(draft && text.trim())) {
+    return;
+  }
+  const page =
+    draft.pageId === null
+      ? null
+      : pagesOfCanvas(useEditor.getState().canvas).find(
+          (p) => p.id === draft.pageId
+        );
+  if (page === undefined) {
     return;
   }
   try {
     const comment = await api().request("comments.create", {
       canvas: currentCanvas(),
       element: draft.element,
-      kind,
+      kind: page === null ? "comment" : kind,
       nodeId: draft.nodeId,
-      page: page.path,
+      page: page?.path ?? null,
       text: text.trim(),
+      view: viewOfFrame(draft.frame),
       x: draft.x,
       y: draft.y,
     });
@@ -212,22 +297,26 @@ export const openComment = (id: string) => {
 };
 
 /**
- * Starts writing a comment at a point of a page, pinned on `node` when it is one of the page's
- * elements. `frame` is the page's own frame or a view of it (ADR 0036): the draft is the page's
- * either way, drawn in its frame and each of its views as a posted comment is. Returns the
- * draft, which a later call replaces.
+ * Starts writing a comment at a point of a frame, in its pixels, pinned on `node` when it is one
+ * of its elements; with `frame` null, at a point of the canvas itself (ADR 0097). The frame is a
+ * page's own, a view of it (ADR 0036), whose comment is the page's but drawn in that view alone,
+ * or a node's beside the pages, whose comment is the canvas's and moves with the node. `pageId`
+ * names the page of a frame that does not say it, the prototype's. Returns the draft, which a
+ * later call replaces.
  */
 export const startComment = (
-  frame: string,
+  frame: string | null,
   at: { x: number; y: number },
-  node?: DesignNode | null
+  node?: DesignNode | null,
+  pageId: string | null = frame === null ? null : pageOfRef(frameRefOf(frame))
 ): CommentDraft => {
   showComments();
   const pinned = node && node.type !== "page" ? node : null;
   const draft = {
     element: pinned ? nodeLabel(pinned) : null,
+    frame,
     nodeId: pinned?.id ?? null,
-    pageId: ownFrameOf(frame),
+    pageId,
     x: Math.round(at.x),
     y: Math.round(at.y),
   };
@@ -251,7 +340,8 @@ export const toggleCommenting = () => {
 
 /**
  * Brings a comment into view and opens it: in the middle of what can be seen of the canvas, or,
- * in the prototype, on its page, which the prototype goes to.
+ * in the prototype, on its page, which the prototype goes to. One on the canvas itself is shown
+ * on the canvas, which the prototype gives way to.
  */
 export const revealComment = (comment: Comment) => {
   const page = pageOfComment(comment);
@@ -262,16 +352,21 @@ export const revealComment = (comment: Comment) => {
     useComments.getState().setOpen(comment.id);
     return;
   }
-  const frame = page ? editor.frames[page.id] : undefined;
-  if (!(page && frame)) {
+  const frame = commentFrame(comment, groundNow());
+  if (frame === undefined) {
     return;
   }
+  const box = frame === null ? { x: 0, y: 0 } : pageCanvasFrames()[frame];
+  if (!box) {
+    return;
+  }
+  editor.setWorkspace("design");
   showComments();
   const viewport = viewportSize();
   const { zoom } = editor.view;
   setView({
-    x: viewport.x + viewport.width / 2 - (frame.x + comment.x) * zoom,
-    y: viewport.height / 2 - (frame.y + comment.y) * zoom,
+    x: viewport.x + viewport.width / 2 - (box.x + comment.x) * zoom,
+    y: viewport.height / 2 - (box.y + comment.y) * zoom,
   });
   useComments.getState().setOpen(comment.id);
 };

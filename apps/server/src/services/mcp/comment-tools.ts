@@ -11,7 +11,8 @@ import { doing, opt, reported, ToolFailure } from "./tool-helpers.ts";
 const CommentSummary = Schema.Struct({
   element: Schema.NullOr(Schema.String),
   id: Schema.String,
-  page: Schema.String,
+  /** Null on the canvas itself, beside the pages. */
+  page: Schema.NullOr(Schema.String),
   replies: Schema.Number,
   resolved: Schema.Boolean,
   text: Schema.String,

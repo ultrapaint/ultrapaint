@@ -1,4 +1,5 @@
 import type { Comment } from "@ultrapaint/contracts/comments";
+import type { Page } from "@ultrapaint/contracts/pages";
 import {
   Check,
   CheckCheck,
@@ -39,7 +40,7 @@ const CommentsHeading = ({ children }: { children?: ReactNode }) => (
   </div>
 );
 
-/** Every comment of the open canvas, page by page, newest first. */
+/** Every comment of the open canvas, page by page and the canvas's own, newest first. */
 export const Comments = () => {
   const configured = useProject((s) => s.info.configured);
   const canvas = useEditor((s) => s.canvas);
@@ -61,7 +62,8 @@ export const Comments = () => {
   const resolvedCount = comments.filter((c) => c.resolved).length;
   const listed = comments.filter((c) => showResolved || !c.resolved);
   const pages = pagesOfCanvas(canvas);
-  const groups = new Map<string, Comment[]>();
+  // A comment on the canvas itself (ADR 0097) is under the canvas, keyed null.
+  const groups = new Map<string | null, Comment[]>();
   for (const comment of [...listed].sort((a, b) => b.createdAt - a.createdAt)) {
     groups.set(comment.page, [...(groups.get(comment.page) ?? []), comment]);
   }
@@ -113,7 +115,7 @@ export const Comments = () => {
           {comments.length === 0 ? (
             <>
               Pick the comment tool <CommandKeys id="tool:comment" /> and click
-              on a page to leave one.
+              anywhere on the canvas to leave one.
             </>
           ) : (
             "Resolved comments are hidden here and on the canvas."
@@ -121,31 +123,44 @@ export const Comments = () => {
         </PanelEmpty>
       ) : (
         <div className="min-h-0 flex-1 overflow-auto pb-2">
-          {[...groups].map(([pagePath, items]) => {
-            const page = pages.find((p) => p.path === pagePath);
-            return (
-              <section className="flex flex-col px-2" key={pagePath}>
-                <h3 className="flex h-9 items-end gap-1.5 truncate px-2 pb-1.5 font-body-small text-muted-foreground">
-                  {page ? (
-                    <>
-                      <span className="truncate">{page.name}</span>
-                      {page.route ? (
-                        <span className="truncate font-code">{page.route}</span>
-                      ) : null}
-                    </>
-                  ) : (
-                    `${pagePath} (removed)`
-                  )}
-                </h3>
-                {items.map((comment) => (
-                  <Item comment={comment} key={comment.id} />
-                ))}
-              </section>
-            );
-          })}
+          {[...groups].map(([pagePath, items]) => (
+            <section className="flex flex-col px-2" key={pagePath ?? ""}>
+              <h3 className="flex h-9 items-end gap-1.5 truncate px-2 pb-1.5 font-body-small text-muted-foreground">
+                <GroupName pagePath={pagePath} pages={pages} />
+              </h3>
+              {items.map((comment) => (
+                <Item comment={comment} key={comment.id} />
+              ))}
+            </section>
+          ))}
         </div>
       )}
     </div>
+  );
+};
+
+/** What a group of the list is about: a page, by name and URL, or the canvas itself. */
+const GroupName = ({
+  pagePath,
+  pages,
+}: {
+  pagePath: string | null;
+  pages: readonly Page[];
+}) => {
+  if (pagePath === null) {
+    return <span className="truncate">On the canvas</span>;
+  }
+  const page = pages.find((p) => p.path === pagePath);
+  if (!page) {
+    return <>{`${pagePath} (removed)`}</>;
+  }
+  return (
+    <>
+      <span className="truncate">{page.name}</span>
+      {page.route ? (
+        <span className="truncate font-code">{page.route}</span>
+      ) : null}
+    </>
   );
 };
 

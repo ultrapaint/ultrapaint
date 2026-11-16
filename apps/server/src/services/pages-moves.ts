@@ -304,13 +304,17 @@ export const makePageMoves = (
     const leaving = new Set(
       moves.filter(({ to }) => to?.canvas !== canvas).map((m) => m.page.path)
     );
+    // A comment on the canvas itself is on no page: it stays where it is.
+    const isLeaving = (c: Comment) => c.page !== null && leaving.has(c.page);
+    const renamedTo = (c: Comment) =>
+      c.page === null ? undefined : renamed.get(c.page);
     const before = yield* comments.rewrite(tx, canvas, (pinned) =>
-      pinned.some((c) => renamed.has(c.page) || leaving.has(c.page))
+      pinned.some((c) => renamedTo(c) !== undefined || isLeaving(c))
         ? pinned.flatMap((c): Comment[] => {
-            if (leaving.has(c.page)) {
+            if (isLeaving(c)) {
               return [];
             }
-            const moved = renamed.get(c.page);
+            const moved = renamedTo(c);
             return [moved === undefined ? c : { ...c, page: moved }];
           })
         : pinned
@@ -373,7 +377,7 @@ export const makePageMoves = (
       );
       carried.push(
         ...before.flatMap((c) => {
-          const at = away.get(c.page);
+          const at = c.page === null ? undefined : away.get(c.page);
           return at === undefined ? [] : [{ ...c, page: at }];
         })
       );

@@ -1,5 +1,5 @@
 /**
- * `comments.json`, the comments pinned on a canvas's pages: its codec, the same text whoever
+ * `comments.json`, the comments pinned on a canvas's pages and on the canvas: its codec, the same text whoever
  * writes it. Pure.
  */
 import {
@@ -18,14 +18,19 @@ export const decodeComments = Schema.decodeUnknownEffect(
 
 export const emptyList = (): CommentList => ({ comments: [], version: 1 });
 
-/** The file as it is written: a plain comment says nothing of its kind, as before there were kinds. */
+/**
+ * The file as it is written: a plain comment says nothing of its kind, as before there were kinds,
+ * and one on a page's own frame nothing of a view, as before views had comments.
+ */
 export const renderComments = (list: CommentList) =>
   `${JSON.stringify(
     {
       ...list,
-      comments: list.comments.map(({ kind, ...rest }) =>
-        kind === "behaviour" ? { ...rest, kind } : rest
-      ),
+      comments: list.comments.map(({ kind, view, ...rest }) => ({
+        ...rest,
+        ...(kind === "behaviour" && { kind }),
+        ...(view !== null && { view }),
+      })),
     },
     null,
     2

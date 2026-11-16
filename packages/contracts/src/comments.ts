@@ -17,9 +17,12 @@ export type CommentReply = typeof CommentReply.Type;
 const CommentKind = Schema.Literals(["comment", "behaviour"]);
 
 /**
- * A note pinned on a page of the canvas. The pin sits at `x`/`y`, in the page's own pixels from
- * its top-left corner, so it stays put when the frame moves on the canvas. The node under the
- * pin is remembered too, by id and name, which is what an agent can act on.
+ * A note pinned on a page of the canvas, or on the canvas itself. On a page the pin sits at
+ * `x`/`y` in the page's own pixels from its top-left corner, in the frame it was left in (the
+ * page's own or one of its views, ADR 0036), so it stays put when the frame moves on the canvas.
+ * On the canvas (`page` null) it sits in the pixels of the node it was left on, beside the pages,
+ * and moves with it; left on nothing, at `x`/`y` of the canvas (ADR 0097). The node under the pin
+ * is remembered too, by id and name, which is what an agent can act on.
  */
 export const Comment = Schema.Struct({
   /** Who wrote it: git's user name, else the display name of the user's profile. */
@@ -36,8 +39,11 @@ export const Comment = Schema.Struct({
   nodeId: Schema.NullOr(Schema.String).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed(null))
   ),
-  /** Path of the page inside its canvas, the key the canvas layout uses as well. */
-  page: Schema.String,
+  /**
+   * Path of the page inside its canvas, the key the canvas layout uses as well; null for a
+   * comment on the canvas itself, beside the pages.
+   */
+  page: Schema.NullOr(Schema.String),
   /** The thread under the comment, oldest first. Files written before threads have none. */
   replies: Schema.Array(CommentReply).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed([]))
@@ -45,6 +51,13 @@ export const Comment = Schema.Struct({
   resolved: Schema.Boolean,
   text: Schema.String,
   updatedAt: Timestamp,
+  /**
+   * The view of the page it was left in (ADR 0036), whose width its spot is measured at; null on
+   * the page's own frame, and on the canvas. Files written before views had comments have none.
+   */
+  view: Schema.NullOr(Schema.String).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(null))
+  ),
   x: Schema.Number,
   y: Schema.Number,
 });
@@ -62,8 +75,9 @@ export const CreateCommentInput = Schema.Struct({
   element: Schema.NullOr(Schema.String),
   kind: Schema.optional(CommentKind),
   nodeId: Schema.NullOr(Schema.String),
-  page: Schema.String,
+  page: Schema.NullOr(Schema.String),
   text: NonEmptyString,
+  view: Schema.optional(Schema.NullOr(Schema.String)),
   x: Schema.Number,
   y: Schema.Number,
 });

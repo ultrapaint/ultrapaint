@@ -96,9 +96,11 @@ export const ownFrameOf = (id: string): string => {
 export const pageOfRef = (ref: FrameRef): string | null =>
   ref.kind === "page" || ref.kind === "view" ? ref.page : null;
 
-/** Comments are pinned on pages: a page's frame and each of its views take them. */
-export const takesComments = (ref: FrameRef): boolean =>
-  pageOfRef(ref) !== null;
+/**
+ * Comments are pinned on the page canvas (ADR 0097): a page's frame and each of its views take
+ * them, and a node beside the pages. A board's generated document takes none.
+ */
+export const takesComments = (ref: FrameRef): boolean => ref.kind !== "board";
 
 /**
  * Whether a frame's nodes can lead somewhere in the prototype: only a page is in it. A node
