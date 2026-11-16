@@ -83,6 +83,32 @@ describe("study ground", () => {
     assert.include(text, "| words.eyebrow | yes 20% | yes 20% |");
   });
 
+  it("keeps a list's value common in one group however rare across every page, and no hex in a list", () => {
+    const pages = flat([
+      ...Array.from({ length: 2000 }, (_, i) => note(i, 2)),
+      ...Array.from({ length: 30 }, (_, i) =>
+        note(i, 3, {
+          imagery: { kinds: ["illustration", "#FF0000"] },
+          pageKind: "portfolio",
+        })
+      ),
+    ]);
+    const groups = groundOf(pages);
+    const portfolio = groups.find((g) => g.name === "portfolio");
+    assert.deepStrictEqual(portfolio?.present["imagery.kinds[]=illustration"], {
+      all: 1,
+      wellMade: 1,
+    });
+    // Across every page it is rare: 30 of 2,030.
+    assert.strictEqual(
+      groups[0]?.present["imagery.kinds[]=illustration"]?.all,
+      0.01
+    );
+    assert.isFalse(
+      groups.some((g) => Object.keys(g.present).some((f) => f.includes("#")))
+    );
+  });
+
   it.effect("writes ground.md and ground.json beside the notes", () =>
     Effect.gen(function* () {
       yield* writeData(
