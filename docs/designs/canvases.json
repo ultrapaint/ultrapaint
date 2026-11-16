@@ -4,7 +4,8 @@
     "samples",
     "onboarding",
     "settings",
-    "chat"
+    "chat",
+    "loading"
   ],
   "version": 1
 }

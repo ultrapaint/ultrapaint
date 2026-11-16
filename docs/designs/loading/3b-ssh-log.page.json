@@ -1,0 +1,58 @@
+{
+  "root": {"type": "page", "id": "root", "align": "center", "crossAlign": "center", "direction": "column", "fill": "oklch(0.945 0.004 80)", "children": [
+    {"type": "column", "id": "c_ouxrwt", "name": "Splash", "crossAlign": "center", "gap": 24, "width": 440, "children": [
+      {"type": "column", "id": "c_pitz43", "crossAlign": "center", "gap": 32, "width": "fill", "children": [
+        {"type": "image", "id": "img_zu8515", "name": "Ultrapaint", "alt": "Ultrapaint", "height": 30, "src": "assets/icons/ultrapaint-lockup.svg", "tint": "oklch(0.21 0.006 60)", "width": 166},
+        {"type": "column", "id": "c_l2sq4a", "crossAlign": "center", "gap": 4, "children": [
+          {"type": "text", "id": "t_sn6c8o", "align": "center", "color": "oklch(0.21 0.006 60)", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.4, "role": "paragraph", "size": 20, "text": "Opening bike-shop on naf-mini", "tracking": "0.01em"},
+          {"type": "text", "id": "t_kl7yc9", "align": "center", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "naf-mini:~/Code/bike-shop"}
+        ]}
+      ]},
+      {"type": "column", "id": "c_f4i4hj", "gap": 12, "width": "fill", "children": [
+        {"type": "column", "id": "c_0c99hh", "name": "Steps", "gap": 2, "width": "fill", "children": [
+          {"type": "row", "id": "r_tafop9", "name": "Step, done", "crossAlign": "center", "gap": 8, "height": 24, "width": "fill", "children": [
+            {"type": "image", "id": "img_i56v2z", "name": "circle-check", "height": 14, "src": "assets/icons/circle-check.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
+            {"type": "text", "id": "t_kkij7h", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Connecting to naf-mini"},
+            {"type": "row", "id": "r_6ufk0p", "width": "fill", "children": []},
+            {"type": "text", "id": "t_7vjli7", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "1.1 s"}
+          ]},
+          {"type": "row", "id": "r_mc2f9y", "name": "Step, now", "crossAlign": "center", "gap": 8, "height": 24, "width": "fill", "children": [
+            {"type": "image", "id": "img_2q5284", "name": "loader-circle", "height": 14, "src": "assets/icons/loader-circle.svg", "tint": "oklch(0.21 0.006 60)", "width": 14},
+            {"type": "text", "id": "t_9s7per", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Starting ultrapaint there", "weight": 500},
+            {"type": "row", "id": "r_w7qx8s", "width": "fill", "children": []},
+            {"type": "text", "id": "t_6zb6e9", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "3.2 s"}
+          ]},
+          {"type": "row", "id": "r_wq5jcw", "name": "Step, next", "crossAlign": "center", "gap": 8, "height": 24, "width": "fill", "children": [
+            {"type": "image", "id": "img_l6ymg7", "name": "circle", "height": 14, "src": "assets/icons/circle.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
+            {"type": "text", "id": "t_b0ag7w", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Loading the editor"},
+            {"type": "row", "id": "r_t6zrmj", "width": "fill", "children": []}
+          ]},
+          {"type": "row", "id": "r_1s39gx", "name": "Step, next", "crossAlign": "center", "gap": 8, "height": 24, "width": "fill", "children": [
+            {"type": "image", "id": "img_mj4g5m", "name": "circle", "height": 14, "src": "assets/icons/circle.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
+            {"type": "text", "id": "t_q94n4u", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Reading the project"},
+            {"type": "row", "id": "r_2pjwey", "width": "fill", "children": []}
+          ]}
+        ]},
+        {"type": "row", "id": "r_juodb0", "name": "Log", "border": {"color": "oklch(0.21 0.006 60 / 10%)", "style": "solid", "width": 1}, "crossAlign": "start", "fill": "oklch(0.99 0.001 80)", "gap": 8, "padding": {"bottom": 8, "left": 10, "right": 4, "top": 6}, "radius": 10, "width": "fill", "children": [
+          {"type": "column", "id": "c_fmr710", "width": "fill", "children": [
+            {"type": "text", "id": "t_mx95u8", "color": "oklch(0.53 0.01 65)", "font": "'Geist Mono Variable', monospace", "lineHeight": 1.67, "role": "paragraph", "size": 12, "text": "$ ssh naf-mini (ControlMaster)", "width": "fill"},
+            {"type": "text", "id": "t_qi5exb", "color": "oklch(0.53 0.01 65)", "font": "'Geist Mono Variable', monospace", "lineHeight": 1.67, "role": "paragraph", "size": 12, "text": "Authenticated to naf-mini with key ~/.ssh/id_ed25519", "width": "fill"},
+            {"type": "text", "id": "t_zcayhi", "color": "oklch(0.53 0.01 65)", "font": "'Geist Mono Variable', monospace", "lineHeight": 1.67, "role": "paragraph", "size": 12, "text": "$ cd ~/Code/bike-shop && ultrapaint --port 0 --ready-json", "width": "fill"},
+            {"type": "text", "id": "t_uik2px", "color": "oklch(0.53 0.01 65)", "font": "'Geist Mono Variable', monospace", "lineHeight": 1.67, "role": "paragraph", "size": 12, "text": "ultrapaint 0.1.5 · Node 24.21.0", "width": "fill"},
+            {"type": "text", "id": "t_onlxec", "color": "oklch(0.53 0.01 65)", "font": "'Geist Mono Variable', monospace", "lineHeight": 1.67, "role": "paragraph", "size": 12, "text": "configuration: ~/Code/bike-shop/ultrapaint.config.json", "width": "fill"},
+            {"type": "text", "id": "t_m9qhn8", "color": "oklch(0.53 0.01 65)", "font": "'Geist Mono Variable', monospace", "lineHeight": 1.67, "role": "paragraph", "size": 12, "text": "reading the settings…", "width": "fill"}
+          ]},
+          {"type": "instance", "id": "i_j1u1wb", "name": "Copy log", "component": "Button", "from": "@ultrapaint/system", "props": {"variant": "ghost", "size": "icon"}, "children": [
+            {"type": "image", "id": "img_pe7pxl", "name": "copy", "height": 14, "src": "assets/icons/copy.svg", "tint": "oklch(0.53 0.01 65)", "width": 14}
+          ]}
+        ]}
+      ]},
+      {"type": "row", "id": "r_izbikk", "align": "center", "gap": 8, "width": "fill", "children": [
+        {"type": "instance", "id": "i_vc1hry", "component": "Button", "from": "@ultrapaint/system", "props": {"variant": "ghost", "size": "sm"}, "text": "Hide log"},
+        {"type": "row", "id": "r_4ol3u5", "width": "fill", "children": []},
+        {"type": "instance", "id": "i_by4oj9", "component": "Button", "from": "@ultrapaint/system", "props": {"variant": "outline", "size": "sm"}, "text": "Cancel"}
+      ]}
+    ]}
+  ]},
+  "version": 1
+}

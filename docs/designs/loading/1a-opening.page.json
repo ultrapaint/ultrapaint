@@ -1,0 +1,45 @@
+{
+  "root": {"type": "page", "id": "root", "align": "center", "crossAlign": "center", "direction": "column", "fill": "oklch(0.945 0.004 80)", "children": [
+    {"type": "column", "id": "c_7nucn1", "name": "Splash", "crossAlign": "center", "gap": 24, "width": 440, "children": [
+      {"type": "column", "id": "c_qsulx6", "crossAlign": "center", "gap": 32, "width": "fill", "children": [
+        {"type": "image", "id": "img_shtx4g", "name": "Ultrapaint", "alt": "Ultrapaint", "height": 30, "src": "assets/icons/ultrapaint-lockup.svg", "tint": "oklch(0.21 0.006 60)", "width": 166},
+        {"type": "column", "id": "c_bt95lg", "crossAlign": "center", "gap": 4, "children": [
+          {"type": "text", "id": "t_h7g84a", "align": "center", "color": "oklch(0.21 0.006 60)", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.4, "role": "paragraph", "size": 20, "text": "Opening bike-shop", "tracking": "0.01em"},
+          {"type": "text", "id": "t_ke86x4", "align": "center", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "~/Code/bike-shop"}
+        ]}
+      ]},
+      {"type": "column", "id": "c_663hxy", "gap": 8, "width": "fill", "children": [
+        {"type": "row", "id": "r_j3vyil", "name": "Progress", "fill": "oklch(0.21 0.006 60 / 10%)", "height": 4, "radius": 999, "width": "fill", "children": [
+          {"type": "row", "id": "r_p395th", "fill": "oklch(0.21 0.006 60)", "height": 4, "radius": 999, "width": 211, "children": []}
+        ]},
+        {"type": "row", "id": "r_4vqw9k", "width": "fill", "children": [
+          {"type": "text", "id": "t_rd3cxa", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "About 2 s left"}
+        ]}
+      ]},
+      {"type": "column", "id": "c_pkddh6", "name": "Steps", "gap": 2, "width": "fill", "children": [
+        {"type": "row", "id": "r_a4fr9t", "name": "Step, done", "crossAlign": "center", "gap": 8, "height": 24, "width": "fill", "children": [
+          {"type": "image", "id": "img_l65dmf", "name": "circle-check", "height": 14, "src": "assets/icons/circle-check.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
+          {"type": "text", "id": "t_ze5tsi", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Starting the server"},
+          {"type": "row", "id": "r_ttbo2x", "width": "fill", "children": []},
+          {"type": "text", "id": "t_mb0ugq", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "0.5 s"}
+        ]},
+        {"type": "row", "id": "r_em64tz", "name": "Step, now", "crossAlign": "center", "gap": 8, "height": 24, "width": "fill", "children": [
+          {"type": "image", "id": "img_a4au2m", "name": "loader-circle", "height": 14, "src": "assets/icons/loader-circle.svg", "tint": "oklch(0.21 0.006 60)", "width": 14},
+          {"type": "text", "id": "t_j7leh1", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Reading the project", "weight": 500},
+          {"type": "row", "id": "r_j2zqvf", "width": "fill", "children": []},
+          {"type": "text", "id": "t_dubrfv", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "0.2 s"}
+        ]},
+        {"type": "row", "id": "r_t8p0hs", "name": "Step, next", "crossAlign": "center", "gap": 8, "height": 24, "width": "fill", "children": [
+          {"type": "image", "id": "img_r8tgal", "name": "circle", "height": 14, "src": "assets/icons/circle.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
+          {"type": "text", "id": "t_eb6l1a", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Drawing the canvas"},
+          {"type": "row", "id": "r_rhailq", "width": "fill", "children": []}
+        ]}
+      ]},
+      {"type": "row", "id": "r_9gr693", "align": "center", "gap": 8, "width": "fill", "children": [
+        {"type": "row", "id": "r_t3nsrs", "width": "fill", "children": []},
+        {"type": "instance", "id": "i_l9wv2f", "component": "Button", "from": "@ultrapaint/system", "props": {"variant": "outline", "size": "sm"}, "text": "Cancel"}
+      ]}
+    ]}
+  ]},
+  "version": 1
+}
