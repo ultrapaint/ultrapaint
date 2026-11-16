@@ -38,4 +38,6 @@ merged (`/up-babysit`) and shipped (`/up-ship`). EpicParty works this way.
   can merge, so no merged commit goes untested.
 - Work that should start is a card a person drags into the board's `Queued` column, and
   `/up-deliver` starts at most three worker threads for it.
-- A release is still made by hand (`docs/agents/deploy.md`): nothing deploys on a merge.
+- A release is still made by hand (`docs/agents/deploy.md`): nothing deploys on a merge. Its
+  version is raised by a PR of its own, `chore: release v<version>`, and the **Release** workflow
+  tags the version `main` holds: the workflow's token is no admin, so `main` refuses its push.

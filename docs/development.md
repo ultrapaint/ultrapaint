@@ -23,8 +23,8 @@ command `ultrapaint --dev`. The editor reloads and the server restarts as files 
 `apps/desktop` itself needs the app rebuilt there.
 
 `pnpm pack:local` makes the package a release carries, in `dist/ultrapaint-<version>.tgz`. A
-release is made by hand: the **Release** workflow in the Actions tab raises the version in
-`package.json`, tags it and attaches the package.
+release is made by hand: a PR raises the version in `package.json`, then the **Release** workflow
+in the Actions tab tags the version `main` holds and attaches the package.
 
 ## Working in parallel
 

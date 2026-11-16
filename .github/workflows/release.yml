@@ -1,20 +1,15 @@
-# Run by hand, from the Actions tab on main: raises the version in the root package.json, commits
-# and tags it, and makes a draft GitHub release with the command's package (`pnpm pack:local`),
-# installed for any repository with `npm install -g <its URL>`. The desktop app is then built
-# from the tag on Linux and macOS (`pnpm desktop:build`, unsigned, Apple silicon only on macOS)
-# and its installers and update feeds attached to the draft (ADR 0051). Once both are there, the
-# release is published: AppImages update to it, and the cask in ultrapaint/homebrew-tap follows it
-# within the hour, by a workflow of the tap's own.
+# Run by hand, from the Actions tab on main, once a PR has raised the root package.json's version
+# (`chore: release v<version>`): main takes commits only through a PR (ADR 0096), so this tags the
+# version main already holds. It makes a draft GitHub release with the command's package
+# (`pnpm pack:local`), installed for any repository with `npm install -g <its URL>`. The desktop app
+# is then built from the tag on Linux and macOS (`pnpm desktop:build`, unsigned, Apple silicon only
+# on macOS) and its installers and update feeds attached to the draft (ADR 0051). Once both are
+# there, the release is published: AppImages update to it, and the cask in ultrapaint/homebrew-tap
+# follows it within the hour, by a workflow of the tap's own.
 name: Release
 
 on:
   workflow_dispatch:
-    inputs:
-      bump:
-        description: "Version to release: raise a part of package.json's, or release it as it is"
-        type: choice
-        options: [patch, minor, major, as-is]
-        default: patch
 
 permissions:
   contents: write
@@ -51,17 +46,12 @@ jobs:
       - name: Test
         run: pnpm test
 
-      - name: Raise the version
+      - name: Read the version
         id: version
-        env:
-          BUMP: ${{ inputs.bump }}
         run: |
-          if [ "$BUMP" != "as-is" ]; then
-            npm version "$BUMP" --no-git-tag-version
-          fi
           version=$(node -p "require('./package.json').version")
           if git rev-parse --verify --quiet "refs/tags/v$version" >/dev/null; then
-            echo "::error::v$version is already released; raise the version instead"
+            echo "::error::v$version is already released; raise package.json's version in a PR first"
             exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -79,17 +69,13 @@ jobs:
           pnpm add -g "./dist/ultrapaint-$VERSION.tgz"
           test "$(ultrapaint --version)" = "ultrapaint v$VERSION"
 
-      - name: Commit and tag
+      # The tag alone: the commit is main's own, so nothing is pushed to main.
+      - name: Tag
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if ! git diff --quiet; then
-            git commit -am "chore: release v$VERSION"
-          fi
           git tag "v$VERSION"
-          git push origin HEAD:main "v$VERSION"
+          git push origin "v$VERSION"
 
       - name: Draft the release
         env:
