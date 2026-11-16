@@ -340,7 +340,32 @@ const useModal = (area: RefObject<HTMLElement | null>) =>
       }
     }
     root.focus();
+    // Tab and Shift+Tab go round the splash's own controls, never off its edge.
+    const loop = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") {
+        return;
+      }
+      const controls = [
+        ...root.querySelectorAll<HTMLElement>("button:not([disabled])"),
+      ];
+      const [first] = controls;
+      const last = controls.at(-1);
+      if (!(first && last)) {
+        event.preventDefault();
+        return;
+      }
+      const at = document.activeElement;
+      if (event.shiftKey && (at === first || at === root)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && at === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    root.addEventListener("keydown", loop);
     return () => {
+      root.removeEventListener("keydown", loop);
       for (const element of covered) {
         element.removeAttribute("inert");
       }
