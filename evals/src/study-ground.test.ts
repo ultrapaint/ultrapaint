@@ -13,6 +13,7 @@ const note = (i: number, craft: number, overrides = {}) => ({
   capture: "ok",
   color: { background: "#FFFFFF", theme: i % 4 === 0 ? "dark" : "light" },
   craft,
+  domain: "technical",
   expression: "balanced",
   imagery: { kinds: i % 2 === 0 ? ["photography"] : [], treatment: "free" },
   pageKind: "landing",
@@ -52,7 +53,12 @@ describe("study ground", () => {
     const groups = groundOf(pages);
     assert.deepStrictEqual(
       groups.map((g) => g.name),
-      ["every page", "landing", "landing · balanced"]
+      [
+        "every page",
+        "landing",
+        "landing · balanced",
+        "landing · technical character",
+      ]
     );
     const [, landing] = groups;
     assert.strictEqual(landing?.pages, 40);
