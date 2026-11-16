@@ -17,6 +17,7 @@ import {
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { ServerStartError } from "./errors.ts";
+import { OpeningReport } from "./opening-report.ts";
 import { watchReadyLine } from "./ready-line.ts";
 
 /** How the server is started: the executable, and what comes before the server's own flags. */
@@ -172,17 +173,22 @@ export class ProjectServer extends Context.Service<
           // Its logs, for whoever started the app from a terminal, and the last of them for an
           // error that needs a reason.
           const said: string[] = [];
+          // And each to the open under way, which shows the last one (ADR 0099).
+          const report = yield* OpeningReport;
           const logs = yield* handle.stderr.pipe(
             Stream.decodeText(),
             Stream.splitLines,
             Stream.runForEach((line) =>
-              Effect.sync(() => {
-                said.push(line);
-                if (said.length > 50) {
-                  said.shift();
-                }
-                process.stderr.write(`[server] ${line}\n`);
-              })
+              Effect.andThen(
+                Effect.sync(() => {
+                  said.push(line);
+                  if (said.length > 50) {
+                    said.shift();
+                  }
+                  process.stderr.write(`[server] ${line}\n`);
+                }),
+                report.line(line)
+              )
             ),
             Effect.ignore,
             Effect.forkScoped

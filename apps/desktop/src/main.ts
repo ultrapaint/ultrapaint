@@ -97,6 +97,7 @@ const CONTROLS_INSET = TRAFFIC_LIGHTS.x + 52 + 24;
  * meanwhile: what the app is doing for the open project, and the window's buttons on a Mac.
  */
 const states: BridgeStates = {
+  opening: null,
   shellStatus: null,
   update: null,
   ...(ownTitleBar
@@ -152,11 +153,10 @@ const showView = (view: View) =>
       await window.loadURL(next.href);
       return;
     }
+    // The app's own page, under the splash of a project opening (`opening`) when the view is
+    // `Opening`: the page draws it from the bridge's state as it loads.
     const welcome = new URL(`${APP_SCHEME}://app/welcome.html`);
-    if (view._tag === "Opening") {
-      welcome.searchParams.set("opening", view.name);
-      welcome.searchParams.set("detail", view.detail);
-    } else if (view.problem) {
+    if (view._tag === "Welcome" && view.problem) {
       welcome.searchParams.set("problem", view.problem);
     }
     if (view._tag === "Welcome" && view.back) {
@@ -199,6 +199,7 @@ const ElectronShell = Layer.succeed(
           : await dialog.showMessageBox(options);
         return answer.response === 0;
       }),
+    opening: (opening) => Effect.sync(() => tell("opening", opening)),
     // Electron answers with why it couldn't, or nothing.
     openPath: (folder) =>
       Effect.promise(() => shell.openPath(folder)).pipe(

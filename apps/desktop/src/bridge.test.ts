@@ -142,4 +142,32 @@ describe("exposeBridge", () => {
     fake.tell(channelOf("windowControls"), { fullScreen: true, inset: 86 });
     assert.isTrue(platform.windowControls?.current().fullScreen);
   });
+
+  it("tells the page the project opening, and takes Try again and the editor's times", () => {
+    const fake = fakeIpc();
+    const platform = exposeBridge(
+      fake.ipc,
+      bridgeInfo(false, { opening: null, shellStatus: null })
+    );
+    assert.isNull(platform.opening?.current());
+    const opening = {
+      log: ["Authenticated to devbox"],
+      name: "shop",
+      remote: true,
+      since: 1000,
+      steps: [
+        {
+          id: "connect" as const,
+          label: "Connecting to devbox",
+          since: 1000,
+          state: "now" as const,
+        },
+      ],
+      where: "devbox:~/shop",
+    };
+    fake.tell(channelOf("opening"), opening);
+    assert.deepStrictEqual(platform.opening?.current(), opening);
+    assert.isFunction(platform.projects?.retryOpening);
+    assert.isFunction(platform.projects?.openingDone);
+  });
 });

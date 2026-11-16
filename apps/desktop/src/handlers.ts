@@ -273,7 +273,10 @@ export const bridgeHandlers = (
     Effect.asVoid(
       OpenProject.use((o) => o.openFolder(folder, undefined, start))
     ),
+  "projects.openingDone": (times) =>
+    OpenProject.use((o) => o.openingDone(times)),
   "projects.remove": (id) => OpenProject.use((o) => o.remove(id)),
+  "projects.retryOpening": () => OpenProject.use((o) => o.retryOpening),
   "projects.showStart": () => OpenProject.use((o) => o.showStart),
   "projects.sshHosts": () => readSshHosts(options.sshConfig, options.home),
   "projects.stopOpening": () => OpenProject.use((o) => o.stopOpening),

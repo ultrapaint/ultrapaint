@@ -21,6 +21,7 @@
  */
 import { Schema } from "effect";
 import { CodeLocation, NewDesignStep } from "./new-design.ts";
+import { Opening, OpeningTimes } from "./opening.ts";
 import { ScaffoldTemplate } from "./setup.ts";
 import {
   BuiltInAgentId,
@@ -404,6 +405,11 @@ export const SHELL_BRIDGE = {
   "newDesign.folderFor": invoke([Schema.String], Schema.String),
   /** What the shell found missing on this machine. */
   notices: invoke([], Schema.Array(ShellNotice), LOCAL),
+  /**
+   * The project opening, from the click until its editor is ready, or why it failed; null when
+   * none is (ADR 0099). The splash draws it, over whatever page the window shows.
+   */
+  opening: state(Schema.NullOr(Opening)),
   /** A native folder picker; null when it is cancelled. */
   pickFolder: invoke(
     [
@@ -433,8 +439,9 @@ export const SHELL_BRIDGE = {
   "projects.inspect": invoke([Schema.String], FolderKind),
   "projects.list": invoke([], Schema.Array(PlatformProject)),
   /**
-   * Opens another project. The shell stops the open project's server, asking first when an agent
-   * is working, starts the next one's and loads its editor in place of this one.
+   * Opens another project. The shell starts the next one's server beside the open one's, which
+   * it stops once the next is ready (asking first when an agent is working), and loads the next
+   * one's editor in place of this one (ADR 0099).
    */
   "projects.open": invoke([Schema.String], Schema.Void),
   /**
@@ -446,10 +453,17 @@ export const SHELL_BRIDGE = {
     Schema.Void
   ),
   /**
+   * The editor's own steps of the open are done (`opening`), with the time each took: the shell
+   * keeps them for the next open's estimate, and the open is over.
+   */
+  "projects.openingDone": invoke([OpeningTimes], Schema.Void),
+  /**
    * Takes a project off the list, with the unsaved session the shell kept for it; its folder is
    * left as it is. The open project stays, and the call fails saying so.
    */
   "projects.remove": invoke([Schema.String], Schema.Void),
+  /** Runs the open that failed (`opening`'s `problem`) again. */
+  "projects.retryOpening": invoke([], Schema.Void),
   /**
    * Shows the start screen in place of the open project's editor, which stays open behind it:
    * `open` with its id goes back to it.
@@ -457,7 +471,10 @@ export const SHELL_BRIDGE = {
   "projects.showStart": invoke([], Schema.Void),
   /** The host aliases of the user's SSH configuration, suggested as a host is typed. */
   "projects.sshHosts": invoke([], Schema.Array(Schema.String)),
-  /** Stops the project opening (its machine not answering, say) and shows the list instead. */
+  /**
+   * Stops the project opening (its machine not answering, say), or gives up one that failed: the
+   * project open before, when there was one, shows again; the start screen otherwise.
+   */
   "projects.stopOpening": invoke([], Schema.Void),
   /**
    * The start screen's prompt for the open project, given once: the editor sends it in its first

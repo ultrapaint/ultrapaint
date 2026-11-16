@@ -1,16 +1,31 @@
 /**
- * The project open in the window (PLAN-desktop D3): one at a time. Opening another stops the
- * server of the one open and starts the next one's; the window then shows its editor. A server
- * with an agent at work is stopped only once the user says so (D3, D13); a server the app
- * attached to, rather than started (D5), is left running. A signal (SIGINT, SIGTERM) asks
- * nobody: it answers a question on screen no and stops the server at once.
+ * The project open in the window (PLAN-desktop D3): one at a time, but for a switch. Opening
+ * another starts the next one's server beside the open one's, which stops once the next is ready
+ * (ADR 0099); the window then shows its editor. A server with an agent at work is stopped only
+ * once the user says so (D3, D13), asked before the next one starts; a server the app attached
+ * to, rather than started (D5), is left running. A signal (SIGINT, SIGTERM) asks nobody: it
+ * answers a question on screen no and stops the server at once.
  *
- * While a project opens the window says so, from the first moment: a machine that does not
- * answer leaves no blank window, and the user can stop it for the list or pick another project.
+ * While a project opens the window says so on a splash, from the first moment until its editor
+ * is ready (ADR 0099): each step with its time, the estimate from the project's last open, the
+ * last line the start printed. Cancel goes back to the project open before, or the start screen;
+ * a step that fails stays on the splash with why, and Try again opens it again.
  */
+import {
+  estimateFrom,
+  failOpening,
+  isEditorStep,
+  noteLine,
+  type Opening,
+  type OpeningTimes,
+  openingSteps,
+  reachStep,
+  stepTimes,
+} from "@ultrapaint/contracts/opening";
 import { CONFIG_FILE_NAMES } from "@ultrapaint/contracts/settings";
 import type { FirstPrompt } from "@ultrapaint/contracts/shell-bridge";
 import {
+  Clock,
   Context,
   Deferred,
   Effect,
@@ -32,6 +47,7 @@ import {
 } from "./errors.ts";
 import { Folders } from "./folders.ts";
 import { LoginShell } from "./login-shell.ts";
+import { OpeningReport } from "./opening-report.ts";
 import { ProjectServer, type RunningServer } from "./project-server.ts";
 import {
   type Project,
@@ -40,7 +56,7 @@ import {
   type RemoteProjectInput,
 } from "./projects.ts";
 import { RemoteProjects } from "./remote-project.ts";
-import { Shell } from "./shell.ts";
+import { Shell, type View } from "./shell.ts";
 
 /** What stops the open project's server. */
 type StopAction = "switch" | "quit" | "restart" | "move";
@@ -83,6 +99,17 @@ interface Open {
   /** The server lives in it: closing it stops the server. */
   readonly scope: Scope.Closeable;
   readonly server: RunningServer;
+}
+
+/** How a launch that can be stopped ended: what it gave, or why it was stopped. */
+type Launched<A> =
+  | { readonly _tag: "done"; readonly value: A }
+  | { readonly _tag: "stopped"; readonly reason: StopReason };
+
+/** A project opening on the splash, and the state the window is told. */
+interface ShownOpening {
+  readonly project: Project;
+  state: Opening;
 }
 
 export class OpenProject extends Context.Service<
@@ -176,8 +203,19 @@ export class OpenProject extends Context.Service<
      * behind it until another project opens, the start screen offering the way back.
      */
     readonly showStart: Effect.Effect<void>;
-    /** Stops the project opening, if one is, and shows the list in its place. */
+    /**
+     * Stops the project opening, if one is, or gives up the one that failed: the project open
+     * before shows again, or the start screen when none was.
+     */
     readonly stopOpening: Effect.Effect<void>;
+    /** Opens again the project whose open failed; nothing when none did. */
+    readonly retryOpening: Effect.Effect<void>;
+    /**
+     * The editor's own steps are done, with their times: kept with the shell's for the next
+     * open's estimate, and the splash is over. Nothing when the project opening is not the open
+     * one's (another was picked meanwhile).
+     */
+    readonly openingDone: (times: OpeningTimes) => Effect.Effect<void>;
     /**
      * Stops the open project's server, as the app quits; a project still opening or starting
      * again is given up first, and none begins to open meanwhile, so that the quit waits for no
@@ -244,6 +282,51 @@ export class OpenProject extends Context.Service<
           );
 
         /**
+         * Whether the user lets the open project's agents at work be stopped: asked when there
+         * are any, in a server the app started. True when there is nothing to ask.
+         */
+        const agreeToStop = Effect.fnUntraced(function* (
+          action: StopAction,
+          was: Open
+        ) {
+          const working = was.server.attached ? 0 : yield* was.server.working;
+          return (
+            working === 0 ||
+            (yield* confirm(stopQuestion(action, working, was.project.name)))
+          );
+        });
+
+        /**
+         * The open project whose agents the user agreed to stop for a switch still under way:
+         * a quit meanwhile does not ask again.
+         */
+        let agreed: Open | null = null;
+
+        /**
+         * The project a switch left open behind the next one's editor until that one is ready
+         * (its editor's steps done), or the switch is cancelled: Cancel shows it again at once,
+         * and its server's stop never adds to the wait (ADR 0099).
+         */
+        let previous: Open | null = null;
+
+        /** Lets go of a project that was open: its server stops, unless the app only attached. */
+        const letGo = Effect.fnUntraced(function* (was: Open) {
+          if (open === was) {
+            open = null;
+          }
+          yield* Scope.close(was.scope, Exit.void);
+          // Whatever it was saying (reconnecting) is no longer so.
+          yield* shell.status(null);
+        });
+
+        /** Lets go of the project a switch left open, once the next one is ready. */
+        const letGoOfPrevious = Effect.suspend(() => {
+          const was = previous;
+          previous = null;
+          return was ? letGo(was) : Effect.void;
+        });
+
+        /**
          * Lets go of the open project: its server stops, unless the app only attached to it.
          * Asked first when agents are at work in it; false when the user says no.
          */
@@ -255,25 +338,18 @@ export class OpenProject extends Context.Service<
           if (!was) {
             return true;
           }
-          const working =
-            ask && !was.server.attached ? yield* was.server.working : 0;
-          if (working > 0) {
-            const agree = yield* confirm(
-              stopQuestion(action, working, was.project.name)
-            );
-            if (!agree) {
-              return false;
-            }
+          if (ask && agreed !== was && !(yield* agreeToStop(action, was))) {
+            return false;
           }
-          open = null;
-          yield* Scope.close(was.scope, Exit.void);
-          // Whatever it was saying (reconnecting) is no longer so.
-          yield* shell.status(null);
+          yield* letGoOfPrevious;
+          yield* letGo(was);
           return true;
         });
 
         /** Whether the start screen is shown over the open project's editor (`showStart`). */
         let behindStart = false;
+        /** Whether the window shows an editor: a splash is drawn over it, on no page of its own. */
+        let onEditor = false;
 
         /**
          * The start screen's prompt and the project it is for, until that project's editor takes
@@ -284,22 +360,29 @@ export class OpenProject extends Context.Service<
           readonly start: FirstPrompt;
         } | null = null;
 
-        /** Shows a server's editor. */
-        const showEditor = (server: RunningServer, view: EditorView = {}) =>
+        /** Shows a page in the window. */
+        const showPage = (view: View) =>
           Effect.andThen(
             Effect.sync(() => {
-              behindStart = false;
+              onEditor = view._tag === "Editor";
+              if (onEditor) {
+                behindStart = false;
+              }
             }),
-            shell.show({
-              _tag: "Editor",
-              ...(view.keepLocation ? { keepLocation: true } : {}),
-              url: server.url,
-            })
+            shell.show(view)
           );
 
-        const launch = Effect.fn("OpenProject.launch")(function* (
-          project: Project,
-          view: EditorView = {}
+        /** Shows a server's editor. */
+        const showEditor = (server: RunningServer, view: EditorView = {}) =>
+          showPage({
+            _tag: "Editor",
+            ...(view.keepLocation ? { keepLocation: true } : {}),
+            url: server.url,
+          });
+
+        /** Starts a project's server, in a scope of its own; nothing is shown. */
+        const startServer = Effect.fn("OpenProject.startServer")(function* (
+          project: Project
         ) {
           const scope = yield* Scope.make();
           const server = yield* (
@@ -307,12 +390,17 @@ export class OpenProject extends Context.Service<
               ? // There, the server runs the remote machine's own agents: the app's are not.
                 remote.start(project, {
                   // The editor at another port, or another server's: loaded there again.
+                  // Only while it is the one on screen: during a switch the window is the next's.
                   moved: (movedTo) =>
-                    shell.show({
-                      _tag: "Editor",
-                      keepLocation: true,
-                      url: movedTo,
-                    }),
+                    Effect.suspend(() =>
+                      open?.project.id === project.id && onEditor
+                        ? showPage({
+                            _tag: "Editor",
+                            keepLocation: true,
+                            url: movedTo,
+                          })
+                        : Effect.void
+                    ),
                   status: shell.status,
                 })
               : Effect.gen(function* () {
@@ -334,38 +422,53 @@ export class OpenProject extends Context.Service<
             Scope.provide(scope),
             Effect.onError(() => Scope.close(scope, Exit.void))
           );
-          open = { project, scope, server };
-          yield* store.opened(project.id);
-          yield* showEditor(server, view);
+          return { project, scope, server } satisfies Open;
         });
 
-        /** Shows why a project could not be opened, and fails with it. */
+        /** Starts a project's server and shows its editor: for a start again, with no splash. */
+        const launch = Effect.fn("OpenProject.launch")(function* (
+          project: Project,
+          view: EditorView = {}
+        ) {
+          const next = yield* startServer(project);
+          open = next;
+          yield* store.opened(project.id);
+          yield* showEditor(next.server, view);
+        });
+
+        /** Shows why a project could not be started again, and fails with it. */
         const showFailure = <A, E extends { readonly message: string }, R>(
           effect: Effect.Effect<A, E, R>
         ) =>
           effect.pipe(
             Effect.tapError((error) =>
-              shell.show({ _tag: "Welcome", problem: error.message })
+              showPage({ _tag: "Welcome", problem: error.message })
             )
           );
 
         /**
-         * Runs a launch that can be stopped: why, when it was. Stopped, the launch is
-         * interrupted: its scope closes, and the connection with it. With a quit waiting for
-         * the switch it does not begin: the quit would wait for the launch too.
+         * Runs a launch that can be stopped: what it gave, or why it was stopped. Stopped, the
+         * launch is interrupted: its scope closes, and the connection with it. With a quit
+         * waiting for the switch it does not begin: the quit would wait for the launch too.
          */
-        const stoppable = Effect.fnUntraced(function* <E>(
+        const stoppable = Effect.fnUntraced(function* <A, E>(
           { id, shown }: { readonly id: string; readonly shown: boolean },
-          launched: Effect.Effect<void, E>
+          launched: Effect.Effect<A, E>
         ) {
           if (quits > 0) {
-            return Option.some<StopReason>("quit");
+            return { _tag: "stopped", reason: "quit" } as Launched<A>;
           }
           const stop = yield* Deferred.make<StopReason>();
           launching = { id, shown, stop };
           return yield* Effect.raceFirst(
-            Effect.as(launched, Option.none<StopReason>()),
-            Effect.map(Deferred.await(stop), Option.some)
+            Effect.map(
+              launched,
+              (value): Launched<A> => ({ _tag: "done", value })
+            ),
+            Effect.map(
+              Deferred.await(stop),
+              (reason): Launched<A> => ({ _tag: "stopped", reason })
+            )
           ).pipe(
             Effect.ensuring(
               Effect.sync(() => {
@@ -375,28 +478,6 @@ export class OpenProject extends Context.Service<
               })
             )
           );
-        });
-
-        /**
-         * Launches `project`, the window saying so meanwhile; false when it was stopped first,
-         * for the list (shown then), for another project or for a quit.
-         */
-        const launchShown = Effect.fnUntraced(function* (project: Project) {
-          const stopped = yield* stoppable(
-            { id: project.id, shown: true },
-            Effect.andThen(
-              shell.show({
-                _tag: "Opening",
-                detail: projectDetail(project),
-                name: project.name,
-              }),
-              launch(project)
-            )
-          );
-          if (Option.isSome(stopped) && stopped.value === "list") {
-            yield* shell.show({ _tag: "Welcome" });
-          }
-          return Option.isNone(stopped);
         });
 
         /**
@@ -410,19 +491,179 @@ export class OpenProject extends Context.Service<
               : Effect.void
           );
 
+        /** The project opening on the splash, kept after a failure for Try again. */
+        let opening: ShownOpening | null = null;
+
+        /** Tells the window the opening as it stands. */
+        const tellOpening = Effect.suspend(() =>
+          shell.opening(opening?.state ?? null)
+        );
+
+        /** Changes `underway`'s state and tells the window; nothing once another took its place. */
+        const changeOpening = (
+          underway: ShownOpening,
+          change: (state: Opening, now: number) => Opening
+        ) =>
+          Effect.flatMap(Clock.currentTimeMillis, (now) =>
+            Effect.suspend(() => {
+              if (opening !== underway) {
+                return Effect.void;
+              }
+              underway.state = change(underway.state, now);
+              return tellOpening;
+            })
+          );
+
+        /** What a start tells `underway`: its lines, and the steps it reaches. */
+        const reportTo = (underway: ShownOpening): OpeningReport => ({
+          line: (text) => changeOpening(underway, (o) => noteLine(o, text)),
+          reached: (step) =>
+            changeOpening(underway, (o, now) => reachStep(o, step, now)),
+        });
+
         /**
-         * Opens a project in place of the open one, stopping one still opening; false when the
-         * user kept the open one, or the opening was stopped.
+         * The splash for `project`, Cancel going back to `back`: on the editor on screen, or on
+         * the app's own page when there is none.
+         */
+        const beginOpening = Effect.fnUntraced(function* (
+          project: Project,
+          back: Project | undefined
+        ) {
+          const now = yield* Clock.currentTimeMillis;
+          const steps = openingSteps(
+            project.kind,
+            project.kind === "ssh" ? project.host : undefined
+          );
+          const estimate = estimateFrom(steps, project.lastOpening);
+          const first = steps[0]?.id ?? null;
+          const underway: ShownOpening = {
+            project,
+            state: reachStep(
+              {
+                ...(back ? { back: back.name } : {}),
+                ...(estimate === undefined ? {} : { estimate }),
+                log: [],
+                name: project.name,
+                remote: project.kind === "ssh",
+                since: now,
+                steps,
+                where: projectDetail(project),
+              },
+              first,
+              now
+            ),
+          };
+          opening = underway;
+          yield* tellOpening;
+          if (!onEditor) {
+            yield* showPage({ _tag: "Opening" });
+          }
+          return underway;
+        });
+
+        /**
+         * The splash is over: given up (Cancel, a failure given up), it goes, and the window
+         * shows what is left: the editor on screen as it is, or the start screen.
+         */
+        const endOpening = Effect.suspend(() => {
+          if (!opening) {
+            return Effect.void;
+          }
+          opening = null;
+          return Effect.andThen(
+            tellOpening,
+            onEditor
+              ? Effect.void
+              : showPage({
+                  _tag: "Welcome",
+                  ...(open ? { back: open.project.name } : {}),
+                })
+          );
+        });
+
+        /**
+         * Cancel while the next project's editor does its steps: the one a switch left open is
+         * the open one again, its editor on screen, and the next one's server stops.
+         */
+        const backToPrevious = Effect.suspend(() => {
+          const was = previous;
+          const next = open;
+          if (!(opening && was && next?.project.id === opening.project.id)) {
+            return Effect.void;
+          }
+          previous = null;
+          open = was;
+          opening = null;
+          return Effect.andThen(
+            Effect.andThen(tellOpening, showEditor(was.server)),
+            letGo(next)
+          );
+        });
+
+        /**
+         * Opens a project in place of the open one, on the splash, stopping one still opening.
+         * The open one stays open until the next one's server is ready, so that Cancel, or a
+         * failure, leaves it as it was. False when the user kept the open one for its agents,
+         * or the opening was stopped; fails with why it could not be opened, which the splash
+         * says.
          */
         const openProject = (project: Project) =>
           Effect.andThen(
             stopLaunch("switch"),
             switching.withPermits(1)(
-              Effect.flatMap(release("switch", true), (released) =>
-                released
-                  ? showFailure(launchShown(project))
-                  : Effect.succeed(false)
-              )
+              Effect.gen(function* () {
+                const was = open;
+                if (was && !(yield* agreeToStop("switch", was))) {
+                  return false;
+                }
+                agreed = was;
+                // One left open by a switch before goes now: a third project is coming.
+                yield* letGoOfPrevious;
+                const underway = yield* beginOpening(project, was?.project);
+                const launched = yield* stoppable(
+                  { id: project.id, shown: true },
+                  startServer(project).pipe(
+                    Effect.provideService(OpeningReport, reportTo(underway))
+                  )
+                ).pipe(
+                  Effect.tapError((error) =>
+                    Effect.andThen(
+                      Effect.sync(() => {
+                        agreed = null;
+                      }),
+                      changeOpening(underway, (o, now) =>
+                        failOpening(o, error.message, now)
+                      )
+                    )
+                  )
+                );
+                // Stopped, what stopped it saw to the splash: Cancel ended it, another project
+                // picked meanwhile has it, and a quit takes the window with it, and what the
+                // user agreed to stop.
+                if (launched._tag === "stopped") {
+                  if (launched.reason !== "quit") {
+                    agreed = null;
+                  }
+                  return false;
+                }
+                const next = launched.value;
+                // The shell's steps are done; the editor's begin as its page loads.
+                yield* changeOpening(underway, (o, now) =>
+                  reachStep(
+                    o,
+                    o.steps.find((s) => isEditorStep(s.id))?.id ?? null,
+                    now
+                  )
+                );
+                yield* store.timed(project.id, stepTimes(underway.state));
+                agreed = null;
+                // The one open stays behind the next one's editor until that one is ready.
+                previous = was;
+                open = next;
+                yield* store.opened(project.id);
+                yield* showEditor(next.server);
+                return true;
+              })
             )
           );
 
@@ -499,7 +740,11 @@ export class OpenProject extends Context.Service<
           if (Option.isNone(found)) {
             return;
           }
-          if (open?.project.id === id || launching?.id === id) {
+          if (
+            open?.project.id === id ||
+            previous?.project.id === id ||
+            launching?.id === id
+          ) {
             return yield* new ProjectOpen({ name: found.value.name });
           }
           yield* store.remove(id);
@@ -572,9 +817,14 @@ export class OpenProject extends Context.Service<
           current: Effect.sync(() => Option.fromNullishOr(open?.project)),
           open: (id) =>
             Effect.flatMap(store.get(id), (project) => {
-              // The one open shows its editor again; the one opening goes on as it is.
+              // The one open shows its editor again, the splash of another given up; the one
+              // opening goes on as it is.
               if (open?.project.id === id) {
-                return showEditor(open.server);
+                const shown = open.server;
+                return Effect.andThen(
+                  Effect.andThen(stopLaunch("list"), endOpening),
+                  showEditor(shown)
+                );
               }
               // Opened from the list, it is opened for no prompt: one it never took goes.
               return launching?.shown && launching.id === id
@@ -585,6 +835,30 @@ export class OpenProject extends Context.Service<
                   );
             }),
           openFolder,
+          openingDone: Effect.fn("OpenProject.openingDone")(function* (
+            times: OpeningTimes
+          ) {
+            const underway = opening;
+            if (
+              !underway ||
+              underway.state.problem ||
+              open?.project.id !== underway.project.id
+            ) {
+              return;
+            }
+            opening = null;
+            yield* tellOpening;
+            // The times are for the next estimate only: a list that cannot be written loses
+            // that, and the open itself is done.
+            yield* Effect.ignore(
+              store.timed(underway.project.id, {
+                ...stepTimes(underway.state),
+                ...times,
+              })
+            );
+            // The next one is ready: the one a switch left open goes.
+            yield* letGoOfPrevious;
+          }),
           remove,
           restart: switching.withPermits(1)(
             Effect.gen(function* () {
@@ -603,9 +877,15 @@ export class OpenProject extends Context.Service<
               }
             })
           ),
+          retryOpening: Effect.suspend(() =>
+            opening?.state.problem
+              ? // Failed again, the splash says why: the caller has nothing to add.
+                Effect.ignore(openProject(opening.project))
+              : Effect.void
+          ),
           showStart: Effect.suspend(() => {
             behindStart = open !== null;
-            return shell.show({
+            return showPage({
               _tag: "Welcome",
               ...(open ? { back: open.project.name } : {}),
             });
@@ -613,13 +893,16 @@ export class OpenProject extends Context.Service<
           start: Effect.gen(function* () {
             const last = yield* store.last;
             if (Option.isNone(last)) {
-              return yield* shell.show({ _tag: "Welcome" });
+              return yield* showPage({ _tag: "Welcome" });
             }
-            // A project that cannot start leaves the window on the welcome page, saying why.
+            // A project that cannot start leaves the splash saying why, with Try again.
             yield* Effect.ignore(openProject(last.value));
           }),
           stop: ({ ask }) => (ask ? askToQuit : stopAtOnce),
-          stopOpening: stopLaunch("list"),
+          stopOpening: Effect.andThen(
+            stopLaunch("list"),
+            Effect.andThen(backToPrevious, endOpening)
+          ),
           takeFirstPrompt: Effect.sync(() => {
             const kept = firstPrompt;
             if (!kept || open?.project.id !== kept.projectId) {

@@ -5,6 +5,10 @@ here), 0004, 0013, 0018 and 0023 (git is no longer needed). Builds on 0008, 0010
 work is planned in [PLAN-desktop](../plans/done/PLAN-desktop.md); this records its decisions and what Phase 0
 changed in the server and the editor, and what Phases 1, 2 and 3 added.
 
+> Amended by [0099](0099-a-project-opens-on-a-splash.md), 2026-11-16: a project opens on a splash
+> that says each step, and a switch keeps the open project's server until the next one's is ready,
+> so two run for the length of a switch; Cancel returns to the open one.
+
 > Amended by [0091](0091-the-persons-folder-can-move.md), 2026-11-13: new designs go in the
 > new projects' folder, `~/Ultrapaint` unless the person changed it, and the app starts every
 > local server with `--user-dir`, the place of the person's folder, which it can move.

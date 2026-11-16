@@ -4,6 +4,8 @@
  * (`ssh`): a host as `ssh` takes it, a path there, and the command that runs the server there.
  * The list is the app's own: nothing is written in the projects' folders.
  */
+
+import { OpeningTimes } from "@ultrapaint/contracts/opening";
 import {
   Clock,
   Context,
@@ -25,6 +27,8 @@ const LocalProject = Schema.Struct({
   kind: Schema.Literal("local"),
   /** When it was last opened, in milliseconds since the epoch; never, when absent. */
   lastOpened: Schema.optional(Schema.Number),
+  /** How long each step of its last open took: the next open's estimate (ADR 0099). */
+  lastOpening: Schema.optional(OpeningTimes),
   name: Schema.String,
   /** The folder, absolute. */
   path: Schema.String,
@@ -44,6 +48,7 @@ export const SshProject = Schema.Struct({
   id: Schema.String,
   kind: Schema.Literal("ssh"),
   lastOpened: Schema.optional(Schema.Number),
+  lastOpening: Schema.optional(OpeningTimes),
   name: Schema.String,
   /** The folder on the remote machine: absolute, or under its home as `~/…`. */
   path: Schema.String,
@@ -150,6 +155,14 @@ export class ProjectStore extends Context.Service<
     readonly list: Effect.Effect<readonly Project[], StoreError>;
     /** Notes that the project was opened now. */
     readonly opened: (id: string) => Effect.Effect<void, StoreError>;
+    /**
+     * Keeps how long the steps of the project's open took, over the times its last open kept for
+     * them: the shell's steps first, the editor's once it is ready.
+     */
+    readonly timed: (
+      id: string,
+      times: OpeningTimes
+    ) => Effect.Effect<void, StoreError>;
     /**
      * Takes the project off the list; nothing when it is not there. The list alone: what the
      * app keeps for the project besides is `OpenProject.remove`'s, and its folder no one's.
@@ -272,6 +285,20 @@ export class ProjectStore extends Context.Service<
           );
         }, lock.withPermits(1));
 
+        const timed = Effect.fn("ProjectStore.timed")(function* (
+          id: string,
+          times: OpeningTimes
+        ) {
+          const projects = yield* read;
+          yield* write(
+            projects.map((p) =>
+              p.id === id
+                ? { ...p, lastOpening: { ...p.lastOpening, ...times } }
+                : p
+            )
+          );
+        }, lock.withPermits(1));
+
         const remove = Effect.fn("ProjectStore.remove")(function* (id: string) {
           const projects = yield* read;
           if (projects.some((p) => p.id === id)) {
@@ -293,6 +320,7 @@ export class ProjectStore extends Context.Service<
           ),
           opened,
           remove,
+          timed,
         });
       })
     );

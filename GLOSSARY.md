@@ -551,6 +551,11 @@ refactor and the board view left.
   keys are **fixed** (the clipboard's, the arrows that walk).
   _Avoid_: keymap (the key handler, `keymap.ts`), hotkey.
 - **Menu action**: what a context-menu item does, a typed value run by `runMenuAction`.
+- **Opening**: a project from the click until its editor is ready, and what the splash shows of
+  it: the steps with their times, the estimate from the project's last open, the log, and why it
+  failed (`Opening` in `@ultrapaint/contracts/opening`, ADR 0099). The desktop app's `OpenProject`
+  holds it (the bridge's `opening`), the editor finishes it with its own steps; drawn by
+  `OpeningSplash`. _Avoid_: loading screen.
 - **Shell bridge**: the desktop shell's capabilities, one table the web's `Platform` is typed
   from (ADR 0031).
 - **Failed load**: a panel whose content could not be read, said where the content would be in

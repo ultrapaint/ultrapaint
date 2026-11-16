@@ -1,4 +1,9 @@
 import {
+  type EditorStepId,
+  failOpening,
+  type Opening,
+} from "@ultrapaint/contracts/opening";
+import {
   type ComponentType,
   type CSSProperties,
   Suspense,
@@ -25,13 +30,14 @@ import { CommandPalette } from "./components/command-palette.tsx";
 import { ContextMenuHost } from "./components/context-menu-host.tsx";
 import { DialogHost } from "./components/dialogs.tsx";
 import { preloadMarkdown } from "./components/markdown.tsx";
+import { OpeningSplash } from "./components/opening-splash.tsx";
 import { PlaceSwitch } from "./components/place-switch.tsx";
 import { Rail } from "./components/rail.tsx";
 import { RemoteProjectDialog } from "./components/remote-project-dialog.tsx";
 import { ResizeHandle, usePanelWidth } from "./components/resize-handle.tsx";
 import { ShellNotices } from "./components/shell-notices.tsx";
 import { ShortcutSheet } from "./components/shortcut-sheet.tsx";
-import { PanelLoading, Splash } from "./components/splash.tsx";
+import { PanelLoading } from "./components/splash.tsx";
 import {
   EDGE,
   HideRightPanel,
@@ -48,6 +54,7 @@ import { CodePanel } from "./panels/code.tsx";
 import { Inspector } from "./panels/inspector.tsx";
 import { SaveConfigDialog } from "./panels/save-config.tsx";
 import { Threads } from "./panels/threads.tsx";
+import { platform } from "./platform.ts";
 import {
   followBoardHistory,
   openBoardInUrl,
@@ -66,6 +73,13 @@ import {
   useEditor,
   type Workspace,
 } from "./state/editor.ts";
+import {
+  browserOpening,
+  editorTimes,
+  keepOpeningHere,
+  type Reached,
+  withEditorSteps,
+} from "./state/editor-opening.ts";
 import { useImplementation } from "./state/implementation.ts";
 import { startIsolation } from "./state/isolation.ts";
 import {
@@ -74,6 +88,7 @@ import {
   pagesChanged,
 } from "./state/location.ts";
 import { followLook } from "./state/look.ts";
+import { useOpening } from "./state/opening.ts";
 import { canvasDefaults } from "./state/page-layout.ts";
 import { usePanels, useRightSubject } from "./state/panels.ts";
 import { reportError, useProject } from "./state/project.ts";
@@ -183,25 +198,47 @@ const framesIn = () => {
 };
 
 /**
- * The splash, until the editor is ready to be shown whole: every panel's code fetched, the designs
- * in and the frames on screen drawn. Once gone it stays gone: a canvas opened later reads its
- * designs under the editor.
+ * When this page began, in milliseconds since the epoch: an opening the desktop app began before
+ * it is this editor's own, to finish; one begun after it is a switch from here.
+ */
+const PAGE_BEGAN = Math.round(performance.timeOrigin);
+
+/** How long the splash takes to leave: its wipe, or its fade under reduced motion. */
+const LEAVE_MS = 700;
+
+/**
+ * The splash a project opens on (ADR 0099), until the editor is ready to be shown whole: every
+ * panel's code fetched, the project read with the designs of the canvas it opens on, and the
+ * frames on screen drawn. In the desktop app it finishes the shell's opening, its steps after the
+ * shell's, and tells the shell their times; in a browser it is the whole open, timed against the
+ * last one here. Once gone it stays gone: a canvas opened later reads its designs under the
+ * editor. A project the desktop app opens from here later draws its splash over the editor.
  */
 const StartSplash = () => {
-  const name = useProject((s) =>
-    s.info.configured ? (s.info.name ?? null) : null
+  const fromShell = useOpening();
+  const info = useProject((s) => s.info);
+  const loaded = useProject((s) => s.loaded);
+  const [reached, setReached] = useState<Reached>({});
+  const [problem, setProblem] = useState(false);
+  const [phase, setPhase] = useState<"starting" | "leaving" | "gone">(
+    "starting"
   );
-  const [started, setStarted] = useState(false);
+
   useEffect(() => {
     let panels = false;
+    const reach = (step: EditorStepId) =>
+      setReached((was) =>
+        was[step] === undefined ? { ...was, [step]: Date.now() } : was
+      );
     // When the rest was in: a canvas whose frames are all off screen does not hold the splash.
     let inSince: number | null = null;
     // Looked at once a frame while the splash is up: the frames say when they draw, not to whom.
     let frame = requestAnimationFrame(function check(now) {
       if (panels && designsIn()) {
+        reach("project");
         inSince ??= now;
         if (framesIn() || now - inSince > FRAMES_LIMIT_MS) {
-          setStarted(true);
+          reach("canvas");
           return;
         }
       }
@@ -209,14 +246,101 @@ const StartSplash = () => {
     });
     preloadPanels().then(() => {
       panels = true;
+      reach("editor");
     });
-    const limit = setTimeout(() => setStarted(true), SPLASH_LIMIT_MS);
+    // A server that does not answer leaves the splash saying so, with Try again; one that did
+    // but is slow to read leaves the editor to say the rest.
+    const limit = setTimeout(() => {
+      if (useProject.getState().loaded) {
+        reach("project");
+        reach("canvas");
+      } else {
+        cancelAnimationFrame(frame);
+        setProblem(true);
+      }
+    }, SPLASH_LIMIT_MS);
     return () => {
       cancelAnimationFrame(frame);
       clearTimeout(limit);
     };
   }, []);
-  return started ? null : <Splash name={name} />;
+
+  // The shell's opening is this editor's when it began before this page did; kept as last seen
+  // once the shell lets go of it (told the times), so the splash leaves as it was.
+  const kept = useRef<Opening | null>(null);
+  if (fromShell && fromShell.since <= PAGE_BEGAN) {
+    kept.current = fromShell;
+  }
+  const ours = kept.current;
+  // Before the project is read, what the page's first frame said (`index.html`).
+  const name = info.configured ? (info.name ?? "the project") : "the editor";
+  const [here] = useState(() =>
+    browserOpening({ name: "", since: PAGE_BEGAN, where: "" })
+  );
+  const base: Opening = ours ?? {
+    ...here,
+    name,
+    where: info.configured ? (info.repoPath ?? "") : "",
+  };
+  const opening = withEditorSteps(base, reached);
+  const ready = reached.canvas !== undefined;
+
+  // Ready: the times are kept, by the shell or here, once, and the splash leaves.
+  const told = useRef(false);
+  useEffect(() => {
+    if (!ready || told.current) {
+      return;
+    }
+    told.current = true;
+    const times = editorTimes(opening);
+    if (ours) {
+      platform()
+        .projects?.openingDone(times)
+        .catch(() => undefined);
+    } else {
+      keepOpeningHere(times);
+    }
+    setPhase("leaving");
+  }, [ready, opening, ours]);
+  useEffect(() => {
+    if (phase !== "leaving") {
+      return;
+    }
+    const gone = setTimeout(() => setPhase("gone"), LEAVE_MS);
+    return () => clearTimeout(gone);
+  }, [phase]);
+
+  const { projects } = platform();
+  if (phase === "gone") {
+    // A project opening from here: its splash over this editor, Cancel coming back to it.
+    return fromShell && fromShell.since > PAGE_BEGAN ? (
+      <OpeningSplash
+        onCancel={() => projects?.stopOpening().catch(() => undefined)}
+        onRetry={() => projects?.retryOpening().catch(() => undefined)}
+        opening={fromShell}
+      />
+    ) : null;
+  }
+  return (
+    <OpeningSplash
+      leaving={phase === "leaving"}
+      // In the desktop app, Cancel goes back to the project a switch left open (or the start
+      // screen); a browser has nowhere to go back to.
+      onCancel={
+        ours ? () => projects?.stopOpening().catch(() => undefined) : undefined
+      }
+      onRetry={problem ? () => window.location.reload() : undefined}
+      opening={
+        problem && !loaded
+          ? failOpening(
+              opening,
+              "The server didn’t answer. Check that ultrapaint is still running, then try again.",
+              Date.now()
+            )
+          : opening
+      }
+    />
+  );
 };
 
 /** What each left panel of the canvas shows; its title and icon are the rail's. */

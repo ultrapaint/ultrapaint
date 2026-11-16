@@ -15,6 +15,7 @@
 import type { ShellStatus } from "@ultrapaint/contracts/shell-bridge";
 import { Context, Duration, Effect, Exit, Layer, Result, Scope } from "effect";
 import { ServerStartError } from "./errors.ts";
+import { OpeningReport } from "./opening-report.ts";
 import { agentsWorking, type RunningServer } from "./project-server.ts";
 import type { SshProject } from "./projects.ts";
 import type { SshError } from "./ssh.ts";
@@ -89,6 +90,8 @@ export class RemoteProjects extends Context.Service<
               const scope = yield* Scope.make();
               return yield* Effect.gen(function* () {
                 const connection = yield* remote.connect(project);
+                // Connected, the server starts there: the open under way says so (ADR 0099).
+                yield* (yield* OpeningReport).reached("remote");
                 const server = yield* remote.start(
                   connection,
                   project,
