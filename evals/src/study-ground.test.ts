@@ -89,6 +89,33 @@ describe("study ground", () => {
     assert.include(text, "| words.eyebrow | yes 20% | yes 20% |");
   });
 
+  it("names a culture page's character expressive, and keeps a character group from 20 pages", () => {
+    const pages = flat([
+      ...Array.from({ length: 20 }, (_, i) =>
+        note(i, 3, { domain: "culture", type: { sizes: { body: 18 } } })
+      ),
+      ...Array.from({ length: 19 }, (_, i) =>
+        note(i, 2, { domain: "humanistic" })
+      ),
+    ]);
+    const groups = groundOf(pages);
+    const expressive = groups.find(
+      (g) => g.name === "landing · expressive character"
+    );
+    assert.strictEqual(expressive?.pages, 20);
+    assert.strictEqual(expressive?.wellMade, 20);
+    assert.deepStrictEqual(expressive?.fields["type.sizes.body"]?.all, {
+      kind: "number",
+      median: 18,
+      n: 20,
+      p25: 18,
+      p75: 18,
+    });
+    assert.isFalse(
+      groups.some((g) => g.name === "landing · humanistic character")
+    );
+  });
+
   it("keeps a list's value common in one group however rare across every page, and no hex in a list", () => {
     const pages = flat([
       ...Array.from({ length: 2000 }, (_, i) => note(i, 2)),
