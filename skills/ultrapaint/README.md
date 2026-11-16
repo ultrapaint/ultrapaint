@@ -22,6 +22,8 @@ has the `name` and the `description` an agent picks it by, under 220 characters.
   `accessibility.md`), opened with a kind's file, when the core's line says, and at the check
   for every concern the screen has;
 - `system/` (foundations, components, extract, figma) and `words/` (voice, interface, pages).
+- `review.md`: the table a review runs, opened first when reviewing a design, against the
+  inventory it writes of the screen's parts, words, controls and states.
 
 A file never repeats a core line; it adds anatomy, values, recipes and reasons, and ends on a
 check table of what it adds. The skill speaks the web's terms, with no markers and none of the
