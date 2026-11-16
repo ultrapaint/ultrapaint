@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "../testing/fake-api.ts";
 import {
   behaviourNotesOf,
-  type CommentGround,
+  type CommentLayout,
   commentFrame,
   holdsCard,
   openComment,
@@ -145,7 +145,7 @@ describe("a comment started on the canvas", () => {
 });
 
 describe("where a comment is drawn", () => {
-  const ground: CommentGround = {
+  const layout: CommentLayout = {
     nodeFrame: (id) => (id === "title" ? nodeFrameOf("card") : null),
     pageId: (path) => (path === HOME ? HOME : undefined),
     views: (page) => (page === HOME ? ["tablet"] : []),
@@ -163,7 +163,7 @@ describe("where a comment is drawn", () => {
         }),
         ...change,
       },
-      ground
+      layout
     );
 
   it("is in the frame it was left in alone: the page's own, or its view", () => {

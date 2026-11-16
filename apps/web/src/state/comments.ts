@@ -3,7 +3,7 @@ import type {
   CommentList,
   CommentReply,
 } from "@ultrapaint/contracts/comments";
-import type { DesignNode } from "@ultrapaint/contracts/document";
+import type { DesignNode, DocumentState } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { create } from "zustand";
@@ -13,11 +13,11 @@ import { setView, viewportSize } from "./camera.ts";
 import { commentPrompt, commentThreadTitle } from "./comment-prompt.ts";
 import { api } from "./connection.ts";
 import { frameOfCanvasNode, useDocuments } from "./documents.ts";
-import { pagesOfCanvas, useEditor } from "./editor.ts";
+import { type EditorState, pagesOfCanvas, useEditor } from "./editor.ts";
 import { frameRefOf, pageOfRef, viewFrameOf } from "./frame-ref.ts";
 import { goTo } from "./location.ts";
 import { pageCanvasFrames } from "./page-layout.ts";
-import { reportError } from "./project.ts";
+import { reportError, useProject } from "./project.ts";
 import { follow } from "./server-data.ts";
 
 /** A comment being written: where it was placed, before it has any text. */
@@ -110,8 +110,11 @@ export const pageOfComment = (comment: Comment): Page | undefined =>
 export const hasSpot = (comment: Pick<Comment, "page" | "x" | "y">) =>
   comment.page === null || comment.x !== 0 || comment.y !== 0;
 
-/** What the page canvas holds that says where a comment is drawn. */
-export interface CommentGround {
+/**
+ * Where the page canvas's frames are, as far as its comments ask: what says which frame a comment is
+ * drawn in (`commentFrame`).
+ */
+export interface CommentLayout {
   /** The frame of the node of the canvas a node is in, when it is one of them. */
   readonly nodeFrame: (nodeId: string) => string | null;
   /** A page of the canvas's id, by its path. */
@@ -129,30 +132,44 @@ export interface CommentGround {
  */
 export const commentFrame = (
   comment: Pick<Comment, "nodeId" | "page" | "view">,
-  ground: CommentGround
+  layout: CommentLayout
 ): string | null | undefined => {
   if (comment.page === null) {
-    return comment.nodeId === null ? null : ground.nodeFrame(comment.nodeId);
+    return comment.nodeId === null ? null : layout.nodeFrame(comment.nodeId);
   }
-  const page = ground.pageId(comment.page);
+  const page = layout.pageId(comment.page);
   if (page === undefined) {
     return;
   }
-  return comment.view !== null && ground.views(page).includes(comment.view)
+  return comment.view !== null && layout.views(page).includes(comment.view)
     ? viewFrameOf(page, comment.view)
     : page;
 };
 
-/** The page canvas as it is now, for `commentFrame`. */
-export const groundNow = (): CommentGround => {
-  const { canvas, frames } = useEditor.getState();
-  const { docs } = useDocuments.getState();
-  const pages = pagesOfCanvas(canvas);
+/** The comment layout of a canvas, from its pages, the frames' layout and its documents. */
+export const commentLayoutOf = (
+  canvas: string | null,
+  pages: readonly Page[],
+  frames: EditorState["frames"],
+  docs: Record<string, DocumentState>
+): CommentLayout => {
+  const here = pages.filter((p) => p.canvas === canvas);
   return {
     nodeFrame: (nodeId) => frameOfCanvasNode(docs, canvas, nodeId),
-    pageId: (path) => pages.find((p) => p.path === path)?.id,
+    pageId: (path) => here.find((p) => p.path === path)?.id,
     views: (pageId) => (frames[pageId]?.views ?? []).map((v) => v.id),
   };
+};
+
+/** The open canvas's comment layout as it is now. */
+export const commentLayoutNow = (): CommentLayout => {
+  const { canvas, frames } = useEditor.getState();
+  return commentLayoutOf(
+    canvas,
+    useProject.getState().pages,
+    frames,
+    useDocuments.getState().docs
+  );
 };
 
 /**
@@ -167,7 +184,7 @@ export const holdsCard = (
     return s.draft.frame === frame;
   }
   const open = s.open === null ? null : s.comments.find((c) => c.id === s.open);
-  return open ? commentFrame(open, groundNow()) === frame : false;
+  return open ? commentFrame(open, commentLayoutNow()) === frame : false;
 };
 
 /**
@@ -352,7 +369,7 @@ export const revealComment = (comment: Comment) => {
     useComments.getState().setOpen(comment.id);
     return;
   }
-  const frame = commentFrame(comment, groundNow());
+  const frame = commentFrame(comment, commentLayoutNow());
   if (frame === undefined) {
     return;
   }

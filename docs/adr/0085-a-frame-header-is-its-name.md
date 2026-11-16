@@ -1,7 +1,8 @@
 # ADR 0085: A frame's header is its name, and a page's own notes are in its toolbar
 
 Status: accepted, 2026-11-12; a page's notes in its toolbar: amended by 0086 (the inspector's
-Behaviour section). Amends 0075 (the route shown on the canvas).
+Behaviour section); where a comment is drawn: amended by 0097. Amends 0075 (the route shown on
+the canvas).
 
 ## Context
 

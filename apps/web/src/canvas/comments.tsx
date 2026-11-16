@@ -40,8 +40,9 @@ import { Segmented } from "../components/segmented.tsx";
 import { initialsOf } from "../lib/initials.ts";
 import {
   type CommentDraft,
-  type CommentGround,
+  type CommentLayout,
   commentFrame,
+  commentLayoutOf,
   deleteComment,
   deleteReply,
   hasSpot,
@@ -53,13 +54,9 @@ import {
   useComments,
 } from "../state/comments.ts";
 import { openMenuAt } from "../state/context-menu.ts";
-import {
-  drawnRootOf,
-  frameOfCanvasNode,
-  nodeIn,
-  useDocuments,
-} from "../state/documents.ts";
+import { drawnRootOf, nodeIn, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { frameRefOf } from "../state/frame-ref.ts";
 import { useProject } from "../state/project.ts";
 import { UNZOOM } from "./camera.ts";
 import { frameOf } from "./editor-frame.ts";
@@ -148,9 +145,10 @@ export const relativeTime = (at: number, now = Date.now()) => {
 };
 
 /**
- * Starts a comment where a frame was clicked, pinned on the innermost element there: a page's
- * frame, one of its views, a node's beside the pages (on that node at least, so the comment moves
- * with it), or the prototype's, which `pageId` says the page of.
+ * Starts a comment where a frame was clicked: on a page's frame, one of its views or the
+ * prototype's (which `pageId` says the page of), pinned on the innermost element there; on a node's
+ * beside the pages, pinned on that node, which it moves with as long as the node is there
+ * (ADR 0097).
  */
 export const placeComment = (
   frame: string,
@@ -159,11 +157,14 @@ export const placeComment = (
 ) => {
   const { docs } = useDocuments.getState();
   const { canvas } = useEditor.getState();
-  // The prototype's frame is no frame of the canvas: its nodes are the page's.
-  const docFrame = pageId ?? frame;
+  if (frameRefOf(frame).kind === "node") {
+    startComment(frame, at, drawnRootOf(docs, canvas, frame));
+    return;
+  }
+  // The prototype's frame is no frame of the canvas: the nodes it draws are the page's.
+  const pageFrame = pageId ?? frame;
   const id = frameOf(frame).hitTest(Math.round(at.x), Math.round(at.y)).at(-1);
-  const hit = id ? nodeIn(docs, canvas, docFrame, id) : null;
-  const node = hit ?? drawnRootOf(docs, canvas, docFrame);
+  const node = id ? nodeIn(docs, canvas, pageFrame, id) : null;
   startComment(frame, at, node, pageId);
 };
 
@@ -175,23 +176,16 @@ export const placeCanvasComment = (at: { x: number; y: number }) =>
 // the frame under them must not pick an element.
 const stop = (e: ReactPointerEvent) => e.stopPropagation();
 
-/**
- * The ground a frame of the page canvas draws its comments on, kept up with the pages, their
- * views and the nodes beside them.
- */
-const useGround = (): CommentGround => {
+/** The open canvas's comment layout, kept up with its pages, their views and its nodes. */
+const useCommentLayout = (): CommentLayout => {
   const canvas = useEditor((s) => s.canvas);
   const frames = useEditor((s) => s.frames);
   const docs = useDocuments((s) => s.docs);
   const pages = useProject((s) => s.pages);
-  return useMemo(() => {
-    const here = pages.filter((p) => p.canvas === canvas);
-    return {
-      nodeFrame: (nodeId) => frameOfCanvasNode(docs, canvas, nodeId),
-      pageId: (path) => here.find((p) => p.path === path)?.id,
-      views: (pageId) => (frames[pageId]?.views ?? []).map((v) => v.id),
-    };
-  }, [canvas, frames, docs, pages]);
+  return useMemo(
+    () => commentLayoutOf(canvas, pages, frames, docs),
+    [canvas, pages, frames, docs]
+  );
 };
 
 /**
@@ -199,14 +193,14 @@ const useGround = (): CommentGround => {
  * comment is drawn in one place alone (`commentFrame`), and so is the one being written.
  */
 export const FrameComments = ({ frameId }: { frameId: string | null }) => {
-  const ground = useGround();
+  const layout = useCommentLayout();
   const all = useComments((s) => s.comments);
   const draft = useComments((s) =>
     s.draft?.frame === frameId ? s.draft : null
   );
   const comments = useMemo(
-    () => all.filter((c) => commentFrame(c, ground) === frameId),
-    [all, ground, frameId]
+    () => all.filter((c) => commentFrame(c, layout) === frameId),
+    [all, layout, frameId]
   );
   return (
     <CommentPins
@@ -218,15 +212,24 @@ export const FrameComments = ({ frameId }: { frameId: string | null }) => {
 };
 
 /**
- * The comments of the canvas itself, beside the pages (ADR 0097), in the canvas's own pixels:
- * above the frames, and above everything while one of them is open or being written.
+ * How high what holds the open card, or the comment being written, stacks on the page canvas: over
+ * the frames, their selection, every pin (`Anchor`, `z-20` at most) and a frame's outline drawn
+ * past its edges (`SelectionChrome`, `z-30`), which all rise out of a frame that is not lifted
+ * (ADR 0097).
+ */
+export const CARD_LIFT = 40;
+
+/**
+ * The comments of the canvas itself, beside the pages (ADR 0097), in the canvas's own pixels.
+ * Their pins stack among the frames' as theirs do; while one of them is open or being written,
+ * the card is over everything.
  */
 export const CanvasComments = () => {
   const lifted = useComments((s) => holdsCard(s, null));
   return (
     <div
       className="absolute top-0 left-0 size-0"
-      style={{ zIndex: lifted ? 3 : 1 }}
+      style={lifted ? { zIndex: CARD_LIFT } : undefined}
     >
       <FrameComments frameId={null} />
     </div>

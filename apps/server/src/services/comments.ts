@@ -46,8 +46,9 @@ import { RepoPaths } from "./repo-paths.ts";
 type CommentsFailure = NotFound | Conflict | ForbiddenPath;
 
 /**
- * Comments pinned on the pages of a canvas, and on the canvas itself (ADR 0097). They live in `<canvas>/comments.json`, beside the
- * canvas layout, so they are committed and read by whoever opens the repository next.
+ * Comments pinned on the pages of a canvas, and on the canvas itself (ADR 0097). They live in
+ * `<canvas>/comments.json`, beside the canvas layout, so they are committed and read by whoever
+ * opens the repository next.
  */
 export class CommentsService extends Context.Service<
   CommentsService,
@@ -206,7 +207,8 @@ export class CommentsService extends Context.Service<
           createdAt: now,
           element: input.element,
           id: yield* makeId("comment"),
-          kind: input.kind ?? "comment",
+          // The canvas is implemented as no page: a comment on it is never a behaviour note.
+          kind: input.page === null ? "comment" : (input.kind ?? "comment"),
           nodeId: input.nodeId,
           page: input.page,
           replies: [],
@@ -238,7 +240,8 @@ export class CommentsService extends Context.Service<
         return yield* change(input.canvas, input.id, (comment, now) =>
           Effect.succeed({
             ...comment,
-            kind: input.kind ?? comment.kind,
+            kind:
+              comment.page === null ? "comment" : (input.kind ?? comment.kind),
             resolved: input.resolved ?? comment.resolved,
             text: input.text?.trim() ?? comment.text,
             updatedAt: now,
