@@ -43,6 +43,7 @@ export const CanvasGround = ({
   background,
   children,
   cursor,
+  groundCursor,
   groundRef,
   onContextMenu,
   onPointerCancel,
@@ -58,6 +59,8 @@ export const CanvasGround = ({
   children: ReactNode;
   /** Cursors a tool shows over all of it while it does not pan. */
   cursor?: string | false;
+  /** The cursor a tool shows over the ground itself while it does not pan, as a CSS value. */
+  groundCursor?: string;
   /** The ground's element, for what listens to it besides the pointer (drops, pastes). */
   groundRef?: RefObject<HTMLDivElement | null>;
   onContextMenu: (e: ReactMouseEvent) => void;
@@ -215,6 +218,7 @@ export const CanvasGround = ({
       onPointerMove={onMove}
       onPointerUp={onUp}
       ref={ref}
+      style={pansAll ? undefined : { cursor: groundCursor }}
     >
       {/* Moved by the camera, not by rendering: see `useCamera`. */}
       <div

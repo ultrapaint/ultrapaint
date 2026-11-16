@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import type { DesignNode, DocumentState } from "@ultrapaint/contracts/document";
+import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -7,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useComments } from "../state/comments.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
-import { viewFrameOf } from "../state/frame-ref.ts";
+import { nodeFrameOf, viewFrameOf } from "../state/frame-ref.ts";
 import { useIsolation } from "../state/isolation.ts";
 import { useProject } from "../state/project.ts";
 import { fakeApi } from "../testing/fake-api.ts";
@@ -242,7 +243,7 @@ describe("a component edited in place", () => {
 });
 
 describe("the comment tool", () => {
-  it("on a view of a page, starts the page's comment on what was clicked", () => {
+  it("on a view of a page, starts the page's comment on what was clicked, in that view", () => {
     useComments.setState({ comments: [], draft: null, visible: true });
     act(() =>
       mounted.render(
@@ -257,10 +258,58 @@ describe("the comment tool", () => {
     current().onPlaceComment(pointerAt(30.4, 40.6));
     expect(useComments.getState().draft).toEqual({
       element: "Hi",
+      frame: TABLET,
       nodeId: "t1",
       pageId: HOME,
       x: 30,
       y: 41,
+    });
+  });
+
+  it("on a node beside the pages, starts the canvas's comment on what was clicked in it", () => {
+    const card = {
+      children: [{ id: "c1", role: "paragraph", text: "Card", type: "text" }],
+      id: "card",
+      type: "column",
+    } as DesignNode;
+    const canvasRoot = { children: [card], id: "canvas-root", type: "page" };
+    useDocuments.setState({
+      docs: {
+        [HOME]: homeDoc,
+        [canvasDocOf("main")]: {
+          doc: canvasDocOf("main"),
+          hash: "canvas@0",
+          root: canvasRoot as DesignNode,
+        },
+      },
+    });
+    useComments.setState({ comments: [], draft: null, visible: true });
+    act(() =>
+      mounted.render(
+        <Probe
+          frameId={nodeFrameOf("card")}
+          report={(h) => {
+            handlers = h;
+          }}
+        />
+      )
+    );
+    under.chain = ["card", "c1"];
+    current().onPlaceComment(pointerAt(12, 8));
+    expect(useComments.getState().draft).toEqual({
+      element: "Card",
+      frame: nodeFrameOf("card"),
+      nodeId: "c1",
+      pageId: null,
+      x: 12,
+      y: 8,
+    });
+    // Over nothing of it, the comment is still on the node, so it moves with it.
+    under.chain = [];
+    current().onPlaceComment(pointerAt(2, 2));
+    expect(useComments.getState().draft).toMatchObject({
+      nodeId: "card",
+      pageId: null,
     });
   });
 });

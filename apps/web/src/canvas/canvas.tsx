@@ -29,6 +29,11 @@ import {
   moveCanvasMarquee,
 } from "./canvas-marquee.tsx";
 import {
+  CanvasComments,
+  commentCursor,
+  placeCanvasComment,
+} from "./comments.tsx";
+import {
   beginCreate,
   cancelCreate,
   endCreate,
@@ -180,10 +185,17 @@ export const Canvas = () => {
 
   /**
    * The Group and Text tools draw what they make; the select tool draws a marquee from a press
-   * on nothing (`canvas-marquee.tsx`), which picks the frames it touches; a press anywhere else is
-   * the ground's.
+   * on nothing (`canvas-marquee.tsx`), which picks the frames it touches; the comment tool starts
+   * a comment on the canvas itself where it is pressed on nothing (ADR 0097); a press anywhere
+   * else is the ground's.
    */
   const onPointerDown = (e: ReactPointerEvent) => {
+    if (e.button === 0 && mode === "comment" && e.target === e.currentTarget) {
+      // Not the ground's press, which would let go of the comment just started.
+      e.preventDefault();
+      placeCanvasComment(canvasPoint(e.clientX, e.clientY));
+      return;
+    }
     if (e.button === 0 && isCreateTool(mode)) {
       e.preventDefault();
       if (!ensureEditable()) {
@@ -256,6 +268,7 @@ export const Canvas = () => {
         (mode === "group" && "cursor-crosshair [&_*]:cursor-crosshair!") ||
         (mode === "text" && "cursor-text [&_*]:cursor-text!")
       }
+      groundCursor={mode === "comment" ? commentCursor : undefined}
       groundRef={ref}
       onContextMenu={onContextMenu}
       onPointerCancel={onPointerCancel}
@@ -304,6 +317,7 @@ export const Canvas = () => {
           />
         );
       })}
+      <CanvasComments />
       <DragOverlay />
       <CreateOverlay />
       <CanvasMarquee />

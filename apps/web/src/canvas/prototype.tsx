@@ -44,7 +44,7 @@ import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { goTo } from "../state/location.ts";
 import { useProject } from "../state/project.ts";
-import { commentCursor, FrameComments, placeComment } from "./comments.tsx";
+import { commentCursor, PrototypeComments, placeComment } from "./comments.tsx";
 import { useFrameDrawing, useFrameError } from "./editor-frame.ts";
 import { HotspotLayer, HotspotsToggle, onPrototypePress } from "./hotspots.tsx";
 import { pageRequest } from "./page-request.ts";
@@ -192,10 +192,14 @@ const PageComments = ({
   }
   const place = (e: ReactMouseEvent<HTMLButtonElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
-    placeComment(frame, page.id, {
-      x: (e.clientX - r.left) / scale,
-      y: (e.clientY - r.top) / scale,
-    });
+    placeComment(
+      frame,
+      {
+        x: (e.clientX - r.left) / scale,
+        y: (e.clientY - r.top) / scale,
+      },
+      page.id
+    );
   };
   return (
     <div
@@ -211,7 +215,7 @@ const PageComments = ({
           type="button"
         />
       ) : null}
-      <FrameComments inv={1 / scale} page={page} />
+      <PrototypeComments frameId={frame} inv={1 / scale} page={page} />
     </div>
   );
 };

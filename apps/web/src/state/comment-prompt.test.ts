@@ -26,6 +26,7 @@ const comment: Comment = {
   resolved: false,
   text: "Make this bolder",
   updatedAt: 2,
+  view: null,
   x: 40,
   y: 12,
 };
@@ -64,6 +65,27 @@ describe("commentPrompt", () => {
       "Page: onboarding/pick.page.json (no longer in the designs)"
     );
     expect(prompt).toContain('Node: "Welcome"\n');
+  });
+
+  it("says a comment left in a view is measured from the view's corner", () => {
+    expect(commentPrompt({ ...comment, view: "mobile" }, page)).toContain(
+      "Pinned at 40, 12 px from the top-left corner of the page's view mobile"
+    );
+  });
+
+  it("says a comment on the canvas is on no page, from a node's frame or the canvas", () => {
+    const onNode = commentPrompt({ ...comment, page: null }, undefined);
+    expect(onNode).toContain(
+      'On the canvas, beside the pages\nNode: "Welcome" (id t_title)\nPinned at 40, 12 px from the top-left corner of the node\'s frame'
+    );
+    expect(onNode).not.toContain("Page:");
+    const anywhere = commentPrompt(
+      { ...comment, element: null, nodeId: null, page: null },
+      undefined
+    );
+    expect(anywhere).toContain(
+      "On the canvas, beside the pages\nPinned at 40, 12 px from the top-left corner of the canvas"
+    );
   });
 });
 

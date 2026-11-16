@@ -594,8 +594,11 @@ export const canvasListEntries = (
 
 // ---- The canvas ----
 
-/** Pastes at the point clicked; the rest are the editor's commands. */
-export type CanvasAction = { kind: "paste" } | CommandAction;
+/** Pastes or starts a comment at the point clicked; the rest are the editor's commands. */
+export type CanvasAction =
+  | { kind: "paste" }
+  | { kind: "comment" }
+  | CommandAction;
 
 interface CanvasFacts {
   canPaste: boolean;
@@ -609,6 +612,7 @@ export const canvasEntries = (f: CanvasFacts): Entry<CanvasAction>[] =>
       command: "paste",
       disabled: !f.canPaste,
     }),
+    item({ kind: "comment" }, "Add a comment"),
     separator,
     commandItem("newPage", "New page…"),
     commandItem("importFigma", "Import a Figma file…"),
@@ -645,6 +649,8 @@ interface CommentFacts {
   current: { busy: boolean; id: string; title: string } | null;
   /** It is pinned on an element, which can be selected. */
   hasElement: boolean;
+  /** It is on a page, rather than the canvas itself, which is never implemented (ADR 0097). */
+  onPage: boolean;
   resolved: boolean;
 }
 
@@ -656,10 +662,11 @@ export const commentEntries = (f: CommentFacts): Entry<CommentAction>[] =>
       { kind: "resolve", resolved: !f.resolved },
       f.resolved ? "Reopen" : "Resolve"
     ),
-    item(
-      { behaviour: !f.behaviour, kind: "note" },
-      f.behaviour ? "Make it a plain comment" : "Make it a behaviour note"
-    ),
+    (f.onPage || f.behaviour === true) &&
+      item(
+        { behaviour: !f.behaviour, kind: "note" },
+        f.behaviour ? "Make it a plain comment" : "Make it a behaviour note"
+      ),
     {
       entries: [
         item<CommentAction>(

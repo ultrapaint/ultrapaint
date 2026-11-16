@@ -15,7 +15,7 @@ import {
 import { holdMenu, openMenuAt, showMenu } from "../state/context-menu.ts";
 import { nodeIn, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
-import { frameRefOf } from "../state/frame-ref.ts";
+import { frameRefOf, takesComments } from "../state/frame-ref.ts";
 import { isolate, leaveIsolation, useIsolation } from "../state/isolation.ts";
 import {
   isSelected,
@@ -441,12 +441,14 @@ export const useFramePointer = ({
     onClick(e);
   };
 
-  /** Places a comment where the page was clicked, on the innermost node there. */
+  /**
+   * Places a comment where the frame was clicked, on the innermost node there: a page's (or a
+   * view's), or a node's beside the pages, which moves with it (ADR 0097).
+   */
   const onPlaceComment = (e: ReactMouseEvent) => {
-    if (kind !== "page") {
-      return;
+    if (takesComments(ref)) {
+      placeComment(frameId, toFrame(e));
     }
-    placeComment(frameId, frameId, toFrame(e));
   };
 
   /**
@@ -472,9 +474,14 @@ export const useFramePointer = ({
       );
     }
   };
+  /** In comment mode, a page's menu on a page, and on a node beside the pages its own. */
   const onCommentContextMenu = (e: ReactMouseEvent) => {
-    selectPage(frameId);
-    openMenuAt(e, { at: toFrame(e), kind: "page", pageId: frameId });
+    if (kind === "page") {
+      selectPage(frameId);
+      openMenuAt(e, { at: toFrame(e), kind: "page", pageId: frameId });
+      return;
+    }
+    onContextMenu(e);
   };
 
   const onPointerLeave = () => leaveHover(frameId);

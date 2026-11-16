@@ -27,7 +27,7 @@ import { focusLink } from "../lib/links.ts";
 import { updateNodes } from "../lib/node-actions.ts";
 import { kindColor } from "../lib/selection-kind.ts";
 import { isPicked, useCanvasPicks } from "../state/canvas-picks.ts";
-import { useComments } from "../state/comments.ts";
+import { holdsCard, useComments } from "../state/comments.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { drawnRootOf, rootOfFrame, useDocuments } from "../state/documents.ts";
@@ -82,13 +82,14 @@ const frameName = (page: Page | undefined, root: DesignNode | null) => {
 /**
  * How high a frame stacks over its neighbours. An open card and the selection's toolbar reach past
  * the frame, and a node's frame shows what it draws past its edges: the neighbours must not cover
- * them, and the toolbar is over everything else.
+ * them, and the toolbar is over everything else. Every frame stacks on its own, so the pins in one
+ * never rise over a card open in another.
  */
 const liftOf = (holdsSelection: boolean, reachesPast: boolean) => {
   if (holdsSelection) {
     return 2;
   }
-  return reachesPast ? 1 : undefined;
+  return reachesPast ? 1 : 0;
 };
 
 /** A frame's corner, which resizing it drags while the opposite one stays put. */
@@ -156,13 +157,8 @@ export const Frame = memo(
     const defaults = useEditor((s) => s.layout.defaults);
     const held = useEditor((s) => s.held[frameId]);
     const heldSize = useHeldSizes((s) => s.byFrame[frameId]);
-    const holdsCard = useComments(
-      (s) =>
-        s.draft?.pageId === ownFrameOf(frameId) ||
-        (s.open !== null &&
-          page !== undefined &&
-          s.comments.some((c) => c.id === s.open && c.page === page.path))
-    );
+    // The card is in one frame alone: the one the comment was left in (ADR 0097).
+    const liftedForCard = useComments((s) => holdsCard(s, frameId));
     // A frame drawn once keeps its page while it is away from the screen: hidden where it is,
     // so coming back neither moves it nor lays it out again.
     const [kept, setKept] = useState(false);
@@ -245,7 +241,7 @@ export const Frame = memo(
           left: frame.x,
           top: frame.y,
           width: frame.width,
-          zIndex: liftOf(holdsSelection, holdsCard || isNode),
+          zIndex: liftOf(holdsSelection, liftedForCard || isNode),
         }}
       >
         <FrameChrome
@@ -288,19 +284,17 @@ export const Frame = memo(
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
           />
-          {isNode ? null : (
-            <CommentLayer
-              name={name}
-              onClick={onPlaceComment}
-              onContextMenu={onCommentContextMenu}
-            />
-          )}
+          <CommentLayer
+            name={name}
+            onClick={onPlaceComment}
+            onContextMenu={onCommentContextMenu}
+          />
           <AgentWorkOverlay frameId={frameId} pieces={work.pieces} />
           {marquee ? <Marquee box={marquee} /> : null}
           <Highlights frameId={frameId} />
         </div>
 
-        {page ? <FrameComments frameId={frameId} page={page} /> : null}
+        <FrameComments frameId={frameId} />
 
         <SelectionChrome frame={frame} frameId={frameId} isNode={isNode} />
 
@@ -430,7 +424,7 @@ export const SelectLayer = ({
   );
 };
 
-/** Over a page in comment mode, without Space held: a click places a comment. */
+/** Over a frame in comment mode, without Space held: a click places a comment. */
 const CommentLayer = ({
   name,
   onClick,

@@ -58,11 +58,11 @@ describe("a frame's id", () => {
 });
 
 describe("what a frame takes", () => {
-  it("comments and prototype links on a page and its views only", () => {
+  it("comments anywhere on the page canvas, prototype links on a page and its views only", () => {
     expect([PAGE, VIEW, NODE, BOARD].map(takesComments)).toEqual([
       true,
       true,
-      false,
+      true,
       false,
     ]);
     expect([PAGE, VIEW, NODE, BOARD].map(hasPrototypeLinks)).toEqual([

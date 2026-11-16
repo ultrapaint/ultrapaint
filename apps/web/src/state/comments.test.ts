@@ -5,13 +5,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "../testing/fake-api.ts";
 import {
   behaviourNotesOf,
+  type CommentGround,
+  commentFrame,
+  holdsCard,
   openComment,
   postDraft,
   startComment,
   useComments,
 } from "./comments.ts";
 import { useEditor } from "./editor.ts";
-import { viewFrameOf } from "./frame-ref.ts";
+import { nodeFrameOf, viewFrameOf } from "./frame-ref.ts";
 import { useProject } from "./project.ts";
 
 vi.mock(
@@ -33,8 +36,9 @@ const title = {
 const posted = (input: {
   element: string | null;
   nodeId: string | null;
-  page: string;
+  page: string | null;
   text: string;
+  view?: string | null;
   x: number;
   y: number;
 }): Comment => ({
@@ -46,6 +50,7 @@ const posted = (input: {
   replies: [],
   resolved: false,
   updatedAt: 1,
+  view: input.view ?? null,
 });
 
 beforeEach(() => {
@@ -73,17 +78,20 @@ beforeEach(() => {
 });
 
 describe("a comment started on a view of a page", () => {
-  it("is the page's, at the point clicked, a whole pixel", () => {
+  it("is the page's, written in that view alone, at the point clicked, a whole pixel", () => {
     startComment(TABLET, { x: 120.4, y: 80.6 }, title);
     expect(useComments.getState().draft).toMatchObject({
+      frame: TABLET,
       nodeId: "title",
       pageId: HOME,
       x: 120,
       y: 81,
     });
+    expect(holdsCard(useComments.getState(), TABLET)).toBe(true);
+    expect(holdsCard(useComments.getState(), HOME)).toBe(false);
   });
 
-  it("is posted on the page", async () => {
+  it("is posted on the page, in that view", async () => {
     startComment(TABLET, { x: 120, y: 80 }, title);
     await postDraft("Bigger");
     expect(fakeApi.calls).toMatchObject([
@@ -93,6 +101,7 @@ describe("a comment started on a view of a page", () => {
           nodeId: "title",
           page: HOME,
           text: "Bigger",
+          view: "tablet",
           x: 120,
           y: 80,
         },
@@ -100,6 +109,81 @@ describe("a comment started on a view of a page", () => {
       },
     ]);
     expect(useComments.getState()).toMatchObject({ draft: null, open: "c1" });
+  });
+});
+
+describe("a comment started on the canvas", () => {
+  it("is on no page, at the point of the canvas, and a plain comment", async () => {
+    startComment(null, { x: -40.2, y: 300.7 });
+    expect(holdsCard(useComments.getState(), null)).toBe(true);
+    await postDraft("What goes here?", "behaviour");
+    expect(fakeApi.calls).toMatchObject([
+      {
+        input: {
+          kind: "comment",
+          nodeId: null,
+          page: null,
+          view: null,
+          x: -40,
+          y: 301,
+        },
+        method: "comments.create",
+      },
+    ]);
+  });
+
+  it("on a node beside the pages is on that node, in its frame's pixels", async () => {
+    startComment(nodeFrameOf("card"), { x: 12, y: 8 }, title);
+    await postDraft("Rounder");
+    expect(fakeApi.calls).toMatchObject([
+      {
+        input: { nodeId: "title", page: null, view: null, x: 12, y: 8 },
+        method: "comments.create",
+      },
+    ]);
+  });
+});
+
+describe("where a comment is drawn", () => {
+  const ground: CommentGround = {
+    nodeFrame: (id) => (id === "title" ? nodeFrameOf("card") : null),
+    pageId: (path) => (path === HOME ? HOME : undefined),
+    views: (page) => (page === HOME ? ["tablet"] : []),
+  };
+  const at = (change: Partial<Comment>) =>
+    commentFrame(
+      {
+        ...posted({
+          element: null,
+          nodeId: null,
+          page: HOME,
+          text: "",
+          x: 1,
+          y: 1,
+        }),
+        ...change,
+      },
+      ground
+    );
+
+  it("is in the frame it was left in alone: the page's own, or its view", () => {
+    expect(at({})).toBe(HOME);
+    expect(at({ view: "tablet" })).toBe(TABLET);
+  });
+
+  it("is in the page's own frame once its view is taken away", () => {
+    expect(at({ view: "mobile" })).toBe(HOME);
+  });
+
+  it("is in a node's frame beside the pages, else on the canvas itself", () => {
+    expect(at({ nodeId: "title", page: null })).toBe(nodeFrameOf("card"));
+    expect(at({ nodeId: null, page: null })).toBeNull();
+    // Its node gone, or moved into a page, it stays on the canvas.
+    expect(at({ nodeId: "gone", page: null })).toBeNull();
+  });
+
+  it("is nowhere when its page is not on the canvas", () => {
+    expect(at({ page: "about.page.json" })).toBeUndefined();
   });
 });
 

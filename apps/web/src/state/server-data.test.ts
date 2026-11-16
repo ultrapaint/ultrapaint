@@ -76,6 +76,7 @@ const comment = (text: string): Comment => ({
   resolved: false,
   text,
   updatedAt: 1,
+  view: null,
   x: 0,
   y: 0,
 });
