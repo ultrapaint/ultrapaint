@@ -27,14 +27,17 @@ export const OpeningStepId = Schema.Literals([
 ]);
 export type OpeningStepId = typeof OpeningStepId.Type;
 
-/** How long each step of an open took, by its id: what an estimate is made of. */
+/**
+ * How long each step of an opening took, by its id: what an estimate is made of. Finite: kept in
+ * the desktop app's list, a non-finite one would be written as `null` and unreadable.
+ */
 export const OpeningTimes = Schema.Struct({
-  canvas: Schema.optional(Schema.Number),
-  connect: Schema.optional(Schema.Number),
-  editor: Schema.optional(Schema.Number),
-  project: Schema.optional(Schema.Number),
-  remote: Schema.optional(Schema.Number),
-  server: Schema.optional(Schema.Number),
+  canvas: Schema.optional(Schema.Finite),
+  connect: Schema.optional(Schema.Finite),
+  editor: Schema.optional(Schema.Finite),
+  project: Schema.optional(Schema.Finite),
+  remote: Schema.optional(Schema.Finite),
+  server: Schema.optional(Schema.Finite),
 });
 export type OpeningTimes = typeof OpeningTimes.Type;
 

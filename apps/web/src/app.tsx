@@ -218,6 +218,7 @@ const StartSplash = () => {
   const fromShell = useOpening();
   const info = useProject((s) => s.info);
   const loaded = useProject((s) => s.loaded);
+  const designsFailed = useDocuments((s) => s.failed);
   const [reached, setReached] = useState<Reached>({});
   const [problem, setProblem] = useState(false);
   const [phase, setPhase] = useState<"starting" | "leaving" | "gone">(
@@ -307,6 +308,7 @@ const StartSplash = () => {
     return () => clearTimeout(gone);
   }, [phase]);
 
+  const failure = failureOf({ designsFailed, loaded, timedOut: problem });
   const { projects } = platform();
   if (phase === "gone") {
     // A project opening from here: its splash over this editor, Cancel coming back to it.
@@ -326,18 +328,30 @@ const StartSplash = () => {
       onCancel={
         ours ? () => projects?.stopOpening().catch(() => undefined) : undefined
       }
-      onRetry={problem ? () => window.location.reload() : undefined}
+      onRetry={failure === null ? undefined : () => window.location.reload()}
       opening={
-        problem && !loaded
-          ? failOpening(
-              opening,
-              "The server didn’t answer. Check that ultrapaint is still running, then try again.",
-              Date.now()
-            )
-          : opening
+        failure === null ? opening : failOpening(opening, failure, Date.now())
       }
     />
   );
+};
+
+/**
+ * Why the editor cannot finish its opening, as the splash says it: the server not answering by
+ * the time limit, or the designs of the canvas it opens on not read. None while it goes on.
+ */
+const failureOf = (state: {
+  readonly designsFailed: boolean;
+  readonly loaded: boolean;
+  readonly timedOut: boolean;
+}) => {
+  if (state.timedOut && !state.loaded) {
+    return "The server didn’t answer. Check that ultrapaint is still running, then try again.";
+  }
+  if (state.designsFailed) {
+    return "The designs couldn’t be read. Check the files in the designs folder, then try again.";
+  }
+  return null;
 };
 
 /** What each left panel of the canvas shows; its title and icon are the rail's. */
