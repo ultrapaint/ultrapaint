@@ -7,7 +7,7 @@ import { useComponents } from "./components.ts";
 import { useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
 import { rightHasSubject } from "./panels.ts";
-import { select } from "./selection.ts";
+import { select, selectMany } from "./selection.ts";
 import { followServer } from "./server-data.ts";
 import {
   closeVariations,
@@ -21,6 +21,7 @@ import {
   showVariation,
   stepVariation,
   useVariations,
+  writesThrough,
 } from "./variations.ts";
 
 vi.mock(
@@ -236,6 +237,45 @@ describe("choosing among a thing's variations", () => {
     openVariations({ frame: HOME, nodeId: "title" });
     fakeApi.emit("variations", { doc: HOME, sets: SETS });
     expect(previewDiffers(useVariations.getState())).toBe(false);
+  });
+
+  it("gives back every node selected when they close", () => {
+    selectMany([
+      { frame: HOME, nodeId: "title" },
+      { frame: HOME, nodeId: "page" },
+    ]);
+    openVariations({ frame: HOME, nodeId: "title" });
+    closeVariations();
+    expect(useEditor.getState().also).toEqual([
+      { frame: HOME, nodeId: "page" },
+    ]);
+  });
+
+  it("writes no text typed in the preview while it shows another than the one in use", () => {
+    openVariations({ frame: HOME, nodeId: "title" });
+    expect(writesThrough(HOME)).toBe(true);
+    showVariation("v2");
+    expect(writesThrough(HOME)).toBe(false);
+  });
+
+  it("leaves variations opened again while a Use this was on its way open", async () => {
+    let answer: (value: { doc: string; sets: VariationSets }) => void = () =>
+      undefined;
+    fakeApi.respond(
+      "variations.use",
+      () =>
+        new Promise((resolve) => {
+          answer = resolve;
+        }) as never
+    );
+    openVariations({ frame: HOME, nodeId: "title" }, "v2");
+    const using = putPreviewInUse();
+    await fakeApi.requested("variations.use");
+    closeVariations();
+    openVariations({ frame: HOME, nodeId: "title" }, "v3");
+    answer({ doc: HOME, sets: SETS });
+    await using;
+    expect(previewOf(useVariations.getState())).toBe("v3");
   });
 
   it("hears a change of the variations from the server", () => {

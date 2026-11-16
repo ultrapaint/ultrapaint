@@ -495,3 +495,122 @@ inProject(
       assert.strictEqual(textOf(back.root, "heading"), "Hello");
     })
 );
+
+inProject(
+  "a thing taken out and put back in one request keeps its variations",
+  () =>
+    Effect.gen(function* () {
+      const { client } = yield* TestEnv;
+      yield* client["variations.add"]({ doc: HOME, node: "heading" });
+      const heading = {
+        id: "heading",
+        level: 1,
+        role: "heading",
+        text: "Hello",
+        type: "text",
+      } as const;
+      yield* client["documents.apply"]({
+        edits: [
+          { doc: HOME, ops: [{ id: "heading", op: "remove" }] },
+          {
+            doc: HOME,
+            ops: [{ node: heading, op: "insert", parent: "root" }],
+          },
+        ],
+      });
+      const { documents } = yield* client["variations.list"]({ canvas: "" });
+      assert.deepStrictEqual(Object.keys(documents[0]?.sets ?? {}), [
+        "heading",
+      ]);
+    })
+);
+
+inProject(
+  "a component's root takes the kind of container its variation drew",
+  () =>
+    Effect.gen(function* () {
+      const { client } = yield* TestEnv;
+      yield* client["documents.apply"]({
+        edits: [
+          {
+            doc: HOME,
+            ops: [
+              {
+                node: {
+                  id: "lede",
+                  role: "paragraph",
+                  text: "More",
+                  type: "text",
+                },
+                op: "insert",
+                parent: "root",
+              },
+            ],
+          },
+        ],
+      });
+      yield* client["components.makeApp"]({
+        id: HOME,
+        name: "Intro",
+        nodeIds: ["heading", "lede"],
+      });
+      const doc = "component:Intro";
+      const before = (yield* client["documents.get"]({ doc })).root;
+      const id = before?.id ?? "";
+      yield* client["variations.add"]({ doc, node: id });
+      const other = before?.type === "row" ? "column" : "row";
+      yield* client["documents.apply"]({
+        edits: [{ doc, ops: [{ id, op: "update", set: { type: other } }] }],
+      });
+      yield* client["variations.use"]({ doc, node: id, variation: "original" });
+      const after = (yield* client["documents.get"]({ doc })).root;
+      assert.strictEqual(after?.type, before?.type);
+    })
+);
+
+inProject(
+  "a variation whose tree is another node's is refused, and nothing changes",
+  () =>
+    Effect.gen(function* () {
+      const { client, repo } = yield* TestEnv;
+      const fs = yield* FileSystem.FileSystem;
+      const file = `designs/home${VARIATIONS_EXTENSION}`;
+      yield* fs.writeFileString(
+        `${repo}/${file}`,
+        JSON.stringify({
+          sets: {
+            heading: {
+              inUse: "original",
+              variations: [
+                { id: "original", name: "Original" },
+                {
+                  id: "v2",
+                  name: "Wrong",
+                  tree: { children: [], id: "root", padding: 0, type: "page" },
+                },
+              ],
+            },
+          },
+          version: 1,
+        })
+      );
+      const refused = yield* Effect.flip(
+        client["variations.use"]({
+          doc: HOME,
+          node: "heading",
+          variation: "v2",
+        })
+      );
+      assert.strictEqual(refused._tag, "BadRequest");
+      const page = yield* client["documents.get"]({ doc: HOME });
+      assert.strictEqual(textOf(page.root, "heading"), "Hello");
+    })
+);
+
+inProject("a page is never named so its variations would be its canvas's", () =>
+  Effect.gen(function* () {
+    const { client } = yield* TestEnv;
+    const page = yield* client["pages.create"]({ canvas: "", name: "Canvas" });
+    assert.notStrictEqual(page.id, "canvas.page.json");
+  })
+);
