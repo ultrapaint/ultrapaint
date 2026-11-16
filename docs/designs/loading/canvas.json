@@ -1,0 +1,59 @@
+{
+  "defaults": {
+    "font": "'Figtree Variable', system-ui, sans-serif"
+  },
+  "name": "Loading",
+  "routes": {},
+  "frames": {
+    "1a-opening.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "1b-taking-longer.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 1600,
+      "y": 0
+    },
+    "2a-switching.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 0,
+      "y": 1100
+    },
+    "3a-ssh.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 0,
+      "y": 2200
+    },
+    "3b-ssh-log.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 1600,
+      "y": 2200
+    },
+    "3c-ssh-failed.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 3200,
+      "y": 2200
+    },
+    "4a-in-the-browser.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 0,
+      "y": 3300
+    }
+  },
+  "version": 1
+}
