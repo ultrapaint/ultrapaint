@@ -14,6 +14,7 @@ import { pressWindowKey } from "../lib/keymap.ts";
 import { isMac } from "../lib/keys.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { select } from "../state/selection.ts";
 import { followServer } from "../state/server-data.ts";
 import {
   loadVariations,
@@ -259,5 +260,13 @@ describe("a thing's variations laid out beside its page", () => {
     expect(fakeApi.calls.filter((c) => c.method === "variations.use")).toEqual(
       []
     );
+  });
+
+  it("close when something is selected on the canvas, the one in use kept", () => {
+    show();
+    click(document.querySelector('[aria-label="Show Loud"]'));
+    act(() => select({ frame: HOME, nodeId: "page" }));
+    expect(document.querySelector("[data-variation]")).toBeNull();
+    expect(useVariations.getState().open).toBeNull();
   });
 });

@@ -187,13 +187,13 @@ inProject(
       );
       assert.strictEqual(refused._tag, "BadRequest");
 
-      // The one in use deleted, the original is put in use in its place.
+      // The one in use deleted, the heading stays as it is drawn, and none is in use.
       const left = yield* client["variations.remove"]({
         ...heading,
         variation: "v3",
       });
       assert.deepStrictEqual(rows(left.sets.heading), [
-        ["Original", "in use", null],
+        ["Original", "", "Hello"],
         ["Bold", "", "Hello"],
       ]);
 
@@ -454,5 +454,44 @@ inProject(
         ["Original", "", "Hello"],
         ["Variation 2", "in use", null],
       ]);
+    })
+);
+
+inProject(
+  "variations deleted, even the one in use, leave the thing as the one chosen drew it",
+  () =>
+    Effect.gen(function* () {
+      const { client } = yield* TestEnv;
+      const heading = { doc: HOME, node: "heading" };
+      const retitle = (text: string) =>
+        client["documents.apply"]({
+          edits: [
+            {
+              doc: HOME,
+              ops: [{ id: "heading", op: "update", set: { text } }],
+            },
+          ],
+        });
+      // Three takes, the second chosen.
+      for (const text of ["One", "Two", "Three"]) {
+        yield* client["variations.add"](heading);
+        yield* retitle(text);
+      }
+      yield* client["variations.use"]({ ...heading, variation: "v3" });
+      for (const variation of ["v2", "v3", "v4"]) {
+        yield* client["variations.remove"]({ ...heading, variation });
+      }
+      const page = yield* client["documents.get"]({ doc: HOME });
+      assert.strictEqual(textOf(page.root, "heading"), "Two");
+      // The original is kept, a take still to go back to; nothing is in use.
+      const { documents } = yield* client["variations.list"]({ canvas: "" });
+      assert.deepStrictEqual(rows(documents[0]?.sets.heading), [
+        ["Original", "", "Hello"],
+      ]);
+
+      // Used again, the original is put in, the look chosen not kept: nothing held it.
+      yield* client["variations.use"]({ ...heading, variation: "original" });
+      const back = yield* client["documents.get"]({ doc: HOME });
+      assert.strictEqual(textOf(back.root, "heading"), "Hello");
     })
 );

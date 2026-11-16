@@ -34,8 +34,11 @@ export interface OpenVariations {
   /** The frame its page, or itself on the canvas, is drawn in. */
   readonly frame: string;
   readonly node: string;
-  /** The variation shown in the preview: the one in use until another is shown. */
-  readonly preview: string;
+  /**
+   * The variation shown in the preview: the one in use until another is shown; null for the
+   * thing as it is drawn, while none is in use.
+   */
+  readonly preview: string | null;
   /** What was selected when they opened, given back when they close. */
   readonly selected: Selection | null;
 }
@@ -160,8 +163,8 @@ export const openVariations = (thing: Thing, preview?: string) => {
   });
 };
 
-/** Shows a variation in the preview; nothing is written. */
-export const showVariation = (variation: string) =>
+/** Shows a variation in the preview (null: the thing as it is drawn); nothing is written. */
+export const showVariation = (variation: string | null) =>
   useVariations.setState(({ open }) =>
     open ? { open: { ...open, preview: variation } } : {}
   );
@@ -173,7 +176,11 @@ export const stepVariation = (by: 1 | -1) => {
   if (!(state.open && set)) {
     return;
   }
-  const ids = set.variations.map((v) => v.id);
+  // With none in use, the thing as it is drawn is one of the stops.
+  const ids = [
+    ...(set.inUse === null ? [null] : []),
+    ...set.variations.map((v) => v.id),
+  ];
   const at = ids.indexOf(state.open.preview);
   const next = ids[(at + by + ids.length) % ids.length];
   if (next !== undefined) {
@@ -198,6 +205,21 @@ export const closeVariations = () => {
   }
 };
 
+/**
+ * Selecting something on the canvas closes the variations, the one in use kept (the person's
+ * answer of 16 Nov), so ← and → walk the selection again. Answers the function that stops it.
+ */
+export const closeOnSelecting = () =>
+  useEditor.subscribe((now, before) => {
+    if (
+      now.selection !== null &&
+      now.selection !== before.selection &&
+      useVariations.getState().open !== null
+    ) {
+      useVariations.setState({ open: null });
+    }
+  });
+
 /** Whether the preview shows another than the one in use. */
 export const previewDiffers = (state: VariationsStore): boolean => {
   const set = openSet(state);
@@ -216,7 +238,7 @@ export const putPreviewInUse = async () => {
   if (!open) {
     return;
   }
-  if (previewDiffers(state)) {
+  if (previewDiffers(state) && open.preview !== null) {
     takeVariations(
       await api().request("variations.use", {
         doc: open.doc,
