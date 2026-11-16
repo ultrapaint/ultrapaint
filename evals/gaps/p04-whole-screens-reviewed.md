@@ -33,3 +33,4 @@ It applied to the new chat's starters too.
 - `rt-2`: 2026-11-11, its sections' gaps caught: shipped 3/9 (+2 partly), review-table 2/9 (+2 partly), review-inventory 0/9 (+4 partly) (reviewed by opus, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2/report.md)
 - `ep-1`: 2026-11-11, its sections' gaps caught: review-table@opus+untold 1/6 (+2 partly), review-table@opus+told 1/6 (+3 partly), review-table@gpt-6.1-sol+untold 2/6 (+2 partly), review-table@gpt-6.1-sol+told 2/6 (+2 partly) (reviewed by opus, gpt-6.1-sol, judged by cursor:grok-4.7-high, effort high; runs/ep-1/report.md)
 - `chk-1`: 2026-11-11, its sections' gaps caught: shipped 0/3, shipped+checks 3/3 (opus, effort high; runs/chk-1/report.md)
+- `rt-2-gpt`: 2026-11-16, its sections' gaps caught: shipped 2/6 (+2 partly), review-table 2/6 (+3 partly), review-inventory 2/6 (+2 partly) (reviewed by gpt-6.1-sol, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2-gpt/report.md)

@@ -2,7 +2,7 @@
 id: p11
 title: Words written after the drawing
 kind: process
-status: testing
+status: done
 found: 2026-11-06
 source: catchable-2 (runs/catchable-2/report.md), with p06 and ADR 0061's outline
 skill: [SKILL.md, references/words/interface.md]
@@ -62,3 +62,5 @@ problems.
 - `ep-1`: 2026-11-11, its sections' gaps caught: review-table@opus+untold 31/92 (+31 partly), review-table@opus+told 60/92 (+17 partly), review-table@gpt-6.1-sol+untold 25/92 (+34 partly), review-table@gpt-6.1-sol+told 57/92 (+17 partly) (reviewed by opus, gpt-6.1-sol, judged by cursor:grok-4.7-high, effort high; runs/ep-1/report.md)
 - `g02-2`: 2026-11-11, its sections' gaps caught: shipped 7/12 (+4 partly), g02-three-times 9/12 (+2 partly) (opus, effort high; runs/g02-2/report.md)
 - `chk-1`: 2026-11-11, its sections' gaps caught: shipped 69/90 (+10 partly), shipped+checks 63/90 (+8 partly) (opus, effort high; runs/chk-1/report.md)
+- `rt-2-gpt`: 2026-11-16, its sections' gaps caught: shipped 57/92 (+14 partly), review-table 69/92 (+4 partly), review-inventory 71/92 (+5 partly) (reviewed by gpt-6.1-sol, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2-gpt/report.md)
+- Decision of 2026-11-16 (made by the agent, as the person asked): `review-inventory` shipped, as `references/review.md` and the two passes of "Reviewing a design". Against shipped, gaps caught: with Opus reviewing (`rt-2`) +8 points (−2 to +19), its held-out gaps 67% against 57%; with GPT-6.1-Sol (`rt-2-gpt`) +14 points (+4 to +24), held-out 62% against 58%; `review-table` was behind it on each. Of the findings no gap matched, rated by Opus with the skill (`rate-rt-2-gpt`, accepted unseen), real ones per review: shipped 7.6, review-table 7.9, review-inventory 8.7; noise 0.7, 0.9 and 1.3. A GPT review takes 37% longer and 20% more tokens; an Opus one the same time.

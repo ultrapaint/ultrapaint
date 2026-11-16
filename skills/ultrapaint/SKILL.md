@@ -318,10 +318,19 @@ says what the content already shows is noise: remove it, rather than shrinking o
 
 ## Reviewing a design
 
-A screen, a page or one section of one, made by someone else or by you: name its kind and open the
-kind's file and the files it names, then check it as step 5 says, against what the picture shows:
-each element, each text, each icon, each gap. Report each failure with the rule it breaks (its
-file and its words), where it is, and the fix.
+A screen, a page or one section of one, made by someone else or by you, in two passes.
+
+1. **Write its inventory** before judging anything: its parts in order; every word shown, as
+   written; every control with what it does; every state the code holds (empty, loading, error,
+   selected, saving) and what each shows. No look and no opinion in it.
+2. **Check.** Open `references/review.md` and run its rows on words, hierarchy, states and
+   usability against the inventory, line by line: what is said twice, what is named two ways, what
+   a state lacks. Run the rest of its rows against what the picture shows: each element, each
+   text, each icon, each gap. Then name the kind, open the kind's file and the files it names, and
+   check it as step 5 says.
+
+Report each failure with the rule it breaks (its file and its words), where it is, and the fix.
+The inventory is yours: it is not part of the report.
 
 ## Making the design system
 

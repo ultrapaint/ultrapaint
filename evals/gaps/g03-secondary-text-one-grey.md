@@ -50,3 +50,4 @@ screenshot.
 - `g02-2`: 2026-11-11, caught: shipped 3/3, g02-three-times 2/3 (opus, effort high; runs/g02-2/report.md)
 - `propose`: 2026-11-11, the fix-or-leave call (Opus with the skill, the prompt of cf5bb6f8) leaves all four of this gap's findings in rt-2, citing "A group's label over navigation items or settings rows is small and quiet … never a bold heading" and "a group label outranks its details by weight or space": it reads the label's space above as the outranking, so the quiet rule wins over the person's correction (runs/rt-2/propose-gaps.md)
 - `chk-1`: 2026-11-11, caught: shipped 2/3 (+1 partly), shipped+checks 2/3 (opus, effort high; runs/chk-1/report.md)
+- `rt-2-gpt`: 2026-11-16, caught: shipped 0/2, review-table 0/2, review-inventory 1/2 (reviewed by gpt-6.1-sol, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2-gpt/report.md)
