@@ -54,8 +54,11 @@ interface EditorLink {
 
 const NODE_ID_RE = /^[\w-]+$/;
 
-/** An http(s) URL with a query: the query, before any fragment. */
-const LINK_RE = /^https?:\/\/[^\s?#]+\?([^\s#]*)(?:#\S*)?$/;
+/**
+ * An editor's URL with a query: the query, before any fragment. An http(s) one, or the desktop
+ * app's own editor's, under its scheme (`ultrapaint://app/…`, ADR 0100).
+ */
+const LINK_RE = /^(?:https?|ultrapaint):\/\/[^\s?#]+\?([^\s#]*)(?:#\S*)?$/;
 
 /** A query's parameters, decoded; null when one cannot be. */
 const queryOf = (query: string): Map<string, string> | null => {

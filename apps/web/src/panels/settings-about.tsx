@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { UpdateButton, useAppUpdate } from "../components/app-update.tsx";
 import { Logo } from "../components/logo.tsx";
-import { platform } from "../platform.ts";
+import { platform, serverAddress } from "../platform.ts";
 import { Group, Row, Status } from "./settings-group.tsx";
 
 const REPOSITORY = "https://github.com/ultrapaint/ultrapaint";
@@ -17,10 +17,7 @@ const useVersion = () => {
   const [version, setVersion] = useState<string | null>(null);
   useEffect(() => {
     const controller = new AbortController();
-    // The server's own address, from the socket's: ws(s)://host/ws answers http(s)://host/api.
-    const health = new URL("/api/health", platform().serverUrl);
-    health.protocol = health.protocol === "wss:" ? "https:" : "http:";
-    fetch(health, {
+    fetch(serverAddress("/api/health"), {
       signal: controller.signal,
     })
       .then((response) => response.json())

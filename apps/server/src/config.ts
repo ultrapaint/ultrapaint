@@ -157,6 +157,13 @@ export class ServerConfig extends Context.Service<
      */
     readonly allowedHosts: readonly string[];
     /**
+     * Origins of pages served from elsewhere that may use this server, beside its own and
+     * loopback's: the desktop app's own editor, `ultrapaint://app` (ADR 0100). Given with
+     * `--allowed-origin`, or `ULTRAPAINT_ALLOWED_ORIGIN`, which an older command on a remote
+     * machine ignores where it would refuse a flag it does not know.
+     */
+    readonly allowedOrigins: readonly string[];
+    /**
      * The port the editor is reached on when another process serves it on this host (Vite,
      * under `ultrapaint --dev`): the run file and the ready line name it rather than the
      * server's own, so that whoever attaches lands on the editor. The server's port otherwise.
@@ -206,6 +213,7 @@ export class ServerConfig extends Context.Service<
     const config = (dir: string) =>
       ServerConfig.of({
         allowedHosts: [],
+        allowedOrigins: [],
         briefing: false,
         cwd: tmpdir(),
         discovery: false,

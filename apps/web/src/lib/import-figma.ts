@@ -6,6 +6,7 @@
 
 import { type FigmaImport, MAX_FIG_BYTES } from "@ultrapaint/contracts/figma";
 import { toast } from "sonner";
+import { serverAddress } from "../platform.ts";
 import { showSetup } from "../state/design-system-setup.ts";
 import { ensureEditable } from "../state/setup.ts";
 import { useSync } from "../state/sync.ts";
@@ -14,7 +15,7 @@ const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
 const upload = async (file: File): Promise<FigmaImport> => {
-  const response = await fetch("/api/figma/import", {
+  const response = await fetch(serverAddress("/api/figma/import"), {
     body: file,
     headers: {
       "content-type": "application/octet-stream",

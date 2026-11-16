@@ -38,6 +38,7 @@ import {
   Semaphore,
 } from "effect";
 import { Agents } from "./agents.ts";
+import type { AppEditor } from "./app-editor.ts";
 import {
   ProjectOpen,
   ServerNotOurs,
@@ -48,7 +49,11 @@ import {
 import { Folders } from "./folders.ts";
 import { LoginShell } from "./login-shell.ts";
 import { OpeningReport } from "./opening-report.ts";
-import { ProjectServer, type RunningServer } from "./project-server.ts";
+import {
+  ProjectServer,
+  type RunningServer,
+  serverVersion,
+} from "./project-server.ts";
 import {
   type Project,
   ProjectStore,
@@ -242,8 +247,12 @@ export class OpenProject extends Context.Service<
     }) => Effect.Effect<boolean>;
   }
 >()("ultrapaint/desktop/OpenProject") {
-  /** `dataDir` is the app's data directory, where unsaved sessions are kept. */
-  static readonly layer = (dataDir: string) =>
+  /**
+   * `dataDir` is the app's data directory, where unsaved sessions are kept. `appEditor` is the
+   * app's own editor (ADR 0100): a server of its version is shown in it, any other in the editor
+   * it serves itself. Without, every server serves its own.
+   */
+  static readonly layer = (dataDir: string, appEditor?: AppEditor) =>
     Layer.effect(
       OpenProject,
       Effect.gen(function* () {
@@ -399,13 +408,27 @@ export class OpenProject extends Context.Service<
             shell.show(view)
           );
 
-        /** Shows a server's editor. */
-        const showEditor = (server: RunningServer, view: EditorView = {}) =>
-          showPage({
+        /**
+         * Shows the editor for the server at `url`: the app's own when the server runs the app's
+         * version (cached, its storage kept, ADR 0100), the one the server serves otherwise.
+         */
+        const showServer = Effect.fnUntraced(function* (
+          url: string,
+          version: Effect.Effect<string | undefined>,
+          view: EditorView = {}
+        ) {
+          const own =
+            appEditor !== undefined && (yield* version) === appEditor.version;
+          yield* showPage({
             _tag: "Editor",
             ...(view.keepLocation ? { keepLocation: true } : {}),
-            url: server.url,
+            ...(own ? { server: url, url: appEditor.url } : { url }),
           });
+        });
+
+        /** Shows a server's editor. */
+        const showEditor = (server: RunningServer, view: EditorView = {}) =>
+          showServer(server.url, server.version, view);
 
         /** Starts a project's server, in a scope of its own; nothing is shown. */
         const startServer = Effect.fn("OpenProject.startServer")(function* (
@@ -421,10 +444,8 @@ export class OpenProject extends Context.Service<
                   moved: (movedTo) =>
                     Effect.suspend(() =>
                       open?.project.id === project.id && onEditor
-                        ? showPage({
-                            _tag: "Editor",
+                        ? showServer(movedTo, serverVersion(movedTo), {
                             keepLocation: true,
-                            url: movedTo,
                           })
                         : Effect.void
                     ),

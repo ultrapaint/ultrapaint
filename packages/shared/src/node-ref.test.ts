@@ -155,6 +155,12 @@ describe("node references", () => {
 });
 
 describe("editor links", () => {
+  it("are the desktop app's own editor's too, under its scheme (ADR 0100)", () => {
+    expect(
+      parseEditorLink("ultrapaint://app/?canvas=redesign&route=/vibe&node=c_1")
+    ).toEqual({ canvas: "redesign", nodeId: "c_1", page: "/vibe" });
+  });
+
   it("name a page without a node", () => {
     expect(
       parseEditorLink("http://localhost:4643/?canvas=samples&route=/pricing")

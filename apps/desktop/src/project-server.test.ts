@@ -3,7 +3,13 @@ import path from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, Exit, FileSystem, Layer, Scope } from "effect";
-import { agentsWorking, ProjectServer, serverEnv } from "./project-server.ts";
+import { APP_ORIGIN } from "./app-editor.ts";
+import {
+  agentsWorking,
+  ProjectServer,
+  serverEnv,
+  serverVersion,
+} from "./project-server.ts";
 
 const fake = path.resolve(import.meta.dirname, "../testing/fake-server.mjs");
 
@@ -75,6 +81,9 @@ describe("ProjectServer", () => {
           path.join(dir, "session"),
         ]);
         // The person's folder is where the app keeps it (ADR 0091).
+        // The app's own editor may use it (ADR 0100).
+        const origin = started.args.indexOf("--allowed-origin");
+        assert.strictEqual(started.args[origin + 1], APP_ORIGIN);
         const at = started.args.indexOf("--user-dir");
         assert.strictEqual(started.args[at + 1], path.join(dir, "sync"));
         assert.isTrue(alive(started.pid));
@@ -134,7 +143,12 @@ describe("agentsWorking", () => {
         const server = createServer((_request, response) => {
           response.setHeader("content-type", "application/json");
           response.end(
-            JSON.stringify({ ok: true, token: "run-1", working: 2 })
+            JSON.stringify({
+              ok: true,
+              token: "run-1",
+              version: "1.2.3",
+              working: 2,
+            })
           );
         });
         const port = yield* Effect.callback<number>((resume) => {
@@ -161,6 +175,9 @@ describe("agentsWorking", () => {
           yield* agentsWorking("http://127.0.0.1:9", "run-1"),
           0
         );
+        // And the version it runs, which decides the editor it is shown in (ADR 0100).
+        assert.strictEqual(yield* serverVersion(url), "1.2.3");
+        assert.isUndefined(yield* serverVersion("http://127.0.0.1:9"));
       }).pipe(Effect.scoped)
   );
 });

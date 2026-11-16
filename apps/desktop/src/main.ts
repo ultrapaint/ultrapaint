@@ -5,6 +5,7 @@
  * Nothing of the editor lives here; what the app decides lives in its services, and this file
  * connects them to Electron.
  */
+import { existsSync, statSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { NodeServices } from "@effect/platform-node";
@@ -28,6 +29,7 @@ import { AgentDownloads } from "./agent-downloads.ts";
 import { releasesFor } from "./agent-releases.ts";
 import { AgentSettings } from "./agent-settings.ts";
 import { Agents } from "./agents.ts";
+import { APP_EDITOR_URL, APP_SCHEME } from "./app-editor.ts";
 import { type BridgeInfo, INFO_CHANNEL } from "./bridge.ts";
 import {
   type BridgeStates,
@@ -97,6 +99,7 @@ const CONTROLS_INSET = TRAFFIC_LIGHTS.x + 52 + 24;
  * meanwhile: what the app is doing for the open project, and the window's buttons on a Mac.
  */
 const states: BridgeStates = {
+  editorServer: null,
   opening: null,
   shellStatus: null,
   update: null,
@@ -116,7 +119,6 @@ const tell = <K extends StateName>(name: K, value: StateValue<K>) => {
  * server behind them: the welcome page. Its absolute paths (`/assets/…`) resolve as they do
  * when a server serves it.
  */
-const APP_SCHEME = "ultrapaint";
 const webDir = path.join(appDir, "web");
 protocol.registerSchemesAsPrivileged([
   {
@@ -125,15 +127,43 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
-/** A file of the editor's build, and nothing outside it. */
-const serveWeb = (request: Request) => {
-  const file = path.join(
-    webDir,
-    decodeURIComponent(new URL(request.url).pathname)
-  );
-  return file.startsWith(webDir + path.sep)
-    ? net.fetch(pathToFileURL(file).href)
-    : new Response(null, { status: 404 });
+/**
+ * What the app's own pages may connect to: themselves and a server on this machine, which a
+ * project over SSH is forwarded to; nothing else (ADR 0100). The start page sets a stricter one
+ * of its own.
+ */
+const CONNECT_POLICY = [
+  "connect-src 'self'",
+  // No IPv6 literal: a policy cannot name one, and the app's servers listen on 127.0.0.1.
+  ...["127.0.0.1", "localhost"].flatMap((host) => [
+    `http://${host}:*`,
+    `ws://${host}:*`,
+  ]),
+].join(" ");
+
+/**
+ * A file of the editor's build, and nothing outside it. An address that names no file (no
+ * extension) is the editor's own page, `index.html`, whose router reads it, as the server serves
+ * it (ADR 0100); a missing file stays missing.
+ */
+const serveWeb = async (request: Request) => {
+  const { pathname } = new URL(request.url);
+  const file = path.join(webDir, decodeURIComponent(pathname));
+  if (!(file === webDir || file.startsWith(webDir + path.sep))) {
+    return new Response(null, { status: 404 });
+  }
+  const isFile = existsSync(file) && statSync(file).isFile();
+  if (!isFile && path.extname(file) !== "") {
+    return new Response(null, { status: 404 });
+  }
+  const page = isFile ? file : path.join(webDir, "index.html");
+  const response = await net.fetch(pathToFileURL(page).href);
+  if (!page.endsWith(".html")) {
+    return response;
+  }
+  const headers = new Headers(response.headers);
+  headers.set("content-security-policy", CONNECT_POLICY);
+  return new Response(response.body, { headers, status: response.status });
 };
 
 const showView = (view: View) =>
@@ -142,9 +172,15 @@ const showView = (view: View) =>
       return;
     }
     if (view._tag === "Editor") {
+      // Told before the page loads: the app's own editor reads it as it starts (ADR 0100).
+      tell("editorServer", view.server ?? null);
       const next = new URL(view.url);
       const was = window.webContents.getURL();
-      if (view.keepLocation && was.startsWith("http")) {
+      // The page it was on, in either editor: the server's (http) or the app's own.
+      if (
+        view.keepLocation &&
+        (was.startsWith("http") || was.startsWith(APP_EDITOR_URL))
+      ) {
         const current = new URL(was);
         next.pathname = current.pathname;
         next.search = current.search;
@@ -294,7 +330,12 @@ const serverLaunch = {
 const runtime = ManagedRuntime.make(
   Layer.mergeAll(
     NewDesigns.layer({ home: app.getPath("home"), launch: serverLaunch }).pipe(
-      Layer.provideMerge(OpenProject.layer(dataDir))
+      Layer.provideMerge(
+        OpenProject.layer(dataDir, {
+          url: APP_EDITOR_URL,
+          version: app.getVersion(),
+        })
+      )
     ),
     Notices.layer,
     Updater.layer({

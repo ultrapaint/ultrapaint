@@ -128,6 +128,11 @@ export const fakeShell = (recorded: Recorded) =>
     })
   );
 
+/** The version every fake server runs, but one in a folder (or on a host) named `older`. */
+export const FAKE_VERSION = "1.0.0";
+const versionOf = (name: string) =>
+  Effect.succeed(name.includes("older") ? "0.9.0" : FAKE_VERSION);
+
 /**
  * A server per start, at `http://127.0.0.1/<folder name>`, whose stop is recorded; a folder
  * named `broken` does not start, one named `attached` has a server running already, one named
@@ -173,6 +178,7 @@ export const fakeServers = (recorded: Recorded) =>
             attached,
             token: `token-${name}`,
             url: `http://127.0.0.1/${name}`,
+            version: versionOf(name),
             working: Effect.sync(() => recorded.working[name] ?? 0),
           };
         }),
@@ -214,6 +220,7 @@ export const fakeRemoteProjects = (recorded: Recorded) =>
             attached: false,
             token: `token-${name}`,
             url: `http://127.0.0.1/${project.host}/${project.path.split("/").at(-1) ?? ""}`,
+            version: versionOf(project.host),
             working: Effect.sync(() => recorded.working[name] ?? 0),
           };
         }),

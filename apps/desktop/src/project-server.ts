@@ -11,11 +11,13 @@ import {
   Effect,
   Fiber,
   Layer,
+  Option,
   Schema,
   type Scope,
   Stream,
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import { APP_ORIGIN } from "./app-editor.ts";
 import { ServerStartError } from "./errors.ts";
 import { OpeningReport } from "./opening-report.ts";
 import { watchReadyLine } from "./ready-line.ts";
@@ -55,6 +57,11 @@ export interface RunningServer {
   readonly token: string;
   readonly url: string;
   /**
+   * The version of `ultrapaint` it runs, as its health check says; none when it does not answer
+   * or does not say. The app's own editor talks only to a server of the app's version (ADR 0100).
+   */
+  readonly version: Effect.Effect<string | undefined>;
+  /**
    * How many agents are at work in it now, as its health check says; none when it does not
    * answer, or another server answers in its place.
    */
@@ -64,13 +71,14 @@ export interface RunningServer {
 const Health = Schema.fromJsonString(
   Schema.Struct({
     token: Schema.optional(Schema.String),
+    version: Schema.optional(Schema.String),
     working: Schema.optional(Schema.Number),
   })
 );
 const decodeHealth = Schema.decodeUnknownEffect(Health);
 
-/** The agents at work in the server at `url`, if it is the run with `token`. */
-export const agentsWorking = (url: string, token: string) =>
+/** The health check of the server at `url`; none when it does not answer, or not as one. */
+const healthOf = (url: string) =>
   Effect.tryPromise({
     catch: () => "no answer" as const,
     try: (signal) =>
@@ -80,10 +88,23 @@ export const agentsWorking = (url: string, token: string) =>
   }).pipe(
     Effect.timeout("3 seconds"),
     Effect.flatMap(decodeHealth),
-    Effect.map((health) =>
-      health.token === token ? (health.working ?? 0) : 0
-    ),
-    Effect.orElseSucceed(() => 0)
+    // A server that does not answer, or not as a health check, says nothing: no version, no
+    // agents at work, as callers read it.
+    Effect.option
+  );
+
+/** The version the server at `url` runs; none when it does not say. */
+export const serverVersion = (url: string) =>
+  Effect.map(healthOf(url), (health) =>
+    Option.isSome(health) ? health.value.version : undefined
+  );
+
+/** The agents at work in the server at `url`, if it is the run with `token`. */
+export const agentsWorking = (url: string, token: string) =>
+  Effect.map(healthOf(url), (health) =>
+    Option.isSome(health) && health.value.token === token
+      ? (health.value.working ?? 0)
+      : 0
   );
 
 /** How long a server may take to say it listens: a cold start compiles the server's sources. */
@@ -151,6 +172,9 @@ export class ProjectServer extends Context.Service<
                   // Its stdin is a pipe from this process, which no one writes: when the app
                   // goes, however it goes, the pipe closes and the server stops.
                   "--stop-with-stdin",
+                  // The app's own editor talks to it from the app's origin (ADR 0100).
+                  "--allowed-origin",
+                  APP_ORIGIN,
                 ],
                 {
                   cwd: options.cwd,
@@ -225,6 +249,7 @@ export class ProjectServer extends Context.Service<
             attached: ready.attached === true,
             token: ready.token,
             url: ready.url,
+            version: serverVersion(ready.url),
             working: agentsWorking(ready.url, ready.token),
           } satisfies RunningServer;
         });

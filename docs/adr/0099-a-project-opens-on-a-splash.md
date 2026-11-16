@@ -5,6 +5,9 @@ start page while a project opens) and 0062 (the start page's Opening card). The 
 taken in the `project-loading` decisions deck, and the drawings are the Loading canvas
 (`docs/designs/loading/`). Story UP-11.
 
+> Extended by [0100](0100-the-desktop-app-opens-projects-in-its-own-editor.md), 2026-11-16: the editor
+> a project opens in is the app's own, so a switch reloads one page of one origin.
+
 ## Context
 
 Opening a project showed three pages in turn: the start page with an "Opening bike-shop…" card,
