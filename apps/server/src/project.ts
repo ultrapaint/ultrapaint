@@ -314,8 +314,12 @@ export class ProjectManager extends Context.Service<
         const infoWith = (waiting: boolean): Effect.Effect<ProjectInfo> =>
           Effect.gen(function* () {
             // First: waited for, the rest is read as the opening left it (its settings in force).
-            const facts = yield* (waiting ? useOnceOpened : use)(
-              projectFacts
+            // An opening under way is waited for even while a project is open (the one it
+            // replaces): the answer is the project being opened (ADR 0099).
+            const facts = yield* (
+              waiting
+                ? Effect.andThen(settled, use(projectFacts))
+                : use(projectFacts)
             ).pipe(Effect.orElseSucceed(() => ({ configured: false })));
             const { displayName } = yield* profile.get;
             const settings = yield* settingsService.get;
