@@ -127,7 +127,9 @@ file (`canvas.variations.json` beside `canvas.json`), which goes with the node.
 - `pricing@bold.page.json` becomes the variation **Bold** of the page `pricing`'s root. The
   conversion runs once, when the server first reads a canvas that still has variant files: each
   is written into its page's `.variations.json`, then the variant file and `canvas.json`'s
-  `variants` are removed, as one history point.
+  `variants` are removed, as one history point. In a folder whose settings are not saved yet
+  (ADR 0092's first-change save), nothing is written on reading: the variant files are read as
+  variations, and the conversion runs with the first change.
 - **The prototype's variant switch goes.** The prototype shows each page's variation in use, as
   its page does. To present Bold, the person puts Bold in use. The editor's URL loses `&variant=`,
   and the router serves one page per route.
