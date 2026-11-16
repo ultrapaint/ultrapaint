@@ -268,5 +268,8 @@ describe("a thing's variations laid out beside its page", () => {
     act(() => select({ frame: HOME, nodeId: "page" }));
     expect(document.querySelector("[data-variation]")).toBeNull();
     expect(useVariations.getState().open).toBeNull();
+    // → walks the selection again: into the page, to its heading.
+    press("arrowright");
+    expect(useEditor.getState().selection?.nodeId).toBe("title");
   });
 });

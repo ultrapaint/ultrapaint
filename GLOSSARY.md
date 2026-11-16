@@ -118,8 +118,9 @@ refactor and the board view left.
   canvas, never in the prototype; a link to it is given a route when it is picked. _Avoid_ "URL"
   for it in the editor's words; the URL is what a route is written as.
 - **Variation**: another way to draw something on the canvas (a page, a container, a component's
-  main tree, a text, an image), kept with it (ADR 0098). Of a thing's variations one is **in use**,
-  the **original** first; each keeps its own edits. Made by Ask an agent or the inspector's +,
+  main tree, a text, an image), kept with it (ADR 0098). Of a thing's variations one is **in use**
+  (none once it is deleted, the thing staying as it is drawn), the **original** first; each keeps
+  its own edits. Made by Ask an agent or the inspector's +,
   chosen among them laid out beside the page, with the thing in its page as the **variation
   preview** (not the editor's Preview), where choosing writes only on Use this; kept in a designs
   file beside the page (`notes.variations.json`, the server's `variations` module, the web's
