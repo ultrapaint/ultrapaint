@@ -658,6 +658,16 @@ export class OpenProject extends Context.Service<
           was: Open | null,
           nextName: string
         ) {
+          // One a switch before left open goes too: its agents are asked about as well, unless
+          // the person agreed as that switch began. Declined, nothing changes.
+          const kept = previous;
+          if (
+            kept &&
+            !previousAgreed &&
+            !(yield* agreeToStop("switch", kept))
+          ) {
+            return "stay" as const;
+          }
           const working =
             was && !was.server.attached ? yield* was.server.working : 0;
           if (!was || working === 0) {
@@ -979,9 +989,14 @@ export class OpenProject extends Context.Service<
             );
             // The next one is ready: the one a switch left open goes, or the person goes back;
             // unless another switch began while the times were written, which settles it then.
-            if (opening === null && open?.project.id === underway.project.id) {
-              yield* settlePrevious(underway.project.name);
-            }
+            // Under the switch's permit, so no switch begins while the person is asked.
+            yield* switching.withPermits(1)(
+              Effect.suspend(() =>
+                opening === null && open?.project.id === underway.project.id
+                  ? settlePrevious(underway.project.name)
+                  : Effect.void
+              )
+            );
           }),
           remove,
           restart: switching.withPermits(1)(

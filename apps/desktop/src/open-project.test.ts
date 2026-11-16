@@ -468,6 +468,32 @@ describe("OpenProject", () => {
   );
 
   it.effect(
+    "a third project picked while the second's editor does its steps asks about the first one's agents",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const a = yield* store.add("/work/a");
+          const b = yield* store.add("/work/b");
+          const c = yield* store.add("/work/c");
+          yield* open.open(a.id);
+          yield* open.openingDone({});
+          yield* open.open(b.id);
+          recorded.working.a = 1;
+          recorded.answers.push(false);
+          yield* open.open(c.id);
+          assert.deepStrictEqual(recorded.questions, [
+            "An agent is working in a",
+          ]);
+          // Declined: nothing changes, a stays behind b's editor.
+          assert.deepStrictEqual(recorded.events, ["start a", "start b"]);
+          assert.strictEqual(Option.getOrThrow(yield* open.current).id, b.id);
+        })
+      )
+  );
+
+  it.effect(
     "Cancel while the first project's editor does its steps goes to the start screen, and stops it",
     () =>
       withApp((recorded) =>
