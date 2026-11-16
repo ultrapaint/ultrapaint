@@ -11,6 +11,7 @@ import {
   emptyCanvasLayout,
   type PageList,
 } from "@ultrapaint/contracts/pages";
+import { variationsFileOf } from "@ultrapaint/contracts/variations";
 import { serialise } from "@ultrapaint/design-document/factories";
 import { isPageFile, PAGE_EXTENSION } from "@ultrapaint/design-document/tree";
 import {
@@ -294,9 +295,12 @@ export const makePagesReading = Effect.gen(function* () {
       const file = `${count === 1 ? stem : `${stem}-${count}`}${PAGE_EXTENSION}`;
       return variant === undefined ? file : variantPathOf(file, variant);
     };
+    // `canvas.page.json` would keep its variations where the canvas keeps its own (ADR 0098).
+    const canvasVariations = variationsFileOf(CANVAS_FILE);
     let n = 1;
     while (
       taken.includes(fileFor(n)) ||
+      variationsFileOf(fileFor(n)) === canvasVariations ||
       (yield* exists(path.join(root, canvas, fileFor(n))))
     ) {
       n += 1;

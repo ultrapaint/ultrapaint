@@ -43,7 +43,12 @@ import {
   useFrameBreakpoint,
   useSelectedIn,
 } from "../state/selection.ts";
-import { drawnIn, drawnWith, useVariations } from "../state/variations.ts";
+import {
+  drawnIn,
+  drawnWith,
+  useVariations,
+  writesThrough,
+} from "../state/variations.ts";
 import { FramePresence, PresenceLabel } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
 import { onScreen, screenPx, UNZOOM } from "./camera.ts";
@@ -193,7 +198,12 @@ export const Frame = memo(
       rects: (rects) => useEditor.getState().setRects(frameId, rects),
       rendered: () => setKept(true),
       size: (size) => useEditor.getState().setSize(frameId, size),
-      textCommit: (nodeId, text) => commitText(frameId, nodeId, text),
+      // Text typed in a preview of another variation is not written (ADR 0098).
+      textCommit: (nodeId, text) => {
+        if (writesThrough(frameId)) {
+          commitText(frameId, nodeId, text);
+        }
+      },
     });
 
     // The document at the frame's width, in the design system (the preview's look over it),

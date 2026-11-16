@@ -122,6 +122,7 @@ const VariationRow = ({
     <ContextMenuTrigger
       render={
         <button
+          aria-label={variation.name}
           className="-mx-2 flex h-7 items-center gap-2 rounded-md px-2 text-left font-body-medium outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25"
           data-variation-row={variation.id}
           onClick={() => openVariations(thing, variation.id)}

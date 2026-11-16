@@ -501,6 +501,8 @@ export class DocumentService extends Context.Service<
         yield* Effect.forEach(input.edits, (change) => load(change.doc), {
           discard: true,
         });
+        // Each document's tree once all its edits are made: what its variations are kept against.
+        const finalRoots = new Map<string, DesignNode>();
         const editIn = (tx: EditTransaction) =>
           Effect.fnUntraced(function* (change: DocumentEdit) {
             const loaded = yield* load(change.doc, false);
@@ -533,7 +535,7 @@ export class DocumentService extends Context.Service<
                 }),
             });
             yield* writeDocument(tx, change.doc, loaded, result.root);
-            yield* dropSetsGone(tx, change.doc, result.root);
+            finalRoots.set(change.doc, result.root);
             created.push(...result.created);
             touched.push(change.doc);
           });
@@ -549,6 +551,10 @@ export class DocumentService extends Context.Service<
                 discard: true,
               }
             );
+            // A node taken out and put back by a later edit of the request keeps its set.
+            for (const [doc, tree] of finalRoots) {
+              yield* dropSetsGone(tx, doc, tree);
+            }
           })
         );
         const documents = yield* Effect.forEach(touched, (doc) =>

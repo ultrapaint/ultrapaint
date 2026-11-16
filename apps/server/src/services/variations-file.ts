@@ -162,7 +162,11 @@ export const opsPutting = (
     );
   const now = fieldsOf(root);
   const next = fieldsOf(take);
-  const set: Record<string, unknown> = { ...next };
+  // A component's root may be a group, a row or a column in one variation and another in the next.
+  const set: Record<string, unknown> = {
+    ...next,
+    ...(take.type !== root.type && { type: take.type }),
+  };
   for (const key of Object.keys(now)) {
     if (!(key in next)) {
       set[key] = null;

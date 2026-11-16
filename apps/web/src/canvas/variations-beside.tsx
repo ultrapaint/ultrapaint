@@ -200,14 +200,16 @@ export const VariationsBeside = ({
   const isOpen = open !== null;
   useEffect(() => (isOpen ? closeOnSelecting() : undefined), [isOpen]);
 
-  // Opened, the camera fits the page, or the board, and its variations.
+  // Opened, the camera fits the page, or the board, and its variations; again once they are all
+  // measured, as tall as they draw, and not after, so a move of the camera is left as it is.
   const key = open ? `${open.doc}/${open.node}` : null;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: once per thing opened, as first laid out.
+  const measured = ids.length > 0 && ids.every((id) => id in heights);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once per thing opened, and once measured.
   useEffect(() => {
     if (key !== null && page && boxes) {
       zoomToBoxes([page, ...Object.values(boxes)]);
     }
-  }, [key]);
+  }, [key, measured]);
 
   if (!(open && set && page && boxes)) {
     return null;

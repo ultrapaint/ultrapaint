@@ -25,7 +25,7 @@ import { api } from "./connection.ts";
 import { docOfFrame } from "./documents.ts";
 import { type Selection, useEditor } from "./editor.ts";
 import { reportError } from "./project.ts";
-import { select } from "./selection.ts";
+import { select, selectMany } from "./selection.ts";
 import { follow } from "./server-data.ts";
 
 /** A thing whose variations are open: where its preview is drawn, and which is shown there. */
@@ -39,8 +39,8 @@ export interface OpenVariations {
    * thing as it is drawn, while none is in use.
    */
   readonly preview: string | null;
-  /** What was selected when they opened, given back when they close. */
-  readonly selected: Selection | null;
+  /** What was selected when they opened, the lead and the others, given back when they close. */
+  readonly selected: readonly Selection[];
 }
 
 interface VariationsStore {
@@ -151,14 +151,14 @@ export const openVariations = (thing: Thing, preview?: string) => {
   if (!set) {
     return;
   }
-  const { selection } = useEditor.getState();
+  const { also, selection } = useEditor.getState();
   select(null);
   useVariations.setState({
     open: {
       ...target,
       frame: thing.frame,
       preview: preview ?? set.inUse,
-      selected: selection,
+      selected: selection ? [selection, ...also] : [],
     },
   });
 };
@@ -200,10 +200,14 @@ export const resetPreview = () => {
 export const closeVariations = () => {
   const { open } = useVariations.getState();
   useVariations.setState({ open: null });
-  if (open?.selected) {
-    select(open.selected);
+  if (open && open.selected.length > 0) {
+    selectMany(open.selected);
   }
 };
+
+/** Whether text typed in a frame is written: not while its preview shows another variation. */
+export const writesThrough = (frame: string): boolean =>
+  drawnIn(useVariations.getState(), frame) === null;
 
 /**
  * Selecting something on the canvas closes the variations, the one in use kept (ADR 0098), so
@@ -246,6 +250,10 @@ export const putPreviewInUse = async () => {
         variation: open.preview,
       })
     );
+    // Closed and opened again while it was on its way: those are left as they are.
+    if (useVariations.getState().open !== open) {
+      return;
+    }
   }
   closeVariations();
   select({ frame: open.frame, nodeId: open.node });

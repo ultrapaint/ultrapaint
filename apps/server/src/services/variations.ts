@@ -246,6 +246,14 @@ export class VariationsService extends Context.Service<
             new BadRequest({ message: `${variation} has nothing to draw` })
           );
         }
+        // A file written by hand or merged may keep another node's tree under this one.
+        if (next.tree.id !== node.id) {
+          return Effect.fail(
+            new BadRequest({
+              message: `${variation} draws ${next.tree.id}, not ${node.id}`,
+            })
+          );
+        }
         return Effect.succeed({
           put: next.tree,
           set: {
