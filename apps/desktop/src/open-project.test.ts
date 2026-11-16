@@ -418,6 +418,56 @@ describe("OpenProject", () => {
   );
 
   it.effect(
+    "a quit asks about an agent that started in the open project during a switch nothing was asked for",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const a = yield* store.add("/work/a");
+          const off = yield* store.addRemote({ host: "silent", path: "/srv" });
+          yield* open.open(a.id);
+          yield* open.openingDone({});
+          const switching = yield* Effect.forkChild(open.open(off.id), {
+            startImmediately: true,
+          });
+          yield* connected(recorded);
+          recorded.working.a = 1;
+          recorded.answers.push(false);
+          assert.isFalse(yield* open.stop({ ask: true }));
+          yield* Fiber.join(switching);
+          assert.deepStrictEqual(recorded.questions, [
+            "An agent is working in a",
+          ]);
+          assert.isFalse(recorded.events.includes("stop a"));
+        })
+      )
+  );
+
+  it.effect(
+    "a quit while the next editor does its steps asks about the project the switch left open, and keeps both when declined",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const a = yield* store.add("/work/a");
+          const b = yield* store.add("/work/b");
+          yield* open.open(a.id);
+          yield* open.openingDone({});
+          yield* open.open(b.id);
+          recorded.working.a = 1;
+          recorded.answers.push(false);
+          assert.isFalse(yield* open.stop({ ask: true }));
+          assert.deepStrictEqual(recorded.questions, [
+            "An agent is working in a",
+          ]);
+          assert.deepStrictEqual(recorded.events, ["start a", "start b"]);
+        })
+      )
+  );
+
+  it.effect(
     "Cancel while the first project's editor does its steps goes to the start screen, and stops it",
     () =>
       withApp((recorded) =>
