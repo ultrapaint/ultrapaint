@@ -14,7 +14,7 @@ each gap. A row that matches is a finding: report where it is, the row's id and 
 | W1 | A heading, caption or description that repeats what is beside it | Remove it |
 | W2 | A hint about a selection or mode shown when there is none | Show it only in that state, beside the action it affects |
 | W3 | An item doing another kind of thing in a list, or in a group of one | Move it where that kind of thing lives |
-| W4 | A sentence explaining how to use a control | Remove it; the control's label says it |
+| W4 | A sentence explaining how to use a control whose label already says it | Remove it; keep a requirement the label can't carry (a password's rule) |
 | W5 | An intro, eyebrow or subtitle on a screen whose purpose is plain | Remove it |
 | W6 | A heading over a group its content already names | Remove it; a surface or space holds the group |
 | W7 | An icon on every label, a box around one element, a divider between separated groups | Remove the decoration |
@@ -22,8 +22,8 @@ each gap. A row that matches is a finding: report where it is, the row's id and 
 | W9 | An item under a group starting at another column | One column for the group's items |
 | W10 | A value the window already shows elsewhere (a size on its frame, a count on its group, a title its nav item names) | Once, where it is read or set |
 | W11 | Lorem ipsum, "Title", "Item 1" | Real copy |
-| W12 | A legend on a chart, a title over a block its tabs already name | Delete it; shrinking is not enough |
-| W13 | "vs last year" after a change, "Enabled" beside a switch, "17 rows" under a table, "5 of 5" over a stepper, a title over a toolbar | Remove it: the thing beside it already says so |
+| W12 | A legend on a chart whose series are labelled on it, a title over a block its tabs already name | Delete it; shrinking is not enough |
+| W13 | "vs last year" after each change when the period is stated once above them, "Enabled" beside a switch, "17 rows" under a table, "5 of 5" over a stepper, a title over a toolbar | Remove it: the thing beside it already says so |
 | W14 | A badge on every card, or one thing marked three ways (tab, fill, border) | One badge, only for a state nothing else shows |
 | W15 | "Thousands of happy customers" | The number |
 | W16 | Title Case On Buttons | Sentence case |
@@ -132,7 +132,7 @@ each gap. A row that matches is a finding: report where it is, the row's id and 
 | C8 | A selected item on a pale tint of the accent | The system's selected style: neutral, or solid brand |
 | C9 | A gradient on navigation, cards, buttons or a state | A solid fill; a gradient only lights the page |
 | C10 | A foreground ink below `15:1` | The foreground token; if the token itself is below, tell the user |
-| C11 | A legend for series the line styles already tell apart | Remove it |
+| C11 | A legend for series already labelled at their lines | Remove it |
 | C12 | A status colour as decoration or a chart series | Neutral, or the chart colours |
 | C13 | Hard-coded white or grey text on a coloured fill | The fill's foreground pair |
 
