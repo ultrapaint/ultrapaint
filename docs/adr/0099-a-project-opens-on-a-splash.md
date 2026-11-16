@@ -55,9 +55,12 @@ so locally the problem was how it looked; over SSH it is longer, with nothing to
      stop never adds to the wait.
 
   So Cancel, or a failure, at any step (the editor's included) returns to it at once. For the
-  length of a switch two servers run. A quit during a switch the person agreed to does not ask
-  about the same agents again, and an agent that starts in the old project after the question
-  is stopped with it.
+  length of a switch two servers run.
+- **Agents at work are always the person's to stop.** Asked as the switch begins: Stop and switch,
+  or Stay in the open project. An agent that starts in the open project after that (with nothing
+  at work as the switch began) is asked about once the next editor is ready: Stop and switch lets
+  the open project go, Back to it shows it again and stops the next one. Asked once a switch: an
+  agreement as it began holds to its end, and a quit during it asks nothing more.
 - **A failed step stays on the splash**:
   - the step is marked;
   - the reason and what to do sit under it in the red box DESIGN.md gives an error tied to a row

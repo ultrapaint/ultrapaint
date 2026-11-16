@@ -62,15 +62,27 @@ import { Shell, type View } from "./shell.ts";
 type StopAction = "switch" | "quit" | "restart" | "move";
 
 /** What the user is asked before agents at work are stopped. */
-const stopQuestion = (action: StopAction, working: number, name: string) => {
+const stopQuestion = (
+  action: StopAction,
+  working: number,
+  name: string,
+  /**
+   * For a switch, the project opened: asked once its editor is ready, declining goes back to
+   * this one (ADR 0099); asked before it opens, declining stays.
+   */
+  next?: { readonly name: string; readonly ready: boolean }
+) => {
   const stops = {
     move: "Moving your folder stops this project's server while it copies",
     quit: "Quitting stops this project's server",
     restart:
       "Applying the change starts this project's server again, which stops it",
-    switch: "Opening another project stops this one's server",
+    switch: `Opening ${next?.name ?? "another project"} stops this one's server`,
   }[action];
   return {
+    ...(action === "switch"
+      ? { cancel: next?.ready ? `Back to ${name}` : `Stay in ${name}` }
+      : {}),
     action: {
       move: "Stop and move",
       quit: "Stop and quit",
@@ -319,10 +331,14 @@ export class OpenProject extends Context.Service<
           yield* shell.status(null);
         });
 
+        /** Whether the person agreed to stop the agents of the project a switch left open. */
+        let previousAgreed = false;
+
         /** Lets go of the project a switch left open, once the next one is ready. */
         const letGoOfPrevious = Effect.suspend(() => {
           const was = previous;
           previous = null;
+          previousAgreed = false;
           return was ? letGo(was) : Effect.void;
         });
 
@@ -587,6 +603,65 @@ export class OpenProject extends Context.Service<
         });
 
         /**
+         * The next project's editor is ready: the one a switch left open goes. An agent that
+         * started there since the person was asked (or with nothing to ask then) is asked about
+         * now: Stop and switch lets it go, Back to it shows it again and the next one goes.
+         */
+        const settlePrevious = Effect.fnUntraced(function* (nextName: string) {
+          const was = previous;
+          if (!was) {
+            return;
+          }
+          const working =
+            previousAgreed || was.server.attached
+              ? 0
+              : yield* was.server.working;
+          if (
+            working > 0 &&
+            previous === was &&
+            !(yield* confirm(
+              stopQuestion("switch", working, was.project.name, {
+                name: nextName,
+                ready: true,
+              })
+            ))
+          ) {
+            const next = open;
+            previous = null;
+            open = was;
+            yield* showEditor(was.server);
+            if (next) {
+              yield* letGo(next);
+            }
+            return;
+          }
+          yield* letGoOfPrevious;
+        });
+
+        /**
+         * As a switch begins, whether the person lets the open project's agents at work be
+         * stopped: "agreed" when asked and they did, "stay" when they would rather stay, "none"
+         * when nothing was at work to ask about.
+         */
+        const askToSwitch = Effect.fnUntraced(function* (
+          was: Open | null,
+          nextName: string
+        ) {
+          const working =
+            was && !was.server.attached ? yield* was.server.working : 0;
+          if (!was || working === 0) {
+            return "none" as const;
+          }
+          const agree = yield* confirm(
+            stopQuestion("switch", working, was.project.name, {
+              name: nextName,
+              ready: false,
+            })
+          );
+          return agree ? ("agreed" as const) : ("stay" as const);
+        });
+
+        /**
          * Cancel while the next project's editor does its steps: the one a switch left open is
          * the open one again, its editor on screen, or the start screen when none was; the next
          * one's server stops.
@@ -622,12 +697,16 @@ export class OpenProject extends Context.Service<
             switching.withPermits(1)(
               Effect.gen(function* () {
                 const was = open;
-                if (was && !(yield* agreeToStop("switch", was))) {
+                const asked = yield* askToSwitch(was, project.name);
+                if (asked === "stay") {
                   return false;
                 }
                 agreed = was;
                 // One left open by a switch before goes now: a third project is coming.
                 yield* letGoOfPrevious;
+                // Asked now, the person is not asked again when it stops; otherwise an agent
+                // that started there meanwhile is asked about then (ADR 0099).
+                previousAgreed = asked === "agreed";
                 const underway = yield* beginOpening(project, was?.project);
                 const launched = yield* stoppable(
                   { id: project.id, shown: true },
@@ -875,8 +954,8 @@ export class OpenProject extends Context.Service<
                 ...times,
               })
             );
-            // The next one is ready: the one a switch left open goes.
-            yield* letGoOfPrevious;
+            // The next one is ready: the one a switch left open goes, or the person goes back.
+            yield* settlePrevious(underway.project.name);
           }),
           remove,
           restart: switching.withPermits(1)(

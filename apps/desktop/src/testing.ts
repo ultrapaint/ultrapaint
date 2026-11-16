@@ -15,6 +15,8 @@ export interface Recorded {
    * answer given later: `Effect.never` leaves the question on screen.
    */
   answers: (boolean | Effect.Effect<boolean>)[];
+  /** What declining each question was called, in order. */
+  declines: string[];
   events: string[];
   /** What the window was told of the project opening, in order: `null` once none is. */
   openings: (Opening | null)[];
@@ -41,6 +43,7 @@ export interface Recorded {
 
 export const makeRecorded = (): Recorded => ({
   answers: [],
+  declines: [],
   events: [],
   openings: [],
   pickers: [],
@@ -92,9 +95,10 @@ export const fakeShell = (recorded: Recorded) =>
   Layer.succeed(
     Shell,
     Shell.of({
-      confirm: ({ message }) =>
+      confirm: ({ cancel, message }) =>
         Effect.suspend(() => {
           recorded.questions.push(message);
+          recorded.declines.push(cancel ?? "Cancel");
           tellWatchers(recorded);
           const answer = recorded.answers.shift() ?? true;
           return typeof answer === "boolean" ? Effect.succeed(answer) : answer;

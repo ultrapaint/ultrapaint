@@ -38,6 +38,8 @@ export class Shell extends Context.Service<
     /** Asks a yes-or-no question; true for the action named, false when the user declines. */
     readonly confirm: (question: {
       readonly action: string;
+      /** What declining is called: "Cancel" when not given. */
+      readonly cancel?: string | undefined;
       readonly detail: string;
       readonly message: string;
     }) => Effect.Effect<boolean>;

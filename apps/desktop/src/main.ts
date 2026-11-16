@@ -182,11 +182,11 @@ const pickPath = (options: Electron.OpenDialogOptions) =>
 const ElectronShell = Layer.succeed(
   Shell,
   Shell.of({
-    confirm: ({ action, detail, message }) =>
+    confirm: ({ action, cancel, detail, message }) =>
       // Interrupted (a signal answered it), the box closes as if cancelled.
       Effect.promise(async (signal) => {
         const options = {
-          buttons: [action, "Cancel"],
+          buttons: [action, cancel ?? "Cancel"],
           cancelId: 1,
           defaultId: 1,
           detail,
