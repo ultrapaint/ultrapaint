@@ -29,7 +29,8 @@ composer for them to send (`startTask`).
 
 Work that outlives your turn (a lab round, a long recall) runs as a systemd user job that sends
 your thread a message when it ends (`evals/README.md`, "Long jobs"), never `setsid nohup`. That
-message is the end of work you started, not a prompt ADR 0074 rules out. Put "⏳ " before your
+message is the end of work you started, not a prompt ADR 0074 rules out. A Claude thread also
+waits on the job with `t3_background_wait`, so T3 shows it working (same section). Put "⏳ " before your
 thread's title while the job runs and take it off in the turn its message starts; never end a
 turn on "check back later".
 
