@@ -267,6 +267,7 @@ const program = Effect.gen(function* () {
     Layer.provide(
       Layer.succeed(ServerConfig, {
         allowedHosts: [],
+        allowedOrigins: [],
         briefing: arm !== "baseline",
         cwd: repo,
         // Model options are known from discovery, before the first prompt starts a session.

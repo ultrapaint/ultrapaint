@@ -367,6 +367,12 @@ export const SHELL_BRIDGE = {
   "command.install": invoke([], InstalledCommand, LOCAL),
   /** The `ultrapaint` command on the PATH, this app's or another; null when there is none. */
   "command.installed": invoke([], Schema.NullOr(InstalledCommand), LOCAL),
+  /**
+   * The address of the server the editor talks to when the page is the app's own editor, served
+   * under the app's scheme (ADR 0100); null when the page is served by its server, whose own
+   * address it is.
+   */
+  editorServer: state(Schema.NullOr(Schema.String)),
   /** Where the app keeps the person's folder and makes new projects (ADR 0091). */
   "folders.current": invoke([], ShellFolders, LOCAL),
   /**

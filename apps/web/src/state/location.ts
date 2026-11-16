@@ -68,8 +68,16 @@ interface Place {
   variant: string | null;
 }
 
-/** The canvas opened last, which the next start opens when the URL names none. */
-const REMEMBERED = "ultrapaint:canvas";
+/**
+ * Where the canvas opened last is kept, which the next start opens when the URL names none: one
+ * per project, as the desktop app's own editor keeps one storage for every project (ADR 0100).
+ */
+const remembered = () => {
+  const { info } = useProject.getState();
+  return info.configured && info.repoPath
+    ? `ultrapaint:canvas:${info.repoPath}`
+    : "ultrapaint:canvas";
+};
 
 /** Counts the canvases asked for: only the last one asked for is opened. */
 let opening = 0;
@@ -271,7 +279,7 @@ const openCanvas = async (
       },
       board
     );
-    localStorage.setItem(REMEMBERED, canvas);
+    localStorage.setItem(remembered(), canvas);
   } catch (error) {
     reportError(error);
   }
@@ -440,7 +448,7 @@ export const openStartCanvas = (): boolean => {
     return false;
   }
   const url = readUrl();
-  const saved = localStorage.getItem(REMEMBERED);
+  const saved = localStorage.getItem(remembered());
   const ids = canvases.map((c) => c.id);
   // The designs directory's own canvas is named "", which the URL leaves out: a link with a
   // route or a node and no canvas is a route or a node of that canvas.

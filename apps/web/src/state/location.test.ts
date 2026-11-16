@@ -105,6 +105,7 @@ const outOfStep = (): string[] => {
 };
 
 const initial = useEditor.getState();
+const initialInfo = useProject.getState().info;
 let stopFollowing: () => void = () => undefined;
 
 beforeEach(() => {
@@ -116,6 +117,7 @@ beforeEach(() => {
       { home: "/", id: "main", name: "Main", variants: ["bold"] },
       { home: "/about", id: "other", name: "Other", variants: [] },
     ],
+    info: initialInfo,
     pages: [...mainPages, about],
   });
   useEditor.setState(initial, true);
@@ -245,6 +247,17 @@ describe("openStartCanvas", () => {
       variant: null,
     });
     expect(outOfStep()).toEqual([]);
+  });
+
+  it("remembers the canvas opened last per project, as one storage serves every project (ADR 0100)", async () => {
+    useProject.setState({
+      info: { ...initialInfo, configured: true, repoPath: "/work/shop" },
+    });
+    // Another project's last canvas is not this one's.
+    localStorage.setItem("ultrapaint:canvas:/work/admin", "other");
+    openStartCanvas();
+    await opened("main");
+    expect(localStorage.getItem("ultrapaint:canvas:/work/shop")).toBe("main");
   });
 
   it("opens the first canvas when neither names one", async () => {

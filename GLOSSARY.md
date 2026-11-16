@@ -576,6 +576,9 @@ refactor and the board view left.
   `folders.json`), passes it to every local server and moves it (`folders.moveUser`). Not a
   project's **state folder**, `<project>/.ultrapaint`, its chats, history and caches. The project
   info names both (`folders`); Settings › About shows them (`FoldersGroup`).
+- **App's own editor**: the desktop app's copy of the editor, served under its scheme at
+  `ultrapaint://app/`, which every project whose server runs the app's version opens in, talking
+  to that server for data only (`app-editor.ts`, the bridge's `editorServer`, ADR 0100).
 - **New projects' folder**: where the desktop app's start screen makes a new project,
   `~/Ultrapaint` unless the person changed it (ADR 0091; `Folders`, `folders.setNewProjects`,
   `newDesign.folderFor`).

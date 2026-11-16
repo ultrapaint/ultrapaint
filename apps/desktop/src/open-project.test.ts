@@ -4,11 +4,13 @@ import { assert, describe, it } from "@effect/vitest";
 import { Deferred, Effect, Fiber, FileSystem, Layer, Option } from "effect";
 import { TestClock } from "effect/testing";
 import { Agents, makeRuntime } from "./agents.ts";
+import { APP_EDITOR_URL, type AppEditor } from "./app-editor.ts";
 import { Folders } from "./folders.ts";
 import { LoginShell } from "./login-shell.ts";
 import { OpenProject } from "./open-project.ts";
 import { ProjectStore } from "./projects.ts";
 import {
+  FAKE_VERSION,
   fakeRemoteProjects,
   fakeServers,
   fakeShell,
@@ -22,13 +24,15 @@ const withApp = <A, E>(
     recorded: Recorded,
     /** The app's data directory. */
     dir: string
-  ) => Effect.Effect<A, E, OpenProject | ProjectStore | FileSystem.FileSystem>
+  ) => Effect.Effect<A, E, OpenProject | ProjectStore | FileSystem.FileSystem>,
+  /** The app's own editor (ADR 0100); without, every server serves its own. */
+  appEditor?: AppEditor
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const dir = yield* fs.makeTempDirectoryScoped();
     const recorded = makeRecorded();
-    const app = OpenProject.layer(dir).pipe(
+    const app = OpenProject.layer(dir, appEditor).pipe(
       Layer.provideMerge(ProjectStore.layer(dir)),
       Layer.provideMerge(Folders.layer({ dataDir: dir, home: "/home/u" })),
       Layer.provideMerge(LoginShell.layerTest({ PATH: "/usr/bin" })),
@@ -64,6 +68,61 @@ const connected = (recorded: Recorded) =>
   );
 
 describe("OpenProject", () => {
+  const APP: AppEditor = { url: APP_EDITOR_URL, version: FAKE_VERSION };
+
+  it.effect(
+    "opens a project whose server runs the app's version in the app's own editor, telling it the server (ADR 0100)",
+    () =>
+      withApp(
+        (recorded) =>
+          Effect.gen(function* () {
+            const store = yield* ProjectStore;
+            const open = yield* OpenProject;
+            const shop = yield* store.add("/work/shop");
+            yield* open.open(shop.id);
+            assert.deepStrictEqual(recorded.views.at(-1), {
+              _tag: "Editor",
+              server: "http://127.0.0.1/shop",
+              url: "ultrapaint://app/",
+            });
+            // Over SSH too, at the same version.
+            const site = yield* store.addRemote({
+              host: "devbox",
+              path: "~/site",
+            });
+            yield* open.open(site.id);
+            assert.deepStrictEqual(recorded.views.at(-1), {
+              _tag: "Editor",
+              server: "http://127.0.0.1/devbox/site",
+              url: "ultrapaint://app/",
+            });
+          }),
+        APP
+      )
+  );
+
+  it.effect(
+    "opens a project whose server runs another version in the editor that server serves",
+    () =>
+      withApp(
+        (recorded) =>
+          Effect.gen(function* () {
+            const store = yield* ProjectStore;
+            const open = yield* OpenProject;
+            const site = yield* store.addRemote({
+              host: "older",
+              path: "~/site",
+            });
+            yield* open.open(site.id);
+            assert.deepStrictEqual(recorded.views.at(-1), {
+              _tag: "Editor",
+              url: "http://127.0.0.1/older/site",
+            });
+          }),
+        APP
+      )
+  );
+
   it.effect("asks for a first project when there is none", () =>
     withApp((recorded) =>
       Effect.gen(function* () {

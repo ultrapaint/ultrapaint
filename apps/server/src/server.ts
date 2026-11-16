@@ -64,6 +64,9 @@ const HostGuard = HttpRouter.middleware(
   { global: true }
 );
 
+/** The name a Figma file's upload carries, URI-encoded (`/api/figma/import`). */
+const FIG_HEADER = "x-file-name";
+
 const LOCAL_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 
 /** The page came from this server, whatever address it was reached at. */
@@ -71,14 +74,60 @@ const sameOrigin = (origin: string, host: string | undefined) =>
   host !== undefined && URL.canParse(origin) && new URL(origin).host === host;
 
 /**
- * Whether a request may be answered: a browser page is let in when it came from this machine or
- * from this server's own address; a native client sends no origin.
+ * Whether a request may be answered: a browser page is let in when it came from this machine,
+ * from this server's own address, or from an origin it was told of (the desktop app's own
+ * editor, ADR 0100); a native client sends no origin.
  */
-const originAllowed = ({
-  host,
-  origin,
-}: Readonly<Record<string, string | undefined>>) =>
-  !origin || LOCAL_ORIGIN_RE.test(origin) || sameOrigin(origin, host);
+const originAllowed = (
+  { host, origin }: Readonly<Record<string, string | undefined>>,
+  allowed: readonly string[]
+) =>
+  !origin ||
+  LOCAL_ORIGIN_RE.test(origin) ||
+  sameOrigin(origin, host) ||
+  allowed.includes(origin);
+
+/**
+ * A page from an origin the server was told of (`--allowed-origin`: the desktop app's own
+ * editor, ADR 0100) reads what it asks for: its requests are answered with that origin allowed,
+ * and the browser's preflight before a POST with a body is answered here.
+ */
+const AllowedOrigins = HttpRouter.middleware(
+  Effect.map(
+    ServerConfig,
+    ({ allowedOrigins }) =>
+      (handler) =>
+        Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) => {
+          const { origin } = request.headers;
+          if (!(origin && allowedOrigins.includes(origin))) {
+            return handler;
+          }
+          const allow = (response: HttpServerResponse.HttpServerResponse) =>
+            response.pipe(
+              HttpServerResponse.setHeader(
+                "access-control-allow-origin",
+                origin
+              ),
+              HttpServerResponse.setHeader("vary", "origin")
+            );
+          return request.method === "OPTIONS"
+            ? Effect.succeed(
+                allow(
+                  HttpServerResponse.empty({
+                    headers: {
+                      "access-control-allow-headers": `content-type, ${FIG_HEADER}`,
+                      "access-control-allow-methods": "GET, POST",
+                      "access-control-max-age": "600",
+                    },
+                    status: 204,
+                  })
+                )
+              )
+            : Effect.map(handler, allow);
+        })
+  ),
+  { global: true }
+);
 
 const originRefused = () =>
   HttpServerResponse.text("origin not allowed", { status: 403 });
@@ -91,6 +140,7 @@ const originRefused = () =>
 const RpcRoute = Layer.effectDiscard(
   Effect.gen(function* () {
     const router = yield* HttpRouter.HttpRouter;
+    const { allowedOrigins } = yield* ServerConfig;
     const editors = yield* EditorsConnected;
     const selection = yield* EditorSelection;
     const { httpEffect, protocol } =
@@ -100,7 +150,7 @@ const RpcRoute = Layer.effectDiscard(
       "/ws",
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest;
-        if (!originAllowed(request.headers)) {
+        if (!originAllowed(request.headers, allowedOrigins)) {
           return originRefused();
         }
         // The socket's request lasts as long as the editor holds it open; the editor that goes
@@ -120,8 +170,6 @@ const RpcRoute = Layer.effectDiscard(
   })
 ).pipe(Layer.provide(RpcHandlers), Layer.provide(RpcSerialization.layerJson));
 
-const FIG_HEADER = "x-file-name";
-
 /**
  * A Figma file arrives here, as its bytes: the editor's API is one WebSocket carrying JSON, and
  * a design file runs to tens of megabytes. The reply is the import, as `figma.list` shows it.
@@ -130,12 +178,13 @@ const FIG_HEADER = "x-file-name";
 const FigmaImportRoute = HttpRouter.use(
   Effect.fnUntraced(function* (router) {
     const project = yield* OpenProject;
+    const { allowedOrigins } = yield* ServerConfig;
     yield* router.add(
       "POST",
       "/api/figma/import",
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest;
-        if (!originAllowed(request.headers)) {
+        if (!originAllowed(request.headers, allowedOrigins)) {
           return originRefused();
         }
         const tooLarge = HttpServerResponse.jsonUnsafe(
@@ -362,6 +411,7 @@ const Boot = Layer.effectDiscard(
 
 const Routes = Layer.mergeAll(
   HostGuard,
+  AllowedOrigins,
   RpcRoute,
   HealthRoute,
   FigmaImportRoute,

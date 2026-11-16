@@ -109,7 +109,9 @@ describe.skipIf(SSHD === undefined)(
               yield* fs.readFileString(path.join(sessions, "p1", "record.json"))
             );
             assert.strictEqual(record.cwd, folder);
-            assert.deepStrictEqual(record.env, []);
+            // Of the app's variables, only the origin of its own editor reaches the server
+            // (ADR 0100): nothing of this machine's environment does.
+            assert.deepStrictEqual(record.env, ["ULTRAPAINT_ALLOWED_ORIGIN"]);
             assert.includeMembers(record.args, [
               "--host",
               "127.0.0.1",

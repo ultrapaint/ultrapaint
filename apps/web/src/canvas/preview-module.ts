@@ -9,10 +9,8 @@ import type { Preview } from "@ultrapaint/preview-core/preview";
 import { renderToCanvas } from "@ultrapaint/renderer-react/render";
 import { installFrameViewport } from "@ultrapaint/system-components/frame-viewport";
 import { SYSTEM_COMPONENTS_CSS } from "@ultrapaint/system-components/look";
+import { serverAddress } from "../platform.ts";
 import { previewLoaded } from "./from-frame.ts";
-
-/** Where the server answers which file an image of a canvas is. */
-const ASSET_ROUTE = "/api/asset";
 
 let preview: Preview | null = null;
 
@@ -21,7 +19,9 @@ export const thePreview = (): Preview => {
   if (!preview) {
     installFrameViewport();
     preview = createPreview(renderToCanvas, {
-      assets: ASSET_ROUTE,
+      // Where the server answers which file an image of a canvas is: on its own address, as the
+      // app's own editor is served elsewhere (ADR 0100).
+      assets: serverAddress("/api/asset"),
       css: SYSTEM_COMPONENTS_CSS,
       theme: "light",
     });

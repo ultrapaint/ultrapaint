@@ -34,6 +34,7 @@ const program = Effect.gen(function* () {
     Layer.provide(
       Layer.succeed(ServerConfig, {
         allowedHosts: [],
+        allowedOrigins: [],
         briefing: true,
         cwd: repo,
         discovery: false,

@@ -23,6 +23,7 @@ import {
 } from "effect";
 import { runCommand } from "./process.ts";
 import {
+  APP_ORIGIN,
   anotherClient,
   nextEvent,
   subscribed,
@@ -65,6 +66,35 @@ const UPGRADE = {
   "Sec-WebSocket-Version": "13",
   Upgrade: "websocket",
 };
+
+/** A request's status and the headers of its answer, its own headers exactly as given. */
+const answerOf = (
+  port: number,
+  target: string,
+  headers: Record<string, string>,
+  method = "GET"
+) =>
+  Effect.callback<{
+    readonly headers: Record<string, string | string[] | undefined>;
+    readonly status: number;
+  }>((resume) => {
+    const req = request({
+      agent: false,
+      headers,
+      host: "127.0.0.1",
+      method,
+      path: target,
+      port,
+    });
+    req.on("response", (res) => {
+      res.resume();
+      resume(
+        Effect.succeed({ headers: res.headers, status: res.statusCode ?? 0 })
+      );
+    });
+    req.on("error", () => resume(Effect.succeed({ headers: {}, status: -1 })));
+    req.end();
+  });
 
 /** The status a raw request to the server is answered with, its headers exactly as given. */
 const statusOf = (
@@ -332,6 +362,70 @@ describe("server over WebSocket RPC", () => {
         assert.strictEqual(event._tag, "Some");
         assert.isTrue((yield* client["project.info"]()).configured);
       })
+  );
+
+  onAServer(
+    "lets in the desktop app's own editor, from the origin it was told of (ADR 0100)",
+    () =>
+      Effect.gen(function* () {
+        const { port } = yield* TestEnv;
+        const app = { Host: `127.0.0.1:${port}`, Origin: APP_ORIGIN };
+        assert.strictEqual(
+          yield* statusOf(port, "/ws", { ...UPGRADE, ...app }),
+          101
+        );
+        // Its reads are allowed to it, and its preflight before a POST answered.
+        const health = yield* answerOf(port, "/api/health", app);
+        assert.strictEqual(health.status, 200);
+        assert.strictEqual(
+          health.headers["access-control-allow-origin"],
+          APP_ORIGIN
+        );
+        const preflight = yield* answerOf(
+          port,
+          "/api/figma/import",
+          {
+            ...app,
+            "Access-Control-Request-Headers": "content-type, x-file-name",
+            "Access-Control-Request-Method": "POST",
+          },
+          "OPTIONS"
+        );
+        assert.strictEqual(preflight.status, 204);
+        assert.strictEqual(
+          preflight.headers["access-control-allow-origin"],
+          APP_ORIGIN
+        );
+      })
+  );
+
+  onAServer("takes a Figma file from the desktop app's own editor", () =>
+    Effect.gen(function* () {
+      const { port } = yield* TestEnv;
+      // Not refused for its origin: the import then says what it makes of no file.
+      const status = yield* statusOf(
+        port,
+        "/api/figma/import",
+        {
+          Host: `127.0.0.1:${port}`,
+          Origin: APP_ORIGIN,
+          "x-file-name": "a.fig",
+        },
+        "POST"
+      );
+      assert.notStrictEqual(status, 403);
+    })
+  );
+
+  onAServer("allows no other origin to read what it answers", () =>
+    Effect.gen(function* () {
+      const { port } = yield* TestEnv;
+      const other = yield* answerOf(port, "/api/health", {
+        Host: `127.0.0.1:${port}`,
+        Origin: "https://evil.example",
+      });
+      assert.isUndefined(other.headers["access-control-allow-origin"]);
+    })
   );
 
   onAServer("turns away a browser page from another origin", () =>

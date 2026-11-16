@@ -63,9 +63,33 @@ export const platform = (): Platform => {
     // What a shell's preload script set (the desktop app's `bridge.ts`): every part optional.
     const shell = (globalThis as { ultrapaintPlatform?: Partial<Platform> })
       .ultrapaintPlatform;
-    current = { ...shell, serverUrl: shell?.serverUrl ?? defaultServerUrl() };
+    // The app's own editor is told its server's address (ADR 0100); a page a server serves is
+    // that server's.
+    const told = shell?.editorServer?.current();
+    current = {
+      ...shell,
+      serverUrl:
+        shell?.serverUrl ?? (told ? socketOf(told) : defaultServerUrl()),
+    };
   }
   return current;
+};
+
+/** The WebSocket of a server at an http(s) address. */
+const socketOf = (address: string) => {
+  const url = new URL("/ws", address);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  return url.href;
+};
+
+/**
+ * An address on the editor's server, for a request beside its WebSocket (`/api/…`): absolute,
+ * since the app's own editor is not served by its server (ADR 0100).
+ */
+export const serverAddress = (path: string) => {
+  const url = new URL(path, platform().serverUrl);
+  url.protocol = url.protocol === "wss:" ? "https:" : "http:";
+  return url.href;
 };
 
 /** For tests: the platform as a shell would set it, or the browser's again with `null`. */

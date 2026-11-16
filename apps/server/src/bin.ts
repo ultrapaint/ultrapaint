@@ -48,6 +48,12 @@ class AgentRuntimeError extends Schema.TaggedError<AgentRuntimeError>()(
  * that nothing the server starts inherits it.
  */
 const agentRuntimeJson = process.env.ULTRAPAINT_AGENT_RUNTIME;
+/**
+ * The origins the desktop app's own editor is served from (`--allowed-origin`), by the
+ * environment: the app gives a server on another machine this rather than the flag, which that
+ * machine's command may be too old to know (ADR 0100).
+ */
+const allowedOriginsFromEnv = process.env.ULTRAPAINT_ALLOWED_ORIGIN;
 delete process.env.ULTRAPAINT_AGENT_RUNTIME;
 const agentRuntime =
   agentRuntimeJson === undefined
@@ -92,6 +98,12 @@ const serve = Command.make(
     allowedHost: Flag.String("allowed-host").pipe(
       Flag.withDescription(
         "A further name the editor may be reached by, such as a reverse proxy's or a VPN's; .example.com allows its subdomains (repeatable)"
+      ),
+      Flag.atLeast(0)
+    ),
+    allowedOrigin: Flag.String("allowed-origin").pipe(
+      Flag.withDescription(
+        "The origin of a page served elsewhere that may use this server: the desktop app's own editor (repeatable)"
       ),
       Flag.atLeast(0)
     ),
@@ -189,6 +201,7 @@ const serve = Command.make(
   },
   Effect.fn(function* ({
     allowedHost,
+    allowedOrigin,
     config,
     editorPort,
     ephemeral,
@@ -244,6 +257,10 @@ const serve = Command.make(
     const resolved = ServerConfig.of({
       agentRuntime: yield* agentRuntime,
       allowedHosts: allowedHost,
+      allowedOrigins: [
+        ...allowedOrigin,
+        ...(allowedOriginsFromEnv ?? "").split(",").filter((o) => o !== ""),
+      ],
       briefing: !noBriefing,
       cwd,
       discovery: !noDiscovery,

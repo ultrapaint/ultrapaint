@@ -146,6 +146,9 @@ export const anotherClient = Effect.gen(function* () {
   return yield* RpcClient.make(UltrapaintRpcs).pipe(Effect.provide(context));
 });
 
+/** The desktop app's own editor's origin, which the test server allows as the app's servers do. */
+export const APP_ORIGIN = "ultrapaint://app";
+
 /**
  * The real server on a loopback port with its own home directory, a fixture repository and a
  * real RPC client over WebSocket. The fake ACP agent is registered as `fake`, and as `fake-auth`
@@ -201,6 +204,8 @@ export const makeTestServer = (
       const server = ServerLive.pipe(
         Layer.provide(
           ServerConfig.layerTest({
+            // As the desktop app starts a server: its own editor may use it (ADR 0100).
+            allowedOrigins: [APP_ORIGIN],
             briefing: true,
             cwd: repo,
             // The fixture's home: the preview is generated under its cache, not the user's.

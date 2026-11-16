@@ -1,6 +1,6 @@
 import "./testing/fake-browser.ts";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { platform, setPlatform } from "./platform.ts";
+import { platform, serverAddress, setPlatform } from "./platform.ts";
 import { shellStatusText } from "./state/shell-status.ts";
 
 vi.mock(
@@ -24,6 +24,20 @@ describe("the platform", () => {
     expect(browser.pickFolder).toBeUndefined();
     expect(browser.projects).toBeUndefined();
     expect(browser.notices).toBeUndefined();
+  });
+
+  it("is the app's own editor's: the server the shell names, on its own address (ADR 0100)", () => {
+    globals.location = { host: "app", protocol: "ultrapaint:" };
+    globals.ultrapaintPlatform = {
+      editorServer: {
+        current: () => "http://127.0.0.1:61234",
+        subscribe: () => () => undefined,
+      },
+    };
+    expect(platform().serverUrl).toBe("ws://127.0.0.1:61234/ws");
+    expect(serverAddress("/api/figma/import")).toBe(
+      "http://127.0.0.1:61234/api/figma/import"
+    );
   });
 
   it("takes what a shell's preload gives", async () => {

@@ -10,7 +10,9 @@
  * The user's configuration, keys and agent apply, as they do to any `ssh` they run; what the app
  * relies on is set on the command line, which takes precedence over the configuration.
  */
+
 import { Schema } from "effect";
+import { APP_ORIGIN } from "./app-editor.ts";
 
 /** Where a project's server runs: a host as `ssh` takes it, and its configuration. */
 export interface SshTarget {
@@ -62,6 +64,9 @@ export const serverScript = (options: {
   const missing = shellQuote(`ultrapaint: no folder ${options.path}`);
   return [
     `[ -d ${folder} ] && cd ${folder} || { printf '%s\\n' ${missing} >&2; exit ${NO_FOLDER_EXIT}; }`,
+    // The app's own editor talks to it from the app's origin (ADR 0100); by the environment, as
+    // a command there too old for the flag ignores what it does not know.
+    `export ULTRAPAINT_ALLOWED_ORIGIN=${shellQuote(APP_ORIGIN)}`,
     // Loopback: the app reaches it through a forwarded port, and nothing else should.
     `exec ${options.command} --host 127.0.0.1 --port 0 --ready-json --stop-with-stdin --session-dir ${remotePathWord(options.sessionDir)}`,
   ].join("\n");

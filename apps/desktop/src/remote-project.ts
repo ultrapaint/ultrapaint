@@ -16,7 +16,11 @@ import type { ShellStatus } from "@ultrapaint/contracts/shell-bridge";
 import { Context, Duration, Effect, Exit, Layer, Result, Scope } from "effect";
 import { ServerStartError } from "./errors.ts";
 import { OpeningReport } from "./opening-report.ts";
-import { agentsWorking, type RunningServer } from "./project-server.ts";
+import {
+  agentsWorking,
+  type RunningServer,
+  serverVersion,
+} from "./project-server.ts";
 import type { SshProject } from "./projects.ts";
 import type { SshError } from "./ssh.ts";
 import {
@@ -214,6 +218,7 @@ export class RemoteProjects extends Context.Service<
             get url() {
               return live.server.url;
             },
+            version: Effect.suspend(() => serverVersion(live.server.url)),
             working: Effect.suspend(() =>
               agentsWorking(live.server.url, live.server.ready.token)
             ),

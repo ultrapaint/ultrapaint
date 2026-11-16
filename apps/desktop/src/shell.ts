@@ -19,6 +19,11 @@ export type View =
        * was (the settings section open, say), at the new server's address.
        */
       readonly keepLocation?: boolean;
+      /**
+       * The server the editor talks to when `url` is the app's own editor (ADR 0100): the page
+       * reads it from the bridge (`editorServer`). Absent, `url` is the server's, and serves it.
+       */
+      readonly server?: string | undefined;
       readonly url: string;
     }
   | {

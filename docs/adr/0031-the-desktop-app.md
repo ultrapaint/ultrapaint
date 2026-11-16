@@ -5,6 +5,10 @@ here), 0004, 0013, 0018 and 0023 (git is no longer needed). Builds on 0008, 0010
 work is planned in [PLAN-desktop](../plans/done/PLAN-desktop.md); this records its decisions and what Phase 0
 changed in the server and the editor, and what Phases 1, 2 and 3 added.
 
+> Amended by [0100](0100-the-desktop-app-opens-projects-in-its-own-editor.md), 2026-11-16: the window
+> shows the app's own copy of the editor for every server of the app's version, at
+> `ultrapaint://app/`, which talks to the project's server for data only.
+
 > Amended by [0099](0099-a-project-opens-on-a-splash.md), 2026-11-16: a project opens on a splash
 > that says each step, and a switch keeps the open project's server until the next one's is ready,
 > so two run for the length of a switch; Cancel returns to the open one.
