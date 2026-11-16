@@ -62,6 +62,7 @@ const VariationFrame = memo(
     inUse,
     onHeight,
     page,
+    pageWidth,
     shown,
     sized,
     tree,
@@ -73,6 +74,8 @@ const VariationFrame = memo(
     onHeight: (id: string, height: number) => void;
     /** It is a whole page, drawn at the page's width. */
     page: boolean;
+    /** The width of the page it is from, whose breakpoint it is drawn at. */
+    pageWidth: number;
     shown: boolean;
     /** It is a part of its page, drawn at the thing's width there. */
     sized: boolean;
@@ -99,9 +102,10 @@ const VariationFrame = memo(
             designSystem,
             mode: page ? "page" : "fit",
             root,
-            width: page ? box.width : undefined,
+            // A part is drawn at its page's breakpoint, as the page draws it.
+            width: pageWidth,
           }),
-        [defaults, designSystem, page, root, box.width]
+        [defaults, designSystem, page, root, pageWidth]
       )
     );
     const listeners = useMemo(
@@ -200,7 +204,7 @@ export const VariationsBeside = ({
     }
   }, [key]);
 
-  if (!(open && set && boxes)) {
+  if (!(open && set && page && boxes)) {
     return null;
   }
   return (
@@ -215,6 +219,7 @@ export const VariationsBeside = ({
             key={variation.id}
             onHeight={onHeight}
             page={isPage}
+            pageWidth={page.width}
             shown={variation.id === open.preview}
             sized={!whole}
             tree={

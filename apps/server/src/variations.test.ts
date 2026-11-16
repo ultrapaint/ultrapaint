@@ -7,28 +7,19 @@ import {
 import { findNode } from "@ultrapaint/design-document/tree";
 import { Effect, FileSystem, type Layer, type Scope } from "effect";
 import { nextEvent, TestEnv } from "./testing/harness.ts";
-import {
-  heardOf,
-  inAProject,
-  type ProjectRpc,
-  type ProjectTestOptions,
-} from "./testing/project.ts";
+import { heardOf, inAProject, type ProjectRpc } from "./testing/project.ts";
 
 const HOME = "home.page.json";
 
 /** A test of a thing's variations, as the editor asks for them, on a project of its own. */
-const variationsTest =
-  (options: ProjectTestOptions = {}) =>
-  <A, E>(
-    name: string,
-    body: () => Effect.Effect<
-      A,
-      E,
-      Layer.Success<ReturnType<typeof ProjectRpc>> | Scope.Scope
-    >
-  ) =>
-    it.effect(name, () => inAProject(options)(body()));
-const inProject = variationsTest();
+const inProject = <A, E>(
+  name: string,
+  body: () => Effect.Effect<
+    A,
+    E,
+    Layer.Success<ReturnType<typeof ProjectRpc>> | Scope.Scope
+  >
+) => it.effect(name, () => inAProject()(body()));
 
 /** The set's variations as rows: name, whether it is in use, and the words of a text's tree. */
 const rows = (set: VariationSet | undefined) =>
@@ -408,5 +399,60 @@ inProject(
           ]
         );
       }
+    })
+);
+
+inProject(
+  "a variations file that does not read, a merge left half done, blocks no edit of its page",
+  () =>
+    Effect.gen(function* () {
+      const { client, repo } = yield* TestEnv;
+      const fs = yield* FileSystem.FileSystem;
+      yield* fs.writeFileString(
+        `${repo}/designs/home${VARIATIONS_EXTENSION}`,
+        "<<<<<<< HEAD\n{}\n=======\n{}\n>>>>>>> theirs\n"
+      );
+      yield* client["documents.apply"]({
+        edits: [
+          {
+            doc: HOME,
+            ops: [{ id: "heading", op: "update", set: { text: "Hi" } }],
+          },
+        ],
+      });
+      const page = yield* client["documents.get"]({ doc: HOME });
+      assert.strictEqual(textOf(page.root, "heading"), "Hi");
+    })
+);
+
+inProject(
+  "restoring an earlier point of the history brings back the variation in use then",
+  () =>
+    Effect.gen(function* () {
+      const { client } = yield* TestEnv;
+      yield* client["variations.add"]({ doc: HOME, node: "heading" });
+      yield* client["documents.apply"]({
+        edits: [
+          {
+            doc: HOME,
+            ops: [{ id: "heading", op: "update", set: { text: "Hi" } }],
+          },
+        ],
+      });
+      const point = yield* client["history.save"]({ name: "Variation 2" });
+      yield* client["variations.use"]({
+        doc: HOME,
+        node: "heading",
+        variation: "original",
+      });
+
+      yield* client["history.restore"]({ id: point.id });
+      const page = yield* client["documents.get"]({ doc: HOME });
+      assert.strictEqual(textOf(page.root, "heading"), "Hi");
+      const { documents } = yield* client["variations.list"]({ canvas: "" });
+      assert.deepStrictEqual(rows(documents[0]?.sets.heading), [
+        ["Original", "", "Hello"],
+        ["Variation 2", "in use", null],
+      ]);
     })
 );

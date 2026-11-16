@@ -12,6 +12,12 @@ import { SYSTEM_COMPONENTS_CSS } from "@ultrapaint/system-components/look";
 import { serverAddress } from "../platform.ts";
 import { previewLoaded } from "./from-frame.ts";
 
+/**
+ * Where the server answers which file an image of a canvas is: on its own address, as the app's
+ * own editor is served elsewhere (ADR 0100).
+ */
+export const assetsAddress = () => serverAddress("/api/asset");
+
 let preview: Preview | null = null;
 
 /** The one preview of the editor's page, made the first time it is asked for: what draws outside React (pictures, the look) asks for it here. */
@@ -19,9 +25,7 @@ export const thePreview = (): Preview => {
   if (!preview) {
     installFrameViewport();
     preview = createPreview(renderToCanvas, {
-      // Where the server answers which file an image of a canvas is: on its own address, as the
-      // app's own editor is served elsewhere (ADR 0100).
-      assets: serverAddress("/api/asset"),
+      assets: assetsAddress(),
       css: SYSTEM_COMPONENTS_CSS,
       theme: "light",
     });

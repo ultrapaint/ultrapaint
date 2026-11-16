@@ -13,11 +13,17 @@ import {
   type VariationSet,
   type VariationSets,
   VariationsFile,
+  variationsFileOf,
 } from "@ultrapaint/contracts/variations";
-import { childrenOf, idsOf, walk } from "@ultrapaint/design-document/tree";
+import {
+  childrenOf,
+  idsOf,
+  PAGE_EXTENSION,
+  walk,
+} from "@ultrapaint/design-document/tree";
 import { CANVAS_FILE } from "@ultrapaint/shared/canvas";
 import { Effect, Schema } from "effect";
-import type { FileCodec } from "./edit.ts";
+import type { EditFailure, EditTransaction, FileCodec } from "./edit.ts";
 
 const decodeFile = Schema.decodeUnknownEffect(
   Schema.fromJsonString(VariationsFile)
@@ -57,8 +63,33 @@ export const variationsCodec = (
 });
 
 /** The sets as text to write, or null when none are left and the file goes. */
-export const textOfSets = (sets: VariationSets): string | null =>
+const textOfSets = (sets: VariationSets): string | null =>
   Object.keys(sets).length === 0 ? null : renderVariations(sets);
+
+/** The file written with the sets, or removed when none are left. */
+export const writeSets = (
+  tx: EditTransaction,
+  file: string,
+  sets: VariationSets
+): Effect.Effect<void, EditFailure> => {
+  const text = textOfSets(sets);
+  return text === null ? tx.remove(file) : tx.write(file, text);
+};
+
+/**
+ * A copy of a document's file (`from`, `to` repo-relative) takes its variations along: they name
+ * its node ids, which the copy keeps.
+ */
+export const copyVariationsFile = Effect.fnUntraced(function* (
+  tx: EditTransaction,
+  from: string,
+  to: string
+) {
+  const text = yield* tx.read(variationsFileOf(from));
+  if (text !== null) {
+    yield* tx.create(variationsFileOf(to), text);
+  }
+});
 
 const CANVAS_VARIATIONS = `${CANVAS_FILE.slice(0, -".json".length)}${VARIATIONS_EXTENSION}`;
 
@@ -74,7 +105,7 @@ export const documentFileOfVariations = (file: string): string => {
   const dir = file.includes("/") ? file.slice(0, file.lastIndexOf("/")) : "";
   return dir === COMPONENTS_DIR
     ? `${base}${COMPONENT_EXTENSION}`
-    : `${base}.page.json`;
+    : `${base}${PAGE_EXTENSION}`;
 };
 
 /** Every node the variations of a set keep a tree of. */

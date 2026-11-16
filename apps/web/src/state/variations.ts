@@ -18,6 +18,7 @@ import type {
   VariationSets,
   VariationTarget,
 } from "@ultrapaint/contracts/variations";
+import { childrenOf } from "@ultrapaint/design-document/tree";
 import { create } from "zustand";
 import { appComponentOf } from "./components.ts";
 import { api } from "./connection.ts";
@@ -35,6 +36,8 @@ export interface OpenVariations {
   readonly node: string;
   /** The variation shown in the preview: the one in use until another is shown. */
   readonly preview: string;
+  /** What was selected when they opened, given back when they close. */
+  readonly selected: Selection | null;
 }
 
 interface VariationsStore {
@@ -50,7 +53,7 @@ export const useVariations = create<VariationsStore>(() => ({
   open: null,
 }));
 
-const take = ({ doc, sets }: DocumentVariations) =>
+const takeVariations = ({ doc, sets }: DocumentVariations) =>
   useVariations.setState((s) => {
     const { [doc]: _was, ...others } = s.byDoc;
     return {
@@ -65,7 +68,7 @@ const variationsData = follow({
     }),
   key: () => useVariations.getState().canvas,
   news: ["variations"],
-  on: { variations: take },
+  on: { variations: takeVariations },
   read: (canvas: string) => api().request("variations.list", { canvas }),
 });
 
@@ -125,10 +128,10 @@ export const drawnWith = (root: DesignNode, part: DesignNode): DesignNode => {
   if (root.id === part.id) {
     return part;
   }
-  if (!("children" in root && Array.isArray(root.children))) {
+  const children = childrenOf(root);
+  if (children.length === 0) {
     return root;
   }
-  const children = root.children as DesignNode[];
   const next = children.map((child) => drawnWith(child, part));
   return next.every((child, i) => child === children[i])
     ? root
@@ -145,12 +148,14 @@ export const openVariations = (thing: Thing, preview?: string) => {
   if (!set) {
     return;
   }
+  const { selection } = useEditor.getState();
   select(null);
   useVariations.setState({
     open: {
       ...target,
       frame: thing.frame,
       preview: preview ?? set.inUse,
+      selected: selection,
     },
   });
 };
@@ -184,8 +189,14 @@ export const resetPreview = () => {
   }
 };
 
-/** Closes the variations, the one in use kept. */
-export const closeVariations = () => useVariations.setState({ open: null });
+/** Closes the variations, the one in use kept and what was selected selected again. */
+export const closeVariations = () => {
+  const { open } = useVariations.getState();
+  useVariations.setState({ open: null });
+  if (open?.selected) {
+    select(open.selected);
+  }
+};
 
 /** Whether the preview shows another than the one in use. */
 export const previewDiffers = (state: VariationsStore): boolean => {
@@ -206,7 +217,7 @@ export const putPreviewInUse = async () => {
     return;
   }
   if (previewDiffers(state)) {
-    take(
+    takeVariations(
       await api().request("variations.use", {
         doc: open.doc,
         node: open.node,
@@ -220,14 +231,14 @@ export const putPreviewInUse = async () => {
 
 /** The one in use copied as a new variation, put in use to be edited by hand. */
 export const newVariation = async (thing: Thing) =>
-  take(await api().request("variations.add", targetOf(thing)));
+  takeVariations(await api().request("variations.add", targetOf(thing)));
 
 export const renameVariation = async (
   thing: Thing,
   variation: string,
   name: string
 ) =>
-  take(
+  takeVariations(
     await api().request("variations.rename", {
       ...targetOf(thing),
       name,
@@ -236,7 +247,7 @@ export const renameVariation = async (
   );
 
 export const deleteVariation = async (thing: Thing, variation: string) =>
-  take(
+  takeVariations(
     await api().request("variations.remove", {
       ...targetOf(thing),
       variation,
@@ -244,7 +255,7 @@ export const deleteVariation = async (thing: Thing, variation: string) =>
   );
 
 export const clearVariations = async (thing: Thing) =>
-  take(await api().request("variations.clear", targetOf(thing)));
+  takeVariations(await api().request("variations.clear", targetOf(thing)));
 
 /** The room between the page and its variations, and between two of them, on the canvas. */
 export const BESIDE_GAP = 80;
@@ -349,8 +360,11 @@ export const previewedComponents = (
   if (previewed?.components !== components || previewed.tree !== tree) {
     previewed = {
       components,
+      // The part shown in its place in the tree: the whole tree when it is the main tree's root.
       drawn: components.map((c) =>
-        c.origin === "app" && c.name === component ? { ...c, tree } : c
+        c.origin === "app" && c.name === component
+          ? { ...c, tree: drawnWith(c.tree, tree) }
+          : c
       ),
       tree,
     };
