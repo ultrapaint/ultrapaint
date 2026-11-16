@@ -6,6 +6,7 @@
  * kept twice; the others keep theirs. The first is the **original**, the thing as it was before.
  */
 import { Schema } from "effect";
+import { COMPONENT_EXTENSION } from "./component-names.ts";
 import { DesignNode } from "./document.ts";
 
 /** The id of a set's first variation: the thing as it was before any other. */
@@ -62,7 +63,7 @@ export type VariationTarget = typeof VariationTarget.Type;
 
 export const VARIATIONS_EXTENSION = ".variations.json";
 
-const EXTENSIONS = [".page.json", ".component.json", ".json"];
+const EXTENSIONS = [".page.json", COMPONENT_EXTENSION, ".json"];
 
 /**
  * The variations file beside a document's file: `notes.page.json` keeps them in
@@ -73,7 +74,3 @@ export const variationsFileOf = (documentFile: string): string => {
   const extension = EXTENSIONS.find((e) => documentFile.endsWith(e)) ?? "";
   return `${documentFile.slice(0, documentFile.length - extension.length)}${VARIATIONS_EXTENSION}`;
 };
-
-/** The variation of a set in use. */
-export const inUseOf = (set: VariationSet): Variation | undefined =>
-  set.variations.find((v) => v.id === set.inUse);

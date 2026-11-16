@@ -26,6 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { assetsAddress } from "../canvas/preview-module.ts";
 import { promptDialog } from "../components/dialogs.tsx";
 import { useEditor } from "../state/editor.ts";
 import { reportError } from "../state/project.ts";
@@ -42,7 +43,6 @@ import {
 } from "../state/variations.ts";
 import { Section, SectionAction } from "./inspector-fields.tsx";
 
-const ASSET_ROUTE = "/api/asset";
 const URL_RE = /^[a-z]+:/i;
 const LEADING_DOT_SLASH_RE = /^\.\//;
 
@@ -50,7 +50,7 @@ const LEADING_DOT_SLASH_RE = /^\.\//;
 const pictureOf = (src: string, canvas: string) =>
   URL_RE.test(src)
     ? src
-    : `${ASSET_ROUTE}?${new URLSearchParams({ canvas, src: src.replace(LEADING_DOT_SLASH_RE, "") })}`;
+    : `${assetsAddress()}?${new URLSearchParams({ canvas, src: src.replace(LEADING_DOT_SLASH_RE, "") })}`;
 
 /** What a row shows of a variation: a text's words, an image's picture, else its name. */
 const RowBody = ({

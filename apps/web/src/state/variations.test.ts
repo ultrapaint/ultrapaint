@@ -3,6 +3,7 @@ import type { DesignNode, DocumentState } from "@ultrapaint/contracts/document";
 import type { VariationSets } from "@ultrapaint/contracts/variations";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "../testing/fake-api.ts";
+import { useComponents } from "./components.ts";
 import { useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
 import { rightHasSubject } from "./panels.ts";
@@ -13,6 +14,7 @@ import {
   drawnIn,
   loadVariations,
   openVariations,
+  previewedComponents,
   previewOf,
   putPreviewInUse,
   showVariation,
@@ -152,6 +154,64 @@ describe("choosing among a thing's variations", () => {
     expect(useVariations.getState().open).toBeNull();
     expect(drawnIn(useVariations.getState(), HOME)).toBeNull();
     expect(writes()).toEqual([]);
+  });
+
+  it("gives back the selection opening them took when they close on Done", () => {
+    select({ frame: HOME, nodeId: "title" });
+    openVariations({ frame: HOME, nodeId: "title" });
+    closeVariations();
+    expect(useEditor.getState().selection).toEqual({
+      frame: HOME,
+      nodeId: "title",
+    });
+  });
+
+  it("draws a part of a component's tree in the preview in its place, the rest as it is", () => {
+    const card = {
+      children: [
+        heading("Sale"),
+        { id: "ends", role: "paragraph", text: "Ends Sunday", type: "text" },
+      ],
+      id: "c-root",
+      type: "column",
+    } as unknown as DesignNode;
+    useComponents.setState({
+      components: [
+        {
+          name: "Card",
+          origin: "app",
+          properties: [],
+          slots: [],
+          tree: card,
+          version: 1,
+        } as never,
+      ],
+    });
+    fakeApi.emit("variations", {
+      doc: "component:Card",
+      sets: {
+        title: {
+          inUse: "original",
+          variations: [
+            { id: "original", name: "Original" },
+            { id: "v2", name: "Loud", tree: heading("SALE") },
+          ],
+        },
+      },
+    });
+    openVariations(
+      {
+        doc: "component:Card",
+        frame: "board:library/Card/component",
+        nodeId: "title",
+      },
+      "v2"
+    );
+    const [drawn] = previewedComponents(useComponents.getState().components);
+    expect((drawn as { tree: DesignNode }).tree).toMatchObject({
+      children: [{ text: "SALE" }, { text: "Ends Sunday" }],
+      id: "c-root",
+    });
   });
 
   it("hears a change of the variations from the server", () => {

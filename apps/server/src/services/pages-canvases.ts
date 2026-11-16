@@ -32,6 +32,7 @@ import type { EditTransaction } from "./edit.ts";
 import type { CopyTarget } from "./pages.ts";
 import { makePageMoves } from "./pages-moves.ts";
 import type { PagesReading } from "./pages-reading.ts";
+import { copyVariationsFile } from "./variations-file.ts";
 
 export const makeCanvasOperations = (
   reading: PagesReading,
@@ -372,10 +373,7 @@ export const makeCanvasOperations = (
       yield* paths.resolve(path.join(root, to, page.path))
     );
     yield* tx.create(copy, yield* contentIn(tx, page.file));
-    const variations = yield* tx.read(variationsFileOf(page.file));
-    if (variations !== null) {
-      yield* tx.create(variationsFileOf(copy), variations);
-    }
+    yield* copyVariationsFile(tx, page.file, copy);
   });
 
   const copyTo = Effect.fn("PagesService.copyTo")(function* (

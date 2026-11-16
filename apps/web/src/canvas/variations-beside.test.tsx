@@ -186,16 +186,18 @@ afterEach(() => {
 });
 
 describe("a thing's variations laid out beside its page", () => {
-  it("draws each beside the page, Original first and in use, with its name and what it varied", () => {
+  it("names each over it, Original first and in use, with what it varied", () => {
     show();
-    const drawn = [...document.querySelectorAll("[data-variation]")];
-    expect(drawn.map((el) => el.textContent)).toEqual([
-      "OriginalIn use",
-      "EditorialTone of the copy",
-      "Loud",
-    ]);
-    // Past the page's right edge, two to a row, the first level with the heading.
-    const at = drawn.map((el) => {
+    expect(
+      [...document.querySelectorAll("[data-variation]")].map(
+        (el) => el.textContent
+      )
+    ).toEqual(["OriginalIn use", "EditorialTone of the copy", "Loud"]);
+  });
+
+  it("lays them out past the page's right edge, two to a row, the first level with the thing", () => {
+    show();
+    const at = [...document.querySelectorAll("[data-variation]")].map((el) => {
       const { left, top } = (el as HTMLElement).style;
       return [Number.parseFloat(left), Number.parseFloat(top)];
     });
@@ -204,15 +206,20 @@ describe("a thing's variations laid out beside its page", () => {
       [2200, 120],
       [1520, 240],
     ]);
-    // Each is drawn as its own tree; the original as the heading is in the page.
-    const textOf = (frame: string) => {
-      const request = renders.findLast((r) => r.frame === frame)?.request;
-      return request?.root?.type === "text" ? request.root.text : undefined;
-    };
-    expect(textOf(`variation:${HOME}/title/original`)).toBe(
-      "Drawing with constraints"
-    );
-    expect(textOf(`variation:${HOME}/title/v2`)).toBe("Notes, now and then");
+  });
+
+  it("draws each as its own tree, the one in use as the page has it, at the page's breakpoint", () => {
+    show();
+    const drawnFor = (variation: string) =>
+      renders.findLast(
+        (r) => r.frame === `variation:${HOME}/title/${variation}`
+      )?.request;
+    const textOf = (request: RenderRequest | undefined) =>
+      request?.root?.type === "text" ? request.root.text : undefined;
+    expect(textOf(drawnFor("original"))).toBe("Drawing with constraints");
+    expect(textOf(drawnFor("v2"))).toBe("Notes, now and then");
+    // A 600 px heading of a 1440 px page is drawn as the page draws it: at `xl`.
+    expect(drawnFor("v2")?.at).toBe("xl");
   });
 
   it("shows one in the preview on a click or ← →, the controls under it saying what it is", () => {
@@ -233,7 +240,7 @@ describe("a thing's variations laid out beside its page", () => {
     expect(controls()).toBe("Done");
   });
 
-  it("puts the preview back on Reset, and closes on Escape with nothing written", () => {
+  it("puts the preview back to the one in use on Reset", () => {
     show();
     click(document.querySelector('[aria-label="Show Loud"]'));
     click(
@@ -242,6 +249,11 @@ describe("a thing's variations laid out beside its page", () => {
       )
     );
     expect(controls()).toBe("Done");
+  });
+
+  it("closes on Escape with nothing written", () => {
+    show();
+    click(document.querySelector('[aria-label="Show Loud"]'));
     press("escape");
     expect(document.querySelector("[data-variation]")).toBeNull();
     expect(fakeApi.calls.filter((c) => c.method === "variations.use")).toEqual(

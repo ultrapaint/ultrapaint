@@ -15,7 +15,6 @@ import {
 import type { PageDocument } from "@ultrapaint/contracts/document";
 import { BadRequest, Conflict, NotFound } from "@ultrapaint/contracts/errors";
 import { emptyCanvasLayout, type Page } from "@ultrapaint/contracts/pages";
-import { variationsFileOf } from "@ultrapaint/contracts/variations";
 import {
   pageTemplates,
   renderTemplate,
@@ -35,6 +34,7 @@ import type { CommentsService } from "./comments.ts";
 import type { NewPage } from "./pages.ts";
 import { makePageMoves } from "./pages-moves.ts";
 import type { PagesReading } from "./pages-reading.ts";
+import { copyVariationsFile } from "./variations-file.ts";
 
 /**
  * The pages deleting `asked` takes, each once, the first asked for first: a base page's variants
@@ -287,13 +287,7 @@ export const makePageOperations = (
           yield* contentIn(tx, page.file)
         );
         // Its variations too, which name the same ids (ADR 0098).
-        const variations = yield* tx.read(variationsFileOf(page.file));
-        if (variations !== null) {
-          yield* tx.create(
-            variationsFileOf(paths.relative(target)),
-            variations
-          );
-        }
+        yield* copyVariationsFile(tx, page.file, paths.relative(target));
         // The copy serves no URL: two pages cannot serve one.
         yield* updateRoutes(tx, all, page.canvas, (routes) => routes);
         yield* updateFrames(tx, page.canvas, (frames) => {

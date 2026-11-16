@@ -62,8 +62,8 @@ import { PagesService } from "./pages.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import {
   setsStillDrawn,
-  textOfSets,
   variationsCodec,
+  writeSets,
 } from "./variations-file.ts";
 
 const decodeNodes = Schema.decodeUnknownEffect(Schema.Array(DesignNode));
@@ -475,13 +475,15 @@ export class DocumentService extends Context.Service<
         if (text === null) {
           return;
         }
-        const sets = yield* variationsCodec(file).decode(text);
-        const kept = setsStillDrawn(sets, tree);
-        if (kept === sets) {
-          return;
+        // A file that does not read (a merge left half done) is left as it is, for the person to
+        // mend: an edit of the page is no reason to refuse.
+        const sets = yield* variationsCodec(file)
+          .decode(text)
+          .pipe(Effect.catchTag("Conflict", () => Effect.succeed(null)));
+        const kept = sets === null ? null : setsStillDrawn(sets, tree);
+        if (kept !== null && kept !== sets) {
+          yield* writeSets(tx, file, kept);
         }
-        const next = textOfSets(kept);
-        yield* next === null ? tx.remove(file) : tx.write(file, next);
       });
 
       const apply = Effect.fn("DocumentService.apply")(function* (

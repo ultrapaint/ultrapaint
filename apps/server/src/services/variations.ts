@@ -10,7 +10,7 @@ import {
   componentDocOf,
 } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import { BadRequest, NotFound } from "@ultrapaint/contracts/errors";
+import { BadRequest, Conflict, NotFound } from "@ultrapaint/contracts/errors";
 import {
   type DocumentVariations,
   ORIGINAL_ID,
@@ -28,14 +28,14 @@ import { EventBus } from "../events.ts";
 import { toPosix } from "../hash.ts";
 import { DesignFiles } from "./design-files.ts";
 import { DocumentService } from "./documents.ts";
-import type { EditFailure, EditTransaction } from "./edit.ts";
+import type { EditFailure } from "./edit.ts";
 import { PagesService } from "./pages.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import {
   documentFileOfVariations,
   opsPutting,
-  textOfSets,
   variationsCodec,
+  writeSets,
 } from "./variations-file.ts";
 
 /** What a change makes of a thing's set: the set it leaves (null: none), and a tree to put in. */
@@ -44,7 +44,7 @@ interface Decided {
   readonly set: VariationSet | null;
 }
 
-const without = (variation: Variation): Variation => {
+const withoutTree = (variation: Variation): Variation => {
   const { tree: _tree, ...rest } = variation;
   return rest;
 };
@@ -59,18 +59,8 @@ const withSet = (
   return set === null ? others : { ...others, [node]: set };
 };
 
-/** The file written with the sets, or removed when none are left. */
-const writeSets = (
-  tx: EditTransaction,
-  file: string,
-  sets: VariationSets
-): Effect.Effect<void, EditFailure> => {
-  const text = textOfSets(sets);
-  return text === null ? tx.remove(file) : tx.write(file, text);
-};
-
 /** A new variation's id and name: the first number from 2 neither takes. */
-const nextOf = (set: VariationSet | undefined) => {
+const nextVariationOf = (set: VariationSet | undefined) => {
   const ids = new Set(set?.variations.map((v) => v.id));
   const names = new Set(set?.variations.map((v) => v.name));
   let n = Math.max(2, (set?.variations.length ?? 1) + 1);
@@ -126,10 +116,16 @@ export class VariationsService extends Context.Service<
       /** A file's sets as they are on disk now. */
       const readSets = Effect.fnUntraced(function* (file: string) {
         const text = yield* fs.readFileString(yield* paths.resolve(file)).pipe(
+          // A document with no file beside it has no variations yet.
           Effect.catchReason("PlatformError", "NotFound", () =>
             Effect.succeed(null)
           ),
-          Effect.orElseSucceed(() => null)
+          Effect.mapError(
+            (error) =>
+              new Conflict({
+                message: `${file} cannot be read: ${error.message}`,
+              })
+          )
         );
         return yield* variationsCodec(file).decode(text);
       });
@@ -145,9 +141,18 @@ export class VariationsService extends Context.Service<
         const componentsDir = yield* paths.resolve(
           path.join(paths.designsDir, COMPONENTS_DIR)
         );
-        const components = (yield* fs
-          .readDirectory(componentsDir)
-          .pipe(Effect.orElseSucceed(() => [] as string[])))
+        const components = (yield* fs.readDirectory(componentsDir).pipe(
+          // A project with no components folder yet has no component's variations.
+          Effect.catchReason("PlatformError", "NotFound", () =>
+            Effect.succeed([] as string[])
+          ),
+          Effect.mapError(
+            (error) =>
+              new Conflict({
+                message: `the components cannot be listed: ${error.message}`,
+              })
+          )
+        ))
           .filter((name) => name.endsWith(VARIATIONS_EXTENSION))
           .map((name) =>
             componentDocOf(name.slice(0, -VARIATIONS_EXTENSION.length))
@@ -158,7 +163,11 @@ export class VariationsService extends Context.Service<
           ...components,
         ];
         const read = yield* Effect.forEach(docs, (doc) =>
-          Effect.map(setsOf(doc), (sets) => ({ doc, sets }))
+          setsOf(doc).pipe(
+            // A file that does not read (a merge left half done) lists none; a change says why.
+            Effect.catchTag("Conflict", () => Effect.succeed({})),
+            Effect.map((sets) => ({ doc, sets }))
+          )
         );
         return {
           documents: read.filter((d) => Object.keys(d.sets).length > 0),
@@ -207,7 +216,10 @@ export class VariationsService extends Context.Service<
         return { doc: target.doc, sets } satisfies DocumentVariations;
       });
 
-      const found = (set: VariationSet | undefined, variation: string) => {
+      const variationIn = (
+        set: VariationSet | undefined,
+        variation: string
+      ) => {
         const entry = set?.variations.find((v) => v.id === variation);
         return entry === undefined || set === undefined
           ? Effect.fail(
@@ -239,7 +251,7 @@ export class VariationsService extends Context.Service<
               if (v.id === set.inUse) {
                 return { ...v, tree: node };
               }
-              return v.id === variation ? without(v) : v;
+              return v.id === variation ? withoutTree(v) : v;
             }),
           },
         });
@@ -249,7 +261,7 @@ export class VariationsService extends Context.Service<
         target: VariationTarget
       ) {
         return yield* change("New variation", target, (set, node) => {
-          const { id, name } = nextOf(set);
+          const { id, name } = nextVariationOf(set);
           const variations =
             set === undefined
               ? [{ id: ORIGINAL_ID, name: "Original", tree: node }]
@@ -267,7 +279,7 @@ export class VariationsService extends Context.Service<
         variation: string
       ) {
         return yield* change("Use a variation", target, (set, node) =>
-          Effect.flatMap(found(set, variation), ({ set: s }) =>
+          Effect.flatMap(variationIn(set, variation), ({ set: s }) =>
             putInUse(s, node, variation)
           )
         );
@@ -279,7 +291,7 @@ export class VariationsService extends Context.Service<
         name: string
       ) {
         return yield* change("Rename a variation", target, (set) =>
-          Effect.map(found(set, variation), ({ set: s }) => ({
+          Effect.map(variationIn(set, variation), ({ set: s }) => ({
             set: {
               ...s,
               variations: s.variations.map((v) =>
@@ -296,7 +308,7 @@ export class VariationsService extends Context.Service<
       ) {
         return yield* change("Delete a variation", target, (set, node) =>
           Effect.gen(function* () {
-            const { set: s } = yield* found(set, variation);
+            const { set: s } = yield* variationIn(set, variation);
             if (variation === ORIGINAL_ID) {
               return yield* new BadRequest({
                 message: "the original stays while other variations remain",

@@ -164,7 +164,12 @@ describe("the inspector's Variations section", () => {
     const pictures = [
       ...container.querySelectorAll("[data-variation-row] img"),
     ];
-    expect(pictures.map((img) => img.getAttribute("src"))).toEqual([
+    // Asked of the server, on its own address (ADR 0100).
+    const asked = pictures.map((img) => {
+      const url = new URL(img.getAttribute("src") ?? "");
+      return `${url.pathname}${url.search}`;
+    });
+    expect(asked).toEqual([
       "/api/asset?canvas=&src=assets%2Fdesk.jpg",
       "/api/asset?canvas=&src=assets%2Fplant.jpg",
     ]);
@@ -182,7 +187,7 @@ describe("the inspector's Variations section", () => {
         container.querySelector('[data-variation-row="v2"]') as HTMLElement
       ).click()
     );
-    expect(useVariations.getState().open).toEqual({
+    expect(useVariations.getState().open).toMatchObject({
       doc: HOME,
       frame: HOME,
       node: "title",
