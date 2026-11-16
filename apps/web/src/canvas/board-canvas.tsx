@@ -64,6 +64,7 @@ import {
 } from "../state/isolation.ts";
 import { LOOK_ITEM, useLookPage } from "../state/look-page.ts";
 import { useSelectedIn } from "../state/selection.ts";
+import { useVariations } from "../state/variations.ts";
 import { screenPx } from "./camera.ts";
 import { CanvasGround } from "./canvas-ground.tsx";
 import { frameOf, useFrameDrawing, useFrameEvents } from "./editor-frame.ts";
@@ -80,6 +81,8 @@ import {
 import { Highlights, useHoverIn } from "./frame-highlights.tsx";
 import { PreviewSurface } from "./preview-surface.tsx";
 import { useFramePointer } from "./use-frame-pointer.ts";
+import { VariationPreviewChrome } from "./variation-preview.tsx";
+import { VariationsBeside } from "./variations-beside.tsx";
 
 /** A component's file as a board draws it: the project's, or the system component's default look. */
 const fileOf = (
@@ -176,6 +179,11 @@ export const BoardCanvas = ({ open }: { open: BoardPlace }) => {
   // The boards laid out where the camera and the frames read them: the board view's state.
   useLayoutEffect(() => showBoards(ids, direction), [ids, direction]);
   const layout = useBoard((s) => s.frames);
+  // A component's main tree's variations, laid out beside the board it is chosen on (ADR 0098).
+  const choosingOn = useVariations((s) =>
+    s.open && ids.includes(s.open.frame) ? s.open.frame : null
+  );
+  const choosingBox = choosingOn === null ? undefined : layout[choosingOn];
 
   return (
     <CanvasGround
@@ -202,6 +210,9 @@ export const BoardCanvas = ({ open }: { open: BoardPlace }) => {
           />
         ) : null;
       })}
+      {choosingOn !== null && choosingBox ? (
+        <VariationsBeside board={{ box: choosingBox, frameId: choosingOn }} />
+      ) : null}
     </CanvasGround>
   );
 };
@@ -332,6 +343,7 @@ const BoardFrame = memo(
           />
         ) : null}
         {editing ? null : <PickOutline frameId={frameId} />}
+        <VariationPreviewChrome frame={box} frameId={frameId} />
       </div>
     );
   }

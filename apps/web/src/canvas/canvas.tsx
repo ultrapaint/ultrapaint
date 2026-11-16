@@ -62,6 +62,7 @@ import {
 } from "./frame-gesture.ts";
 import { addImages, imageFiles } from "./items.ts";
 import { holdsFree } from "./snap.ts";
+import { VariationsBeside } from "./variations-beside.tsx";
 
 /**
  * The page canvas: the pages' frames and their views, and the nodes beside the pages, on the
@@ -317,6 +318,7 @@ export const Canvas = () => {
           />
         );
       })}
+      <VariationsBeside />
       <CanvasComments />
       <DragOverlay />
       <CreateOverlay />

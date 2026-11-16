@@ -267,6 +267,15 @@ const fitTo = (
   show(view);
 };
 
+/** Glides to fit these boxes of the canvas into what of it is seen: a page and its variations. */
+export const zoomToBoxes = (
+  boxes: readonly { x: number; y: number; width: number; height: number }[]
+) => {
+  if (boxes.length > 0) {
+    fitTo(viewportSize(), [...boxes], true);
+  }
+};
+
 /** Fits everything on the canvas, pages and nodes, into what of it is seen. */
 export const zoomToFit = () => {
   const frames = Object.values(allFrames());

@@ -20,6 +20,7 @@ import { layoutSaved } from "../state/page-layout.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { select, selectedPageNow } from "../state/selection.ts";
 import { allFrames, surfaceNow } from "../state/surface.ts";
+import { variationsKey } from "../state/variations.ts";
 import { onCopyEvent, onPasteEvent } from "./clipboard.ts";
 import { isTyping, overlayOpen } from "./keys.ts";
 import { selected } from "./node-actions.ts";
@@ -116,13 +117,15 @@ export const dismiss = () => {
 /**
  * Escape: one step back from whatever is going on, the first of these that has something to put
  * away. What the pointer is doing (a frame moved or sized, a drag, a marquee, a group being drawn:
- * put back, nothing saved, the tool kept), an app component edited in place (left), an open
+ * put back, nothing saved, the tool kept), a thing's variations open (closed, ADR 0098), an app
+ * component edited in place (left), an open
  * comment or the prototype's commenting (`dismiss`), what the main area holds besides (a board's
  * pick), then the selection (its parent, or let go at the top: a page's root, the page). False when
  * none had anything, and the key is the browser's.
  */
 export const stepBack = (): boolean =>
   cancelGesture() ||
+  variationsKey("Escape") ||
   leaveIsolation() ||
   dismiss() ||
   surfaceNow().escape() ||

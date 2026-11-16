@@ -111,6 +111,7 @@ import {
 import { BehaviourSection, ViewsRow } from "./inspector-page.tsx";
 import { SlotsSection } from "./inspector-slots.tsx";
 import { TextSection } from "./inspector-text.tsx";
+import { VariationsSection } from "./inspector-variations.tsx";
 
 export const Inspector = () => {
   const inspected = useInspected();
@@ -136,6 +137,7 @@ export const Inspector = () => {
       <div className="flex flex-col pb-4">
         <Header frame={frame} node={node} nodes={nodes} />
         {nodes.length === 1 && <IsolatedComponent frame={frame} node={node} />}
+        {nodes.length === 1 && <VariationsSection frame={frame} node={node} />}
         {node.type === "page" && nodes.length === 1 && (
           <PageSection frame={frame} />
         )}

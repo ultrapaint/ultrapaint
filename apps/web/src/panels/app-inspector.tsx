@@ -9,6 +9,7 @@
 import {
   APP_FROM,
   type AppComponentFile,
+  componentDocOf,
   variantKey,
 } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
@@ -53,6 +54,7 @@ import {
   PropertyRow,
 } from "./inspector-component.tsx";
 import { EmptyState, Section } from "./inspector-fields.tsx";
+import { VariationsSection } from "./inspector-variations.tsx";
 import { removeComponent } from "./look-inspector.tsx";
 
 /** The app component's file, by name. */
@@ -243,6 +245,16 @@ const AppBody = ({ file }: { file: AppComponentFile }) => {
           <VariantRow file={file} key={appBoardName(v)} variant={v} />
         ))}
       </Section>
+      {/* Its main tree's variations, other takes on it, under its members (ADR 0098). */}
+      <VariationsSection
+        doc={componentDocOf(file.name)}
+        frame={boardFrameOf({
+          item: file.name,
+          name: appBoardName(variants[0] ?? null),
+          view: "library",
+        })}
+        node={file.tree}
+      />
       <Section title="Slots">
         {file.slots.length === 0 ? (
           <p className="font-body-small text-muted-foreground">

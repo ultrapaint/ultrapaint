@@ -39,6 +39,7 @@ import {
 import { useProject } from "../state/project.ts";
 import { selectedPageNow } from "../state/selection.ts";
 import { surfaceNow } from "../state/surface.ts";
+import { variationsKey } from "../state/variations.ts";
 import { newCanvas, openCanvas } from "./canvas-actions.ts";
 import { pickFigmaFile } from "./import-figma.ts";
 import { type Keys, keysLabel } from "./keys.ts";
@@ -654,7 +655,8 @@ const keyOnlyCommands = (): CommandSpec[] => [
     id: "editText",
     keys: ["enter"],
     offered: keyOnly,
-    run: editSelectedText,
+    // Enter uses the variation in the preview while a thing's variations are open (ADR 0098).
+    run: () => variationsKey("Enter") || editSelectedText(),
     scope: "canvas",
     title: "Edit the text",
   },
@@ -686,7 +688,9 @@ const keyOnlyCommands = (): CommandSpec[] => [
     id: "selectDepth",
     keys: ["arrowleft", "arrowright"],
     offered: keyOnly,
-    run: (pressed) => walkSelection(pressed ?? ""),
+    // While a thing's variations are open, ← and → move its preview through them (ADR 0098).
+    run: (pressed) =>
+      variationsKey(pressed ?? "") || walkSelection(pressed ?? ""),
     scope: "canvas",
     title: "Select the parent or the first child",
   },

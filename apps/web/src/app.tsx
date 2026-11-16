@@ -98,6 +98,7 @@ import { followServer } from "./state/server-data.ts";
 import { useSurface } from "./state/surface.ts";
 import { useSync } from "./state/sync.ts";
 import { useTheme } from "./state/theme.ts";
+import { loadVariations } from "./state/variations.ts";
 import { useWindowChrome } from "./state/window-controls.ts";
 
 /*
@@ -694,6 +695,8 @@ export const App = () => {
   useEffect(() => {
     if (configured && canvas !== null) {
       useComments.getState().load(canvas);
+      // So are the variations of its documents (ADR 0098).
+      loadVariations(canvas);
     }
   }, [configured, canvas]);
 

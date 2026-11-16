@@ -12,6 +12,7 @@ import {
   useEffect,
   useEffectEvent,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -42,6 +43,7 @@ import {
   useFrameBreakpoint,
   useSelectedIn,
 } from "../state/selection.ts";
+import { drawnIn, drawnWith, useVariations } from "../state/variations.ts";
 import { FramePresence, PresenceLabel } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
 import { onScreen, screenPx, UNZOOM } from "./camera.ts";
@@ -53,6 +55,7 @@ import { pageRequest } from "./page-request.ts";
 import { usePreview } from "./preview-module.ts";
 import { SelectionChrome } from "./selection-chrome.tsx";
 import { useFramePointer } from "./use-frame-pointer.ts";
+import { VariationPreviewChrome } from "./variation-preview.tsx";
 
 /**
  * Writes an inline text edit from the preview back into the document, at the breakpoint of the
@@ -154,7 +157,16 @@ export const Frame = memo(
     const canvas = useEditor((s) => s.canvas);
     // What its selection is in, and what it draws: the same but while a component is edited in place.
     const root = useDocuments((s) => rootOfFrame(s.docs, canvas, frameId));
-    const drawnRoot = useDocuments((s) => drawnRootOf(s.docs, canvas, frameId));
+    const ownRoot = useDocuments((s) => drawnRootOf(s.docs, canvas, frameId));
+    // The variation shown in the preview drawn in its thing's place; nothing written (ADR 0098).
+    const previewed = useVariations((s) => drawnIn(s, frameId));
+    const drawnRoot = useMemo(
+      () => (ownRoot && previewed ? drawnWith(ownRoot, previewed) : ownRoot),
+      [ownRoot, previewed]
+    );
+    const openNode = useVariations((s) =>
+      s.open?.frame === frameId ? s.open.node : null
+    );
     const isolate = useIsolatedRequest(frameId);
     const problem = useDocuments((s) => {
       const shown = pageOfRef(frameRefOf(frameId));
@@ -217,6 +229,7 @@ export const Frame = memo(
       ...selectedHere,
       hoverHere,
       ...work.pieces.flatMap((p) => p.nodeIds),
+      ...(openNode === null ? [] : [openNode]),
     ]);
 
     const {
@@ -304,6 +317,7 @@ export const Frame = memo(
         <FrameComments frameId={frameId} />
 
         <SelectionChrome frame={frame} frameId={frameId} isNode={isNode} />
+        <VariationPreviewChrome frame={frame} frameId={frameId} />
 
         <ResizeHandles
           frameId={frameId}
