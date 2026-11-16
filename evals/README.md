@@ -613,6 +613,14 @@ them, records the questions' version, the model and the pictures. `--sample <n>`
 for, from that check: grounds and text colours (within ΔE 4 and 2 of the measured), type sizes
 (±2px), sections and moves boxed on their pictures; not muted greys (ΔE 7–20).
 
+`pnpm evals study ground` counts what the notes share, the common ground of ADR 0082: every
+page, each kind of page, then each kind by expression, a group kept from 30 pages (20 for a kind
+by expression). A field with few values is the share of pages giving each, a number its median
+and middle half, a list's value the share of pages that have it, the well-made pages (craft 3)
+beside every page. It leaves out face names, hexes and free text, and writes `ground.md` and
+`ground.json` beside the notes: what the skill's references are written from, never copied into
+them.
+
 What a book says the skill should change is evidence for a gap, never a change to the skill.
 
 ## Decisions
