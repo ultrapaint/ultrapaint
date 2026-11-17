@@ -2,7 +2,7 @@
 id: g76
 title: A description on every row
 kind: missed
-status: open
+status: testing
 found: 2026-11-17
 source: the Settings dialog as redesigned on 13 Nov (ADR 0090–0094), corrected by the person
 skill: [SKILL.md, references/review.md, references/kinds/settings.md, references/words/interface.md]
@@ -89,3 +89,7 @@ other findings. Then a fresh-brief round on settings briefs, counted in code fro
 the share of rows with a line and the notes opening a section, shipped against the candidate.
 
 **Result.**
+
+- `g76-rl`: 2026-11-17, caught: shipped 1/2 (+1 partly), row-lines 2/2 (reviewed by opus, judged by opus, cursor:grok-4.7-high, effort high; runs/g76-rl/report.md)
+- `g76-rl`, by the table above: of the five lines it marks as restating or explaining the obvious (Accent, Comments, Increase contrast, Motion, Theme's first half), the shipped skill's reviews named 2 and 1, `row-lines`' 3 and 4 (Theme, Comments, Increase contrast, and Motion in one). No review of either named Accent; one `row-lines` review kept it as a scope. Every review kept Scroll wheel's constraint, and each trimmed Theme's and Text size's lines to their scope rather than dropping them, as the table's borderline rows have it. `row-lines`' reviews counted the rows ("all eight rows have a muted line") and cited W21 and `settings.md`. Both versions flagged the Agents page's note and the clause repeated on each agent row. The section's other findings: 17 a review for each version over the two runs on this section, and across both sections 11.0 unmatched a review against 12.3; the other gaps on `settings` 13 of 18 caught against 10 of 18, `row-lines` taking g26, g32 and g48 and losing one run of g31.
+- Next: the fresh-brief count of **Test.** (the share of rows with a line and the notes opening a section, shipped against `row-lines`), with Opus designing settings screens, once the queued rounds leave Claude room.
