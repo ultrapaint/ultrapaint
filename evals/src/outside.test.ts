@@ -346,4 +346,83 @@ describe("a run outside the editor", () => {
       );
     }
   );
+
+  it.effect(
+    "shows a flow's screens each at its own address, and photographs every one in the flow's order",
+    () => {
+      const processes = scriptedProcesses(({ command }) => {
+        if (command === "codex") {
+          return codexLines.join("\n");
+        }
+        return command.endsWith("vite")
+          ? "  Local:   http://127.0.0.1:5173/\n"
+          : "abc1234\n";
+      });
+      const asked: string[] = [];
+      const recording = Layer.succeed(
+        Browser,
+        Browser.of({
+          audit: () => noBrowser,
+          capture: (url) =>
+            Effect.sync(() => {
+              asked.push(url);
+              return {
+                fold: new Uint8Array([1]),
+                tiles: [new Uint8Array([2])],
+              };
+            }),
+          compare: () => noBrowser,
+          crop: () => noBrowser,
+          cut: () => noBrowser,
+          hold: () => noBrowser,
+          layout: () => noBrowser,
+          locate: () => noBrowser,
+          trim: () => noBrowser,
+          zoom: () => noBrowser,
+        })
+      );
+      const flow: LoadedReference = {
+        ...reference,
+        screens: [
+          { name: "account", what: "step 1, empty" },
+          { name: "bank-connected", what: "step 3, one account connected" },
+        ],
+      };
+      return Effect.gen(function* () {
+        const { data } = yield* EvalsConfig;
+        const fs = yield* FileSystem.FileSystem;
+        yield* writeData(files);
+        yield* generateOutside([flow], host, options);
+
+        const told =
+          processes.ran.find((r) => r.command === "codex")?.args[1] ?? "";
+        assert.include(told, "A home page.\n\nIt is 2 screens.");
+        assert.include(told, "- `?screen=account`: step 1, empty");
+        assert.include(
+          told,
+          "- `?screen=bank-connected`: step 3, one account connected"
+        );
+        assert.deepStrictEqual(asked, [
+          "http://127.0.0.1:5173/",
+          "http://127.0.0.1:5173/?screen=bank-connected",
+        ]);
+        for (const shot of [
+          "desktop-fold.jpg",
+          "desktop-01.jpg",
+          "desktop@2-bank-connected-fold.jpg",
+          "desktop@2-bank-connected-01.jpg",
+        ]) {
+          assert.isTrue(
+            yield* fs.exists(`${data.runs}/r/home/run-1/shots/${shot}`)
+          );
+        }
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(recording, processes.layer).pipe(
+            Layer.provideMerge(TestData)
+          )
+        )
+      );
+    }
+  );
 });

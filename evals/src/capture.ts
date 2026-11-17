@@ -20,6 +20,15 @@ const DEFAULT_WAIT_MS = 1500;
 export const foldName = (viewport: string) => `${viewport}-fold.jpg`;
 export const tileName = (viewport: string, index: number) =>
   `${viewport}-${String(index + 1).padStart(2, "0")}.jpg`;
+/**
+ * The pictures of a flow's later screen (ADR 0101): `desktop@2-business-fold.jpg`,
+ * `desktop@2-business-01.jpg`, its place in the flow first so they sort in its order.
+ */
+export const screenShotName = (
+  viewport: string,
+  index: number,
+  screen: string
+) => `${viewport}@${index + 1}-${screen}`;
 export const zoomName = (index: number) => `zoom-${index + 1}.jpg`;
 export const CONTENT_FILE = "content.md";
 

@@ -18,7 +18,8 @@ import { Models } from "./models.ts";
 
 /**
  * The levels a side is given at: the judge's eight (`judge.ts`), in the prompt's order, colour
- * spelt as the prompt and the verdicts kept so far spell it.
+ * spelt as the prompt and the verdicts kept so far spell it; then use, whether the person can do
+ * what the screen is for (ADR 0101), which verdicts from before it do not have.
  */
 export const PAIR_LEVELS = [
   "layout",
@@ -29,6 +30,7 @@ export const PAIR_LEVELS = [
   "spacing",
   "components",
   "craft",
+  "use",
 ] as const;
 const SIDES = ["A", "B", "tie"] as const;
 const MARGINS = ["clear", "slight", "none"] as const;

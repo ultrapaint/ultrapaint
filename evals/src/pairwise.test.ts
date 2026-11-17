@@ -30,10 +30,10 @@ const twoRounds = {
 };
 
 describe("pairwise", () => {
-  it("gives a side at each of the judge's levels, colour in its own spelling", () => {
+  it("gives a side at each of the judge's levels, colour in its own spelling, and at use", () => {
     assert.sameMembers(
       PAIR_LEVELS.map((level) => (level === "colour" ? "color" : level)),
-      [...LEVELS]
+      [...LEVELS, "use"]
     );
   });
 
