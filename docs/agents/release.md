@@ -19,12 +19,8 @@ on `main`, never after every merge.
   the desktop app built from the tag on Linux and macOS with its installers and update feeds
   attached, then the release published. AppImages update to it, and the workflow starts the one
   in `ultrapaint/homebrew-tap` that points the Homebrew cask at it, so the cask follows within
-  minutes (the `HOMEBREW_TAP_TOKEN` secret; the tap's hourly schedule is the fallback).
+  minutes (ADR 0103; the tap's hourly schedule is the fallback).
 - **The receipt:** the published GitHub release for the tag (`gh release view v<version>`), with
   the package and the installers attached, and the cask's version once the tap's run ends
   (`gh api repos/ultrapaint/homebrew-tap/contents/Casks/ultrapaint.rb -H "Accept: application/vnd.github.raw" | grep '^  version'`).
-- **The tap's token:** `HOMEBREW_TAP_TOKEN`, a fine-grained personal access token for
-  `ultrapaint/homebrew-tap` alone with Actions: read and write. Once it expires the run warns
-  and the cask waits for the tap's schedule; a new one is set with
-  `gh secret set HOMEBREW_TAP_TOKEN -R ultrapaint/ultrapaint`.
 - **Bump rules:** the pack's, from `/up` `## Settings` under **Releases**.
