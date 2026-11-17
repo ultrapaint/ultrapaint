@@ -100,7 +100,7 @@ icon or a label. Nothing flashes more than three times a second.
 | `width`, `height`, `top` or `left` animated | `transform`; `height` only for an accordion |
 | An intro or preloader holding the content back | Show the content at once |
 | A selection fill that fades as the keyboard moves it | Instant; a fade only on hover |
-| A cascade whose last step starts after `500ms`, or a stagger in a product's daily screen | Shorter steps, or none |
+| A cascade whose last step starts after `500ms`, or a stagger in a product's daily screen | Shorter delays or fewer steps; none in a product's daily screen |
 | A scroll reveal that replays on scrolling up | Once |
 | Movement still running under reduced motion | An opacity fade |
 | Hover motion on a touch device | Gate it on `(hover: hover)` |
