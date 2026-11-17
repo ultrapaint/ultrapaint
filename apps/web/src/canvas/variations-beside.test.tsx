@@ -611,6 +611,29 @@ describe("one part of a variation (ADR 0098)", () => {
     expect(controls()).toBe("Original with Editorial's paragraphResetUse this");
   });
 
+  it("names the mix by the parts it holds, though the page changes since", () => {
+    openHero();
+    // Editorial in the preview, the Original's lede added to it.
+    act(() => showVariation("v2"));
+    drawnAt.rects.lede = { height: 20, width: 600, x: 0, y: 60 };
+    doubleClickIn("Original", ["hero", "lede"]);
+    click(arrow());
+    expect(controls()).toBe("Editorial with Original's paragraphResetUse this");
+    // The page loses its lede meanwhile: the mix is as it was put together.
+    act(() =>
+      useDocuments.setState({
+        docs: {
+          [HOME]: stateOf(HOME, {
+            children: [hero([text("title", "Notes")])],
+            id: "page",
+            type: "page",
+          } as DesignNode),
+        },
+      })
+    );
+    expect(controls()).toBe("Editorial with Original's paragraphResetUse this");
+  });
+
   it("takes the parts back out on Reset", () => {
     openHero();
     doubleClickIn("Editorial", ["hero", "kicker"]);

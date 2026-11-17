@@ -438,11 +438,11 @@ export const previewName = (state: VariationsStore): string => {
   }
   const nameOf = (id: string | null) =>
     set.variations.find((v) => v.id === id)?.name ?? "As drawn";
-  const current = open.parts.length > 0 ? currentThing(open) : null;
+  // Each part as the mix holds it: the tree it was put in, whatever the page is since.
   return mixName(
     nameOf(open.preview),
     open.parts.flatMap((p) => {
-      const node = findNode(treeOfVariation(set, p.variation, current), p.node);
+      const node = findNode(open.mix, p.node);
       return node ? [{ node, variationName: nameOf(p.variation) }] : [];
     })
   );
