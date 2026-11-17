@@ -385,3 +385,65 @@ it.effect(
       assert.isUndefined(seen.variations);
     }).pipe(Effect.provide(unsaved), Effect.scoped)
 );
+
+it.effect(
+  "a page variant with variations of a node its page draws too is left as it is",
+  () =>
+    Effect.gen(function* () {
+      const project = yield* OpenProject;
+      const fs = yield* FileSystem.FileSystem;
+      const { repo } = yield* ProjectFixture;
+      const sets = yield* project.use(
+        Effect.flatMap(VariationsService, (v) => v.sets("home.page.json"))
+      );
+      assert.isTrue(
+        yield* fs.exists(path.join(repo, "designs/home@bold.page.json"))
+      );
+      assert.notProperty(sets, "heading");
+    }).pipe(
+      Effect.provide(
+        ProjectTest({
+          files: {
+            "designs/home.page.json": pageSaying("Hello"),
+            "designs/home@bold.page.json": pageSaying("HELLO"),
+            // Bold's heading is Home's heading too: Bold's choice for it is not Home's.
+            "designs/home@bold.variations.json": `${JSON.stringify({
+              sets: {
+                heading: {
+                  inUse: "v2",
+                  variations: [
+                    { id: "original", name: "Original" },
+                    { id: "v2", name: "Louder" },
+                  ],
+                },
+              },
+              version: 1,
+            })}\n`,
+          },
+        })
+      ),
+      Effect.scoped
+    )
+);
+
+it.effect(
+  "a canvas whose layout does not read has no page variants read either: its states are not known",
+  () =>
+    Effect.gen(function* () {
+      const project = yield* OpenProject;
+      const sets = yield* project.use(
+        Effect.flatMap(VariationsService, (v) => v.sets("home.page.json"))
+      );
+      assert.deepStrictEqual(sets, {});
+    }).pipe(
+      Effect.provide(
+        ProjectTest({
+          files: {
+            "designs/canvas.json": "{ torn",
+            "designs/home@empty.page.json": pageSaying("Nothing here yet"),
+          },
+        })
+      ),
+      Effect.scoped
+    )
+);

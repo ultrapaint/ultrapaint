@@ -349,12 +349,27 @@ export const showPageVariation = (page: string, variation: string) => {
   if (askedVariation === null) {
     return;
   }
-  const stop = useDocuments.subscribe(() => {
+  // Read again as the documents come, and as the person moves: leaving the page lets it go,
+  // though they come back before its variations are read.
+  const readAgain = () => {
     openAskedVariation();
     if (askedVariation === null) {
       stop();
     }
-  });
+  };
+  const stops = [
+    useDocuments.subscribe(readAgain),
+    useEditor.subscribe((s, before) => {
+      if (s.activePage !== before.activePage) {
+        readAgain();
+      }
+    }),
+  ];
+  const stop = () => {
+    for (const s of stops) {
+      s();
+    }
+  };
   stopWaiting = stop;
 };
 

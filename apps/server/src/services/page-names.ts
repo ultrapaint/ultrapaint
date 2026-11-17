@@ -78,7 +78,7 @@ export const pageNamed = <T extends NamedPage>(
 };
 
 /** A page's name inside a canvas named first: `marketing:/pricing`, `marketing:pricing.page.json`. */
-const IN_CANVAS_RE = new RegExp(
+export const IN_CANVAS_RE = new RegExp(
   String.raw`^(${CANVAS_ID_PATTERN}):(\/\S*|[^\s#/:][^\s#:]*\.page\.json)$`
 );
 
