@@ -4,16 +4,30 @@
  * in the design, the tokens waiting for the code, and the way to implement it.
  */
 
+import type { ImplementationItem } from "@ultrapaint/contracts/implementation";
 import type { Page } from "@ultrapaint/contracts/pages";
-import { Code } from "lucide-react";
+import { Code, Ellipsis } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { CutText } from "../components/cut-text.tsx";
 import {
+  adoptPages,
   implementPage,
   markImplemented,
   setPageReady,
+  unlinkImplementation,
 } from "../lib/page-actions.ts";
 import { api } from "../state/connection.ts";
 import {
@@ -46,6 +60,73 @@ const TokensWaiting = ({ tokens }: { tokens: readonly string[] }) => (
   </div>
 );
 
+/**
+ * What a page's link to its code needs once or rarely (ADR 0102): the page's menu's own entries,
+ * by the same names, so Implement is the one action in view.
+ */
+const MoreMenu = ({
+  item,
+  page,
+}: {
+  item: ImplementationItem | undefined;
+  page: Page;
+}) => {
+  const status = item?.status;
+  const bound = status === "implemented" || status === "changed";
+  return (
+    <DropdownMenu>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  aria-label="More implementation actions"
+                  className="text-muted-foreground data-popup-open:bg-accent data-popup-open:text-foreground"
+                  size="icon-sm"
+                  variant="ghost"
+                />
+              }
+            />
+          }
+        >
+          <Ellipsis />
+        </TooltipTrigger>
+        <TooltipContent>More</TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent align="end" className="w-60">
+        {bound ? null : (
+          <DropdownMenuItem onClick={() => adoptPages([page.id])}>
+            Find its code with an agent
+          </DropdownMenuItem>
+        )}
+        {status === undefined || status === "draft" ? (
+          <DropdownMenuItem onClick={() => setPageReady(page, true)}>
+            Mark ready to implement
+          </DropdownMenuItem>
+        ) : null}
+        {status === "ready" ? (
+          <DropdownMenuItem onClick={() => setPageReady(page, false)}>
+            Mark not ready
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem
+          onClick={() => markImplemented(page.id, page.name, item?.files)}
+        >
+          {bound ? "Mark implemented again…" : "Mark implemented…"}
+        </DropdownMenuItem>
+        {bound ? (
+          <DropdownMenuItem
+            onClick={() => unlinkImplementation(page.id, page.name)}
+          >
+            Unlink from its code
+          </DropdownMenuItem>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
 export const Implementation = ({ page }: { page: Page }) => {
   const item = useImplementation((s) => s.byTarget[page.id]);
   const designChanged = item?.designChanged ?? false;
@@ -66,7 +147,11 @@ export const Implementation = ({ page }: { page: Page }) => {
   const draft = item?.status === "draft" || item === undefined;
   const behind = item?.status === "changed" || tokensWaiting(item);
   return (
-    <Section className="mb-2 px-4" title="Implementation">
+    <Section
+      action={<MoreMenu item={item} page={page} />}
+      className="mb-2 px-4"
+      title="Implementation"
+    >
       <Row label="Status">
         <span className="flex min-w-0 items-center gap-1.5 font-body">
           {behind ? (
@@ -92,38 +177,16 @@ export const Implementation = ({ page }: { page: Page }) => {
           {changes}
         </pre>
       ) : null}
-      <div className="flex flex-col gap-1 pt-1">
-        <Button
-          className="w-full"
-          onClick={() => implementPage(page)}
-          variant="outline"
-        >
-          <Code />
-          {item?.status === "changed" && item.designChanged
-            ? "Implement what changed"
-            : "Implement"}
-        </Button>
-        <div className="flex gap-1">
-          {draft ? (
-            <Button
-              className="flex-1"
-              onClick={() => setPageReady(page, true)}
-              size="sm"
-              variant="ghost"
-            >
-              Mark ready
-            </Button>
-          ) : null}
-          <Button
-            className="flex-1"
-            onClick={() => markImplemented(page.id, page.name, item?.files)}
-            size="sm"
-            variant="ghost"
-          >
-            {bound ? "Mark implemented again…" : "Mark implemented…"}
-          </Button>
-        </div>
-      </div>
+      <Button
+        className="mt-1 w-full"
+        onClick={() => implementPage(page)}
+        variant="outline"
+      >
+        <Code />
+        {item?.status === "changed" && item.designChanged
+          ? "Implement what changed"
+          : "Implement"}
+      </Button>
     </Section>
   );
 };

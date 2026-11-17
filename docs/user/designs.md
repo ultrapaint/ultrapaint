@@ -77,7 +77,7 @@ The design is what the UI looks like and which states it has; the code is what i
 ([ADR 0030](../adr/0030-the-implementation-link.md)). The editor never runs your application,
 but it keeps the link between the two:
 
-- **Status.** A page is a draft, ready (**Mark ready** in the Code tab, **Mark ready to
+- **Status.** A page is a draft, ready (**Mark ready to implement** in the Code tab's ⋯ menu, **Mark ready to
   implement** in its menu), implemented, or changed since: the design, the code or both. The
   Pages panel shows it as a dot, and the Code tab's **Implementation** section says which files implement
   the page and lists what changed in the design.

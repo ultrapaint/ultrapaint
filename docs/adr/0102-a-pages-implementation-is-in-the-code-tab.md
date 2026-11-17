@@ -15,13 +15,19 @@ person read the section there as code in the wrong place.
 - **The Design tab holds nothing of the code.** Its page section keeps the route, the viewport
   and the views.
 - **A page's implementation is the Code tab's**: with a page selected, an Implementation section
-  sits between the page's name and its code, with what the Code section held, unchanged. A node
-  inside the page shows its code alone; the page's menu and the Pages panel keep their own ways to
-  implement and to mark a page.
+  sits between the page's name and its code: the status, the files, what changed, the tokens
+  waiting with Export, and Implement (Implement what changed) as its one button. A node inside the
+  page shows its code alone.
+- **What is done once or rarely is in the section's ⋯ menu**, the page menu's own entries under the
+  same names: Find its code with an agent, Mark ready to implement or Mark not ready, Mark
+  implemented… (again…), Unlink from its code. Marking a page is a step taken once in its life;
+  implementing it is what the section is for.
 
 ## Consequences
 
 - The page's status and its actions are one tab away from its fields; Implement with an agent in
   the page's menu is still one click.
+- A page implemented has two entries in the ⋯ menu, under the three a menu should hold; the menu
+  stays so the marks keep one place in every state.
 - The Code tab mounts only while open, so what changed in the design is asked for only while the
   tab is read.
