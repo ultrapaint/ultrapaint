@@ -121,7 +121,7 @@ says what the content already shows is noise: remove it, rather than shrinking o
   is fine.
 - Width has a ceiling: a product's main column takes a container token (about `768px` for prose
   and forms, a form stopping at its longest comfortable field); a public page's container is about
-  `1200–1300px`, its prose `560–760px`.
+  `1200–1300px`, a technical one's from `1040px`, its prose `560–760px`.
 - Sizes follow content: text and its containers hug or fill; fixed sizes only for what has one (an
   avatar, a thumbnail, a sidebar); bound a box with a min and max width.
 - A control sits next to what it changes: filters above their list, suggestions against their
@@ -266,7 +266,8 @@ says what the content already shows is noise: remove it, rather than shrinking o
   only when they are one thing (a city and its postcode).
 - Controls inside a row or a sentence stay quiet: text and a chevron, not an outlined select. A
   switch sits at the row's right edge, its label left.
-- A copy action sits inside the field's end; a field's hint is its placeholder; a change badge sits
+- A copy action sits inside the field's end; a field's placeholder shows an example of its
+  format, and a rule it must meet is a muted line under it, never text in a box; a change badge sits
   at the row's far right with no caption.
 - More: `references/components.md`, before you use a component you have not used in this
   system.

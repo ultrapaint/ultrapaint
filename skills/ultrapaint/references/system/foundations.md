@@ -46,7 +46,7 @@ the ones the product uses:
 | Body | `14px` in a product, `16px` on a page | `400` | `1.5` |
 | Field label | body size | `600`, foreground | `1.4` |
 | Control (navigation, tabs, buttons, menu items) | body size | `500` | `1.25` |
-| Small (metadata, captions) | `12–13px` | `400–500` | `1.4` |
+| Small (metadata, captions) | `13px` | `400–500` | `1.4` |
 | Mono (code, ids, figures) | body size or a step down | `400` | `1.5` |
 
 A humanistic product sets every level a step larger.

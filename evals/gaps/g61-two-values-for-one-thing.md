@@ -2,7 +2,7 @@
 id: g61
 title: Two values for one thing in the skill
 kind: missing
-status: open
+status: done
 found: 2026-11-10
 source: the skill's files read against each other in an audit of this repository, kept by the person as one gap on 2026-11-10; not a person's correction
 skill: [SKILL.md, references/system/foundations.md, references/motion.md, references/typography.md, references/accessibility.md, references/pages/landing.md, references/pages/portfolio.md, references/pages/shop.md]
@@ -78,3 +78,6 @@ landing references, the subhead's size, the container's width and the scroll ent
 and duration counted across runs, before and after: fewer different values for one character.
 
 **Result.**
+
+- `flow-*`: 2026-11-17, the four flow briefs of ADR 0101 (a checkout, inviting people to a workspace, booking on a phone, cancelling a subscription), every screen photographed, 2 runs each; Opus in Claude Code designing all three versions (no skill, the skill as merged in PR #21, `candidates/one-value`: g61's seven values made one, g72's greys by the primary's temperature, g75's quiet field border), GPT-6.1-Sol no skill whole and the other two on the checkout and invite only (Codex's week ran out); Opus judging both orders, use (ADR 0101) a level of its own. Shipped against no skill: Opus 8 of 8 (5 clear both orders), GPT 4 of 4 (3 clear); use Opus 3 to 2, 3 ties (no skill won both invite runs' use: a persistent sent banner, the domain rule stated twice), GPT 3 to 0. Shipped against the candidate: Opus 3, candidate 1, 4 ties; GPT candidate 2, shipped 1, 1 tie; no margin clear both orders; use shipped 5 to 2. The judges' reasons are each run's own: photos left out for initials, a date-of-birth placeholder read as a value, an arrival date in a sentence. Eyebrows per page Opus 1.4 / 0.3 / 0, GPT 5.4 / 0.5 / 0.3; GPT fragments 0.3 · 1/4 shipped against 1.5 · 2/4 candidate, one page (`runs/flow-*`, `.work/flows-greys.md`). Nothing in the round is g61's to win or lose: its test is by reading, and each of the seven now has one value across the skill's files.
+- Decision of 2026-11-17 (made by the agent, as the person asked): g61's part of `one-value` ships: a caption `13px`; a product's hover `100–150ms`; a subhead `18–20px` under a hero's headline and `16–18px` under a section's heading; a public page's container `1200–1300px`, a technical one's from `1040px`; a page's file gives its own motion recipes, `motion.md`'s values holding elsewhere; a section block rising `24px` in `500ms`; a placeholder an example of the format, a rule the field must meet a line under it. The candidate tied shipped with no tell rising beyond a page.

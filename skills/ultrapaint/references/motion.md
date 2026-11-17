@@ -2,7 +2,9 @@
 
 Whether a change moves, and when it does, the curve, duration, stagger and gating to write down
 for it. Curves and durations are the design system's motion tokens, or the values below, used
-exactly as written.
+exactly as written. A public page's file (`pages/`) gives its own recipes for that page's
+entrances and reveals: there they are used as that file writes them, and the values below hold
+for everything else.
 
 ## Writing it down
 
@@ -55,7 +57,7 @@ hover.
 
 | Element | Duration |
 | --- | --- |
-| Press, hover, toggle in a product | `100–160ms` |
+| Press, hover, toggle in a product | `100–150ms` |
 | Colour hover on a public page | `150–200ms` |
 | Tooltip, small popover | `125–200ms` |
 | Menu, select | `150–250ms` |
