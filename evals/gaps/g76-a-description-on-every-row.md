@@ -6,7 +6,7 @@ status: open
 found: 2026-11-17
 source: the Settings dialog as redesigned on 13 Nov (ADR 0090–0094), corrected by the person
 skill: [SKILL.md, references/review.md, references/kinds/settings.md, references/words/interface.md]
-sections: []
+sections: [settings-redesign]
 ---
 
 **What happened.** The person asked Ultrapaint to redesign its own Settings dialog. Seen as a
@@ -81,8 +81,9 @@ its name and rows already make plain → Lines only on the rows that need them; 
 the section's purpose is unclear."
 
 **Test.** Recall on the Settings dialog as redesigned, its Appearance and Agents pages captured
-before any fix as a new section (none is captured yet; the `settings` section is the dialog at
-f608871): the shipped skill, with PR #21's two-pass review, against the candidate, 2 runs; the
+before any fix as the section `settings-redesign` (at 8768df6, both themes, the Appearance page
+scrolled to its end too; the `settings` section is the dialog at f608871), against
+`candidates/row-lines`: the shipped skill, with PR #21's two-pass review, against the candidate, 2 runs; the
 lines flagged that the table above marks as restating or obvious, and no fewer of the section's
 other findings. Then a fresh-brief round on settings briefs, counted in code from the page file:
 the share of rows with a line and the notes opening a section, shipped against the candidate.
