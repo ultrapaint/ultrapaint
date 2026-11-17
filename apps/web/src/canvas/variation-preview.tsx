@@ -1,8 +1,9 @@
 /**
  * The variation preview on the canvas (ADR 0098): the thing in its page, outlined dashed while
  * it shows another than the variation in use, with its controls hanging under its bottom-left
- * edge as the agent's ✦ hangs off a selection's top-left: Done while it is the one in use; what
- * it is, Reset and Use this once it differs; while an agent makes more, how many are coming.
+ * edge as the agent's ✦ hangs off a selection's top-left: Done while it is the one in use; Reset
+ * and Use this once it differs, after what it is made of when it mixes several; while an agent
+ * makes more, how many are coming.
  * Drawn in the frame's own pixels, at their size on screen whatever the zoom.
  */
 import type { Rect } from "@ultrapaint/contracts/preview";
@@ -48,10 +49,14 @@ const useThingRect = (
   return rect ?? { height: frame.height, width: frame.width, x: 0, y: 0 };
 };
 
-/** The preview's controls: Done, or what it is with Reset and Use this. */
+/**
+ * The preview's controls: Done, or Reset and Use this, after what the preview is made of when it
+ * holds parts of several. One variation alone is named over it beside the page, outlined.
+ */
 export const PreviewControls = () => {
   const differs = useVariations(previewDiffers);
-  // A variation's name, or what the preview is made of (ADR 0098).
+  // What the preview is made of, said only of a mix (ADR 0098).
+  const mixed = useVariations((s) => (s.open?.mix ?? null) !== null);
   const name = useVariations(previewName);
   // An agent's takes still being made (ADR 0098).
   const coming = useVariations((s) => takesOfOpen(s).coming);
@@ -67,7 +72,11 @@ export const PreviewControls = () => {
       ) : null}
       {differs ? (
         <>
-          <span className="px-1.5 font-body-medium">{name}</span>
+          {mixed ? (
+            <span className="px-1.5 font-body-small text-muted-foreground">
+              {name}
+            </span>
+          ) : null}
           <Button onClick={resetPreview} size="sm" variant="ghost">
             Reset
           </Button>
@@ -124,7 +133,7 @@ export const VariationPreviewChrome = ({
         className="pointer-events-auto absolute top-full left-0"
         onPointerDown={(e) => e.stopPropagation()}
         style={{
-          marginTop: screenPx(6),
+          marginTop: screenPx(4),
           transform: "scale(var(--inv))",
           transformOrigin: "top left",
         }}

@@ -67,7 +67,8 @@ used. Once the one in use is deleted none is, the thing staying as it is drawn (
   pages, which has no page, has its variations laid out beside it, and it is its own preview. There is no other view and no
   stepping mode.
   - Each variation is drawn straight on the canvas background, with no card or container around
-    it, with its name and what it varied above it. Original comes first, marked In use.
+    it, with its name and what it varied above it. Original comes first, marked In use. What
+    several varied alike ("Colour of the page") is said over the first of them alone.
   - The camera fits the page and its variations.
   - Two rows are an eighth of the thing's larger side apart, and at least `80px`, so the names
     over a row hold at the zoom that fits them.
@@ -85,8 +86,10 @@ used. Once the one in use is deleted none is, the thing staying as it is drawn (
 - **The preview's controls hang under it**, attached to its bottom-left edge as the ✦ is to a
   selection's top-left.
   - While the preview is the variation in use, they are **Done** alone.
-  - Once it differs, they say what it is ("Editorial", or "Original with Editorial's title"),
-    followed by **Reset** (back to the one in use) and **Use this**.
+  - Once it differs, they are **Reset** (back to the one in use) and **Use this**. A preview
+    made of parts of several says so before them ("Original with Editorial's title"); one
+    variation is not named again there, its name being over it beside the page, outlined
+    (changed on 17 Nov after a design review: the name read as a third button).
   - Enter uses it, and Escape closes the variations, keeping the one in use.
   - Selecting something on the canvas closes them too, keeping the one in use, so ← and → walk the
     selection again (the person's answer of 16 Nov).
