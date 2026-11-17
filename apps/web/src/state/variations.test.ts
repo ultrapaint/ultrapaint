@@ -19,6 +19,7 @@ import {
   previewOf,
   putPreviewInUse,
   showVariation,
+  sizedAsInPage,
   stepVariation,
   useVariations,
   writesThrough,
@@ -296,5 +297,30 @@ describe("choosing among a thing's variations", () => {
   it("hears a change of the variations from the server", () => {
     fakeApi.emit("variations", { doc: HOME, sets: {} });
     expect(useVariations.getState().byDoc[HOME]).toBeUndefined();
+  });
+});
+
+describe("a part drawn out of its page (ADR 0098)", () => {
+  const column = {
+    children: [],
+    height: "fill",
+    id: "side",
+    type: "column",
+    width: "fill",
+  } as unknown as DesignNode;
+
+  it("is drawn as its parent sizes it there: its width, and its height where it fills its parent", () => {
+    expect(sizedAsInPage(column, { height: 884, width: 404 })).toMatchObject({
+      height: 884,
+      width: 404,
+    });
+  });
+
+  it("keeps a size of its own", () => {
+    const fixed = { ...column, height: "hug", width: 240 } as DesignNode;
+    expect(sizedAsInPage(fixed, { height: 884, width: 404 })).toMatchObject({
+      height: "hug",
+      width: 240,
+    });
   });
 });

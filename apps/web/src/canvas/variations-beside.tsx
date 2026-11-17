@@ -32,6 +32,7 @@ import {
   openSet,
   rootOfDocument,
   showVariation,
+  sizedAsInPage,
   takesOfOpen,
   useVariations,
 } from "../state/variations.ts";
@@ -81,6 +82,7 @@ const VariationFrame = memo(
     box,
     frameId,
     inUse,
+    inPage,
     onHeight,
     page,
     pageWidth,
@@ -91,6 +93,8 @@ const VariationFrame = memo(
   }: {
     box: Box;
     frameId: string;
+    /** The thing's size in its page, which a part is drawn at. */
+    inPage: { readonly height: number; readonly width: number };
     inUse: boolean;
     /** Tells the height it is drawn at, by its frame. */
     onHeight: (frame: string, height: number) => void;
@@ -107,13 +111,11 @@ const VariationFrame = memo(
     const designSystem = useDesignSystem((s) => s.designSystem);
     const defaults = useEditor((s) => s.layout.defaults);
     const canvas = useEditor((s) => s.canvas) ?? "";
-    // A part is drawn at the thing's width; a page fills its own.
+    // A part is drawn as its parent sizes it in its page; a page fills its own.
+    const { height, width } = inPage;
     const root = useMemo(
-      () =>
-        tree && sized && typeof tree.width !== "number"
-          ? ({ ...tree, width: box.width } as DesignNode)
-          : tree,
-      [tree, sized, box.width]
+      () => (tree && sized ? sizedAsInPage(tree, { height, width }) : tree),
+      [tree, sized, height, width]
     );
     useFrameDrawing(
       frameId,
@@ -326,6 +328,7 @@ export const VariationsBeside = ({
           <VariationFrame
             box={box}
             frameId={variationFrameOf(open, variation.id)}
+            inPage={thing ?? box}
             inUse={variation.id === set.inUse}
             key={variation.id}
             onHeight={onHeight}
