@@ -100,23 +100,6 @@ eachTest(Opened, {
     30_000
   );
 
-  it.effect(
-    "resumes the stored session without replaying it into the transcript",
-    () =>
-      Effect.gen(function* () {
-        const threadId = yield* startThreadWith("fake-load");
-        yield* prompt(threadId, "reply");
-        const before = yield* waitForThread(threadId, turnEnded);
-        yield* prompt(threadId, "exit");
-        yield* waitForThread(threadId, (t) => t.status === "error");
-
-        yield* prompt(threadId, "reply");
-        const { items, thread } = yield* waitForThread(threadId, turnEnded);
-        assert.strictEqual(thread?.sessionId, before.thread?.sessionId);
-        assert.notInclude(said(items), "replayed history");
-      })
-  );
-
   /** A question card the agent waits on, once it is in the thread. */
   const waitingCard = (threadId: string) =>
     Effect.map(
@@ -285,22 +268,14 @@ eachTest(Opened, {
     })
   );
 
-  it.effect(
-    "marks the thread failed when the agent dies, and recovers on the next prompt",
-    () =>
-      Effect.gen(function* () {
-        const threadId = yield* startThread;
-        yield* prompt(threadId, "exit");
-        const dead = yield* waitForThread(
-          threadId,
-          (t) => t.status === "error"
-        );
-        assert.include(dead.thread?.error ?? "", "agent exited");
-
-        yield* prompt(threadId, "reply after restart");
-        const { thread } = yield* waitForThread(threadId, turnEnded);
-        assert.strictEqual(thread?.status, "idle");
-      })
+  // The next prompt starting another agent is thread-session.test.ts's.
+  it.effect("marks the thread failed when the agent's process dies", () =>
+    Effect.gen(function* () {
+      const threadId = yield* startThread;
+      yield* prompt(threadId, "exit");
+      const dead = yield* waitForThread(threadId, (t) => t.status === "error");
+      assert.include(dead.thread?.error ?? "", "agent exited");
+    })
   );
 
   it.effect(
@@ -335,13 +310,12 @@ eachTest(Opened, {
     () =>
       Effect.gen(function* () {
         const threadId = yield* startThread;
-        yield* prompt(threadId, "exit");
-        yield* waitForThread(threadId, (t) => t.status === "error");
-
         // A page reload interrupts the request while the agent is still booting.
         const request = yield* Effect.forkScoped(prompt(threadId, "reply"));
-        // The prompt has reached the server once the thread is out of its error.
-        yield* waitForThread(threadId, (t) => t.status !== "error");
+        // The prompt has reached the server once the transcript holds it.
+        yield* waitForThread(threadId, (_, items) =>
+          items.some((i) => i.kind === "user")
+        );
         yield* Fiber.interrupt(request);
 
         const { thread } = yield* waitForThread(threadId, turnEnded);
