@@ -27,7 +27,7 @@ import { fromFrame } from "./from-frame.ts";
 import { dotsBackground, gridBackground } from "./grid.ts";
 
 /** Whether the pointer pans whatever it is over: Space held, or the pan tool. */
-const pansAnywhere = (s: { mode: string; spacePan: boolean }) =>
+export const pansAnywhere = (s: { mode: string; spacePan: boolean }) =>
   s.spacePan || s.mode === "pan";
 
 /** The pattern the camera draws on the ground at each zoom: the page's grid when shown, the dots. */

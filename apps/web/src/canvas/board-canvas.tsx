@@ -81,7 +81,7 @@ import {
 import { Highlights, useHoverIn } from "./frame-highlights.tsx";
 import { PreviewSurface } from "./preview-surface.tsx";
 import { useFramePointer } from "./use-frame-pointer.ts";
-import { VariationPreviewChrome } from "./variation-preview.tsx";
+import { CHOOSING_LIFT, VariationPreviewChrome } from "./variation-preview.tsx";
 import { VariationsBeside } from "./variations-beside.tsx";
 
 /** A component's file as a board draws it: the project's, or the system component's default look. */
@@ -250,6 +250,8 @@ const BoardFrame = memo(
     // The app component's tree edited in place here: drawn as the nodes the editor selects.
     const isolated = useIsolatedRequest(frameId);
     const editing = useIsolation((s) => s.isolated?.frame === frameId);
+    // The board whose main tree's variations are open stays over the scrim (ADR 0098).
+    const choosing = useVariations((s) => s.open?.frame === frameId);
     useFrameDrawing(
       frameId,
       useMemo(
@@ -311,6 +313,7 @@ const BoardFrame = memo(
           left: box.x,
           top: box.y,
           width: box.width,
+          zIndex: choosing ? CHOOSING_LIFT.page : undefined,
         }}
       >
         {/* The board's own name: the item's is the panels' title already. */}
