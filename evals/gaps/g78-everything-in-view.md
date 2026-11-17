@@ -6,7 +6,7 @@ status: open
 found: 2026-11-17
 source: the person, after the Code section in the Design tab (g77); the editor's right panel
 skill: [SKILL.md, references/usability.md, references/kinds/settings.md, references/kinds/navigation.md]
-sections: []
+sections: [design-tab-code]
 ---
 
 **What happened.** The person, on designs made with the skill: models "splash out everything on

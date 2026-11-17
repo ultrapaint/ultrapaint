@@ -6,7 +6,7 @@ status: open
 found: 2026-11-17
 source: the person, after the Code section in the Design tab (g77); its actions as shipped
 skill: [SKILL.md, references/review.md, references/usability.md, references/components.md]
-sections: []
+sections: [design-tab-code]
 ---
 
 **What happened.** The Code section showed four actions at rest: Export, Implement, Mark ready and
