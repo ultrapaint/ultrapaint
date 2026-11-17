@@ -30,6 +30,7 @@ import {
   Effect,
   FileSystem,
   Layer,
+  Option,
   Path,
   PubSub,
   Schedule,
@@ -178,7 +179,7 @@ export class DesignFiles extends Context.Service<
   static readonly layer = Layer.effect(
     DesignFiles,
     Effect.gen(function* () {
-      const { comings, service } = yield* makeDesignFiles;
+      const { comings, reportRead, service } = yield* makeDesignFiles;
       const paths = yield* RepoPaths;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -190,10 +191,9 @@ export class DesignFiles extends Context.Service<
       const seen = Effect.fnUntraced(function* (abs: string) {
         // Give a non-atomic writer a moment to finish before reading.
         yield* Effect.sleep("60 millis");
-        const content = yield* Effect.option(fs.readFileString(abs));
-        yield* service.report(
+        yield* reportRead(
           paths.relative(abs),
-          content._tag === "None" ? null : content.value
+          Effect.map(Effect.option(fs.readFileString(abs)), Option.getOrNull)
         );
       });
 
@@ -321,6 +321,14 @@ const makeDesignFiles = Effect.gen(function* () {
   );
   /** Each file's content as it was last told of, by its hash. */
   const last = new Map<string, string>();
+  /**
+   * When each file was last seen, counted in the order things are seen: a report as it is made,
+   * the watcher's read as it begins. A read that comes back after a later sight of its file was
+   * told has a content that is no longer the file's, and telling it would make the file's next
+   * write of that content look like no change.
+   */
+  let sightCount = 0;
+  const lastSeen = new Map<string, number>();
 
   /** What a repository-relative file is in the designs; DESIGN.md at the root is the notes too. */
   const classify = (file: string): DesignKind | null => {
@@ -335,11 +343,17 @@ const makeDesignFiles = Effect.gen(function* () {
       : null;
   };
 
-  const report = Effect.fn("DesignFiles.report")(function* (
+  /** Tells of a file as it was seen at `sight`, unless it was seen later already. */
+  const tell = Effect.fnUntraced(function* (
     file: string,
     content: string | null,
-    by: Writer = UNKNOWN
+    by: Writer,
+    sight: number
   ) {
+    if ((lastSeen.get(file) ?? 0) > sight) {
+      return;
+    }
+    lastSeen.set(file, sight);
     const hash = content === null ? "" : hashContent(content);
     if (last.get(file) === hash) {
       return;
@@ -358,6 +372,25 @@ const makeDesignFiles = Effect.gen(function* () {
     }
   });
 
+  const report = Effect.fn("DesignFiles.report")(function* (
+    file: string,
+    content: string | null,
+    by: Writer = UNKNOWN
+  ) {
+    sightCount += 1;
+    yield* tell(file, content, by, sightCount);
+  });
+
+  /** Tells of a file as `read` finds it, seen as the read begins: the watcher's sight of it. */
+  const reportRead = Effect.fnUntraced(function* (
+    file: string,
+    read: Effect.Effect<string | null>
+  ) {
+    sightCount += 1;
+    const sight = sightCount;
+    yield* tell(file, yield* read, UNKNOWN, sight);
+  });
+
   const service = DesignFiles.of({
     changes: (kinds) =>
       Stream.filter(Stream.fromPubSub(changed), (c) => kinds.includes(c.kind)),
@@ -372,5 +405,5 @@ const makeDesignFiles = Effect.gen(function* () {
       )
     ),
   });
-  return { comings, service };
+  return { comings, reportRead, service };
 });
