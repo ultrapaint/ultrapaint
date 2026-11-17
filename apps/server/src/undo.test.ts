@@ -1,7 +1,16 @@
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import { Conflict } from "@ultrapaint/contracts/errors";
-import { Effect, FileSystem, Layer, Path } from "effect";
+import {
+  Context,
+  Deferred,
+  Effect,
+  Fiber,
+  FileSystem,
+  Layer,
+  Path,
+  Ref,
+} from "effect";
 import { EventBus } from "./events.ts";
 import { DesignFiles } from "./services/design-files.ts";
 import {
@@ -74,65 +83,113 @@ eachTest(ProjectRpc())("undo with comments", (test) => {
         );
       })
   );
+});
 
+/** The first read of a page once armed, held after it has read the file until released. */
+class HeldRead extends Context.Service<
+  HeldRead,
+  {
+    readonly armed: Ref.Ref<boolean>;
+    readonly reading: Deferred.Deferred<void>;
+    readonly release: Deferred.Deferred<void>;
+  }
+>()("ultrapaint/server/undo.test/HeldRead") {}
+
+const HANDMADE = "handmade.page.json";
+
+/** A project over a slow disk: its read of the hand-written page can be held (`HeldRead`). */
+const OnASlowDisk = Layer.unwrap(
+  Effect.gen(function* () {
+    const held = {
+      armed: yield* Ref.make(false),
+      reading: yield* Deferred.make<void>(),
+      release: yield* Deferred.make<void>(),
+    };
+    const slow = (fs: FileSystem.FileSystem): FileSystem.FileSystem => ({
+      ...fs,
+      readFileString: (file, encoding) =>
+        file.endsWith(`designs/${HANDMADE}`)
+          ? Effect.tap(fs.readFileString(file, encoding), () =>
+              Effect.flatMap(Ref.getAndSet(held.armed, false), (armed) =>
+                armed
+                  ? Effect.andThen(
+                      Deferred.succeed(held.reading, undefined),
+                      Deferred.await(held.release)
+                    )
+                  : Effect.void
+              )
+            )
+          : fs.readFileString(file, encoding),
+    });
+    return Layer.merge(
+      ProjectRpc({ fileSystem: slow }),
+      Layer.succeed(HeldRead, held)
+    );
+  })
+);
+
+eachTest(OnASlowDisk)("a hand-written page", (test) => {
   test.effect(
-    "fills in the ids a page leaves out without writing over an edit made meanwhile",
+    "has the ids it leaves out filled in without writing over an edit made meanwhile",
     () =>
       Effect.gen(function* () {
         const { client, repo } = yield* TestEnv;
+        const held = yield* HeldRead;
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const file = path.join(repo, "designs/handmade.page.json");
-        for (let round = 0; round < 10; round += 1) {
-          // Written by hand: the paragraph has no id yet.
-          yield* fs.writeFileString(
-            file,
-            JSON.stringify({
-              root: {
-                children: [{ role: "paragraph", text: "Old", type: "text" }],
-                id: "root",
-                type: "page",
-              },
-              version: 1,
-            })
-          );
-          yield* Effect.all(
-            [
-              client["documents.apply"]({
-                edits: [
-                  {
-                    doc: "handmade.page.json",
-                    ops: [
-                      {
-                        node: {
-                          id: `new_${round}`,
-                          role: "paragraph",
-                          text: "New",
-                          type: "text",
-                        },
-                        op: "insert",
-                        parent: "root",
-                      },
-                    ],
+        const file = path.join(repo, `designs/${HANDMADE}`);
+        // Written by hand: the paragraph has no id yet.
+        yield* fs.writeFileString(
+          file,
+          JSON.stringify({
+            root: {
+              children: [{ role: "paragraph", text: "Old", type: "text" }],
+              id: "root",
+              type: "page",
+            },
+            version: 1,
+          })
+        );
+        // A read that fills the ids in has the file without them, and is held there while an
+        // edit lands.
+        yield* Ref.set(held.armed, true);
+        const read = yield* Effect.forkScoped(
+          client["documents.get"]({ doc: HANDMADE }),
+          { startImmediately: true }
+        );
+        yield* Deferred.await(held.reading);
+        yield* client["documents.apply"]({
+          edits: [
+            {
+              doc: HANDMADE,
+              ops: [
+                {
+                  node: {
+                    id: "new",
+                    role: "paragraph",
+                    text: "New",
+                    type: "text",
                   },
-                ],
-              }),
-              ...Array.from({ length: 4 }, () =>
-                client["documents.get"]({ doc: "handmade.page.json" })
-              ),
-            ],
-            { concurrency: "unbounded" }
-          );
-          const saved = JSON.parse(yield* fs.readFileString(file));
-          const texts = saved.root.children.map(
-            (c: { id?: string; text: string }) => [typeof c.id, c.text]
-          );
-          assert.deepStrictEqual(texts, [
+                  op: "insert",
+                  parent: "root",
+                },
+              ],
+            },
+          ],
+        });
+        yield* Deferred.succeed(held.release, undefined);
+        yield* Fiber.join(read);
+        const saved = JSON.parse(yield* fs.readFileString(file));
+        assert.deepStrictEqual(
+          saved.root.children.map((c: { id?: string; text: string }) => [
+            typeof c.id,
+            c.text,
+          ]),
+          [
             ["string", "Old"],
             ["string", "New"],
-          ]);
-        }
-        yield* fs.remove(file);
+          ]
+        );
       })
   );
 });
