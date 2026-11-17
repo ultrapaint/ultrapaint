@@ -22,8 +22,14 @@ has the `name` and the `description` an agent picks it by, under 220 characters.
   `accessibility.md`), opened with a kind's file, when the core's line says, and at the check
   for every concern the screen has;
 - `system/` (foundations, components, extract, figma) and `words/` (voice, interface, pages).
+- `moves.md`: the devices that make a public page stand out, each found on many well-made pages,
+  opened for a public page or a screen asked to stand out, which takes one or two or none;
 - `review.md`: the table a review runs, opened first when reviewing a design, against the
   inventory it writes of the screen's parts, words, controls and states.
+
+A value that differs by the character the core settles (technical, humanistic, expressive) is
+stated once for each, never as options to pick from; a public page's file ends with two short
+worked examples per character, values only, no copy and no subject.
 
 A file never repeats a core line; it adds anatomy, values, recipes and reasons, and ends on a
 check table of what it adds. The skill speaks the web's terms, with no markers and none of the

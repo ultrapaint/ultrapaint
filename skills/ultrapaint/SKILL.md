@@ -31,8 +31,10 @@ making the design system; writing only the words.
 5. **Check.** Open the topic file of every concern the screen has that you have not opened yet:
    its words, icons, states, surfaces, colour, type, components, layout, usability,
    accessibility. Run every rule below against every screen, element by element, then the Check
-   table of each file you opened, and fix what fails. Your last message names each file you
-   opened.
+   table of each file you opened, and fix what fails. Find each small uppercase label above a
+   heading and delete it unless it states a fact the heading cannot. Look at the page at the
+   phone's width and the desktop's: every image loads, and a headline set in pieces keeps the
+   spaces between its words. Your last message names each file you opened.
 6. **Have each section reviewed.** Where your work is reviewed for you (an editor's review loop),
    answer its findings. Elsewhere, when you can start another agent, have a fresh one review each
    section from a crop at 2× (dark and light where the product has both) with this skill, and fix
@@ -56,6 +58,10 @@ making the design system; writing only the words.
 | A game's site or title screen | `references/pages/title.md` |
 
 A screen of two kinds (a table inside settings) opens both. A kind not listed opens none.
+
+A public page (a landing page, a portfolio, a launch, a shop, an editorial page), or a screen whose
+brief asks it to stand out, also opens `references/moves.md`, and chooses one or two moves that fit
+the brief, or none.
 
 ## The rules
 
@@ -86,8 +92,14 @@ Every element earns its place. A label, description, caption, heading, tooltip, 
 says what the content already shows is noise: remove it, rather than shrinking or greying it.
 
 - Structure explains: when a design needs words to explain its grouping, fix the grouping.
-- No description that restates its heading, no intro, eyebrow or subtitle on a screen whose
-  purpose is plain, no heading over a group its content names, no "Click to upload" under an
+- No eyebrow: no small uppercase or tracked label above a heading, a section or a card, whatever
+  it is called (eyebrow, kicker, overline, section label, tag). None is the default, on a product
+  screen and in every section of a page. One stays only where it was chosen for a fact the
+  heading cannot hold: news with its date, a proof with its source, a step in a sequence, a
+  story's category in a publication. Never one per section, never one naming the section, the
+  product or the kind of content ("Features", "Pricing", "How it works").
+- No description that restates its heading, no intro or subtitle on a screen whose purpose is
+  plain, no heading over a group its content names, no "Click to upload" under an
   upload area, no label repeated on every row that a column header says once.
 - No decoration: an icon beside every label, a box around one element, a divider between things
   already apart, a badge that says nothing, an icon inside a field its label names.
@@ -157,7 +169,7 @@ says what the content already shows is noise: remove it, rather than shrinking o
   Inter or Geist when nothing names one; a serif only for a page's display headlines, unless the
   user asked for one.
 - Three sizes on a product screen (title, body, small), a fourth only for one display figure; a
-  public page up to six, with one hero size (about `44–90px`). Emphasis inside a role is one
+  public page up to six, with one hero size (by character, about `64–140px`, `references/typography.md`). Emphasis inside a role is one
   weight step, `400` to `500`, not a size.
 - A title is large only on a page about one thing. A top bar's or panel's title is body size, one
   weight up; a dialog's or small form's is about `18–20px` semibold, by the character. A display
@@ -172,7 +184,8 @@ says what the content already shows is noise: remove it, rather than shrinking o
   `1.1–1.25`, body `1.5`, anything wrapping to three lines `1.4` or more.
 - Tracking: headings `24px` and up `-0.02em`; capitals at label sizes `0.05–0.1em`; uppercase
   display `40px` and up `0` or tighter; body `0`.
-- A paragraph runs 60–75 characters: cap its column at about `65ch`.
+- A paragraph runs `45–65` characters: cap its column at about `60ch`; a lead, a card's or a
+  feature's text on a public page nearer `50ch`.
 - Floors: body `16px`, interface text `14px`, captions `13px`, nothing under `12px` except an
   uppercase or mono label on a public page at `11px`. Under `18px` the weight stays `400` or more.
 - Two text colours plainly apart: the foreground for what is read first (titles, names, values,

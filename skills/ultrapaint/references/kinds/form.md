@@ -15,6 +15,9 @@ Open with it, before the first element: `references/components.md`, `references/
 - **Single column**: the same form column centred on the page, the logo above it.
 - On a phone the second half goes.
 - Spacing: padding `32px`, fields `16px` apart, groups `32px`.
+- A form in a side panel of a working screen (an inspector, settings beside a canvas) is
+  compact: controls `28–32px` tall, fields `8px` apart, padding `12–16px`. The spacing above is
+  for a form that is the whole page.
 
 ## Fields
 
@@ -73,3 +76,4 @@ Open with it, before the first element: `references/components.md`, `references/
 | A selected card tinted, bordered, coloured and checked | The border and the check only |
 | Code digits or the active step in the accent | Digits in the foreground; the ring marks the active cell |
 | A password checklist and a meter together | One |
+| A form in a side panel spaced like a whole page | Controls `28–32px`, fields `8px` apart, padding `12–16px` |
