@@ -83,7 +83,10 @@ export const runTask = async (request: TaskRequest, title: string) => {
  * for a chat that has its context, as Try again on a variation that failed (ADR 0098). A chat at
  * work takes it when its turn is over.
  */
-export const runTaskIn = async (threadId: string, request: TaskRequest) => {
+export const runTaskIn = async (
+  threadId: string,
+  request: TaskRequest
+): Promise<boolean> => {
   try {
     await showLeftPanel({ chat: threadId });
     await api().request("threads.prompt", {
@@ -91,8 +94,10 @@ export const runTaskIn = async (threadId: string, request: TaskRequest) => {
       text: commandOf(request),
       threadId,
     });
+    return true;
   } catch (error) {
     reportError(error);
+    return false;
   }
 };
 

@@ -312,31 +312,29 @@ export class VariationsService extends Context.Service<
             message: `a take of ${target.node} draws ${take.tree.id}`,
           });
         }
-        const after = yield* change(
-          `Variation “${take.name}”`,
-          target,
-          (set) => {
-            const { id } = nextVariationOf(set);
-            // The original, in use, is the tree in the document: it keeps none of its own.
-            const variations = set?.variations ?? [ORIGINAL];
-            return Effect.succeed({
-              set: {
-                inUse: set === undefined ? ORIGINAL_ID : set.inUse,
-                variations: [
-                  ...variations,
-                  {
-                    id,
-                    name: take.name,
-                    tree: take.tree,
-                    ...(take.varied !== undefined && { varied: take.varied }),
-                  },
-                ],
-              },
-            });
-          }
-        );
-        // The take is the set's last.
-        return after.sets[target.node]?.variations.at(-1)?.id ?? "";
+        // Decided inside the step that writes it: another take may land right after.
+        let made = "";
+        yield* change(`Variation “${take.name}”`, target, (set) => {
+          const { id } = nextVariationOf(set);
+          made = id;
+          // The original, in use, is the tree in the document: it keeps none of its own.
+          const variations = set?.variations ?? [ORIGINAL];
+          return Effect.succeed({
+            set: {
+              inUse: set === undefined ? ORIGINAL_ID : set.inUse,
+              variations: [
+                ...variations,
+                {
+                  id,
+                  name: take.name,
+                  tree: take.tree,
+                  ...(take.varied !== undefined && { varied: take.varied }),
+                },
+              ],
+            },
+          });
+        });
+        return made;
       });
 
       const use = Effect.fn("VariationsService.use")(function* (

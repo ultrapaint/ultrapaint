@@ -378,10 +378,17 @@ describe("an agent's takes on the thing (ADR 0098)", () => {
       ])
     );
     expect(drawn("failed")).toBe(2);
+    // A second press before the round that replaces it begins asks nothing more.
+    click(
+      document.querySelector('[data-take="failed"] [aria-label="Try again"]')
+    );
     click(
       document.querySelector('[data-take="failed"] [aria-label="Try again"]')
     );
     await act(() => fakeApi.requested("threads.prompt"));
+    expect(
+      fakeApi.calls.filter((c) => c.method === "threads.prompt")
+    ).toHaveLength(1);
     expect(
       fakeApi.calls.find((c) => c.method === "threads.prompt")?.input
     ).toEqual({

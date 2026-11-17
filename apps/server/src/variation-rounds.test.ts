@@ -203,3 +203,59 @@ inProject("a turn of variations is never reviewed", () =>
     assert.isFalse(items.some((i) => i.kind === "review"));
   })
 );
+
+inProject("a copy renamed twice at once is handed in once", () =>
+  Effect.gen(function* () {
+    const { copies, threadId } = yield* variationsTurn;
+    const [first = ""] = copies;
+    const rename = (name: string) =>
+      Effect.exit(
+        callTool(EditorTools, "rename_page", { name, route: first }, threadId)
+      );
+    const exits = yield* Effect.all([rename("Warm"), rename("Cool")], {
+      concurrency: "unbounded",
+    });
+    assert.strictEqual(exits.filter((e) => e._tag === "Success").length, 1);
+    const sets = yield* inProjectOf(
+      Effect.flatMap(VariationsService, (v) => v.sets(HOME))
+    );
+    assert.strictEqual(sets.heading?.variations.length, 2);
+  })
+);
+
+inProject(
+  "a turn of variations queued after a design turn starts no review of what that turn changed",
+  () =>
+    Effect.gen(function* () {
+      const threads = yield* ThreadSessions;
+      const agents = yield* ScriptedAgents;
+      const { repo } = yield* ProjectFixture;
+      const { id: threadId } = yield* threads.create();
+      yield* promptThread({ attachments: [], text: "A calmer home", threadId });
+      const agent = yield* agents.next;
+      const design = yield* agent.nextTurn;
+      yield* agent.host.writeTextFile({
+        content:
+          '{ "version": 1, "root": { "id": "c_1", "type": "page", "children": [] } }\n',
+        path: path.join(repo, "designs/extra.page.json"),
+        sessionId: design.sessionId,
+      });
+      // Asked while the design turn runs: it waits in the queue, and the review with it.
+      yield* promptThread({
+        attachments: [],
+        text: `/variations ${HOME}#heading 2`,
+        threadId,
+      });
+      yield* design.end();
+      const variations = yield* agent.nextTurn;
+      yield* variations.end();
+      const { items, thread } = yield* threadWhen(
+        threadId,
+        (t, all) =>
+          turnEnded(t, all) &&
+          all.filter((i) => i.kind === "turn_end").length === 2
+      );
+      assert.strictEqual(thread.status, "idle");
+      assert.isFalse(items.some((i) => i.kind === "review"));
+    })
+);

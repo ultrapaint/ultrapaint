@@ -12,6 +12,7 @@ import type {
   Variation,
   VariationRound,
 } from "@ultrapaint/contracts/variations";
+import { resolveAtBreakpoint } from "@ultrapaint/design-document/breakpoints";
 import { findNode } from "@ultrapaint/design-document/tree";
 import { memo, useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -20,11 +21,12 @@ import { cn } from "@/lib/cn";
 import { tryAgain } from "../lib/ask-variations.ts";
 import { zoomToBoxes } from "../state/camera.ts";
 import { useComponents } from "../state/components.ts";
-import { useDesignSystem } from "../state/design-system.ts";
+import { useBreakpoints, useDesignSystem } from "../state/design-system.ts";
 import { canvasNodes, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
 import { nodeFrameLayout } from "../state/page-layout.ts";
+import { useFrameBreakpoint } from "../state/selection.ts";
 import {
   besideBoxes,
   closeOnSelecting,
@@ -79,6 +81,7 @@ const useFrameBox = (frameId: string | null): Box | null => {
 /** One variation, drawn as wide as the thing, at the canvas's zoom. */
 const VariationFrame = memo(
   ({
+    at,
     box,
     frameId,
     inUse,
@@ -91,6 +94,8 @@ const VariationFrame = memo(
     tree,
     variation,
   }: {
+    /** The breakpoint its page is drawn at, which a part is drawn at too. */
+    at: string | null;
     box: Box;
     frameId: string;
     /** The thing's size in its page, which a part is drawn at. */
@@ -109,13 +114,21 @@ const VariationFrame = memo(
     variation: Variation;
   }) => {
     const designSystem = useDesignSystem((s) => s.designSystem);
+    const breakpoints = useBreakpoints();
     const defaults = useEditor((s) => s.layout.defaults);
     const canvas = useEditor((s) => s.canvas) ?? "";
     // A part is drawn as its parent sizes it in its page; a page fills its own.
     const { height, width } = inPage;
     const root = useMemo(
-      () => (tree && sized ? sizedAsInPage(tree, { height, width }) : tree),
-      [tree, sized, height, width]
+      () =>
+        tree && sized
+          ? // Sized as its breakpoint has it: a height that fills there is drawn at its height.
+            sizedAsInPage(resolveAtBreakpoint(tree, breakpoints, at), {
+              height,
+              width,
+            })
+          : tree,
+      [tree, sized, height, width, breakpoints, at]
     );
     useFrameDrawing(
       frameId,
@@ -277,6 +290,7 @@ export const VariationsBeside = ({
     open && !board ? s.rects[open.frame]?.[open.node] : undefined
   );
   const docs = useDocuments((s) => s.docs);
+  const at = useFrameBreakpoint(board || !open ? null : open.frame);
   const components = useComponents((s) => s.components);
   const docRoot = open ? rootOfDocument(docs, components, open.doc) : null;
   // By each variation's frame, which names its thing: two things' variations share ids.
@@ -326,6 +340,7 @@ export const VariationsBeside = ({
         const box = boxes[variation.id];
         return box ? (
           <VariationFrame
+            at={at}
             box={box}
             frameId={variationFrameOf(open, variation.id)}
             inPage={thing ?? box}

@@ -52,12 +52,13 @@ const unionOf = (rects: readonly Rect[]): Rect | null => {
  * Whether the button is shown: the pointer over the selection, on the button, or its popover
  * open; for a moment after the pointer leaves, so it can be reached.
  */
-const useAskShown = (inside: boolean) => {
+export const useAskShown = (inside: boolean) => {
   const [over, setOver] = useState(false);
-  const [open, setOpen] = useState(false);
+  // Asked for as it was selected, before this chrome was drawn: open from the start (ADR 0098).
+  const [open, setOpen] = useState(() => freshAsk() !== null);
   const [lingering, setLingering] = useState(false);
   const wasInside = useRef(inside);
-  // Make variations… and Make more… open it on the selection (ADR 0098).
+  // Make variations… and Make more… open it on the selection once it is drawn (ADR 0098).
   useEffect(
     () =>
       useAsk.subscribe((now, before) => {
