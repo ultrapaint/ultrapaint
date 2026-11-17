@@ -5,7 +5,8 @@
 # is then built from the tag on Linux and macOS (`pnpm desktop:build`, unsigned, Apple silicon only
 # on macOS) and its installers and update feeds attached to the draft (ADR 0051). Once both are
 # there, the release is published: AppImages update to it, and the cask in ultrapaint/homebrew-tap
-# follows it within the hour, by a workflow of the tap's own.
+# follows within minutes, by a workflow of the tap's own that this one starts with the token in the
+# HOMEBREW_TAP_TOKEN secret; that workflow's hourly schedule catches up if the start fails.
 name: Release
 
 on:
@@ -148,3 +149,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.release.outputs.version }}
         run: gh release edit "v$VERSION" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+
+      # Starts the tap's "Follow Ultrapaint's releases" now rather than at its next scheduled run,
+      # which GitHub delays by hours. GITHUB_TOKEN cannot start a workflow in another repository, so
+      # HOMEBREW_TAP_TOKEN is a fine-grained token for ultrapaint/homebrew-tap alone, Actions: read
+      # and write. A failure only warns: the release is already out, and the tap's hourly schedule
+      # points the cask at it anyway, so a red run would report a release that worked.
+      - name: Update the Homebrew cask
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::No HOMEBREW_TAP_TOKEN secret; the cask follows at the tap's next scheduled run"
+            exit 0
+          fi
+          if ! gh workflow run follow.yml --repo ultrapaint/homebrew-tap; then
+            echo "::warning::Could not start the tap's workflow; the cask follows at its next scheduled run"
+          fi
