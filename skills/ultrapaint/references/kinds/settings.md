@@ -8,8 +8,8 @@ Open with it, before the first element: `references/components.md`, `references/
 
 ## Settings are rows
 
-- The content column sits left-aligned beside the navigation, `720–1090px` wide; never a narrow
-  column centred on the page.
+- On a desktop the content column sits left-aligned beside the navigation, `720–1090px` wide,
+  never a narrow column centred on the page; on a phone it takes the full width.
 - The page title is the page's name in one or two words ("Billing", "Members") at `20px`; section
   names at `16px`; rows at `14px`, their lines at `12–13px`. No subtitle under the title.
 - A section is one surface (or the bare page) holding a stack of rows split by hairlines; never
@@ -17,7 +17,8 @@ Open with it, before the first element: `references/components.md`, `references/
 - A section's surface is a faint `1px` border on the page fill, no shadow.
 - A row: the label, and at most one muted line under it, in the left third (about `270–300px`);
   the control at the right, capped at about `512px`. A switch takes the row's right edge.
-- Buttons and fields in a row are `32px` high, so a row's control never sets its height.
+- Buttons and fields in a row take the system's control height, `32px` in a technical product, so
+  a row's control never sets its height.
 - A row that only shows a stored value reads label | the value as text | an "Edit" link or a
   small outline button at the far right; it becomes a field in place when edited, the field
   taking the text's style and position so nothing moves.
@@ -91,7 +92,7 @@ Open with it, before the first element: `references/components.md`, `references/
 | A page title in a sentence, or a subtitle under it | The page's name in one or two words at `20px`, nothing under it |
 | A card around each settings row | One surface; rows split by hairlines |
 | A section surface with a shadow or a strong border | A faint `1px` border, no shadow |
-| A row taller than its neighbours because of its control | Buttons and fields at `32px` |
+| A row taller than its neighbours because of its control | Buttons and fields at the system's control height |
 | Options of one setting across the full width, or its reset at the far right | The options in the control column, the reset under its name |
 | An event name in muted grey, or a group's name on a filled bar | The name in the label style; the group's name a quiet label |
 | A stored value drawn as a disabled field | The value as text, an Edit action at the row's end |

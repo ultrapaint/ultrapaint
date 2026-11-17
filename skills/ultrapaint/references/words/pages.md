@@ -21,7 +21,9 @@ the headline cannot: who it is for, the price, how it works. Otherwise the headl
 None: no label above the headline or above any section heading. One stays only where it was
 chosen for what it says and the heading cannot say it, at most one on a page: news (a "New" chip, about
 six words of announcement and an arrow), proof (a rating with its score and its source, only one
-the product really has), a sequence ("01 · Agents research", "Step 4"), a card's category.
+the product really has), a sequence ("01 · Agents research", "Step 4"), a card's category. A
+publication's story categories are kickers, one a story (`references/pages/editorial.md`), not
+eyebrows.
 
 ## Actions
 

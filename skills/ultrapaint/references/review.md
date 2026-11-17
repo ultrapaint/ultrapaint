@@ -15,7 +15,7 @@ each gap. A row that matches is a finding: report where it is, the row's id and 
 | W2 | A hint about a selection or mode shown when there is none | Show it only in that state, beside the action it affects |
 | W3 | An item doing another kind of thing in a list, or in a group of one | Move it where that kind of thing lives |
 | W4 | A sentence explaining how to use a control whose label already says it | Remove it; keep a requirement the label can't carry (a password's rule) |
-| W5 | An intro, eyebrow or subtitle on a screen whose purpose is plain | Remove it |
+| W5 | An intro, eyebrow or subtitle on a screen whose purpose is plain | Remove it; keep an eyebrow only for a fact the heading cannot hold (SKILL.md, Restraint) |
 | W6 | A heading over a group its content already names | Remove it; a surface or space holds the group |
 | W7 | An icon on every label, a box around one element, a divider between separated groups | Remove the decoration |
 | W8 | Navigation or borders heavier than the content | Lighter chrome |

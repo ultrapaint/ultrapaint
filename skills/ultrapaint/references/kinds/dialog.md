@@ -50,7 +50,8 @@ Open with it, before the first element: `references/components.md`, `references/
   Copy link, Reset to default, the step dots of a short flow, or Cancel alone).
 - **Equal pair**: a confirmation, sign-in or onboarding dialog sets Cancel (outline) and its
   action as two buttons of equal width filling the footer.
-- Footer buttons are `36px` high, the same height as the fields above them.
+- Footer buttons are the height of the fields above them: the system's control height, `32–36px`
+  in a technical product.
 - On a phone the buttons stack full width, the primary first.
 - Set the footer off with a full-width hairline only when the body scrolls under it; otherwise
   the padding is the edge.
