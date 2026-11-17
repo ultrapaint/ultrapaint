@@ -64,7 +64,7 @@ because a file it touched changed outside the editor, the history past it is dro
 button's tooltip says why ("Nothing to undo: … changed outside the editor") until there is
 something to step to again.
 
-When a page is ready, **Implement** in the inspector's **Code** section (or **Implement with an
+When a page is ready, **Implement** in the **Code** tab's **Implementation** section (or **Implement with an
 agent** in the page's menu, or `/implement <url or file>` in a chat) asks an agent to write it in
 your application with your own components and conventions: the tokens become the matching
 Tailwind v4 classes, each system component your application's own component for it (written in
@@ -77,9 +77,9 @@ The design is what the UI looks like and which states it has; the code is what i
 ([ADR 0030](../adr/0030-the-implementation-link.md)). The editor never runs your application,
 but it keeps the link between the two:
 
-- **Status.** A page is a draft, ready (**Mark ready** in the inspector, **Mark ready to
+- **Status.** A page is a draft, ready (**Mark ready** in the Code tab, **Mark ready to
   implement** in its menu), implemented, or changed since: the design, the code or both. The
-  Pages panel shows it as a dot, and the inspector's **Code** section says which files implement
+  Pages panel shows it as a dot, and the Code tab's **Implementation** section says which files implement
   the page and lists what changed in the design.
   `implementation.json` and the designs as they were implemented (`_implemented/`) live in the
   designs directory and are committed. A page renamed, or moved to another canvas, keeps its

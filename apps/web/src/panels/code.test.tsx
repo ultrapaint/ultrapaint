@@ -112,3 +112,16 @@ describe("the code of the node selected", () => {
     });
   });
 });
+
+describe("a page's implementation", () => {
+  it("is in the Code tab with the page's code", async () => {
+    await selectAndRead("home", 1);
+    expect(container.textContent).toContain("Not implemented");
+    expect(container.textContent).toContain("Implement");
+  });
+
+  it("is not shown for a node inside the page", async () => {
+    await selectAndRead("title", 1);
+    expect(container.textContent).not.toContain("Implementation");
+  });
+});

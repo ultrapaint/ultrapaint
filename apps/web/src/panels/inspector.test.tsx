@@ -107,6 +107,12 @@ describe("the inspector's sections", () => {
     expect(container.textContent).toContain("Prototype");
   });
 
+  it("hold nothing of the code for a page: its implementation is the Code tab's", () => {
+    act(() => select({ frame: HOME, nodeId: "home" }));
+    expect(container.textContent).toContain("Route");
+    expect(container.textContent).not.toContain("Implement");
+  });
+
   it("have no prototype for a node of an app component's tree on its board", () => {
     act(() => {
       openBoard({ item: "Promo", view: "library" });

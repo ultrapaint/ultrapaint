@@ -26,6 +26,7 @@ import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { ownFrameOf } from "../state/frame-ref.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { Implementation } from "./code-implementation.tsx";
 import { EmptyState } from "./inspector-fields.tsx";
 
 /** A piece of JSX the view draws on its own: what reads first, or what qualifies it. */
@@ -165,13 +166,15 @@ const useSubject = () => {
     const page = s.pages.find((p) => p.id === own);
     return page ? (page.route ?? routeOf(page.path)) : undefined;
   });
+  // The page's own frame, not a view of it, is where it is implemented from.
+  const page = useProject((s) => s.pages.find((p) => p.id === frame));
   const path = root ? findPath(root, selection?.nodeId ?? root.id) : null;
   const node = path?.at(-1);
   if (!node) {
     return null;
   }
   const parent = path?.at(-2);
-  return { canvas, node, parent, route } as const;
+  return { canvas, node, page, parent, route } as const;
 };
 
 /**
@@ -271,6 +274,9 @@ export const CodePanel = () => {
         </div>
         <CopyCode code={code} />
       </div>
+      {node.type === "page" && subject?.page ? (
+        <Implementation page={subject.page} />
+      ) : null}
       <div className="mx-2 rounded-lg bg-muted px-3 py-2.5">
         {code === null ? (
           <CodeWaiting failed={failed} />
