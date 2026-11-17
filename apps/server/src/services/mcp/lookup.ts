@@ -138,15 +138,24 @@ export const makeLookup = Effect.gen(function* () {
    * `variant=` or a reference to its file. The tools work on a page as its variations in use draw
    * it, so it is refused with why, rather than read as the page in use.
    */
-  const refuseVariation = Effect.fnUntraced(function* (named: string) {
+  const refuseVariation = Effect.fnUntraced(function* (
+    named: string,
+    canvas: string | undefined
+  ) {
     const link = parseEditorLink(named);
-    const file = link ? null : (parseNodeRef(named)?.page ?? named.trim());
+    const ref = link ? null : parseNodeRef(named);
+    // The file a link (`page=`) or a reference names, and the canvas it is in, when it says one.
+    const file = link ? link.page : (ref?.page ?? named.trim());
+    const scope = canvas ?? link?.canvas ?? ref?.canvas;
     const suffix = file === null ? null : suffixOf(file);
     let variant = link?.variant ?? null;
     if (variant === null && file !== null && suffix !== null) {
+      // A state's own file is a page of its canvas: only one listed there is let through.
       const { pages } = yield* reported(pagesOf);
       const listed = pages.some(
-        (p) => p.id === file || p.file === file || p.path === file
+        (p) =>
+          (scope === undefined || p.canvas === scope) &&
+          (p.id === file || p.file === file || p.path === file)
       );
       variant = listed ? null : suffix;
     }
@@ -199,7 +208,7 @@ export const makeLookup = Effect.gen(function* () {
     if (copy !== null) {
       return copy;
     }
-    yield* refuseVariation(named);
+    yield* refuseVariation(named, canvas);
     const found = yield* targetNamed(named, canvas);
     if (found._tag === "Loose") {
       return yield* beside(canvas ?? found.canvas, nodeId ?? found.nodeId);

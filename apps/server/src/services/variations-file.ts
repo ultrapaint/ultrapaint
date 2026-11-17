@@ -192,6 +192,8 @@ export const opsPutting = (
 
 /** A page variant from before ADR 0098: its name (`bold`) and the page it draws. */
 export interface PageVariant {
+  /** Its file, repository-relative, while it is one: read before it is folded. */
+  readonly file?: string;
   readonly name: string;
   readonly root: DesignNode;
 }

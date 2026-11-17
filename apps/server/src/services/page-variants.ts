@@ -224,7 +224,7 @@ export class PageVariants extends Context.Service<
             fs.readFileString(path.join(root, rel))
           );
           if (page) {
-            variants.push({ name: suffix, root: page });
+            variants.push({ file: repoFile(rel), name: suffix, root: page });
           }
         }
         return variants;
@@ -287,15 +287,38 @@ export class PageVariants extends Context.Service<
           return [];
         }
         const rest = orphan ? read.slice(1) : read;
+        // A variant's own variations go with it: the sets of the nodes it draws, kept by the
+        // page once it is a variation of it. One whose sets the page has already, or of its
+        // whole drawing, is left as it is: they could not be told apart.
+        const sidecarOf = (v: VariantFile) =>
+          variationsFileOf(repoFile(v.file));
+        const setsOf = (file: string) =>
+          tx.readDocument(file, variationsCodec(file));
         const setsFile = variationsFileOf(pageFile);
-        const sets = yield* tx.readDocument(
-          setsFile,
-          variationsCodec(setsFile)
-        );
+        let merged = orphan
+          ? yield* setsOf(sidecarOf(first.file))
+          : yield* setsOf(setsFile);
+        const foldable: typeof rest = [];
+        for (const v of rest) {
+          const own = yield* setsOf(sidecarOf(v.file));
+          const clash = Object.keys(own).filter(
+            (id) => id === page.id || id in merged
+          );
+          if (clash.length > 0) {
+            yield* log.log(
+              "server",
+              "warn",
+              `${v.file.file} has variations of ${clash.join(", ")}, which its page has too: left as it is, not folded`
+            );
+            continue;
+          }
+          merged = { ...merged, ...own };
+          foldable.push(v);
+        }
         const folded = withPageVariants(
-          sets,
+          merged,
           page.id,
-          rest.map((v) => ({ name: v.file.name, root: v.root }))
+          foldable.map((v) => ({ name: v.file.name, root: v.root }))
         );
         yield* writeSets(
           tx,
@@ -304,10 +327,14 @@ export class PageVariants extends Context.Service<
             ? originalNamed(folded, page.id, humanise(first.file.name))
             : folded
         );
-        for (const v of rest) {
-          yield* tx.remove(repoFile(v.file.file));
+        if (orphan) {
+          yield* tx.remove(sidecarOf(first.file));
         }
-        return read.map((v) => v.file);
+        for (const v of foldable) {
+          yield* tx.remove(repoFile(v.file.file));
+          yield* tx.remove(sidecarOf(v.file));
+        }
+        return [...(orphan ? [first] : []), ...foldable].map((v) => v.file);
       });
 
       /** A canvas's comments on its folded variants, on their page now: the same screen. */
@@ -374,15 +401,13 @@ export class PageVariants extends Context.Service<
       });
 
       const fold = Effect.gen(function* () {
-        const found = yield* variantFiles;
-        const listing = yield* listingVariants;
-        if (found.length === 0 && listing.length === 0) {
-          return;
-        }
         const folded = yield* edit.transaction(
           "Fold page variants into variations",
           (tx) =>
             Effect.gen(function* () {
+              // Found under the journal's lock: a state drawn meanwhile is a state, not folded.
+              const found = yield* variantFiles;
+              const listing = yield* listingVariants;
               const byBase = new Map<string, VariantFile[]>();
               for (const v of found) {
                 byBase.set(v.base, [...(byBase.get(v.base) ?? []), v]);
@@ -403,11 +428,13 @@ export class PageVariants extends Context.Service<
               return done;
             })
         );
-        yield* log.log(
-          "server",
-          "info",
-          `folded ${folded.length} page variant${folded.length === 1 ? "" : "s"} into variations (ADR 0098)`
-        );
+        if (folded.length > 0) {
+          yield* log.log(
+            "server",
+            "info",
+            `folded ${folded.length} page variant${folded.length === 1 ? "" : "s"} into variations (ADR 0098)`
+          );
+        }
       }).pipe(
         // A design that does not fold stays as it is read: its variants still read as variations,
         // and the project opens all the same.
