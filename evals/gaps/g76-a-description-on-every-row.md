@@ -77,7 +77,8 @@ GitHub Discussions are off, so it has no note yet):
 In `references/review.md`, a row: "A line under a label that a user who knows the label would
 not miss, or one added because its neighbours have one → Remove it." In
 `references/kinds/settings.md`'s Check: "Most rows with a line, or a section opening with a note
-→ Lines only on the rows that need them; sections bare."
+its name and rows already make plain → Lines only on the rows that need them; a note only where
+the section's purpose is unclear."
 
 **Test.** Recall on the Settings dialog as redesigned, its Appearance and Agents pages captured
 before any fix as a new section (none is captured yet; the `settings` section is the dialog at
