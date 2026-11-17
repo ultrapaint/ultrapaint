@@ -19,6 +19,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
   type RefObject,
+  useEffect,
   useRef,
   useState,
 } from "react";
@@ -49,6 +50,7 @@ import {
 import { addToChat, removeFromChat } from "../lib/add-to-chat.ts";
 import {
   askForVariations,
+  askTaken,
   chooseTakes,
   freshAsk,
   ONE_CHANGE,
@@ -243,6 +245,8 @@ const AskField = ({
   const [takes, setTakes] = useState(
     () => freshAsk()?.takes ?? useAsk.getState().takes
   );
+  // The ask is taken once its popover has its count: a chrome drawn later opens nothing.
+  useEffect(() => askTaken(), []);
   const [only] = targets;
   const varying = targets.length === 1 && takes > ONE_CHANGE;
   const canSend = varying || text.trim() !== "";

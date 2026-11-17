@@ -7,6 +7,7 @@ import { requestAsk, useAsk } from "../lib/ask-variations.ts";
 import { useEditor } from "../state/editor.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { AskAgent } from "./ask-agent.tsx";
+import { useAskShown } from "./selection-chrome.tsx";
 
 vi.mock(
   "../state/connection.ts",
@@ -165,5 +166,38 @@ describe("Ask an agent's Variations (ADR 0098)", () => {
   it("is One change only for several elements", () => {
     show([TITLE, { frame: HOME, nodeId: "hero" }]);
     expect(control()).toBeUndefined();
+  });
+});
+
+describe("the popover asked for from a menu", () => {
+  /** The selection's chrome as it is drawn: whether its popover is open. */
+  const Chrome = () => {
+    const { ask } = useAskShown(false);
+    return <span data-open={ask.open} />;
+  };
+  const drawChrome = () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    mounted = createRoot(container);
+    const r = mounted;
+    act(() => r.render(<Chrome />));
+  };
+  const isOpen = () =>
+    document.querySelector("[data-open]")?.getAttribute("data-open");
+
+  it("opens on a selection drawn after it was asked for, as Make variations… on a page not selected yet asks", () => {
+    act(() => requestAsk());
+    drawChrome();
+    expect(isOpen()).toBe("true");
+  });
+
+  it("opens nothing on a selection drawn once the ask was taken", () => {
+    act(() => requestAsk());
+    show();
+    act(() => mounted?.unmount());
+    mounted = null;
+    document.body.innerHTML = "";
+    drawChrome();
+    expect(isOpen()).toBe("false");
   });
 });

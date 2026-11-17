@@ -354,9 +354,16 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       newItemId,
       project,
       store,
-      // A turn's end may start its review instead of leaving the thread idle.
-      transition: (event) =>
-        event._tag === "TurnEnded" ? turnOver : transition(event),
+      // A turn's end may start its review instead of leaving the thread idle. One that failed
+      // before it reached the agent fails its takes too: `ended` is told only of one that did.
+      transition: (event) => {
+        if (event._tag === "TurnEnded") {
+          return turnOver;
+        }
+        return event._tag === "Failed"
+          ? Effect.andThen(takesEnded, transition(event))
+          : transition(event);
+      },
     });
 
     // ---- the live session ----

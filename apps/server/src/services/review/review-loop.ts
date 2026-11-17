@@ -156,6 +156,16 @@ const reviewed = (thread: Thread, settings: ReviewSettings) =>
   settings.on !== false &&
   (thread.skills?.length !== 0 || thread.review?.on === true);
 
+/**
+ * Whether the thread's last prompt asked for variations: a turn the review never looks at
+ * (ADR 0098), its takes being the person's to choose.
+ */
+const askedForVariations = (items: readonly ThreadItem[]) => {
+  const asked = items.findLast((i) => i.kind === "user");
+  const parsed = asked?.kind === "user" ? parseCommand(asked.text) : null;
+  return parsed?._tag === "Request" && parsed.request._tag === "Variations";
+};
+
 /** A round under way: its item, who is in it, and what its reviewers gave so far. */
 interface RoundState {
   readonly found: Found[];
@@ -357,14 +367,9 @@ export class ReviewLoop extends Context.Service<
         }
         const items = yield* store.items(threadId);
         const end = items.findLast((i) => i.kind === "turn_end");
-        // A turn of variations is never reviewed (ADR 0098): its takes are the person's to choose.
-        const asked = items.findLast((i) => i.kind === "user");
-        const parsed = asked?.kind === "user" ? parseCommand(asked.text) : null;
-        const variations =
-          parsed?._tag === "Request" && parsed.request._tag === "Variations";
         if (
           end?.kind === "turn_end" &&
-          !variations &&
+          !askedForVariations(items) &&
           (thread.purpose ?? "design") === "design"
         ) {
           yield* wait(
@@ -396,7 +401,12 @@ export class ReviewLoop extends Context.Service<
           pending.delete(threadId);
           return null;
         }
-        const run = runOf(yield* store.items(threadId));
+        const items = yield* store.items(threadId);
+        // After a turn of variations, none starts: what earlier turns changed waits for the next.
+        if (askedForVariations(items)) {
+          return null;
+        }
+        const run = runOf(items);
         const maxRounds = settings.goal?.maxRounds ?? MAX_ROUNDS;
         if (
           run.rounds.at(-1)?.end !== undefined ||

@@ -103,9 +103,23 @@ export const askForVariations = (
   subject: string
 ) => runTask(variationsTask(target, takes, vary), `Variations of ${subject}`);
 
+/**
+ * The rounds asked again: once each, as its red boxes go only when the round that replaces it
+ * begins. One whose asking failed can be asked again.
+ */
+const askedAgain = new Set<string>();
+
 /** Asks the round's chat again for as many takes as failed, on Try again. */
-export const tryAgain = (round: VariationRound) =>
-  runTaskIn(
+export const tryAgain = async (round: VariationRound) => {
+  if (askedAgain.has(round.id)) {
+    return;
+  }
+  askedAgain.add(round.id);
+  const sent = await runTaskIn(
     round.thread,
     variationsTask(round, takesIn(round, "failed"), round.vary ?? "")
   );
+  if (!sent) {
+    askedAgain.delete(round.id);
+  }
+};

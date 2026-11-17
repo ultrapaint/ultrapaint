@@ -142,6 +142,8 @@ export class VariationRounds extends Context.Service<
       const dir = path.join(paths.designsDir, WORKING_COPIES_DIR);
 
       let rounds: Round[] = [];
+      /** The copies being handed in now. */
+      const handing = new Set<Copy>();
 
       const cannot = (message: string) => new Conflict({ message });
 
@@ -323,11 +325,24 @@ export class VariationRounds extends Context.Service<
           });
         }
         const { copy, round } = found;
-        if (copy.state !== "working") {
+        if (copy.state !== "working" || handing.has(copy)) {
           return yield* new BadRequest({
             message: `${copy.file} was handed in already`,
           });
         }
+        // One hand-in of a copy at a time: a second rename while it is saved is refused.
+        handing.add(copy);
+        return yield* save(copy, round, named).pipe(
+          Effect.ensuring(Effect.sync(() => handing.delete(copy)))
+        );
+      });
+
+      /** A take saved into its thing's set, and its copy removed. */
+      const save = Effect.fnUntraced(function* (
+        copy: Copy,
+        round: Round,
+        named: string
+      ) {
         const { name, varied } = takeNameOf(named);
         if (name === "") {
           return yield* new BadRequest({
