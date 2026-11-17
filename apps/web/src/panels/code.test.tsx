@@ -120,6 +120,15 @@ describe("a page's implementation", () => {
     expect(container.textContent).toContain("Implement");
   });
 
+  it("keeps its rare actions in its menu: Implement is the one in view", async () => {
+    await selectAndRead("home", 1);
+    expect(container.textContent).not.toContain("Mark implemented");
+    expect(container.textContent).not.toContain("Mark ready");
+    expect(
+      container.querySelector('[aria-label="More implementation actions"]')
+    ).not.toBeNull();
+  });
+
   it("is not shown for a node inside the page", async () => {
     await selectAndRead("title", 1);
     expect(container.textContent).not.toContain("Implementation");
