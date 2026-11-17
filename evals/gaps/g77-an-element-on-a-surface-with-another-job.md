@@ -2,7 +2,7 @@
 id: g77
 title: An element on a surface whose job is another
 kind: missing
-status: open
+status: testing
 found: 2026-11-17
 source: the editor's right panel, Design tab with a page selected (redesign of 3 Nov, b8e96677), corrected by the person
 skill: [SKILL.md, references/review.md, references/kinds/navigation.md]
@@ -65,3 +65,6 @@ A held-out check that the row does not move things that change the element (an o
 prototype link on its own surface) away from where they are edited.
 
 **Result.**
+
+- `placement-1`: 2026-11-17, caught: shipped 2/2, placement 2/2 (reviewed by opus, judged by opus, cursor:grok-4.7-high, effort high; runs/placement-1/report.md)
+- `placement-1`, read: the shipped skill already catches g77 and g79 on `design-tab-code` in both runs ("Code status sits in the Design tab", moved to the top of the Code tab; Mark ready and Mark implemented… into a ⋯ menu), so the section can't show the candidate's lines adding to that. On this section the candidate's reviews are shorter, 8 and 4 findings against 16 and 14: they drop findings the shipped reviews made (the route's focus ring at 25%, the status value muted like its label, the route drawn as a bespoke field). On the held-out sections the new rows move what is edited in place: on `element-toolbar` both candidate reviews take the value controls off the selection's toolbar while the inspector is open, put radius and shadow and the Link action behind More, and hide unset values; on `layers` both drop the route from page rows, and one keeps the selected row's eye, lock and More in view at rest. No shipped review proposed any of these. Rename in place is kept by both (g42 2/2 with the candidate). Across all the gaps 15 of 24 against 14, the difference's interval holding 0; unmatched findings a review 10.2 against 12.8.
