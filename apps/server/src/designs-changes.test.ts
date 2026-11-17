@@ -1,7 +1,15 @@
 import path from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, Fiber, FileSystem, Layer, Ref, Stream } from "effect";
+import {
+  Deferred,
+  Effect,
+  Fiber,
+  FileSystem,
+  Layer,
+  Ref,
+  Stream,
+} from "effect";
 import { TestClock } from "effect/testing";
 import { EventBus } from "./events.ts";
 import { OpenProject, ProjectManager } from "./project.ts";
@@ -135,6 +143,95 @@ describe("the designs' changes", () => {
         yield* TestClock.adjust("100 millis");
         assert.strictEqual((yield* Fiber.join(told))._tag, "Some");
       }).pipe(Effect.provide(ProjectTest()), Effect.scoped)
+  );
+
+  // real clock: the real watcher, whose read of a file is what races the journal.
+  it.live(
+    "are told in the order they were seen: a read the watcher began before an edit takes back no undo",
+    () =>
+      Effect.gen(function* () {
+        const real = yield* FileSystem.FileSystem;
+        const repo = yield* real.realPath(
+          yield* real.makeTempDirectoryScoped()
+        );
+        const page = path.join(repo, "designs/home.page.json");
+        yield* real.makeDirectory(path.dirname(page), { recursive: true });
+        yield* real.writeFileString(page, "zero");
+        // A slow disk: the watcher's first read of the page has its content, says what it read and
+        // which of the watcher's fibers read it, and hands it over only once the test lets it; its
+        // later reads wait for the test to end, so only that one races the journal.
+        const reading = yield* Deferred.make<{
+          readonly content: string;
+          readonly reader: Fiber.Fiber<unknown, unknown>;
+        }>();
+        const release = yield* Deferred.make<void>();
+        const ended = yield* Deferred.make<void>();
+        const slowRead: FileSystem.FileSystem = {
+          ...real,
+          readFileString: (file, encoding) =>
+            file === page
+              ? Effect.tap(real.readFileString(file, encoding), (content) =>
+                  Effect.flatMap(Effect.fiber, (reader) =>
+                    Effect.flatMap(
+                      Deferred.succeed(reading, { content, reader }),
+                      (first) => Deferred.await(first ? release : ended)
+                    )
+                  )
+                )
+              : real.readFileString(file, encoding),
+        };
+        yield* Effect.gen(function* () {
+          const designFiles = yield* DesignFiles;
+          const told = yield* designFiles.writes;
+          const file = "designs/home.page.json";
+          // Written by hand until the watcher, which may not be watching yet, reads it.
+          yield* waitFor(
+            Effect.andThen(
+              real.writeFileString(page, "one"),
+              Deferred.isDone(reading)
+            ),
+            (read) => read,
+            { every: "100 millis", within: "10 seconds" }
+          );
+          const held = yield* Deferred.await(reading);
+          assert.strictEqual(held.content, "one");
+          // An edit told while the watcher's read of "one" is on its way, then its undo once the
+          // read has come back with the older content.
+          yield* real.writeFileString(page, "two");
+          yield* designFiles.report(file, "two", { _tag: "Editor" });
+          yield* Deferred.succeed(release, undefined);
+          // The watcher has told of its read, or not, once the fiber that made it is done.
+          yield* Fiber.await(held.reader);
+          yield* real.writeFileString(page, "one");
+          yield* designFiles.report(file, "one", { _tag: "Editor" });
+          // The undo is told, as the edit was: the watcher's late read took nothing back.
+          assert.deepStrictEqual(
+            (yield* told).filter((w) => w.by._tag === "Editor"),
+            [
+              { by: { _tag: "Editor" }, file },
+              { by: { _tag: "Editor" }, file },
+            ]
+          );
+        }).pipe(
+          Effect.provide(
+            DesignFiles.layer.pipe(
+              Layer.provideMerge(
+                Layer.mergeAll(
+                  RepoPaths.layer({
+                    designsDir: "designs",
+                    hostCss: [],
+                    libraryDirs: [],
+                    repoPath: repo,
+                  }),
+                  EventBus.layer
+                )
+              ),
+              Layer.provide(Layer.succeed(FileSystem.FileSystem, slowRead))
+            )
+          )
+        );
+      }).pipe(Effect.provide(NodeServices.layer), Effect.scoped),
+    15_000
   );
 });
 
