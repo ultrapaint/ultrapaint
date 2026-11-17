@@ -13,6 +13,7 @@ import type { DesignNode } from "@ultrapaint/contracts/document";
 import { BadRequest, Conflict, NotFound } from "@ultrapaint/contracts/errors";
 import {
   type DocumentVariations,
+  ORIGINAL,
   ORIGINAL_ID,
   VARIATIONS_EXTENSION,
   type Variation,
@@ -70,6 +71,13 @@ const nextVariationOf = (set: VariationSet | undefined) => {
   return { id: `v${n}`, name: `Variation ${n}` };
 };
 
+/** An agent's take: its name, what it varied, and its tree, the thing's id at its root. */
+export interface Take {
+  readonly name: string;
+  readonly tree: DesignNode;
+  readonly varied?: string | undefined;
+}
+
 export class VariationsService extends Context.Service<
   VariationsService,
   {
@@ -77,6 +85,14 @@ export class VariationsService extends Context.Service<
     readonly add: (
       target: VariationTarget
     ) => Effect.Effect<DocumentVariations, EditFailure>;
+    /**
+     * An agent's take saved into the thing's set, after the others, the one in use left in use:
+     * the set begun with the original when the thing has none yet. Answers with the take's id.
+     */
+    readonly addTake: (
+      target: VariationTarget,
+      take: Take
+    ) => Effect.Effect<string, EditFailure>;
     /** The set gone, the thing as it is drawn now. */
     readonly clear: (
       target: VariationTarget
@@ -84,7 +100,7 @@ export class VariationsService extends Context.Service<
     /** The variations of every document of a canvas, and of every component. */
     readonly list: (
       canvas: string
-    ) => Effect.Effect<VariationsList, EditFailure>;
+    ) => Effect.Effect<Pick<VariationsList, "documents">, EditFailure>;
     /**
      * One deleted, the thing left as it is drawn: the one in use deleted, none is in use. The
      * original stays while others remain.
@@ -93,6 +109,8 @@ export class VariationsService extends Context.Service<
       target: VariationTarget,
       variation: string
     ) => Effect.Effect<DocumentVariations, EditFailure>;
+    /** A document's sets, by node id, as its file holds them now. */
+    readonly sets: (doc: string) => Effect.Effect<VariationSets, EditFailure>;
     readonly rename: (
       target: VariationTarget,
       variation: string,
@@ -174,7 +192,7 @@ export class VariationsService extends Context.Service<
         );
         return {
           documents: read.filter((d) => Object.keys(d.sets).length > 0),
-        } satisfies VariationsList;
+        } satisfies Pick<VariationsList, "documents">;
       });
 
       /**
@@ -275,7 +293,7 @@ export class VariationsService extends Context.Service<
           const { id, name } = nextVariationOf(set);
           const variations =
             set === undefined
-              ? [{ id: ORIGINAL_ID, name: "Original", tree: node }]
+              ? [{ ...ORIGINAL, tree: node }]
               : set.variations.map((v) =>
                   v.id === set.inUse ? { ...v, tree: node } : v
                 );
@@ -283,6 +301,42 @@ export class VariationsService extends Context.Service<
             set: { inUse: id, variations: [...variations, { id, name }] },
           });
         });
+      });
+
+      const addTake = Effect.fn("VariationsService.addTake")(function* (
+        target: VariationTarget,
+        take: Take
+      ) {
+        if (take.tree.id !== target.node) {
+          return yield* new BadRequest({
+            message: `a take of ${target.node} draws ${take.tree.id}`,
+          });
+        }
+        const after = yield* change(
+          `Variation “${take.name}”`,
+          target,
+          (set) => {
+            const { id } = nextVariationOf(set);
+            // The original, in use, is the tree in the document: it keeps none of its own.
+            const variations = set?.variations ?? [ORIGINAL];
+            return Effect.succeed({
+              set: {
+                inUse: set === undefined ? ORIGINAL_ID : set.inUse,
+                variations: [
+                  ...variations,
+                  {
+                    id,
+                    name: take.name,
+                    tree: take.tree,
+                    ...(take.varied !== undefined && { varied: take.varied }),
+                  },
+                ],
+              },
+            });
+          }
+        );
+        // The take is the set's last.
+        return after.sets[target.node]?.variations.at(-1)?.id ?? "";
       });
 
       const use = Effect.fn("VariationsService.use")(function* (
@@ -376,7 +430,16 @@ export class VariationsService extends Context.Service<
         Effect.forkScoped
       );
 
-      return VariationsService.of({ add, clear, list, remove, rename, use });
+      return VariationsService.of({
+        add,
+        addTake,
+        clear,
+        list,
+        remove,
+        rename,
+        sets: setsOf,
+        use,
+      });
     })
   );
 }

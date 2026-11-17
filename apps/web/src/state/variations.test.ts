@@ -87,6 +87,7 @@ beforeEach(async () => {
   });
   fakeApi.respond("variations.list", () => ({
     documents: [{ doc: HOME, sets: SETS }],
+    rounds: [],
   }));
   stop = followServer({ report: () => undefined });
   await loadVariations("");

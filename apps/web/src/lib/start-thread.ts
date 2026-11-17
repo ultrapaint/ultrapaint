@@ -78,6 +78,24 @@ export const runTask = async (request: TaskRequest, title: string) => {
   }
 };
 
+/**
+ * Runs a task at once in a chat already there, opened in the left panel: what the person pressed
+ * for a chat that has its context, as Try again on a variation that failed (ADR 0098). A chat at
+ * work takes it when its turn is over.
+ */
+export const runTaskIn = async (threadId: string, request: TaskRequest) => {
+  try {
+    await showLeftPanel({ chat: threadId });
+    await api().request("threads.prompt", {
+      attachments: [],
+      text: commandOf(request),
+      threadId,
+    });
+  } catch (error) {
+    reportError(error);
+  }
+};
+
 /** The design system made from the application's code, in a chat of its own. */
 export const makeSystemFromCode = () =>
   runTask({ _tag: "Init" }, "Design system from the code");

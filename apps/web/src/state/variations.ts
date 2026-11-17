@@ -5,6 +5,10 @@
  * Opened, a thing's variations are laid out beside its page, and the thing in its page is the
  * **preview**: showing a variation there writes nothing, and **Use this** puts the preview in use
  * as one undo step. Done or Escape closes them, the one in use kept.
+ *
+ * An agent's **rounds** of takes are followed here too: the takes still coming are placeholders
+ * beside the others, those that failed red boxes with Try again, and the thing's variations are
+ * laid out once the first of a round comes in or fails.
  */
 import type { Box } from "@ultrapaint/contracts/canvas-layout";
 import {
@@ -12,18 +16,27 @@ import {
   componentOfDoc,
 } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import type {
-  DocumentVariations,
-  VariationSet,
-  VariationSets,
-  VariationTarget,
+import {
+  type DocumentVariations,
+  ORIGINAL,
+  ORIGINAL_ID,
+  takesIn,
+  type VariationRound,
+  type VariationSet,
+  type VariationSets,
+  type VariationTarget,
 } from "@ultrapaint/contracts/variations";
-import { childrenOf } from "@ultrapaint/design-document/tree";
+import {
+  canvasDocOf,
+  childrenOf,
+  findNode,
+} from "@ultrapaint/design-document/tree";
 import { create } from "zustand";
 import { appComponentOf } from "./components.ts";
 import { api } from "./connection.ts";
-import { docOfFrame } from "./documents.ts";
+import { docOfFrame, useDocuments } from "./documents.ts";
 import { type Selection, useEditor } from "./editor.ts";
+import { nodeFrameOf } from "./frame-ref.ts";
 import { reportError } from "./project.ts";
 import { select, selectMany } from "./selection.ts";
 import { follow } from "./server-data.ts";
@@ -48,12 +61,15 @@ interface VariationsStore {
   readonly byDoc: Readonly<Record<string, VariationSets>>;
   readonly canvas: string | null;
   readonly open: OpenVariations | null;
+  /** The agents' rounds of takes under way, and those with a take that failed. */
+  readonly rounds: readonly VariationRound[];
 }
 
 export const useVariations = create<VariationsStore>(() => ({
   byDoc: {},
   canvas: null,
   open: null,
+  rounds: [],
 }));
 
 const takeVariations = ({ doc, sets }: DocumentVariations) =>
@@ -64,14 +80,55 @@ const takeVariations = ({ doc, sets }: DocumentVariations) =>
     };
   });
 
+/** The frame a thing of the canvas open is drawn in: its page's, or its node's beside them. */
+const frameOfThing = (target: VariationTarget): string | null => {
+  const { canvas } = useVariations.getState();
+  if (canvas === null) {
+    return null;
+  }
+  if (target.doc === canvasDocOf(canvas)) {
+    const root = useDocuments.getState().docs[target.doc]?.root;
+    const placed = (root ? childrenOf(root) : []).find(
+      (n) => findNode(n, target.node) !== null
+    );
+    return placed ? nodeFrameOf(placed.id) : null;
+  }
+  return useDocuments.getState().docs[target.doc] ? target.doc : null;
+};
+
+const settled = (round: VariationRound | undefined) =>
+  round === undefined
+    ? 0
+    : takesIn(round, "handedIn") + takesIn(round, "failed");
+
+/**
+ * The rounds as the server tells them. A round's first take come in or failed lays its thing's
+ * variations out (ADR 0098), unless some are open already or its thing is not on this canvas.
+ */
+const takeRounds = (rounds: readonly VariationRound[]) => {
+  const before = useVariations.getState().rounds;
+  useVariations.setState({ rounds });
+  if (useVariations.getState().open !== null) {
+    return;
+  }
+  const first = rounds.find(
+    (r) => settled(r) > 0 && settled(before.find((b) => b.id === r.id)) === 0
+  );
+  const frame = first ? frameOfThing(first) : null;
+  if (first && frame !== null) {
+    openVariations({ doc: first.doc, frame, nodeId: first.node });
+  }
+};
+
 const variationsData = follow({
-  apply: ({ documents }) =>
+  apply: ({ documents, rounds }) =>
     useVariations.setState({
       byDoc: Object.fromEntries(documents.map((d) => [d.doc, d.sets])),
+      rounds,
     }),
   key: () => useVariations.getState().canvas,
-  news: ["variations"],
-  on: { variations: takeVariations },
+  news: ["variations", "variationRounds"],
+  on: { variationRounds: takeRounds, variations: takeVariations },
   read: (canvas: string) => api().request("variations.list", { canvas }),
 });
 
@@ -88,9 +145,46 @@ export const setOf = (
   node: string
 ): VariationSet | undefined => state.byDoc[doc]?.[node];
 
+/** The agents' rounds of takes on a thing, oldest first. */
+export const roundsOf = (
+  state: Pick<VariationsStore, "rounds">,
+  doc: string,
+  node: string
+): readonly VariationRound[] =>
+  state.rounds.filter((r) => r.doc === doc && r.node === node);
+
+/** A thing with nothing but its original, while an agent's first takes are under way. */
+const ORIGINAL_ONLY: VariationSet = {
+  inUse: ORIGINAL_ID,
+  variations: [ORIGINAL],
+};
+
+/**
+ * The set of a thing, or its original alone while an agent's round on it has none in yet: its
+ * takes still coming, or failed, are laid out beside it all the same.
+ */
+const setOrRound = (
+  state: Pick<VariationsStore, "byDoc" | "rounds">,
+  doc: string,
+  node: string
+): VariationSet | undefined =>
+  setOf(state, doc, node) ??
+  (roundsOf(state, doc, node).length > 0 ? ORIGINAL_ONLY : undefined);
+
 /** The set of the thing whose variations are open. */
 export const openSet = (state: VariationsStore): VariationSet | undefined =>
-  state.open ? setOf(state, state.open.doc, state.open.node) : undefined;
+  state.open ? setOrRound(state, state.open.doc, state.open.node) : undefined;
+
+/** The takes on the open thing still coming from an agent, and the rounds with some that failed. */
+export const takesOfOpen = (state: VariationsStore) => {
+  const rounds = state.open
+    ? roundsOf(state, state.open.doc, state.open.node)
+    : [];
+  return {
+    coming: rounds.reduce((n, r) => n + takesIn(r, "working"), 0),
+    failed: rounds.filter((r) => takesIn(r, "failed") > 0),
+  };
+};
 
 /** The variation shown in the preview, by id; null while none are open. */
 export const previewOf = (state: VariationsStore): string | null =>
@@ -147,7 +241,7 @@ export const drawnWith = (root: DesignNode, part: DesignNode): DesignNode => {
  */
 export const openVariations = (thing: Thing, preview?: string) => {
   const target = targetOf(thing);
-  const set = setOf(useVariations.getState(), target.doc, target.node);
+  const set = setOrRound(useVariations.getState(), target.doc, target.node);
   if (!set) {
     return;
   }

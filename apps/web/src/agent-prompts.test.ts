@@ -14,7 +14,8 @@ const PROMPTED_BY_THE_PERSON: Record<string, string> = {
     "the prompt they typed in the selection's Ask an agent popover and sent",
   "lib/first-prompt.ts":
     "the prompt they typed on the start screen, or sent once they chose its look",
-  "lib/start-thread.ts": "Make from code, a button they pressed (`runTask`)",
+  "lib/start-thread.ts":
+    "a button they pressed: Make from code, Ask an agent's Enter with Variations set (opened by them, or by Make variations… or Make more…), a failed variation's Try again (`runTask`, `runTaskIn`)",
   "panels/thread-composer.tsx":
     "the composer's Send, and Send now on a prompt they queued",
   "panels/thread-review.tsx": "the run card's Go on",

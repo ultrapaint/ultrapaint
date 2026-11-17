@@ -38,6 +38,7 @@ import {
   type ThreadPurpose,
   type ThreadStatus,
 } from "@ultrapaint/contracts/threads";
+import { plural } from "@ultrapaint/shared/text";
 import {
   Clock,
   Context,
@@ -62,6 +63,7 @@ import { History } from "../history.ts";
 import { McpAccess } from "../mcp/access.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { ReviewLoop, type ToDesigner } from "../review/review-loop.ts";
+import { VariationRounds } from "../variation-rounds.ts";
 import { type TreeStamp, WorkingTree } from "../working-tree.ts";
 import { AgentConfigs } from "./agent-configs.ts";
 import { AgentDiscovery } from "./agent-discovery.ts";
@@ -313,9 +315,41 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
         yield* store.update(threadId, { ...extra, ...patch });
       }
     });
+    /**
+     * A turn of variations is over (ADR 0098): the takes not handed in failed, and the chat says
+     * so in a line of its own; the editor draws each as a red box with Try again.
+     */
+    const takesEnded = project
+      .use(
+        Effect.flatMap(Effect.serviceOption(VariationRounds), (rounds) =>
+          rounds._tag === "Some"
+            ? rounds.value.turnEnded(threadId)
+            : Effect.succeed({ asked: 0, failed: 0 })
+        )
+      )
+      .pipe(
+        Effect.flatMap(({ asked, failed }) =>
+          failed === 0
+            ? Effect.void
+            : Effect.gen(function* () {
+                yield* store.push(threadId, {
+                  at: yield* Clock.currentTimeMillis,
+                  id: yield* newItemId,
+                  kind: "status",
+                  text: `${failed} of ${plural(asked, "variation")} did not come back: Try again under ${failed === 1 ? "it" : "them"} on the canvas.`,
+                });
+              })
+        ),
+        // A project closed meanwhile has no rounds, and a line not written loses only the
+        // telling: the editor still draws the failed takes. Neither may fail the turn's end.
+        Effect.ignore
+      );
     const turn = makeTurn(threadId, {
-      // The turn's point of the history, whichever way it ended.
-      ended: historyOf((h) => h.turnEnded(threadId)),
+      // The turn's takes, then its point of the history, whichever way it ended.
+      ended: Effect.andThen(
+        takesEnded,
+        historyOf((h) => h.turnEnded(threadId))
+      ),
       log,
       newItemId,
       project,

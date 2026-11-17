@@ -62,6 +62,7 @@ import type { SnapshotStore } from "./services/snapshot-store.ts";
 import { Storage } from "./services/storage.ts";
 import type { ProjectStyleSystem } from "./services/style-system.ts";
 import type { Thumbnails } from "./services/thumbnails.ts";
+import type { VariationRounds } from "./services/variation-rounds.ts";
 import type { VariationsService } from "./services/variations.ts";
 import type { WorkingTree } from "./services/working-tree.ts";
 
@@ -87,6 +88,7 @@ export type ProjectServices =
   | PagesService
   | SkillsService
   | Thumbnails
+  | VariationRounds
   | VariationsService
   | WorkingTree;
 

@@ -6,7 +6,11 @@
  * offers an MCP server's prompts as slash commands of its own; prompts cost no tool definition.
  */
 import { SETUP_STEPS } from "@ultrapaint/contracts/design-system-setup";
-import { SyncSource, slashCommands } from "@ultrapaint/contracts/tasks";
+import {
+  SyncSource,
+  slashCommands,
+  VARIATIONS_COMMAND,
+} from "@ultrapaint/contracts/tasks";
 import { Effect, Layer, Schema } from "effect";
 import { McpServer } from "effect/ai";
 import { OpenProject } from "../../project.ts";
@@ -69,7 +73,9 @@ export const TaskPrompts = Layer.effectDiscard(
       }
     };
 
-    for (const { argument, description, name } of slashCommands) {
+    // Variations are made in the editor's own chats: their working copies are a turn's (ADR 0098).
+    const offered = slashCommands.filter((c) => c.name !== VARIATIONS_COMMAND);
+    for (const { argument, description, name } of offered) {
       yield* McpServer.registerPrompt({
         completion: {
           argument: (input: string) =>

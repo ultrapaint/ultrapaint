@@ -2,8 +2,8 @@
  * The variation preview on the canvas (ADR 0098): the thing in its page, outlined dashed while
  * it shows another than the variation in use, with its controls hanging under its bottom-left
  * edge as the agent's ✦ hangs off a selection's top-left: Done while it is the one in use; what
- * it is, Reset and Use this once it differs. Drawn in the frame's own pixels, at their size on
- * screen whatever the zoom.
+ * it is, Reset and Use this once it differs; while an agent makes more, how many are coming.
+ * Drawn in the frame's own pixels, at their size on screen whatever the zoom.
  */
 import type { Rect } from "@ultrapaint/contracts/preview";
 import { CornerDownLeft } from "lucide-react";
@@ -19,6 +19,7 @@ import {
   previewDiffers,
   putPreviewInUse,
   resetPreview,
+  takesOfOpen,
   useVariations,
 } from "../state/variations.ts";
 import { screenPx, useExactInv } from "./camera.ts";
@@ -47,11 +48,18 @@ export const PreviewControls = () => {
     (s) =>
       openSet(s)?.variations.find((v) => v.id === s.open?.preview)?.name ?? ""
   );
+  // An agent's takes still being made (ADR 0098).
+  const coming = useVariations((s) => takesOfOpen(s).coming);
   return (
     <div
       className="flex items-center gap-1 whitespace-nowrap rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10"
       data-variation-controls=""
     >
+      {coming > 0 ? (
+        <span className="px-1.5 font-body-small text-muted-foreground">
+          {coming} more coming
+        </span>
+      ) : null}
       {differs ? (
         <>
           <span className="px-1.5 font-body-medium">{name}</span>

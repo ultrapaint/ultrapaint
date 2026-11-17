@@ -15,7 +15,7 @@ import type { SlashCommand } from "@ultrapaint/contracts/threads";
 import { Context, Effect, Layer } from "effect";
 import { AppLog } from "../../app-log.ts";
 import { STEPS_NEXT } from "./setup-tasks.ts";
-import { type AgentTask, AgentTasks } from "./tasks.ts";
+import { type AgentTask, AgentTasks, type TaskOptions } from "./tasks.ts";
 
 /** What the agent is told when what the user ran cannot be done as asked, and what to say. */
 const failedTask = (failure: {
@@ -34,11 +34,11 @@ export class SlashCommands extends Context.Service<
      * not start with a command this server knows (it then goes to the agent as it is, which may
      * have commands of its own). A task that could not be prepared at all (no project open) is
      * what was typed, and why it could not is in the log. `tools`: the agent has the editor's
-     * tools; the server's MCP setting when it is not said.
+     * tools, the server's MCP setting when it is not said; `thread`: the chat it runs in.
      */
     readonly expand: (
       text: string,
-      options?: { readonly tools?: boolean }
+      options?: TaskOptions
     ) => Effect.Effect<AgentTask | null>;
     readonly list: readonly SlashCommand[];
   }
@@ -51,7 +51,7 @@ export class SlashCommands extends Context.Service<
 
       const expand = Effect.fnUntraced(function* (
         text: string,
-        options: { readonly tools?: boolean } = {}
+        options: TaskOptions = {}
       ) {
         const parsed = parseCommand(text);
         if (parsed === null) {

@@ -2,16 +2,22 @@
  * A thing's variations laid out beside its page (ADR 0098), while they are open: each drawn
  * straight on the canvas background, with no card around it, its name and what it varied over
  * it, the one in use marked. A click shows it in the preview, the thing in its page. Opening them
- * fits the camera to the page and its variations.
+ * fits the camera to the page and its variations. After them, an agent's takes still coming are
+ * placeholders in its colour, and those that failed red boxes with Try again.
  */
 import type { Box } from "@ultrapaint/contracts/canvas-layout";
 import { componentOfDoc } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import type { Variation } from "@ultrapaint/contracts/variations";
+import type {
+  Variation,
+  VariationRound,
+} from "@ultrapaint/contracts/variations";
 import { findNode } from "@ultrapaint/design-document/tree";
 import { memo, useEffect, useMemo, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
+import { tryAgain } from "../lib/ask-variations.ts";
 import { zoomToBoxes } from "../state/camera.ts";
 import { useComponents } from "../state/components.ts";
 import { useDesignSystem } from "../state/design-system.ts";
@@ -26,6 +32,7 @@ import {
   openSet,
   rootOfDocument,
   showVariation,
+  takesOfOpen,
   useVariations,
 } from "../state/variations.ts";
 import { screenPx } from "./camera.ts";
@@ -173,6 +180,84 @@ const VariationFrame = memo(
 VariationFrame.displayName = "VariationFrame";
 
 /**
+ * A take an agent has not handed in: a placeholder in the agent's colour while it is made, or a
+ * red box once its turn ended without it, which asks again on a click. What it is is said over
+ * it, as a variation's name is, so a small thing's box holds nothing it could spill.
+ */
+const TakeBox = ({
+  box,
+  round,
+}: {
+  box: Box;
+  /** The round it failed in; none while it is still coming. */
+  round?: VariationRound | undefined;
+}) => (
+  <div
+    className={cn(
+      "absolute",
+      round
+        ? "bg-destructive/5"
+        : "animate-agent-sweep bg-[linear-gradient(100deg,color-mix(in_srgb,var(--agent)_6%,transparent)_20%,color-mix(in_srgb,var(--agent)_18%,transparent)_45%,color-mix(in_srgb,var(--agent)_6%,transparent)_70%)] bg-size-[250%_100%]"
+    )}
+    data-take={round ? "failed" : "coming"}
+    style={{
+      height: box.height,
+      left: box.x,
+      outline: `${screenPx(1.5)} ${round ? "solid var(--destructive)" : "dashed var(--agent)"}`,
+      top: box.y,
+      width: box.width,
+    }}
+  >
+    <FrameHeader width={box.width}>
+      {round ? (
+        <>
+          <button
+            className={cn(HEADER_NAME, "text-destructive hover:underline")}
+            onClick={() => tryAgain(round)}
+            onPointerDown={(e) => e.stopPropagation()}
+            type="button"
+          >
+            Try again
+          </button>
+          <span className="text-muted-foreground">Did not come back</span>
+        </>
+      ) : (
+        <span className={cn(HEADER_NAME, "text-agent")}>Coming…</span>
+      )}
+    </FrameHeader>
+    {round ? (
+      <button
+        aria-label="Try again"
+        className="absolute inset-0 h-full w-full cursor-pointer"
+        onClick={() => tryAgain(round)}
+        onPointerDown={(e) => e.stopPropagation()}
+        type="button"
+      />
+    ) : null}
+  </div>
+);
+
+/** The keys of an agent's takes laid out after the variations: those coming, then those failed. */
+const useTakeKeys = () => {
+  const coming = useVariations((s) => takesOfOpen(s).coming);
+  const failed = useVariations(useShallow((s) => takesOfOpen(s).failed));
+  return useMemo(() => {
+    const keys: { key: string; round?: VariationRound }[] = [];
+    for (let i = 0; i < coming; i += 1) {
+      keys.push({ key: `coming:${i}` });
+    }
+    for (const round of failed) {
+      round.takes.forEach((take, i) => {
+        if (take.state === "failed") {
+          keys.push({ key: `failed:${round.id}:${i}`, round });
+        }
+      });
+    }
+    return keys;
+  }, [coming, failed]);
+};
+
+/**
  * The open thing's variations, beside its page on the page canvas; beside its board, `board`,
  * on a component's board view, where its main tree is drawn (ADR 0098).
  */
@@ -208,9 +293,12 @@ export const VariationsBeside = ({
       ? { ...rect, x: page.x + rect.x, y: page.y + rect.y }
       : page;
   const ids = useMemo(() => set?.variations.map((v) => v.id) ?? [], [set]);
+  const takes = useTakeKeys();
   const heights = open ? heightsOf(open, ids, drawnHeights) : {};
   const boxes =
-    page && thing ? besideBoxes(page, thing, ids, heights) : undefined;
+    page && thing
+      ? besideBoxes(page, thing, [...ids, ...takes.map((t) => t.key)], heights)
+      : undefined;
 
   // Open, selecting something closes them.
   const isOpen = open !== null;
@@ -253,6 +341,10 @@ export const VariationsBeside = ({
             variation={variation}
           />
         ) : null;
+      })}
+      {takes.map(({ key: take, round }) => {
+        const box = boxes[take];
+        return box ? <TakeBox box={box} key={take} round={round} /> : null;
       })}
     </>
   );

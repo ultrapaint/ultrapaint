@@ -382,6 +382,9 @@ describe("the editor's tools in what an agent is told", () => {
       { _tag: "Sync", source: "design" },
       { _tag: "Sync", source: "code" },
     ],
+    Variations: [
+      { _tag: "Variations", count: 2, target: "home.page.json#heading" },
+    ],
   };
 
   /** The tools the editor's MCP server offers, by the names their definitions give them. */
@@ -416,7 +419,8 @@ describe("the editor's tools in what an agent is told", () => {
     const read: Read[] = [];
     for (const request of Object.values(requests).flat()) {
       read.push(
-        yield* tasks.task(request).pipe(
+        // In a chat, where a round of variations belongs.
+        yield* tasks.task(request, { thread: "thread_told" }).pipe(
           Effect.map(({ text }) => ({ task: true, text })),
           Effect.catchTag("TaskFailure", (f) =>
             Effect.succeed({ task: false, text: `${f.message}. ${f.next}` })
@@ -575,6 +579,7 @@ describe("the editor's tools in what an agent is told", () => {
           "/design-system migrate",
           "/sync figma",
           "/sync design",
+          "/variations home.page.json#heading 2",
         ]);
         assert.deepStrictEqual(
           [...before, ...after].flatMap((r) =>

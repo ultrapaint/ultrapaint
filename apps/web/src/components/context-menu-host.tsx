@@ -232,6 +232,8 @@ export const iconOf = ({ act }: MenuAction): LucideIcon | undefined => {
   switch (act.kind) {
     case "ask":
       return act.newChat ? BotMessageSquare : Bot;
+    case "variations":
+      return Sparkles;
     case "comment":
       return MessageSquarePlus;
     case "wrap":

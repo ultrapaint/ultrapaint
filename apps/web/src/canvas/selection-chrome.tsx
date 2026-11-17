@@ -19,6 +19,7 @@ import {
   useState,
 } from "react";
 import { cn } from "@/lib/cn";
+import { askTaken, freshAsk, useAsk } from "../lib/ask-variations.ts";
 import { kindColor, selectionKindOf } from "../lib/selection-kind.ts";
 import { sizeLabel } from "../lib/size-label.ts";
 import { useBreakpoints } from "../state/design-system.ts";
@@ -56,6 +57,22 @@ const useAskShown = (inside: boolean) => {
   const [open, setOpen] = useState(false);
   const [lingering, setLingering] = useState(false);
   const wasInside = useRef(inside);
+  // Make variations… and Make more… open it on the selection (ADR 0098).
+  useEffect(
+    () =>
+      useAsk.subscribe((now, before) => {
+        if (now.request !== before.request && freshAsk(now.request) !== null) {
+          setOpen(true);
+        }
+      }),
+    []
+  );
+  const onOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) {
+      askTaken();
+    }
+  };
   useEffect(() => {
     const was = wasInside.current;
     wasInside.current = inside;
@@ -67,7 +84,7 @@ const useAskShown = (inside: boolean) => {
     return () => clearTimeout(timer);
   }, [inside]);
   return {
-    ask: { onHover: setOver, onOpenChange: setOpen, open },
+    ask: { onHover: setOver, onOpenChange, open },
     shown: inside || over || open || lingering,
   };
 };

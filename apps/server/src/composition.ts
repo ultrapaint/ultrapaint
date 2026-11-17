@@ -60,6 +60,7 @@ import { AgentTasks } from "./services/threads/tasks.ts";
 import { ThreadSessions } from "./services/threads/thread-session.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
 import { Thumbnails } from "./services/thumbnails.ts";
+import { VariationRounds } from "./services/variation-rounds.ts";
 import { VariationsService } from "./services/variations.ts";
 import { WorkingTree } from "./services/working-tree.ts";
 
@@ -113,6 +114,8 @@ export const projectLayer = (
     // The components: a system component's look as the design says it, an app component's tree
     // (ADR 0041).
     Layer.provideMerge(ComponentService.layer),
+    // An agent's rounds of takes on a thing, in working copies the canvas never draws.
+    Layer.provideMerge(VariationRounds.layer),
     // A thing's variations, kept beside its document and put in it (ADR 0098).
     Layer.provideMerge(VariationsService.layer),
     Layer.provideMerge(DocumentService.layer),

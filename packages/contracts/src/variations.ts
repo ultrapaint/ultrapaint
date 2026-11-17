@@ -12,6 +12,9 @@ import { DesignNode } from "./document.ts";
 /** The id of a set's first variation: the thing as it was before any other. */
 export const ORIGINAL_ID = "original";
 
+/** A set's first variation while it is in use: its tree is the document's. */
+export const ORIGINAL = { id: ORIGINAL_ID, name: "Original" } as const;
+
 /** One way to draw a thing. */
 export const Variation = Schema.Struct({
   id: Schema.String,
@@ -51,18 +54,91 @@ export const DocumentVariations = Schema.Struct({
 });
 export type DocumentVariations = typeof DocumentVariations.Type;
 
-/** The variations of every document of a canvas, and of every component. */
-export const VariationsList = Schema.Struct({
-  documents: Schema.Array(DocumentVariations),
-});
-export type VariationsList = typeof VariationsList.Type;
-
 /** A thing: a node of a document. */
 export const VariationTarget = Schema.Struct({
   doc: Schema.String,
   node: Schema.String,
 });
 export type VariationTarget = typeof VariationTarget.Type;
+
+/**
+ * Where an agent's take stands: being made in its working copy, handed in as the variation it
+ * made, or failed, its copy still unnamed when the turn ended.
+ */
+export const TakeState = Schema.Literals(["working", "handedIn", "failed"]);
+export type TakeState = typeof TakeState.Type;
+
+/**
+ * A round of takes an agent is making of a thing, on a `Variations` task (ADR 0098): one take
+ * per working copy the server made before the turn. The editor draws those still coming as
+ * placeholders and those that failed as a red box with Try again.
+ */
+export const VariationRound = Schema.Struct({
+  ...VariationTarget.fields,
+  id: Schema.String,
+  /** One per take asked for, in the order the copies were made. */
+  takes: Schema.Array(
+    Schema.Struct({
+      state: TakeState,
+      /** The variation it made, once handed in. */
+      variation: Schema.optional(Schema.String),
+    })
+  ),
+  /** The chat the round runs in: Try again asks there. */
+  thread: Schema.String,
+  /** What should vary, as the person said it. */
+  vary: Schema.optional(Schema.String),
+});
+export type VariationRound = typeof VariationRound.Type;
+
+/** The variations of every document of a canvas, and of every component. */
+export const VariationsList = Schema.Struct({
+  documents: Schema.Array(DocumentVariations),
+  /** The rounds under way, and those with a take that failed, of every document. */
+  rounds: Schema.Array(VariationRound),
+});
+export type VariationsList = typeof VariationsList.Type;
+
+/** How many of a round's takes are where `state` says. */
+export const takesIn = (
+  round: Pick<VariationRound, "takes">,
+  state: TakeState
+): number => round.takes.filter((t) => t.state === state).length;
+
+/** A thing as a `/variations` command names it: `<document>#<node>`. */
+export const variationRefOf = (target: VariationTarget): string =>
+  `${target.doc}#${target.node}`;
+
+/** The thing a `/variations` command names; null when it names no node. */
+export const targetOfRef = (ref: string): VariationTarget | null => {
+  const at = ref.lastIndexOf("#");
+  const doc = ref.slice(0, at);
+  const node = ref.slice(at + 1);
+  return at > 0 && node !== "" ? { doc, node } : null;
+};
+
+/** What separates a take's name from what it varied, as an agent names its working copy. */
+export const TAKE_NAME_SEPARATOR = " · ";
+/** The separator as an agent may space it: a dot between spaces, or ending the name. */
+const SEPARATOR_RE = /\s+·(?:\s+|$)/;
+
+/**
+ * A take's name and what it varied, from the name an agent gave its working copy: "Editorial ·
+ * Tone of the copy". A name without the separator varied nothing it said.
+ */
+export const takeNameOf = (
+  named: string
+): { readonly name: string; readonly varied?: string } => {
+  const text = named.trim();
+  // The text is trimmed: a separator, which starts with a space, is never its start.
+  const match: RegExpExecArray | null = SEPARATOR_RE.exec(text);
+  if (match === null) {
+    return { name: text };
+  }
+  const name = text.slice(0, match.index).trim();
+  const varied = text.slice(match.index + match[0].length).trim();
+  return varied === "" ? { name } : { name, varied };
+};
 
 export const VARIATIONS_EXTENSION = ".variations.json";
 

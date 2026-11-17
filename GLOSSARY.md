@@ -124,9 +124,18 @@ refactor and the board view left.
   chosen among them laid out beside the page, with the thing in its page as the **variation
   preview** (not the editor's Preview), where choosing writes only on Use this; kept in a designs
   file beside the page (`notes.variations.json`, the server's `variations` module, the web's
-  `state/variations.ts`). Made by hand and chosen since UP-9's first stage; ADR 0098 folds page
-  variants into it in a later stage, until which the Page, Route and Location entries keep page
-  variants. _Avoid_ "variant" for it: a component's members are its variants.
+  `state/variations.ts`). Made by hand and chosen since UP-9's first stage, by an agent since its
+  second; ADR 0098 folds page variants into it in a later stage, until which the Page, Route and
+  Location entries keep page variants. _Avoid_ "variant" for it: a component's members are its
+  variants.
+  - A **take** is one variation an agent makes on a `Variations` task (`/variations
+    <document>#<node> [2-4] [what should vary]`); the takes of one request are a **round**
+    (`variation-rounds.ts`). Each take is made in a **working copy**: a page file the server
+    makes before the turn in the designs directory's `.working-copies/`, which the page list,
+    the canvas layout, the history, the undo journal and git never read (`working-copies.ts`).
+    The agent hands a take in by renaming its copy ("Editorial · Tone of the copy"), which saves
+    it into the set and removes the copy; a copy still unnamed when the turn ends is a failed
+    take, a red box with Try again.
 - **Operation**: one change to a document (contracts' `DocOp`, design-document's `applyOps`),
   one undo step per request: insert, remove, move, update, set props, wrap, unwrap, duplicate,
   and **replace**, which puts a node where sibling nodes were (an instance drawn as now, detached

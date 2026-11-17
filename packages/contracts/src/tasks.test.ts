@@ -116,6 +116,31 @@ describe("parseCommand", () => {
     expect(requestOf("/sync everything please")).toEqual({ _tag: "Sync" });
   });
 
+  it("reads /variations as a thing, how many takes, and what should vary (ADR 0098)", () => {
+    expect(
+      requestOf("/variations marketing/notes.page.json#c_1 3 the tone")
+    ).toEqual({
+      _tag: "Variations",
+      count: 3,
+      target: "marketing/notes.page.json#c_1",
+      vary: "the tone",
+    });
+    // No count: three, the rest what should vary.
+    expect(requestOf("/variations notes.page.json#c_1 bolder")).toEqual({
+      _tag: "Variations",
+      count: 3,
+      target: "notes.page.json#c_1",
+      vary: "bolder",
+    });
+    expect(requestOf("/variations notes.page.json#c_1 9")).toMatchObject({
+      count: 4,
+    });
+    expect(parseCommand("/variations")).toMatchObject({ _tag: "Invalid" });
+    expect(parseCommand("/variations notes.page.json 2")).toMatchObject({
+      _tag: "Invalid",
+    });
+  });
+
   it("leaves a prompt that is no command of the editor's as it is", () => {
     expect(parseCommand("make the header blue")).toBeNull();
     expect(parseCommand("/review the diff")).toBeNull();
@@ -161,6 +186,15 @@ describe("the slash commands", () => {
       { _tag: "Sync", source: "design" },
       { _tag: "Sync", extra: "only colours", source: "figma" },
     ],
+    Variations: [
+      { _tag: "Variations", count: 3, target: "notes.page.json#c_1" },
+      {
+        _tag: "Variations",
+        count: 2,
+        target: "component:Card#root",
+        vary: "the layout",
+      },
+    ],
   };
   const requests = Object.values(examples).flat();
 
@@ -185,6 +219,7 @@ describe("the slash commands", () => {
       "redraw",
       "design-system",
       "sync",
+      "variations",
     ]);
   });
 
@@ -223,6 +258,9 @@ describe("toldTheDesignSkill", () => {
       toldTheDesignSkill({ _tag: "SetupStep", extra: "", step: "map" })
     ).toBe(false);
     expect(toldTheDesignSkill({ _tag: "Sync", source: "figma" })).toBe(true);
+    expect(
+      toldTheDesignSkill({ _tag: "Variations", count: 3, target: "a#b" })
+    ).toBe(true);
     expect(toldTheDesignSkill({ _tag: "Sync", source: "code" })).toBe(false);
     expect(toldTheDesignSkill({ _tag: "Implement", target: "/home" })).toBe(
       false

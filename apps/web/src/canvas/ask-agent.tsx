@@ -2,17 +2,34 @@
  * The agent's button on the selection (ADR 0086): on its top-left edge, shown while the pointer is
  * over what is selected, an icon until the pointer is on it. Pressed, it opens a popover to ask
  * for a change, which starts a chat of its own with the selection attached; the person typed and
- * sent the prompt, so it runs (ADR 0074). The same popover adds the selection to the open chat,
- * takes it back out, or opens the chat it was started in.
+ * sent the prompt, so it runs (ADR 0074). Under its field, the Variations control asks for 2, 3
+ * or 4 takes on one element instead of One change, the field then saying what should vary
+ * (ADR 0098). The same popover adds the selection to the open chat, takes it back out, or opens
+ * the chat it was started in.
  */
 import {
   ArrowUp,
+  ChevronDown,
   MessageSquarePlus,
   MessageSquareText,
   MessageSquareX,
   Sparkles,
 } from "lucide-react";
-import { type KeyboardEvent, type ReactNode, useState } from "react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+  useRef,
+  useState,
+} from "react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Popover,
   PopoverContent,
@@ -24,8 +41,19 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
-import { composerBox, composerText } from "../components/composer-style.ts";
+import {
+  composerBox,
+  composerText,
+  trayTrigger,
+} from "../components/composer-style.ts";
 import { addToChat, removeFromChat } from "../lib/add-to-chat.ts";
+import {
+  askForVariations,
+  chooseTakes,
+  freshAsk,
+  ONE_CHANGE,
+  useAsk,
+} from "../lib/ask-variations.ts";
 import { chatLinkOf, isAttached } from "../lib/chat-link.ts";
 import { useAgents } from "../state/agents.ts";
 import {
@@ -38,6 +66,7 @@ import { api } from "../state/connection.ts";
 import type { Selection } from "../state/editor.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { reportError } from "../state/project.ts";
+import { targetOf } from "../state/variations.ts";
 
 /**
  * Sends `text` in a new chat with the selection attached, and opens the chat. The chat is named
@@ -142,7 +171,62 @@ const ChatRows = ({
   );
 };
 
-/** The prompt: Enter sends, Shift+Enter breaks the line, Escape closes. */
+const TAKES = [ONE_CHANGE, 2, 3, 4] as const;
+
+const takesLabel = (takes: number) =>
+  takes === ONE_CHANGE ? "One change" : String(takes);
+
+/** Under the field: One change, or how many variations to make (ADR 0098). */
+const VariationsControl = ({
+  field,
+  onChange,
+  takes,
+}: {
+  /** The field the menu gives the focus back to, to say what should vary. */
+  field: RefObject<HTMLTextAreaElement | null>;
+  onChange: (takes: number) => void;
+  takes: number;
+}) => (
+  <DropdownMenu>
+    <DropdownMenuTrigger
+      render={
+        <Button
+          aria-label={`Variations: ${takesLabel(takes)}`}
+          className={trayTrigger}
+          variant="ghost"
+        />
+      }
+    >
+      Variations
+      <span className="truncate text-foreground">{takesLabel(takes)}</span>
+      <ChevronDown
+        className="size-3.5 shrink-0 opacity-70"
+        data-icon="inline-end"
+      />
+    </DropdownMenuTrigger>
+    <DropdownMenuContent
+      align="start"
+      className="w-auto min-w-32"
+      finalFocus={field}
+    >
+      <DropdownMenuRadioGroup
+        onValueChange={(value: string) => onChange(Number(value))}
+        value={String(takes)}
+      >
+        {TAKES.map((n) => (
+          <DropdownMenuRadioItem closeOnClick key={n} value={String(n)}>
+            {takesLabel(n)}
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
+    </DropdownMenuContent>
+  </DropdownMenu>
+);
+
+/**
+ * The prompt: Enter sends, Shift+Enter breaks the line, Escape closes. With Variations set, Enter
+ * asks for that many takes, the field saying what should vary or, empty, leaving it to the agent.
+ */
 const AskField = ({
   close,
   subject,
@@ -154,11 +238,23 @@ const AskField = ({
   targets: readonly Selection[];
 }) => {
   const [text, setText] = useState("");
+  const fieldRef = useRef<HTMLTextAreaElement>(null);
+  // Opened by Make variations… or Make more…, at their count; else at the one chosen last.
+  const [takes, setTakes] = useState(
+    () => freshAsk()?.takes ?? useAsk.getState().takes
+  );
+  const [only] = targets;
+  const varying = targets.length === 1 && takes > ONE_CHANGE;
+  const canSend = varying || text.trim() !== "";
   const send = () => {
-    if (!text.trim()) {
+    if (!canSend) {
       return;
     }
-    askInNewChat(targets, text);
+    if (varying && only) {
+      askForVariations(targetOf(only), takes, text, subject);
+    } else {
+      askInNewChat(targets, text);
+    }
     close();
   };
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -167,27 +263,46 @@ const AskField = ({
       send();
     }
   };
+  const label = varying
+    ? `What should vary in ${subject}, or leave it to the agent`
+    : `Ask for a change to ${subject}`;
+  const sendLabel = varying
+    ? `Make ${takes} variations in a new chat`
+    : "Send in a new chat";
   return (
     <div className={composerBox}>
       <textarea
-        aria-label={`Ask for a change to ${subject}`}
+        aria-label={label}
         autoFocus
         className={cn(composerText, "min-h-10")}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={onKeyDown}
-        placeholder={`Ask for a change to ${subject}`}
+        placeholder={label}
+        ref={fieldRef}
         rows={1}
         value={text}
       />
-      <div className="flex justify-end px-1.5 pb-1.5">
+      <div className="flex items-center justify-between gap-2 px-1.5 pb-1.5">
+        {targets.length === 1 ? (
+          <VariationsControl
+            field={fieldRef}
+            onChange={(n) => {
+              setTakes(n);
+              chooseTakes(n);
+            }}
+            takes={takes}
+          />
+        ) : (
+          <span />
+        )}
         <Tooltip>
           <TooltipTrigger
             render={
               <button
-                aria-label="Send in a new chat"
+                aria-label={sendLabel}
                 className={cn(
-                  "flex size-6 items-center justify-center rounded-full outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring/25",
-                  text.trim()
+                  "flex size-6 shrink-0 items-center justify-center rounded-full outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring/25",
+                  canSend
                     ? "bg-primary text-primary-foreground hover:bg-primary/90"
                     : "bg-foreground/10 text-muted-foreground"
                 )}
@@ -198,7 +313,7 @@ const AskField = ({
           >
             <ArrowUp className="size-3.5" />
           </TooltipTrigger>
-          <TooltipContent>Send in a new chat</TooltipContent>
+          <TooltipContent>{sendLabel}</TooltipContent>
         </Tooltip>
       </div>
     </div>

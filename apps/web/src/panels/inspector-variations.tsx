@@ -1,6 +1,7 @@
 /**
  * The inspector's Variations section (ADR 0098), for every selection: its header with + (a new
- * variation, the one in use copied to edit by hand) and ⋯ (clear them), and with more than the
+ * variation, the one in use copied to edit by hand) and ⋯ (Make more…, which opens Ask an agent
+ * on the thing set to make variations, and Clear variations), and with more than the
  * original a row per variation, In use beside one. A text's row is its words, an image's its
  * picture, anything else's its name and what it varied. A click lays them out beside the page
  * with that one in the preview; a row's own menu renames or deletes it.
@@ -28,6 +29,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { assetsAddress } from "../canvas/preview-module.ts";
 import { promptDialog } from "../components/dialogs.tsx";
+import { requestAsk } from "../lib/ask-variations.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError } from "../state/project.ts";
 import {
@@ -175,6 +177,10 @@ const SetMenu = ({ thing }: { thing: Thing }) => (
       }
     />
     <DropdownMenuContent align="end">
+      {/* Ask an agent's popover on the thing, set to make more: another round in a new chat. */}
+      <DropdownMenuItem onClick={() => requestAsk()}>
+        Make more…
+      </DropdownMenuItem>
       <DropdownMenuItem
         onClick={() => clearVariations(thing).catch(reportError)}
         variant="destructive"

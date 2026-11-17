@@ -29,11 +29,21 @@ import {
   TaskFailure,
   userAdds,
 } from "./task-text.ts";
+import { makeVariationTasks } from "./variation-tasks.ts";
 
 /** A task: what the agent is told, and what the thread that runs it is for. */
 export interface AgentTask {
   readonly purpose: ThreadPurpose;
   readonly text: string;
+}
+
+/**
+ * Who a task is written for: an agent that has the editor's tools, or not (the server's MCP
+ * setting when it is not said), and the chat it runs in, which a round of variations belongs to.
+ */
+export interface TaskOptions {
+  readonly thread?: string | undefined;
+  readonly tools?: boolean | undefined;
 }
 
 export class AgentTasks extends Context.Service<
@@ -45,7 +55,7 @@ export class AgentTasks extends Context.Service<
      */
     readonly task: (
       request: TaskRequest,
-      options?: { readonly tools?: boolean }
+      options?: TaskOptions
     ) => Effect.Effect<AgentTask, TaskFailure>;
   }
 >()("ultrapaint/server/AgentTasks") {
@@ -129,8 +139,12 @@ ${userAdds(extra)}</ultrapaint-task>`
         const pageTasks = yield* makePageTasks({ ways });
         const { setupStep } = yield* makeSetupTasks({ importSteps, ways });
         const { sync } = yield* makeSyncTasks({ ways });
+        const { variations } = yield* makeVariationTasks({ ways });
 
-        return Effect.fnUntraced(function* (request: TaskRequest) {
+        return Effect.fnUntraced(function* (
+          request: TaskRequest,
+          thread: string | undefined
+        ) {
           switch (request._tag) {
             case "Setup":
               return ways.tools === null
@@ -150,6 +164,8 @@ ${userAdds(extra)}</ultrapaint-task>`
               return yield* setupStep(request);
             case "Sync":
               return yield* sync(request);
+            case "Variations":
+              return yield* variations(request, thread);
             default:
               return request satisfies never;
           }
@@ -158,11 +174,11 @@ ${userAdds(extra)}</ultrapaint-task>`
       const withTools = yield* writtenFor(agentWays(true));
       const withoutTools = yield* writtenFor(agentWays(false));
 
-      const task = (
-        request: TaskRequest,
-        options: { readonly tools?: boolean } = {}
-      ) =>
-        ((options.tools ?? mcp) ? withTools : withoutTools)(request).pipe(
+      const task = (request: TaskRequest, options: TaskOptions = {}) =>
+        ((options.tools ?? mcp) ? withTools : withoutTools)(
+          request,
+          options.thread
+        ).pipe(
           Effect.map((text) => ({ purpose: taskPurpose(request), text })),
           // What the project or a service could not give: the reason is the error's own.
           Effect.mapError((error) =>

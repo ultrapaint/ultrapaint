@@ -13,6 +13,7 @@ import { makeExists } from "../fs-exists.ts";
 import { DesignFiles } from "./design-files.ts";
 import { CallingThread } from "./mcp/access.ts";
 import { RepoPaths } from "./repo-paths.ts";
+import { isWorkingCopy } from "./working-copies.ts";
 
 const JOURNAL_LIMIT = 200;
 /**
@@ -417,7 +418,11 @@ export class EditService extends Context.Service<
                 ).pipe(Effect.ignore)
               ),
               Effect.tap(() => {
-                const changes = r.changes();
+                // An agent's working copies are scratch, made and removed in its turn: undo
+                // never takes them back (ADR 0098).
+                const changes = r
+                  .changes()
+                  .filter((c) => !isWorkingCopy(c.file));
                 if (changes.length === 0) {
                   return Effect.void;
                 }

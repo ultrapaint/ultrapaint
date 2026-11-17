@@ -1,7 +1,10 @@
 // @vitest-environment happy-dom
 
 import type { DesignNode, DocumentState } from "@ultrapaint/contracts/document";
-import type { VariationSets } from "@ultrapaint/contracts/variations";
+import type {
+  VariationRound,
+  VariationSets,
+} from "@ultrapaint/contracts/variations";
 import type {
   FrameRuntime,
   Preview,
@@ -200,6 +203,7 @@ beforeEach(async () => {
   });
   fakeApi.respond("variations.list", () => ({
     documents: [{ doc: HOME, sets: SETS }],
+    rounds: [],
   }));
   stop = followServer({ report: () => undefined });
   await loadVariations("");
@@ -324,5 +328,85 @@ describe("a thing's variations laid out beside its page", () => {
     expect(fits.count).toBe(3);
     measure("lede", 200);
     expect(fits.count).toBe(4);
+  });
+});
+
+describe("an agent's takes on the thing (ADR 0098)", () => {
+  const round = (
+    takes: { state: "working" | "handedIn" | "failed"; variation?: string }[],
+    id = "take_1",
+    thread = "thread_1"
+  ): VariationRound => ({
+    doc: HOME,
+    id,
+    node: "title",
+    takes,
+    thread,
+    vary: "the tone",
+  });
+
+  const drawn = (kind: string) =>
+    document.querySelectorAll(`[data-take="${kind}"]`).length;
+
+  it("lays out those still coming after the others, and says how many more are coming", () => {
+    show();
+    act(() =>
+      fakeApi.emit("variationRounds", [
+        round([{ state: "handedIn", variation: "v3" }, { state: "working" }]),
+      ])
+    );
+    expect(drawn("coming")).toBe(1);
+    expect(controls()).toBe("1 more comingDone");
+    act(() =>
+      fakeApi.emit("variationRounds", [
+        round([
+          { state: "handedIn", variation: "v3" },
+          { state: "handedIn", variation: "v4" },
+        ]),
+      ])
+    );
+    expect(drawn("coming")).toBe(0);
+    expect(controls()).toBe("Done");
+  });
+
+  it("draws those that failed as red boxes, whose Try again asks the round's chat for as many again", async () => {
+    fakeApi.respond("threads.prompt", () => undefined as never);
+    show();
+    act(() =>
+      fakeApi.emit("variationRounds", [
+        round([{ state: "failed" }, { state: "failed" }], "take_2", "thread_9"),
+      ])
+    );
+    expect(drawn("failed")).toBe(2);
+    click(
+      document.querySelector('[data-take="failed"] [aria-label="Try again"]')
+    );
+    await act(() => fakeApi.requested("threads.prompt"));
+    expect(
+      fakeApi.calls.find((c) => c.method === "threads.prompt")?.input
+    ).toEqual({
+      attachments: [],
+      text: `/variations ${HOME}#title 2 the tone`,
+      threadId: "thread_9",
+    });
+  });
+
+  it("lays the thing's variations out once a round's first take comes in, or fails", () => {
+    act(() => closeVariations());
+    act(() =>
+      fakeApi.emit("variationRounds", [
+        round([{ state: "working" }, { state: "working" }]),
+      ])
+    );
+    expect(useVariations.getState().open).toBeNull();
+    act(() =>
+      fakeApi.emit("variationRounds", [
+        round([{ state: "handedIn", variation: "v3" }, { state: "working" }]),
+      ])
+    );
+    expect(useVariations.getState().open).toMatchObject({
+      frame: HOME,
+      node: "title",
+    });
   });
 });
