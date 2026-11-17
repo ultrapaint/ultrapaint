@@ -312,6 +312,12 @@ let askedVariation: {
 /** Lays the asked page's variations out with the asked one in the preview, once both are read. */
 const openAskedVariation = () => {
   const asked = askedVariation;
+  // The person went elsewhere meanwhile: the page is not opened over where they are.
+  if (asked && useEditor.getState().activePage !== asked.page) {
+    askedVariation = null;
+    stopWaiting();
+    return;
+  }
   const root = asked ? useDocuments.getState().docs[asked.page]?.root : null;
   if (!(asked && root)) {
     return;

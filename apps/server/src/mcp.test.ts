@@ -1298,6 +1298,14 @@ describe("where a tool works, named by a node reference (ADR 0018)", () => {
           }),
           "names Bold, a variation of its page now"
         );
+        assert.include(
+          yield* refusal("apply_operations", {
+            ops: [],
+            route:
+              "http://localhost:4643/?page=home@bold.page.json&node=heading",
+          }),
+          "names Bold, a variation of its page now"
+        );
       })
   );
 

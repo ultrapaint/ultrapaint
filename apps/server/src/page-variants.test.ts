@@ -327,3 +327,61 @@ it.effect(
       Effect.scoped
     )
 );
+
+it.effect("a page variant's own variations go with it into its page's", () =>
+  Effect.gen(function* () {
+    const project = yield* OpenProject;
+    const sets = yield* project.use(
+      Effect.flatMap(VariationsService, (v) => v.sets("home.page.json"))
+    );
+    assert.deepStrictEqual(Object.keys(sets).sort(), ["loud", "root"]);
+  }).pipe(
+    Effect.provide(
+      ProjectTest({
+        files: {
+          "designs/home@bold.page.json": pageSaying("HELLO"),
+          // Bold had variations of its own, for a node Home has not.
+          "designs/home@bold.variations.json": `${JSON.stringify({
+            sets: {
+              loud: {
+                inUse: "original",
+                variations: [
+                  { id: "original", name: "Original" },
+                  {
+                    id: "v2",
+                    name: "Louder",
+                    tree: {
+                      id: "loud",
+                      role: "heading",
+                      text: "HEY",
+                      type: "text",
+                    },
+                  },
+                ],
+              },
+            },
+            version: 1,
+          })}\n`,
+        },
+      })
+    ),
+    Effect.scoped
+  )
+);
+
+it.effect(
+  "a variation deleted in an unsaved session stays deleted, its page variant's file going with it",
+  () =>
+    Effect.gen(function* () {
+      const project = yield* OpenProject;
+      yield* project.use(
+        Effect.flatMap(VariationsService, (v) =>
+          v.remove({ doc: "home.page.json", node: "root" }, "bold")
+        )
+      );
+      const seen = yield* lookAround;
+      assert.isFalse(seen.variantFile);
+      // The original alone is no set: the page is as it is drawn, Bold not read back.
+      assert.isUndefined(seen.variations);
+    }).pipe(Effect.provide(unsaved), Effect.scoped)
+);

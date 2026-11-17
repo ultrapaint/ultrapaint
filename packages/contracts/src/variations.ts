@@ -14,12 +14,19 @@ export const ORIGINAL_ID = "original";
 
 const MADE_ID_RE = /^v\d+$/;
 
+const FOLDED_PREFIX = "variant-";
+
 /**
  * The variation a page variant from before ADR 0098 is folded into: its name (`bold`), or, for a
- * name a variation of the page's own may have (`original`, `v2`), `variant-<name>`.
+ * name a variation of the page's own may have (`original`, `v2`) or one written as such an id
+ * is (`variant-bold`), `variant-<name>`. No two names share an id.
  */
 export const pageVariantId = (name: string): string =>
-  name === ORIGINAL_ID || MADE_ID_RE.test(name) ? `variant-${name}` : name;
+  name === ORIGINAL_ID ||
+  MADE_ID_RE.test(name) ||
+  name.startsWith(FOLDED_PREFIX)
+    ? `${FOLDED_PREFIX}${name}`
+    : name;
 
 /** A set's first variation while it is in use: its tree is the document's. */
 export const ORIGINAL = { id: ORIGINAL_ID, name: "Original" } as const;

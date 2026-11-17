@@ -15,6 +15,7 @@ import {
   type DocumentVariations,
   ORIGINAL,
   ORIGINAL_ID,
+  pageVariantId,
   VARIATIONS_EXTENSION,
   type Variation,
   type VariationSet,
@@ -36,6 +37,7 @@ import { RepoPaths } from "./repo-paths.ts";
 import {
   documentFileOfVariations,
   opsPutting,
+  type PageVariant,
   variationsCodec,
   withPageVariants,
   writeSets,
@@ -180,14 +182,13 @@ export class VariationsService extends Context.Service<
       /** The sets with a page's variants from before ADR 0098 among its root's variations. */
       const withVariantsOf = Effect.fnUntraced(function* (
         doc: string,
-        sets: VariationSets,
-        rootId?: string
+        sets: VariationSets
       ) {
         const variants = yield* pageVariants.of(doc);
         if (variants.length === 0) {
           return sets;
         }
-        const id = rootId ?? (yield* documents.get(doc)).root?.id;
+        const id = (yield* documents.get(doc)).root?.id;
         return id === undefined ? sets : withPageVariants(sets, id, variants);
       });
 
@@ -239,6 +240,23 @@ export class VariationsService extends Context.Service<
       });
 
       /**
+       * The files of the page variants not folded yet whose variation the page's set no longer
+       * has: left, read again they would be the variation again (an unsaved session folds
+       * nothing).
+       */
+      const variantFilesGone = (
+        variants: readonly PageVariant[],
+        set: VariationSet | null | undefined
+      ) => {
+        const kept = new Set(set?.variations.map((v) => v.id));
+        return variants.flatMap((v) =>
+          v.file !== undefined && !kept.has(pageVariantId(v.name))
+            ? [v.file]
+            : []
+        );
+      };
+
+      /**
        * Changes a thing's set as `decide` says, in one undo step with the tree it puts in its
        * document; answers with the document's variations as they are then.
        */
@@ -260,10 +278,11 @@ export class VariationsService extends Context.Service<
                 message: `there is no node ${target.node} in ${target.doc}`,
               });
             }
-            const sets = yield* withVariantsOf(
-              target.doc,
+            const variants = yield* pageVariants.of(target.doc);
+            const sets = withPageVariants(
               yield* step.tx.readDocument(file, variationsCodec(file)),
-              root.id
+              root.id,
+              variants
             );
             const decided = yield* decide(sets[target.node], node);
             yield* writeSets(
@@ -271,6 +290,11 @@ export class VariationsService extends Context.Service<
               file,
               withSet(sets, target.node, decided.set)
             );
+            if (target.node === root.id) {
+              for (const gone of variantFilesGone(variants, decided.set)) {
+                yield* step.tx.remove(gone);
+              }
+            }
             return decided.put === undefined
               ? undefined
               : [{ doc: target.doc, ops: opsPutting(root, decided.put) }];

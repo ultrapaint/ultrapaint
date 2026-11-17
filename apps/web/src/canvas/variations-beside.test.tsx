@@ -748,6 +748,7 @@ describe("a link to a page variant from before ADR 0098", () => {
 
   beforeEach(() => {
     act(() => closeVariations());
+    useEditor.setState({ activePage: HOME });
   });
 
   it("lays its page's variations out, that one in the preview", () => {
@@ -770,5 +771,17 @@ describe("a link to a page variant from before ADR 0098", () => {
     expect(useVariations.getState().open).toBeNull();
     await act(() => reading);
     expect(useVariations.getState().open?.preview).toBe("bold");
+  });
+
+  it("is let go once the person is on another page", async () => {
+    fakeApi.respond("variations.list", () => ({
+      documents: [{ doc: HOME, sets: bold }],
+      rounds: [],
+    }));
+    const reading = loadVariations("");
+    act(() => showPageVariation(HOME, "bold"));
+    useEditor.setState({ activePage: "other.page.json" });
+    await act(() => reading);
+    expect(useVariations.getState().open).toBeNull();
   });
 });
