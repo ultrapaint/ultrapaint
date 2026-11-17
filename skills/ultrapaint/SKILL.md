@@ -181,7 +181,8 @@ says what the content already shows is noise: remove it, rather than shrinking o
   the value foreground.
 - Names in a list take the label style, heavier than their metadata.
 - Headings descend with their level: a lower level is never larger. Line height: headings
-  `1.1–1.25`, body `1.5`, anything wrapping to three lines `1.4` or more.
+  `1.1–1.25`, a display headline of `60px` and up `0.9–1.1`, body `1.5`, any text wrapping to
+  three lines `1.4` or more.
 - Tracking: headings `24px` and up `-0.02em`; capitals at label sizes `0.05–0.1em`; uppercase
   display `40px` and up `0` or tighter; body `0`.
 - A paragraph runs `45–65` characters: cap its column at about `60ch`; a lead, a card's or a

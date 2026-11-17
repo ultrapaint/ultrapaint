@@ -14,7 +14,7 @@ A portfolio picks one and keeps to it; the middle reads as a template.
   uppercase or title case; a render or photo may overlap the letters. Everything else is
   `11–14px` labels pinned to the corners (role, city, a live local time, contact) at one even
   inset of `14–30px`. Two to four sizes, nothing between giant and tiny.
-- **One quiet scale:** body `14–16px`, the name or the largest line `20–44px`; rank by position and space.
+- **One quiet scale:** body `16px`, the name or the largest line `20–44px`; rank by position and space.
 
 ## The first screen
 

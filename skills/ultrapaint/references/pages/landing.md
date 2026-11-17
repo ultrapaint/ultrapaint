@@ -96,7 +96,7 @@ actions `24–40px` lower; at most one muted reassurance line; the visual or the
 
 ## Pricing
 
-- A pricing page is denser than a landing page: body `15–16px`, section headings `28–40px`,
+- A pricing page is denser than a landing page: body `16px`, section headings `28–40px`,
   sections `96–140px` apart; plan cards have a faint `1px` border, radius `12–20px`, and padding
   `24–32px`.
 - 3–4 plans in one row, one height, buttons aligned. Each: name, one line, a large regular price

@@ -16,9 +16,10 @@ Open with it, before the first element: `references/layout.md`, `references/typo
   set between rules.
 - Open: sections `64–160px` apart, about `120px`; only a news front with many stories closes the
   step.
-- The first screen's headline: **Technical** `76px`, about `4` words; **expressive** `120px`,
-  about `3` words.
-- No buttons: the headlines are the links.
+- A magazine's or a blog's opening headline (its title, or one feature alone on the first screen):
+  **Technical** `76px`, about `4` words; **expressive** `120px`, about `3` words. A news front
+  opens on its lead story instead, at the story stack's sizes.
+- No buttons on the stories: their headlines are the links.
 - Controls and the page's one action: **Technical** a filled pill or rounded button `34px` high,
   corners `5px`; **expressive** a text link, every corner square.
 
