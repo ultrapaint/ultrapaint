@@ -97,6 +97,17 @@ describe("parts the variations nest the other way round", () => {
   });
 });
 
+describe("a parent the preview draws as a node that holds nothing", () => {
+  it("takes no part, and says why", () => {
+    // The preview has p as a text; the variation has it as a column holding x.
+    const drawn = column("hero", [text("p", "Note")]);
+    const variation = column("hero", [column("p", [text("x", "PS")])]);
+    const put = putPart(drawn, variation, "x");
+    expect(put.tree).toBeNull();
+    expect(put.why).toBe("The preview's Note holds no parts");
+  });
+});
+
 describe("what the preview is made of", () => {
   it("is its variation with each part's variation and kind", () => {
     expect(

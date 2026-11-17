@@ -395,11 +395,18 @@ export const putPartInPreview = (part: PartOf) => {
     // the part drawn now, and the other is no longer.
     const placed = findNode(put.tree, part.node);
     const holds = placed ? idsOf(placed) : new Set([part.node]);
+    // Gone from the mix too: a part another took the place of, with what it held.
+    const drawn = idsOf(put.tree);
     useVariations.setState({
       open: {
         ...state.open,
         mix: put.tree,
-        parts: [...state.open.parts.filter((p) => !holds.has(p.node)), part],
+        parts: [
+          ...state.open.parts.filter(
+            (p) => !holds.has(p.node) && drawn.has(p.node)
+          ),
+          part,
+        ],
       },
     });
   }
@@ -494,11 +501,21 @@ export const previewDiffers = (state: VariationsStore): boolean => {
   return set !== undefined && preview !== null && preview !== set.inUse;
 };
 
+/** The preview being put in use: a second Use this joins it rather than saving it again. */
+let putting: Promise<void> | null = null;
+
 /**
  * Use this: the preview put in use, as one undo step; the variations close and the thing stays
- * selected.
+ * selected. Pressed again while it is saved, it waits for that save.
  */
-export const putPreviewInUse = async () => {
+export const putPreviewInUse = (): Promise<void> => {
+  putting ??= putPreviewOnce().finally(() => {
+    putting = null;
+  });
+  return putting;
+};
+
+const putPreviewOnce = async () => {
   const state = useVariations.getState();
   const { open } = state;
   if (!open) {
