@@ -284,38 +284,3 @@ export const copyPagesTo = async (
     reportError(error);
   }
 };
-
-/**
- * The page drawn again for a variant: the whole click-through can then be seen in it, with the
- * pages it does not redraw taken from the base.
- */
-export const newVariant = async (page: Page, variant?: string) => {
-  if (!ensureEditable()) {
-    return;
-  }
-  const known = canvasById(page.canvas)?.variants ?? [];
-  const name =
-    variant ??
-    (await promptDialog({
-      confirmLabel: "Create",
-      description:
-        known.length > 0
-          ? `The page again, to draw another way; the canvas's other pages stay as they are in it. Variants so far: ${known.join(", ")}.`
-          : "The page again, to draw another way; the canvas's other pages stay as they are in it, so the prototype clicks through the whole variant.",
-      placeholder: "bold",
-      title: `New variant of ${page.name}`,
-    }));
-  if (name === null) {
-    return;
-  }
-  try {
-    const created = await api().request("pages.createVariant", {
-      id: page.id,
-      variant: name.trim(),
-    });
-    goTo({ variant: created.variant ?? null });
-    goTo({ page: created.id }, { push: false });
-  } catch (error) {
-    reportError(error);
-  }
-};

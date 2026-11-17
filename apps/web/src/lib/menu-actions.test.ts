@@ -61,7 +61,7 @@ vi.mock("../components/dialogs.tsx", async (original) => ({
 
 const HOME = "home.page.json";
 const ABOUT = "about.page.json";
-const BOLD = "home@bold.page.json";
+const BOLD = "home@loading.page.json";
 /** A view of the home page at 800 px: `md`, of the default breakpoints. */
 const TABLET = `${HOME}#tablet`;
 const CANVAS = canvasDocOf("main");
@@ -172,9 +172,8 @@ const setUp = () => {
         id: "main",
         name: "Main",
         states: ["empty"],
-        variants: ["bold", "dark"],
       },
-      { home: "/", id: "", name: "App", variants: [] },
+      { home: "/", id: "", name: "App" },
     ],
     info: {
       configured: true,
@@ -183,7 +182,7 @@ const setUp = () => {
     pages: [
       page(HOME, "Home", { route: "/" }),
       page(ABOUT, "About"),
-      page(BOLD, "Home", { route: "/", variant: "bold" }),
+      page(BOLD, "Home", { state: "loading" }),
     ],
   });
   useEditor.setState(initial, true);
@@ -593,12 +592,10 @@ describe("a node of an app component's tree on its board (ADR 0045)", () => {
 });
 
 describe("a page's menu", () => {
-  it("is read off the stores: the variants and states still free, the other canvases", () => {
-    expect(labels(submenu(homePage, "variant")?.entries)).toEqual([
-      "dark",
-      "separator",
-      "New variant…",
-    ]);
+  it("is read off the stores: the states still free, the other canvases", () => {
+    expect(itemOf(homePage, { kind: "newVariation" }).label).toBe(
+      "New variation"
+    );
     expect(labels(submenu(homePage, "state")?.entries)).toEqual([
       "empty",
       "separator",
@@ -612,18 +609,12 @@ describe("a page's menu", () => {
     expect(itemOf(homePage, { kind: "preset", preset: "mobile" }).checked).toBe(
       true
     );
-    // A variant's drawing is not drawn again.
-    expect(submenu({ kind: "page", pageId: BOLD }, "variant")).toBeUndefined();
+    // A state's drawing is not drawn again.
+    expect(submenu({ kind: "page", pageId: BOLD }, "state")).toBeUndefined();
   });
 
   it("sends what each item asks of the server", async () => {
-    fakeApi.respond("pages.createVariant", () => ({
-      ...page(BOLD, "Home"),
-      id: "home@dark.page.json",
-      variant: "dark",
-    }));
     fakeApi.respond("pages.copyTo", () => []);
-    await choose(homePage, { kind: "variant", variant: "dark" });
     await choose(homePage, { kind: "state", state: "empty" });
     await choose(homePage, { canvas: "", kind: "copyTo", move: true });
     answers.prompt = "Experiment";
@@ -639,10 +630,6 @@ describe("a page's menu", () => {
       (c) => !(c.method === "pages.list" || READS.includes(c.method))
     );
     expect(asked).toMatchObject([
-      {
-        input: { id: HOME, variant: "dark" },
-        method: "pages.createVariant",
-      },
       { input: { id: HOME, state: "empty" }, method: "pages.createState" },
       {
         input: { ids: [HOME], move: true, target: { canvas: "" } },
@@ -846,6 +833,7 @@ const EVERY_ACTION = {
     goTo: true,
     implement: true,
     markImplemented: true,
+    newVariation: true,
     paste: true,
     preset: true,
     ready: true,
@@ -855,7 +843,6 @@ const EVERY_ACTION = {
     setUrl: true,
     state: true,
     unlink: true,
-    variant: true,
     variations: true,
     zoomTo: true,
   },

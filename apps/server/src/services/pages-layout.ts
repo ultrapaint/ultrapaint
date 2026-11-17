@@ -22,11 +22,12 @@ import {
 } from "@ultrapaint/shared/canvas";
 import { basename, humanise } from "@ultrapaint/shared/path";
 import {
+  basePathOf,
   matchRoute,
   normaliseRoute,
   pageNameOf,
   pageRouteOf,
-  variantOf,
+  suffixOf,
 } from "@ultrapaint/shared/route";
 import { Schema } from "effect";
 import { inEnglish } from "../hash.ts";
@@ -100,7 +101,9 @@ export const canvasIdsIn = (files: readonly string[]): string[] => {
 /**
  * A page from its canvas, its path inside it and the canvas's routes and states. A `@name` file
  * whose name the canvas lists among its states is its base page in that state (ADR 0030): it
- * serves no URL, a link reaches it by its file.
+ * serves no URL, a link reaches it by its file. Any other `@name` file is a page variant from
+ * before ADR 0098: one whose page is there is no page, but a variation of it
+ * (`isFoldedVariant`); one without is that page.
  */
 export const pageOf = (
   canvas: string,
@@ -109,7 +112,7 @@ export const pageOf = (
   file: string,
   layout: Pick<CanvasLayout, "routes" | "states">
 ): Page => {
-  const suffix = variantOf(pagePath);
+  const suffix = suffixOf(pagePath);
   const state =
     suffix !== null && (layout.states ?? []).includes(suffix) ? suffix : null;
   const route =
@@ -121,8 +124,27 @@ export const pageOf = (
     name: pageNameOf(pagePath),
     path: pagePath,
     ...(route !== undefined && { route }),
-    ...(state === null ? suffix !== null && { variant: suffix } : { state }),
+    ...(state !== null && { state }),
   };
+};
+
+/**
+ * Whether a page file is a page variant from before ADR 0098 whose page is there: a `@name` file
+ * whose name is no state of its canvas's, beside its base page's file. It is read as a variation
+ * of that page, and folded into its variations once the settings are saved (`page-variants.ts`).
+ * `files` are the files it is among, by the same kind of path.
+ */
+export const isFoldedVariant = (
+  file: string,
+  files: ReadonlySet<string>,
+  layout: Pick<CanvasLayout, "states">
+): boolean => {
+  const suffix = suffixOf(file);
+  return (
+    suffix !== null &&
+    !(layout.states ?? []).includes(suffix) &&
+    files.has(basePathOf(file))
+  );
 };
 
 /**
@@ -141,13 +163,17 @@ export const pageListOf = (input: {
   const ids = canvasIdsIn(input.files);
   const explicit = ids.length === 1 && ids[0] === ROOT_CANVAS ? [] : ids;
   const pages: Page[] = [];
+  const files = new Set(input.files);
   for (const rel of input.files) {
     if (!isPageFile(basename(rel))) {
       continue;
     }
     const canvas = canvasIdOf(explicit, rel);
     // A page file that no canvas holds is not a page: it sits beside the canvases.
-    if (canvas !== null) {
+    if (
+      canvas !== null &&
+      !isFoldedVariant(rel, files, input.layouts[canvas] ?? {})
+    ) {
       pages.push(
         pageOf(
           canvas,
@@ -161,23 +187,13 @@ export const pageListOf = (input: {
   }
   const canvases = ids.map((id): Canvas => {
     const layout = input.layouts[id] ?? emptyCanvasLayout();
-    const listed = layout.variants ?? [];
-    const drawn = pages
-      .flatMap((p) =>
-        p.canvas === id && p.variant !== undefined ? [p.variant] : []
-      )
-      .filter((v) => !listed.includes(v))
-      .sort(inEnglish);
     const served = pages.flatMap((p) =>
-      p.canvas === id && p.variant === undefined && p.route !== undefined
-        ? [p.route]
-        : []
+      p.canvas === id && p.route !== undefined ? [p.route] : []
     );
     return {
       home: homeOf(layout.home, served),
       id,
       name: layout.name ?? (id === ROOT_CANVAS ? input.rootName : humanise(id)),
-      variants: [...new Set([...listed, ...drawn])],
       ...((layout.states ?? []).length > 0 && {
         states: [...(layout.states ?? [])],
       }),

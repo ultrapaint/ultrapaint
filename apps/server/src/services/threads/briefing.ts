@@ -131,7 +131,7 @@ ${document.body.trim()}
     : "";
 
 const pageLine = (page: PageList["pages"][number]) =>
-  `- ${page.name}${page.variant === undefined ? "" : ` (variant ${page.variant})`}, ${page.route ?? "no URL"} → ${page.file}`;
+  `- ${page.name}, ${page.route ?? "no URL"} → ${page.file}`;
 
 /** The pages and their URLs, under their canvas when there are several. */
 const pagesListOf = (pages: PageList) => {

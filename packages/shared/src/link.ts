@@ -46,7 +46,6 @@ export const linkTargetOf = (link: string): LinkTarget | null => {
 interface LinkablePage {
   readonly path: string;
   readonly route?: string | undefined;
-  readonly variant?: string | undefined;
 }
 
 /**
@@ -58,12 +57,11 @@ export const pageOfLink = <T extends LinkablePage>(
   link: string
 ): T | null => {
   const target = linkTargetOf(link);
-  const bases = pages.filter((p) => p.variant === undefined);
   if (target?.kind === "page") {
-    return bases.find((p) => p.path === target.path) ?? null;
+    return pages.find((p) => p.path === target.path) ?? null;
   }
   if (target?.kind === "url") {
-    return matchRoute(bases, target.route)?.entry ?? null;
+    return matchRoute(pages, target.route)?.entry ?? null;
   }
   return null;
 };

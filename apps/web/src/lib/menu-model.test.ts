@@ -318,14 +318,13 @@ describe("the page menu", () => {
     });
   });
 
-  it("draws a base page for a variant, and a variant's page for none", () => {
-    expect(inside(find(pageEntries(base), "variant"))).toEqual([
-      { kind: "variant", variant: "bold" },
-      "separator",
-      { kind: "variant", variant: null },
-    ]);
-    expect(kinds(pageEntries({ ...base, variant: "bold" }))).not.toContain(
-      "variant"
+  it("copies a base page as a new variation (ADR 0098)", () => {
+    expect(kinds(pageEntries(base))).toContain("newVariation");
+  });
+
+  it("copies no state's page as a variation", () => {
+    expect(kinds(pageEntries({ ...base, state: "empty" }))).not.toContain(
+      "newVariation"
     );
   });
 

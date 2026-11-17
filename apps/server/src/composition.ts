@@ -37,6 +37,7 @@ import { History } from "./services/history.ts";
 import { ImplementationService } from "./services/implementation.ts";
 import { McpAccess } from "./services/mcp/access.ts";
 import { PagePngs } from "./services/page-pngs.ts";
+import { PageVariants } from "./services/page-variants.ts";
 import { PagesService } from "./services/pages.ts";
 import { ProfileService } from "./services/profile.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
@@ -118,6 +119,8 @@ export const projectLayer = (
     Layer.provideMerge(VariationRounds.layer),
     // A thing's variations, kept beside its document and put in it (ADR 0098).
     Layer.provideMerge(VariationsService.layer),
+    // Page variants from before them, read as variations and folded in once (ADR 0098).
+    Layer.provideMerge(PageVariants.layer),
     Layer.provideMerge(DocumentService.layer),
     // The design system's sides: DESIGN.md mirrors it with the code's tokens and the
     // components' classes; Figma's baseline waits for it.

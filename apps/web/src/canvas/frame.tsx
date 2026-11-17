@@ -73,12 +73,10 @@ export const isInteractive = (s: { mode: string; spacePan: boolean }) =>
 export const isSelecting = (s: { mode: string; spacePan: boolean }) =>
   s.mode === "select" && !s.spacePan;
 
-/** What a frame is called over its top edge: the page, in its variant, or the node on the canvas. */
+/** What a frame is called over its top edge: the page, or the node on the canvas. */
 const frameName = (page: Page | undefined, root: DesignNode | null) => {
   if (page) {
-    return page.variant === undefined
-      ? page.name
-      : `${page.name} · ${page.variant}`;
+    return page.name;
   }
   return root ? nodeLabel(root) : "";
 };

@@ -25,13 +25,12 @@ export const DRAFT_HINT =
   "A draft: it has no route, so the prototype does not show it. Give it a route to put it in the click-through.";
 
 /**
- * The page a variant or a state is drawn for, or the page itself: what serves the route, or none.
+ * The page a state is drawn for, or the page itself: what serves the route, or none.
  */
 export const basePageOf = (page: Page, pages: readonly Page[]): Page =>
   pages.find(
     (p) =>
       p.canvas === page.canvas &&
-      p.variant === undefined &&
       p.state === undefined &&
       p.path === basePathOf(page.path)
   ) ?? page;

@@ -23,12 +23,15 @@ you are on. The prototype is one frame: pressing a link swaps the page inside it
 in the editor's own URL, so the browser's back and forward buttons are the prototype's, and a
 prototype state can be reloaded or pasted to someone else.
 
-A page can be drawn again for a **page variant** of its canvas: **Draw a variant**, in its menu,
-draws it as `pricing@bold.page.json` (**New variant…** names a new one), at the same URL. The
-prototype's bar picks the variant it clicks through, **No variant** for the base pages. A link
-copied from a variant's page carries `variant=`, so it opens on that variant, and the element ID
-copied for an agent names the variant's file (`pricing@bold.page.json#c_1`), where a URL alone
-names the base page.
+A page, or anything on it, can have **variations**: other ways to draw it, kept with it in
+`pricing.variations.json` beside the page. The inspector's **Variations** section lists them;
+its **+** copies the one in use to edit by hand, and **Make variations…** (in the right-click menu,
+or Ask an agent's **Variations** control) has an agent make 2, 3 or 4. They are laid out beside
+the page, the page itself showing the one you pick, with **Use this** under it to put it in use;
+a double-click picks one part of a variation to put in instead. The prototype shows each page
+as its variations in use draw it. Page variants from before (`pricing@bold.page.json`) are
+variations of their page now, and an old link with `variant=bold` opens the page with Bold
+shown.
 
 A **canvas** owns one router and its own pages; a page of one canvas cannot navigate to a page of
 another. The canvas shown is named under the project, at the top left, in **Canvas** and the

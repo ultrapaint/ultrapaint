@@ -226,7 +226,7 @@ describe("a frame gesture", () => {
     fakeApi.respond("documents.apply", () => ({ changes: [], created: [] }));
     useCanvasGrid.setState({ visible: false });
     useProject.setState({
-      canvases: [{ home: "/", id: "main", name: "Main", variants: [] }],
+      canvases: [{ home: "/", id: "main", name: "Main" }],
       info: {
         configured: true,
         storage: { mode: "managed" },

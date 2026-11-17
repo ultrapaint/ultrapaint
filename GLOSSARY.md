@@ -108,11 +108,14 @@ refactor and the board view left.
   drawn in a **frame**, and in **views** of other widths beside it (ADR 0036); an edit lands at
   the **breakpoint** of the view it is made in. The breakpoint a frame is at is the one its width
   falls in, a node on the canvas's its own fixed width (the web's `frameBreakpoint`). A page's **family** is its base page with its
-  **page variants** (`pricing@bold.page.json`) and **page states**, which are named after it and
-  move and go with it (`familyOf`). _Avoid_ "variant" or "state" alone where a component's could
+  **page states** (`orders@empty.page.json`), which are named after it and move and go with it
+  (`familyOf`); the name after a page file's `@` is its **suffix** (shared's `suffixOf`). Another way to draw a page is one of its **variations**: a **page variant**
+  (`pricing@bold.page.json`, ADR 0019) is one from before ADR 0098, read as a variation and folded
+  into its page's variations (the server's `page-variants.ts`). _Avoid_ "variant" or "state" alone where a component's could
   be meant: a component has **variants** and **interaction states** of its own.
 - **Route**: the URL a page serves in its canvas's **prototype** (`canvas.json`'s `routes`, ADRs
-  0020, 0075), its variants and states serving their base page's. The prototype shows the routes
+  0020, 0075), its states serving none. A route serves one page, drawn as its variations in use
+  draw it (ADR 0098). The prototype shows the routes
   alone, listed in its Routes panel (the web's `panels/routes.tsx`), and a route is shown over its
   page's frame. A page without one is a **draft** (the web's `isDraft`): drawn and edited on the
   canvas, never in the prototype; a link to it is given a route when it is picked. _Avoid_ "URL"
@@ -124,10 +127,8 @@ refactor and the board view left.
   chosen among them laid out beside the page, with the thing in its page as the **variation
   preview** (not the editor's Preview), where choosing writes only on Use this; kept in a designs
   file beside the page (`notes.variations.json`, the server's `variations` module, the web's
-  `state/variations.ts`). Made by hand and chosen since UP-9's first stage, by an agent since its
-  second; ADR 0098 folds page variants into it in a later stage, until which the Page, Route and
-  Location entries keep page variants. _Avoid_ "variant" for it: a component's members are its
-  variants.
+  `state/variations.ts`). Page variants are folded into it. _Avoid_ "variant" for it: a
+  component's members are its variants.
   - A **take** is one variation an agent makes on a `Variations` task (`/variations
     <document>#<node> [2-4] [what should vary]`); the takes of one request are a **round**
     (`variation-rounds.ts`). Each take is made in a **working copy**: a page file the server
@@ -154,7 +155,7 @@ refactor and the board view left.
   **outline** is it shown some levels down, a node at the last counting its children
   (`outlineOf`): how an agent reads a big page first.
 - **Canvas layout**: where frames go on a canvas, with one gap (contracts' `canvas-layout`): a
-  new frame past every frame and its views, a copy, variant or state beside its page when nothing
+  new frame past every frame and its views, a copy or a state beside its page when nothing
   is there, a page the layout does not place yet where the editor draws it, a new view beside its
   page and the view's name.
 - **History**: Ultrapaint's own record of how the design files changed (ADR 0087), git or not:
@@ -338,10 +339,11 @@ refactor and the board view left.
   canvas beside the pages, or a node of either, by route, file, node reference or **editor link**
   (`where`).
 - **Editor link**: the editor's URL to a page or to a node of it (`…?canvas=redesign&route=/vibe&node=c_1`,
-  `page=` for a page without a URL, `variant=` for a variant's page), which the editor copies
-  (`linkToNode`) and opens on it, and which agents take wherever a node reference is taken
-  (shared's `parseEditorLink`). A node reference names a variant's page by its file
-  (`vibe@bold.page.json#c_1`): a URL alone names the base page (`pageNamed`).
+  `page=` for a page without a URL), which the editor copies (`linkToNode`) and opens on it, and
+  which agents take wherever a node reference is taken (shared's `parseEditorLink`). A link
+  copied before ADR 0098 may say a page variant (`variant=bold`): it opens its page with its
+  variations laid out and that one in the preview; a reference to a page variant's file
+  (`vibe@bold.page.json#c_1`) names its page (`pageNamed`).
 - **Outside agent**: an agent not started by the editor (a terminal's, T3 Code's), which reaches
   a project through **`ultrapaint mcp`**, a stdio command it starts, or a hub starts for it: the
   folder it works in, which every tool takes as `cwd` (or a project named by an editor link),
@@ -448,8 +450,7 @@ refactor and the board view left.
 
 ## Editor and shell
 
-- **Location**: where the editor is: canvas, page, route, page variant, board view, with the
-  URL. A navigation from a board view leaves it as part of arriving (`goTo`, `toPageCanvas`), one
+- **Location**: where the editor is: canvas, page, route, board view, with the URL. A navigation from a board view leaves it as part of arriving (`goTo`, `toPageCanvas`), one
   entry of the history.
 - **Frame ref**: what a frame's id names, a page, a view of one, a node on the canvas or a board
   (the web's `frame-ref`), and what each allows: comments, prototype links, the document shown,

@@ -4,7 +4,9 @@ import {
   type VariationTarget,
 } from "@ultrapaint/contracts/variations";
 import { canvasDocOf } from "@ultrapaint/design-document/tree";
-import { parseNodeRef } from "@ultrapaint/shared/node-ref";
+import { parseEditorLink, parseNodeRef } from "@ultrapaint/shared/node-ref";
+import { humanise } from "@ultrapaint/shared/path";
+import { suffixOf } from "@ultrapaint/shared/route";
 import { Effect } from "effect";
 import { OpenProject } from "../../project.ts";
 import { DocumentService } from "../documents.ts";
@@ -131,6 +133,30 @@ export const makeLookup = Effect.gen(function* () {
     );
   };
 
+  /**
+   * A name for a page variant from before ADR 0098, a variation of its page now: a link's
+   * `variant=` or a reference to its file. The tools work on a page as its variations in use draw
+   * it, so it is refused with why, rather than read as the page in use.
+   */
+  const refuseVariation = Effect.fnUntraced(function* (named: string) {
+    const link = parseEditorLink(named);
+    const file = link ? null : (parseNodeRef(named)?.page ?? named.trim());
+    const suffix = file === null ? null : suffixOf(file);
+    let variant = link?.variant ?? null;
+    if (variant === null && file !== null && suffix !== null) {
+      const { pages } = yield* reported(pagesOf);
+      const listed = pages.some(
+        (p) => p.id === file || p.file === file || p.path === file
+      );
+      variant = listed ? null : suffix;
+    }
+    if (variant !== null) {
+      return yield* missing(
+        `${named} names ${humanise(variant)}, a variation of its page now (ADR 0098); the tools work on the page as its variation in use draws it: name the page itself, and the person puts ${humanise(variant)} in use to change that one`
+      );
+    }
+  });
+
   /** The page a name means, or the node beside the pages its reference does; a miss says why. */
   const targetNamed = Effect.fnUntraced(function* (
     named: string,
@@ -173,6 +199,7 @@ export const makeLookup = Effect.gen(function* () {
     if (copy !== null) {
       return copy;
     }
+    yield* refuseVariation(named);
     const found = yield* targetNamed(named, canvas);
     if (found._tag === "Loose") {
       return yield* beside(canvas ?? found.canvas, nodeId ?? found.nodeId);

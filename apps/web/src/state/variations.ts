@@ -20,6 +20,7 @@ import {
   type DocumentVariations,
   ORIGINAL,
   ORIGINAL_ID,
+  pageVariantId,
   takesIn,
   type VariationRound,
   type VariationSet,
@@ -95,13 +96,16 @@ export const useVariations = create<VariationsStore>(() => ({
   rounds: [],
 }));
 
-const takeVariations = ({ doc, sets }: DocumentVariations) =>
+const takeVariations = ({ doc, sets }: DocumentVariations) => {
   useVariations.setState((s) => {
     const { [doc]: _was, ...others } = s.byDoc;
     return {
       byDoc: Object.keys(sets).length > 0 ? { ...others, [doc]: sets } : others,
     };
   });
+  // A variation a link asked for may be among them now.
+  openAskedVariation();
+};
 
 /** The frame a thing of the canvas open is drawn in: its page's, or its node's beside them. */
 const frameOfThing = (target: VariationTarget): string | null => {
@@ -144,11 +148,14 @@ const takeRounds = (rounds: readonly VariationRound[]) => {
 };
 
 const variationsData = follow({
-  apply: ({ documents, rounds }) =>
+  apply: ({ documents, rounds }, canvas) => {
+    listedCanvas = canvas;
     useVariations.setState({
       byDoc: Object.fromEntries(documents.map((d) => [d.doc, d.sets])),
       rounds,
-    }),
+    });
+    openAskedVariation();
+  },
   key: () => useVariations.getState().canvas,
   news: ["variations", "variationRounds"],
   on: { variationRounds: takeRounds, variations: takeVariations },
@@ -157,6 +164,7 @@ const variationsData = follow({
 
 /** Reads the variations of a canvas's documents: the canvas opened. */
 export const loadVariations = async (canvas: string) => {
+  listedCanvas = null;
   useVariations.setState({ byDoc: {}, canvas, open: null });
   await variationsData.read().catch(reportError);
 };
@@ -288,6 +296,61 @@ const samePreview = (was: OpenVariations, now: OpenVariations | null) =>
   now.session === was.session &&
   now.preview === was.preview &&
   now.mix === was.mix;
+
+/** The canvas whose variations were read last: a variation asked for that it has not, it never will. */
+let listedCanvas: string | null = null;
+
+/** Stops waiting for the page a link asked for: another was asked for, or it is not there. */
+let stopWaiting: () => void = () => undefined;
+
+/** A page's variation a link asked for, until the page and its variations are read. */
+let askedVariation: {
+  readonly page: string;
+  readonly variation: string;
+} | null = null;
+
+/** Lays the asked page's variations out with the asked one in the preview, once both are read. */
+const openAskedVariation = () => {
+  const asked = askedVariation;
+  const root = asked ? useDocuments.getState().docs[asked.page]?.root : null;
+  if (!(asked && root)) {
+    return;
+  }
+  const state = useVariations.getState();
+  const set = setOf(state, asked.page, root.id);
+  const id = pageVariantId(asked.variation);
+  if (!set?.variations.some((v) => v.id === id)) {
+    // The page's variations are read and have none of that name: nothing more to wait for.
+    if (listedCanvas !== null && listedCanvas === state.canvas) {
+      askedVariation = null;
+      stopWaiting();
+    }
+    return;
+  }
+  askedVariation = null;
+  openVariations({ frame: asked.page, nodeId: root.id }, id);
+};
+
+/**
+ * A page's variation laid out with the others and shown in the preview: what a link to a page
+ * variant copied before ADR 0098 (`variant=bold`) opens, the variant being the variation now.
+ * Waits for the page and its variations to be read; a variation the page has not is nothing.
+ */
+export const showPageVariation = (page: string, variation: string) => {
+  stopWaiting();
+  askedVariation = { page, variation };
+  openAskedVariation();
+  if (askedVariation === null) {
+    return;
+  }
+  const stop = useDocuments.subscribe(() => {
+    openAskedVariation();
+    if (askedVariation === null) {
+      stop();
+    }
+  });
+  stopWaiting = stop;
+};
 
 /** Shows a variation in the preview (null: the thing as it is drawn); nothing is written. */
 export const showVariation = (variation: string | null) =>

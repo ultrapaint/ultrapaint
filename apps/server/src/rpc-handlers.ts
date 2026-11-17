@@ -223,8 +223,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         pages((s) => s.create(canvas, { name, route }, template)),
       "pages.createState": ({ id, state }) =>
         pages((s) => s.createState(id, state)),
-      "pages.createVariant": ({ id, variant }) =>
-        pages((s) => s.createVariant(id, variant)),
       "pages.delete": ({ ids }) => pages((s) => Effect.asVoid(s.delete(ids))),
       "pages.duplicate": ({ id }) => pages((s) => s.duplicate(id)),
 

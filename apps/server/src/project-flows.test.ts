@@ -130,22 +130,20 @@ describe("flows in the services", () => {
   });
 
   eachTest(ProjectTest())((it) => {
-    it.effect(
-      "deletes a page with its variants, and says which pages went",
-      () =>
-        Effect.gen(function* () {
-          const project = yield* OpenProject;
-          const pages = project.service(PagesService);
-          const pricing = yield* pages((p) =>
-            p.create("", { name: "Pricing", route: "/pricing" }, "blank")
-          );
-          yield* pages((p) => p.createVariant(pricing.id, "bold"));
-          const gone = yield* pages((p) => p.delete([pricing.id]));
-          assert.deepStrictEqual(
-            gone.map((p) => p.file),
-            ["designs/pricing.page.json", "designs/pricing@bold.page.json"]
-          );
-        })
+    it.effect("deletes a page with its states, and says which pages went", () =>
+      Effect.gen(function* () {
+        const project = yield* OpenProject;
+        const pages = project.service(PagesService);
+        const pricing = yield* pages((p) =>
+          p.create("", { name: "Pricing", route: "/pricing" }, "blank")
+        );
+        yield* pages((p) => p.createState(pricing.id, "empty"));
+        const gone = yield* pages((p) => p.delete([pricing.id]));
+        assert.deepStrictEqual(
+          gone.map((p) => p.file),
+          ["designs/pricing.page.json", "designs/pricing@empty.page.json"]
+        );
+      })
     );
 
     it.effect(

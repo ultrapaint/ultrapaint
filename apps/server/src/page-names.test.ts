@@ -16,7 +16,6 @@ const page = (
 };
 
 const home = page("", "home.page.json", { route: "/" });
-const bold = page("", "home@bold.page.json", { route: "/", variant: "bold" });
 const empty = page("", "orders@empty.page.json", { state: "empty" });
 const orders = page("", "orders.page.json", { route: "/orders" });
 const sketch = page("", "sketch.page.json");
@@ -28,15 +27,14 @@ const found = (pages: readonly NamedPage[], name: string, canvas?: string) => {
 };
 
 describe("pageNamed", () => {
-  const pages = [home, bold, empty, orders, sketch];
+  const pages = [home, empty, orders, sketch];
 
-  it("names by URL the base page, not a variant's", () => {
+  it("names by URL the base page, not a state's", () => {
     expect(found(pages, "/")).toBe(home.id);
     expect(found(pages, "/orders/")).toBe(orders.id);
   });
 
-  it("names any page by its id, file or path, a variant's and a state's too", () => {
-    expect(found(pages, bold.id)).toBe(bold.id);
+  it("names any page by its id, file or path, a state's too", () => {
     expect(found(pages, empty.file)).toBe(empty.id);
     expect(found(pages, "sketch.page.json")).toBe(sketch.id);
   });
@@ -74,25 +72,12 @@ describe("pageNamed", () => {
   });
 });
 
-describe("pageNamed, in a variant an editor link says", () => {
-  const pages = [home, bold, orders, pricing];
-  const drawn = (name: string, variant: string, canvas?: string) => {
-    const named = pageNamed(pages, name, canvas, variant);
-    return named._tag === "Found" ? named.page.id : named;
-  };
-
-  it("names by URL the variant's page, and the base page where the variant has none", () => {
-    expect(drawn("/", "bold", "")).toBe(bold.id);
-    expect(drawn("/orders", "bold")).toBe(orders.id);
-    expect(drawn("/", "gone", "")).toBe(home.id);
-  });
-
-  it("names one page a canvas, the variant's in the canvas that has it", () => {
-    expect(drawn("/", "bold")).toEqual({
-      _tag: "Ambiguous",
-      canvases: ["", "marketing"],
-    });
-    expect(drawn("/", "bold", "marketing")).toBe(pricing.id);
+describe("pageNamed, for a page variant's file from before ADR 0098", () => {
+  it("names its page, whose variation it is now", () => {
+    expect(found([home, orders], "home@bold.page.json")).toBe(home.id);
+    expect(found([home, empty, orders], "orders@empty.page.json")).toBe(
+      empty.id
+    );
   });
 });
 
@@ -100,7 +85,7 @@ describe("designTargetNamed", () => {
   const marketing = page("marketing", "pricing.page.json", {
     route: "/pricing",
   });
-  const pages = [home, bold, orders, sketch, marketing];
+  const pages = [home, orders, sketch, marketing];
   const components = [{ name: "Button" }, { name: "Card" }];
 
   const target = (name: string, canvas?: string) => {
@@ -126,7 +111,7 @@ describe("designTargetNamed", () => {
     ["/orders", orders.id],
     ["orders.page.json", orders.id],
     ["designs/sketch.page.json", sketch.id],
-    ["home@bold.page.json", bold.id],
+    ["home@bold.page.json", home.id],
     ["/pricing", marketing.id],
     ["marketing:/pricing", marketing.id],
     ["marketing:pricing.page.json", marketing.id],
@@ -210,27 +195,20 @@ describe("pageTargetNamed", () => {
     expect(pageTargetNamed(pages, name)).toEqual(expected);
   });
 
-  it("names a variant's page by the link the editor copies and by the reference, which says its file", () => {
-    const all = [...pages, bold];
+  it("names by a link to a page variant the page whose variation it is (ADR 0098)", () => {
     expect(
-      pageTargetNamed(all, "http://localhost:4643/?route=/&variant=bold")
-    ).toEqual({ _tag: "Page", page: bold });
+      pageTargetNamed(pages, "http://localhost:4643/?route=/&variant=bold")
+    ).toEqual({ _tag: "Page", page: home });
     expect(
       pageTargetNamed(
-        all,
+        pages,
         "http://localhost:4643/?route=/&variant=bold&node=c_1"
       )
-    ).toEqual({ _tag: "Page", nodeId: "c_1", page: bold });
-    expect(pageTargetNamed(all, "home@bold.page.json#c_1")).toEqual({
-      _tag: "Page",
-      nodeId: "c_1",
-      page: bold,
-    });
-    // The URL alone is the base page's, in a link and in a reference.
-    expect(
-      pageTargetNamed(all, "http://localhost:4643/?route=/&node=c_1")
     ).toEqual({ _tag: "Page", nodeId: "c_1", page: home });
-    expect(pageTargetNamed(all, "/#c_1")).toEqual({
+  });
+
+  it("names by a reference to a page variant's file the page whose variation it is (ADR 0098)", () => {
+    expect(pageTargetNamed(pages, "home@bold.page.json#c_1")).toEqual({
       _tag: "Page",
       nodeId: "c_1",
       page: home,

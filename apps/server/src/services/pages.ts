@@ -32,8 +32,8 @@ export interface NewPage {
 /**
  * The pages of the designs directory, grouped into the canvases that own them. A canvas is a
  * directory with a `canvas.json`; while there is none the designs directory is itself the one
- * canvas. A page is a `<name>.page.json` design document, or `<name>@<variant>.page.json` for a
- * variant of it, and serves the URL its canvas's `routes` give it, if any. Owns `canvas.json`
+ * canvas. A page is a `<name>.page.json` design document, or `<name>@<state>.page.json` for it in
+ * a state (ADR 0030), and serves the URL its canvas's `routes` give it, if any. Owns `canvas.json`
  * and `canvases.json`, and watches everything for the editor.
  */
 export class PagesService extends Context.Service<
@@ -56,14 +56,9 @@ export class PagesService extends Context.Service<
       id: string,
       state: string
     ) => Effect.Effect<Page, PagesFailure>;
-    /** The page drawn again for a variant, in the variant's file, its frame under the page's. */
-    readonly createVariant: (
-      id: string,
-      variant: string
-    ) => Effect.Effect<Page, PagesFailure>;
     /**
      * Pages copied or moved into another canvas, with the same URLs; a base page takes its
-     * variants along. Moved pages take their comments too; copies start without any.
+     * states along. Moved pages take their comments too; copies start without any.
      */
     readonly copyTo: (
       ids: readonly string[],
@@ -86,7 +81,7 @@ export class PagesService extends Context.Service<
       order: readonly string[]
     ) => Effect.Effect<void, PagesFailure>;
     /**
-     * Deletes the pages, with their comments and, for a base page, its variants and states: one
+     * Deletes the pages, with their comments and, for a base page, its states: one
      * undo step. Answers with the pages deleted, the first asked for first.
      */
     readonly delete: (
@@ -100,7 +95,7 @@ export class PagesService extends Context.Service<
     ) => Effect.Effect<CanvasLayout, Conflict | NotFound>;
     /** Repo-relative path of a canvas's `canvas.json`. */
     readonly canvasFile: (canvas: string) => Effect.Effect<string, EditFailure>;
-    /** Renames the page, which moves its file and its variants', and its comments; its URL stays. */
+    /** Renames the page, which moves its file and its states', and its comments; its URL stays. */
     readonly rename: (
       id: string,
       name: string
@@ -120,7 +115,7 @@ export class PagesService extends Context.Service<
       id: string,
       route: string
     ) => Effect.Effect<Canvas, PagesFailure>;
-    /** The URL the page serves from now on, or none; a variant's is its base page's. */
+    /** The URL the page serves from now on, or none. */
     readonly setRoute: (
       id: string,
       route: string | null
@@ -163,7 +158,6 @@ export class PagesService extends Context.Service<
       const {
         create,
         createState,
-        createVariant,
         createWith,
         duplicate,
         remove,
@@ -179,7 +173,6 @@ export class PagesService extends Context.Service<
         create,
         createCanvas,
         createState,
-        createVariant,
         createWith,
         delete: remove,
         deleteCanvas,

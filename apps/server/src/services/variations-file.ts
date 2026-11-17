@@ -9,6 +9,9 @@ import {
 import type { DesignNode, DocOp } from "@ultrapaint/contracts/document";
 import { Conflict } from "@ultrapaint/contracts/errors";
 import {
+  ORIGINAL,
+  ORIGINAL_ID,
+  pageVariantId,
   VARIATIONS_EXTENSION,
   type VariationSet,
   type VariationSets,
@@ -22,6 +25,7 @@ import {
   walk,
 } from "@ultrapaint/design-document/tree";
 import { CANVAS_FILE } from "@ultrapaint/shared/canvas";
+import { humanise } from "@ultrapaint/shared/path";
 import { Effect, Schema } from "effect";
 import type { EditFailure, EditTransaction, FileCodec } from "./edit.ts";
 
@@ -184,4 +188,42 @@ export const opsPutting = (
       })
     ),
   ];
+};
+
+/** A page variant from before ADR 0098: its name (`bold`) and the page it draws. */
+export interface PageVariant {
+  readonly name: string;
+  readonly root: DesignNode;
+}
+
+/**
+ * A page's sets with its page variants from before ADR 0098 as variations of its root, after
+ * those it has: each by its name as id (`bold`), named as people read it ("Bold"), its tree the
+ * variant's page with the root's id. One the set has already is left as it is, so folding again
+ * changes nothing. The original stays in use where the set has none in use yet.
+ */
+export const withPageVariants = (
+  sets: VariationSets,
+  rootId: string,
+  variants: readonly PageVariant[]
+): VariationSets => {
+  const set = sets[rootId];
+  const had = new Set(set?.variations.map((v) => v.id));
+  const added = variants
+    .filter((v) => !had.has(pageVariantId(v.name)))
+    .map((v) => ({
+      id: pageVariantId(v.name),
+      name: humanise(v.name),
+      tree: { ...v.root, id: rootId } as DesignNode,
+    }));
+  if (added.length === 0) {
+    return sets;
+  }
+  return {
+    ...sets,
+    [rootId]: {
+      inUse: set === undefined ? ORIGINAL_ID : set.inUse,
+      variations: [...(set?.variations ?? [ORIGINAL]), ...added],
+    },
+  };
 };

@@ -14,7 +14,7 @@ import { doing, missing, opt, reported, ToolFailure } from "./tool-helpers.ts";
 
 const CopyPages = Tool.make("copy_pages", {
   description:
-    "Copy or move pages with variants into a canvas (to) or a new one (newCanvas), keeping files, URLs and frames; a move takes comments too.",
+    "Copy or move pages with states into a canvas (to) or a new one (newCanvas), keeping files, URLs and frames; a move takes comments too.",
   failure: ToolFailure,
   parameters: Schema.Struct({
     /** The canvas the pages are in; needed only when the project has several. */

@@ -51,6 +51,7 @@ import { GitService } from "./services/git.ts";
 import type { History } from "./services/history.ts";
 import type { ImplementationService } from "./services/implementation.ts";
 import type { PagePngs } from "./services/page-pngs.ts";
+import { PageVariants } from "./services/page-variants.ts";
 import type { PagesService } from "./services/pages.ts";
 import { ProfileService } from "./services/profile.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
@@ -88,6 +89,7 @@ export type ProjectServices =
   | PagesService
   | SkillsService
   | Thumbnails
+  | PageVariants
   | VariationRounds
   | VariationsService
   | WorkingTree;
@@ -559,6 +561,11 @@ export class ProjectManager extends Context.Service<
               : `saved the settings to ${saved.configPath} on the first change`
           );
           yield* events.publish("settings.savedOnChange", saved);
+          // Saved, its page variants are folded into variations at last (ADR 0098).
+          const opened = current;
+          if (saved.configPath !== undefined && opened) {
+            yield* Context.get(opened.services, PageVariants).fold;
+          }
         }).pipe(Effect.withSpan("ProjectManager.changed"));
 
         /**

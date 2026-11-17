@@ -93,10 +93,8 @@ queued prompt takes it off the queue and puts its text in the composer, above wh
 
 Right-click an element or a page's name to copy a link to it (**Copy link to element**, **Copy
 link to page**; ⌘K, **Copy link to the selection**): it opens the editor on it, and an agent takes
-it to find it, in the editor's chat or outside it, where the editor's MCP tools take it too. A
-link copied from a page variant carries `variant=`. **Copy element ID** (`/orders#c_8x2k1q`) does
-the same in fewer characters; on a variant's page it names the variant's file
-(`orders@compact.page.json#c_8x2k1q`).
+it to find it, in the editor's chat or outside it, where the editor's MCP tools take it too.
+**Copy element ID** (`/orders#c_8x2k1q`) does the same in fewer characters.
 
 ## Designs are reviewed
 

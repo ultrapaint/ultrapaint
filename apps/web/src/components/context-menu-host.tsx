@@ -68,7 +68,6 @@ import {
   SlidersHorizontal,
   Smartphone,
   Sparkles,
-  Split,
   Square,
   SquareDashed,
   SquareDashedMousePointer,
@@ -159,7 +158,6 @@ const ICONS: Partial<Record<ActKind, LucideIcon>> = {
   stop: Square,
   unlink: Unlink,
   unwrap: Ungroup,
-  variant: Split,
   viewCode: FileCode,
   zoomTo: Focus,
 };
@@ -172,7 +170,6 @@ const SUBMENU_ICONS: Partial<Record<SubmenuId, LucideIcon>> = {
   preset: MonitorSmartphone,
   send: Send,
   state: CircleDashed,
-  variant: Split,
   wrap: Group,
 };
 

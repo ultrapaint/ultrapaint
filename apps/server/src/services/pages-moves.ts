@@ -205,7 +205,7 @@ export const makePageMoves = (
 
   /**
    * Pages arriving in a canvas, inside an action: their frames where they were, their URLs (none
-   * may be one the canvas serves already), and the variants and states they are drawn for listed.
+   * may be one the canvas serves already), and the states they are drawn in listed.
    */
   const arriveIn = Effect.fnUntraced(function* (
     tx: EditTransaction,
@@ -215,7 +215,7 @@ export const makePageMoves = (
   ) {
     const carried: Record<string, string> = {};
     for (const { page, path: at } of arrivals) {
-      if (page.variant === undefined && page.route !== undefined) {
+      if (page.route !== undefined) {
         carried[at] = yield* checkRoute(all, canvas, page.route);
       }
     }
@@ -229,10 +229,6 @@ export const makePageMoves = (
       return added.length > 0 ? [...(listed ?? []), ...added] : listed;
     };
     yield* updateCanvas(tx, canvas, (layout) => {
-      const variants = listedIn(
-        layout.variants,
-        arrivals.map((a) => a.page.variant)
-      );
       const states = listedIn(
         layout.states,
         arrivals.map((a) => a.page.state)
@@ -247,7 +243,6 @@ export const makePageMoves = (
             )
           ),
         },
-        ...(variants !== undefined && { variants }),
         ...(states !== undefined && { states }),
       };
     });
@@ -329,7 +324,7 @@ export const makePageMoves = (
       ),
     }));
     // Only a base page serves a URL.
-    if (moves.some((m) => m.page.variant === undefined && !m.page.state)) {
+    if (moves.some((m) => !m.page.state)) {
       yield* updateRoutes(tx, all, canvas, (routes) =>
         Object.fromEntries(
           Object.entries(routes).flatMap(([key, route]) =>

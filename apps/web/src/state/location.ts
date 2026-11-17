@@ -1,11 +1,11 @@
 /**
  * Where the editor is: the canvas open, the URL its router is at or the page without one it
- * shows, the variant, and the page that is (`activePage`, what the prototype shows and agents are
- * about). They are one fact: `activePage` is the page serving the route in the variant, and the
- * editor's URL says the same (ADR 0012, 0020). This module alone writes them, through `arrive`,
+ * shows, and the page that is (`activePage`, what the prototype shows and agents are about).
+ * They are one fact: `activePage` is the page serving the route, and the editor's URL says the
+ * same (ADR 0012, 0020). This module alone writes them, through `arrive`,
  * and with them the URL and the canvas remembered for the next start, which are its persistence.
  *
- * The editor's store holds the four, so that a canvas opened is one change with its frames and
+ * The editor's store holds the three, so that a canvas opened is one change with its frames and
  * what reads them reads one store. `editor.ts` imports `followFrame` from here, and this module
  * the editor's layout and its `unpicked`: the two lean on each other only when called.
  *
@@ -20,12 +20,7 @@
  * worked in and the page list keep it, and the URL says it whichever.
  */
 import type { Page } from "@ultrapaint/contracts/pages";
-import {
-  basePathOf,
-  matchRoute,
-  normaliseRoute,
-  pagesInVariant,
-} from "@ultrapaint/shared/route";
+import { matchRoute, normaliseRoute } from "@ultrapaint/shared/route";
 import { keepOfPageSelection, leaveBoard, useBoard } from "./board.ts";
 import { nodeIn, useDocuments } from "./documents.ts";
 import {
@@ -45,14 +40,15 @@ import {
   writeMode,
   writeUrl,
 } from "./url.ts";
+import { showPageVariation } from "./variations.ts";
 import { type Picked, stillThere } from "./workspace-memory.ts";
 
 /**
  * Where to go: a canvas, opened (its layout read again when it is the one open), and on it a page
- * by its id, at its URL when it has one, or a URL of its router, in a variant. Without a canvas,
- * the open one: a page decides its variant, a URL is served in the variant given or the one the
- * editor is in, and a variant alone draws the same place in it. A canvas opened without a page or
- * a URL opens on its home, in the variant given or the base.
+ * by its id, at its URL when it has one, or a URL of its router. Without a canvas, the open one.
+ * A canvas opened without a page or a URL opens on its home. `variant` is a page variant a link
+ * copied before ADR 0098 names: the page's variation of that name, laid out with the page's
+ * other variations and shown in the preview once the editor is there.
  */
 export interface GoTo {
   canvas?: string;
@@ -65,7 +61,6 @@ export interface GoTo {
 interface Place {
   activePage: string | null;
   route: string | null;
-  variant: string | null;
 }
 
 /**
@@ -83,8 +78,8 @@ const remembered = () => {
 let opening = 0;
 
 const here = (): Place => {
-  const { activePage, route, variant } = useEditor.getState();
-  return { activePage, route, variant };
+  const { activePage, route } = useEditor.getState();
+  return { activePage, route };
 };
 
 /**
@@ -108,7 +103,6 @@ const arrive = (
       canvas: useEditor.getState().canvas,
       page: place.route === null ? place.activePage : null,
       route: place.route,
-      variant: place.variant,
     },
     history === "push",
     board === "leave" ? null : boardKept()
@@ -141,29 +135,14 @@ export const toPageCanvas = () => {
   }
 };
 
-/**
- * The page a route is served by in a variant, matched the way the preview's router matches it:
- * the variant's own page for the route when it has one, the base page otherwise.
- */
-const pageAt = (
-  pages: readonly Page[],
-  route: string,
-  variant: string | null
-): Page | null =>
-  matchRoute(pagesInVariant(pages, variant), route)?.entry ?? null;
+/** The page a route is served by, matched the way the preview's router matches it. */
+const pageAt = (pages: readonly Page[], route: string): Page | null =>
+  matchRoute(pages, route)?.entry ?? null;
 
-/** At a URL in a variant: the page serving it there, or none. */
-const atRoute = (
-  pages: readonly Page[],
-  route: string,
-  variant: string | null
-): Place => {
+/** At a URL: the page serving it, or none. */
+const atRoute = (pages: readonly Page[], route: string): Place => {
   const at = normaliseRoute(route);
-  return {
-    activePage: pageAt(pages, at, variant)?.id ?? null,
-    route: at,
-    variant,
-  };
+  return { activePage: pageAt(pages, at)?.id ?? null, route: at };
 };
 
 /**
@@ -195,20 +174,25 @@ export const landingOf = (
     : { landing: target, shown: null };
 };
 
-/** Where on a canvas a destination is: what `landingOf` lands on, in a variant it has. */
+/** Where on a canvas a destination is: what `landingOf` lands on. */
 const landingPlace = (canvas: string, to: GoTo): Place => {
   const all = pagesOfCanvas(canvas);
   const info = useProject.getState().canvases.find((c) => c.id === canvas);
-  // A variant the canvas no longer has is the base.
-  const variant =
-    to.variant && info?.variants.includes(to.variant) ? to.variant : null;
   const { landing, shown } = landingOf(
     all,
-    pagesInVariant(all, variant),
+    all,
     normaliseRoute(to.route ?? info?.home ?? "/"),
     to.page ?? null
   );
-  return { activePage: shown, route: landing, variant };
+  return { activePage: shown, route: landing };
+};
+
+/** A link's page variant from before ADR 0098, shown as the page's variation once there. */
+const showAskedVariation = (to: GoTo) => {
+  const { activePage } = useEditor.getState();
+  if (to.variant && activePage !== null) {
+    showPageVariation(activePage, to.variant);
+  }
 };
 
 /**
@@ -279,6 +263,7 @@ const openCanvas = async (
       },
       board
     );
+    showAskedVariation(to);
     localStorage.setItem(remembered(), canvas);
   } catch (error) {
     reportError(error);
@@ -296,38 +281,19 @@ const moveTo = (to: GoTo, history: "push" | "replace", board: BoardWay) => {
     if (!page) {
       return;
     }
-    const variant = page.variant ?? null;
     if (page.route === undefined) {
-      go({ activePage: page.id, route: null, variant }, unpicked);
+      go({ activePage: page.id, route: null }, unpicked);
     } else if (now.activePage === page.id && now.route !== null) {
       // Already there: stay on the route, and on the parameters it was reached with.
-      go({ ...now, variant });
+      go(now);
     } else {
-      go(atRoute(pages, page.route, variant), unpicked);
+      go(atRoute(pages, page.route), unpicked);
     }
     return;
   }
-  const variant = to.variant === undefined ? now.variant : to.variant;
   if (to.route !== undefined && to.route !== null) {
-    go(atRoute(pages, to.route, variant), unpicked);
-    return;
+    go(atRoute(pages, to.route), unpicked);
   }
-  if (variant === now.variant) {
-    return;
-  }
-  if (now.route !== null) {
-    go(atRoute(pages, now.route, variant));
-    return;
-  }
-  // On a page without a URL: the same page, drawn for the variant when it is.
-  const base = basePathOf(
-    pages.find((p) => p.id === now.activePage)?.path ?? ""
-  );
-  const own = pages.filter((p) => basePathOf(p.path) === base);
-  const shown =
-    own.find((p) => (p.variant ?? null) === variant) ??
-    own.find((p) => p.variant === undefined);
-  go({ activePage: shown?.id ?? now.activePage, route: null, variant });
 };
 
 /**
@@ -349,11 +315,12 @@ export const goTo = (
     return openCanvas(to.canvas, to, board);
   }
   moveTo(to, (options?.push ?? true) ? "push" : "replace", board);
+  showAskedVariation(to);
   return Promise.resolve();
 };
 
 /**
- * Working inside a frame is being on its route, in its variant: the editor is only ever at one
+ * Working inside a frame is being on its route: the editor is only ever at one
  * place at a time, and the layers, the inspector and the prototype all read it. It is not a
  * navigation the user asked for, so it replaces the history entry instead of adding one, and
  * keeps the selection being made. A node on the canvas beside the pages is at no page.
@@ -370,10 +337,9 @@ export const followFrame = (frame: string) => {
     return;
   }
   const now = here();
-  const variant = page.variant ?? null;
   if (page.route === undefined) {
     if (now.activePage !== page.id || now.route !== null) {
-      arrive({ activePage: page.id, route: null, variant }, "replace");
+      arrive({ activePage: page.id, route: null }, "replace");
     }
     return;
   }
@@ -381,8 +347,8 @@ export const followFrame = (frame: string) => {
   // serving `/invoices/:id`), as a move to it does.
   const route =
     now.activePage === page.id && now.route !== null ? now.route : page.route;
-  if (route !== now.route || variant !== now.variant) {
-    arrive({ activePage: page.id, route, variant }, "replace");
+  if (route !== now.route) {
+    arrive({ activePage: page.id, route }, "replace");
   }
 };
 
@@ -415,7 +381,7 @@ export const pagesChanged = () => {
     // The editor went nowhere: a board view open stays, and so does what is still selected.
     openCanvas(
       canvas,
-      { page: now.activePage, route: now.route, variant: now.variant },
+      { page: now.activePage, route: now.route },
       "keep",
       true
     );
@@ -425,13 +391,13 @@ export const pagesChanged = () => {
     const page = pages.find((p) => p.id === now.activePage);
     if (page?.route !== undefined) {
       // The page was given a URL: the editor is at it now.
-      arrive(atRoute(pages, page.route, now.variant), "replace");
+      arrive(atRoute(pages, page.route), "replace");
     } else if (!page) {
-      arrive(landingPlace(canvas, { variant: now.variant }), "replace");
+      arrive(landingPlace(canvas, {}), "replace");
     }
     return;
   }
-  const served = pageAt(pages, now.route, now.variant)?.id ?? null;
+  const served = pageAt(pages, now.route)?.id ?? null;
   if (served !== now.activePage) {
     arrive({ ...now, activePage: served }, "replace");
   }
@@ -490,12 +456,10 @@ const wentTo = (url: UrlRead) => {
     goTo({ ...url, canvas }, { keepBoard });
     return;
   }
-  goTo(
-    url.route === null
-      ? { page: url.page }
-      : { route: url.route, variant: url.variant },
-    { keepBoard, push: false }
-  );
+  goTo(url.route === null ? { page: url.page } : { route: url.route }, {
+    keepBoard,
+    push: false,
+  });
 };
 
 /**

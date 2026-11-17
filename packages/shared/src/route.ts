@@ -13,16 +13,20 @@
  * | `settings/index.page.json`   | `/settings`     |
  * | `invoices/[id].page.json`    | `/invoices/:id` |
  * | `docs/[...rest].page.json`   | `/docs/*`       |
- * | `pricing@bold.page.json`     | `/pricing`, in the variant `bold` |
+ * | `orders@empty.page.json`     | none: the page `orders` in a state (ADR 0030) |
  */
 import { humanise, toPosix } from "./path.ts";
 
 const TRAILING_SLASHES_RE = /\/+$/;
 /** A page file's extension: `.page.json`, or the one extension of any other file. */
 const PAGE_EXTENSION_RE = /\.page\.json$|\.[^./]+$/;
-/** The variant a page file is written for: `pricing@bold.page.json`. */
-const VARIANT_RE = /@([a-z0-9][a-z0-9-]*)(?=\.page\.json$|\.[^./]+$|$)/;
-const VARIANT_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
+/**
+ * The name a page file is suffixed with after an `@`: a state its page is drawn in
+ * (`orders@empty.page.json`, ADR 0030), or a page variant not folded into variations yet
+ * (`pricing@bold.page.json`, ADR 0098).
+ */
+const SUFFIX_RE = /@([a-z0-9][a-z0-9-]*)(?=\.page\.json$|\.[^./]+$|$)/;
+const SUFFIX_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
 const REST_RE = /^\.\.\./;
 
 /** `[id]` and `[...rest]` are the parameter forms; anything else is a literal segment. */
@@ -99,8 +103,8 @@ export const pageNameOf = (pagePath: string): string => {
 };
 
 /**
- * The URL a page serves, from the canvas's `routes`: its own entry, or its base page's for a
- * variant. A canvas without `routes` serves each page at the route its path names.
+ * The URL a page serves, from the canvas's `routes`: its own entry, by its base page's path. A
+ * canvas without `routes` serves each page at the route its path names.
  */
 export const pageRouteOf = (
   routes: Readonly<Record<string, string>> | undefined,
@@ -222,59 +226,30 @@ export const matchRoute = <T extends { readonly route?: string | undefined }>(
   return best ? { entry: best.entry, params: best.params } : null;
 };
 
-/** Whether a name can be a variant's: lowercase letters, digits and dashes. */
-export const isVariantName = (name: string): boolean =>
-  VARIANT_NAME_RE.test(name);
+/** Whether a name can follow a page's `@`: lowercase letters, digits and dashes. */
+export const isSuffixName = (name: string): boolean =>
+  SUFFIX_NAME_RE.test(name);
 
-/** The variant a page file is written for, or null for the base: `pricing@bold.page.json` is `bold`. */
-export const variantOf = (pagePath: string): string | null => {
+/** The name a page file is suffixed with, or null for none: `orders@empty.page.json` is `empty`. */
+export const suffixOf = (pagePath: string): string | null => {
   const last = toPosix(pagePath).split("/").at(-1) ?? "";
-  const match: RegExpExecArray | null = VARIANT_RE.exec(last);
+  const match: RegExpExecArray | null = SUFFIX_RE.exec(last);
   return match ? (match[1] ?? null) : null;
 };
 
-/** The file of the base page a variant's file stands in for: `pricing.page.json`. */
+/** The file of the page a suffixed file is drawn from: `orders.page.json`. */
 export const basePathOf = (pagePath: string): string => {
   const posix = toPosix(pagePath);
   const cut = posix.lastIndexOf("/") + 1;
-  return posix.slice(0, cut) + posix.slice(cut).replace(VARIANT_RE, "");
+  return posix.slice(0, cut) + posix.slice(cut).replace(SUFFIX_RE, "");
 };
 
-/** The file a base page's variant is written in: `pricing.page.json` and `bold` give `pricing@bold.page.json`. */
-export const variantPathOf = (basePath: string, variant: string): string => {
+/** The file a page is suffixed in: `orders.page.json` and `empty` give `orders@empty.page.json`. */
+export const suffixedPathOf = (basePath: string, suffix: string): string => {
   const base = basePathOf(basePath);
   const cut = base.lastIndexOf("/") + 1;
   const name = base.slice(cut);
   const match: RegExpExecArray | null = PAGE_EXTENSION_RE.exec(name);
   const extension = match ? match[0] : "";
-  return `${base.slice(0, cut)}${name.slice(0, name.length - extension.length)}@${variant}${extension}`;
-};
-
-/**
- * The pages a router serves in a variant: each base page, or the variant's own file for its route
- * when the variant has one. `null` is the base alone. A variant's page without a base still
- * serves its route in that variant.
- */
-export const pagesInVariant = <
-  T extends { readonly path: string; readonly variant?: string | undefined },
->(
-  pages: readonly T[],
-  variant: string | null
-): T[] => {
-  const base = pages.filter((p) => p.variant === undefined);
-  if (variant === null) {
-    return base;
-  }
-  const own = new Map(
-    pages
-      .filter((p) => p.variant === variant)
-      .map((p) => [basePathOf(p.path), p] as const)
-  );
-  const served = base.map((p) => own.get(p.path) ?? p);
-  for (const [path, page] of own) {
-    if (!base.some((b) => b.path === path)) {
-      served.push(page);
-    }
-  }
-  return served;
+  return `${base.slice(0, cut)}${name.slice(0, name.length - extension.length)}@${suffix}${extension}`;
 };

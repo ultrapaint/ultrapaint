@@ -48,6 +48,7 @@ import { noteLanded } from "../state/recent-components.ts";
 import { select } from "../state/selection.ts";
 import { ensureEditable } from "../state/setup.ts";
 import { onPageCanvas } from "../state/surface.ts";
+import { newVariation } from "../state/variations.ts";
 import { addToChat } from "./add-to-chat.ts";
 import { requestAsk } from "./ask-variations.ts";
 import {
@@ -57,7 +58,6 @@ import {
   duplicateCanvas,
   duplicateCanvasWithAgent,
   moveCanvas,
-  newVariant,
   openCanvas,
   renameCanvas,
 } from "./canvas-actions.ts";
@@ -188,7 +188,7 @@ const allHidden = (targets: readonly Selection[]) => {
 const linkTargets = () => {
   const pages = pagesOfCanvas(useEditor.getState().canvas);
   return pages
-    .filter((p) => p.variant === undefined && p.state === undefined)
+    .filter((p) => p.state === undefined)
     .map((p) => ({
       draft: isDraft(p, pages),
       name: p.name,
@@ -234,7 +234,6 @@ const pageMenu = (pageId: string) => {
   const { canvases, pages } = useProject.getState();
   // The page's drawings so far: the same screen in the same canvas.
   const drawings = familyOf(pages, page);
-  const drawn = new Set(drawings.flatMap((p) => p.variant ?? []));
   const stated = new Set(drawings.flatMap((p) => p.state ?? []));
   const canvas = canvases.find((c) => c.id === page.canvas);
   return pageEntries({
@@ -247,12 +246,10 @@ const pageMenu = (pageId: string) => {
     onCanvas: onCanvas(),
     preset: useEditor.getState().frames[page.id]?.preset ?? null,
     ...(page.route !== undefined && { route: page.route }),
-    ...(page.variant !== undefined && { variant: page.variant }),
     ...(page.state !== undefined && { state: page.state }),
     implementation:
       useImplementation.getState().byTarget[page.id]?.status ?? "draft",
     statesFree: (canvas?.states ?? []).filter((v) => !stated.has(v)),
-    variantsFree: (canvas?.variants ?? []).filter((v) => !drawn.has(v)),
   });
 };
 
@@ -564,8 +561,12 @@ const runPage = (target: TargetOf<"page">, act: PageAction): unknown => {
       }
       return;
     }
-    case "variant":
-      return newVariant(page, act.variant ?? undefined);
+    case "newVariation": {
+      const root = useDocuments.getState().docs[page.id]?.root;
+      return root
+        ? newVariation({ frame: page.id, nodeId: root.id }).catch(reportError)
+        : undefined;
+    }
     case "state":
       return newState(page, act.state ?? undefined);
     case "copyTo": {

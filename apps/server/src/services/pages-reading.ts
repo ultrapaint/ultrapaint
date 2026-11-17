@@ -23,7 +23,7 @@ import { basename, humanise, slugOf } from "@ultrapaint/shared/path";
 import {
   normaliseRoute,
   routesOf,
-  variantPathOf,
+  suffixedPathOf,
 } from "@ultrapaint/shared/route";
 import { Effect, FileSystem, Path, Semaphore } from "effect";
 import { EventBus } from "../events.ts";
@@ -287,13 +287,13 @@ export const makePagesReading = Effect.gen(function* () {
     canvas: string,
     dir: string,
     name: string,
-    variant?: string,
+    state?: string,
     taken: readonly string[] = []
   ) {
     const stem = `${dir === "" ? "" : `${dir}/`}${slugOf(name)}`;
     const fileFor = (count: number) => {
       const file = `${count === 1 ? stem : `${stem}-${count}`}${PAGE_EXTENSION}`;
-      return variant === undefined ? file : variantPathOf(file, variant);
+      return state === undefined ? file : suffixedPathOf(file, state);
     };
     // `canvas.page.json` would keep its variations where the canvas keeps its own (ADR 0098).
     const canvasVariations = variationsFileOf(CANVAS_FILE);
@@ -326,11 +326,7 @@ export const makePagesReading = Effect.gen(function* () {
       trimmed.startsWith("/") ? trimmed : `/${trimmed}`
     );
     const holder = all.pages.find(
-      (p) =>
-        p.canvas === canvas &&
-        p.variant === undefined &&
-        p.path !== except &&
-        p.route === normalised
+      (p) => p.canvas === canvas && p.path !== except && p.route === normalised
     );
     if (holder) {
       return yield* new Conflict({
@@ -354,9 +350,7 @@ export const makePagesReading = Effect.gen(function* () {
     updateCanvas(tx, canvas, (layout) => {
       const before = routesOf(
         layout.routes,
-        all.pages
-          .filter((p) => p.canvas === canvas && p.variant === undefined)
-          .map((p) => p.path)
+        all.pages.filter((p) => p.canvas === canvas).map((p) => p.path)
       );
       const routes = update(before);
       const { home: _, ...rest } = layout;

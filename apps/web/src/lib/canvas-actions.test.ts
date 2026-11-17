@@ -17,7 +17,6 @@ const canvas = (id: string): Canvas => ({
   home: "/",
   id,
   name: id,
-  variants: [],
 });
 
 const order = () => useProject.getState().canvases.map((c) => c.id);

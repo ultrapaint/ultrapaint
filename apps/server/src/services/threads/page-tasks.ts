@@ -304,7 +304,7 @@ export const makePageTasks = Effect.fnUntraced(function* (deps: {
     const { tools } = ways;
     const lines = chosen.map(
       (p) =>
-        `- ${p.id}: ${p.name}${p.state ? ` in the ${p.state} state` : ""}${p.variant ? ` (variant ${p.variant})` : ""}, ${p.route ?? "no URL"}`
+        `- ${p.id}: ${p.name}${p.state ? ` in the ${p.state} state` : ""}, ${p.route ?? "no URL"}`
     );
     return `<ultrapaint-task command="implement">
 These pages of the design are built in the application already, and the editor does not know by

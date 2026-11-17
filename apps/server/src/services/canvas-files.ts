@@ -48,13 +48,11 @@ export const parseCanvasText = Effect.fnUntraced(function* (
 /** What `canvasText` writes: the layout in its one format. */
 const writtenOf = (layout: CanvasLayout): CanvasLayout => {
   const nodes = layout.nodes ?? [];
-  const variants = layout.variants ?? [];
   const states = layout.states ?? [];
   return {
     ...(layout.defaults !== undefined && { defaults: layout.defaults }),
     ...(layout.name !== undefined && { name: layout.name }),
     ...(layout.home !== undefined && { home: layout.home }),
-    ...(variants.length > 0 && { variants }),
     ...(states.length > 0 && { states }),
     ...(layout.routes !== undefined && { routes: sortedByKey(layout.routes) }),
     frames: sortedByKey(layout.frames),

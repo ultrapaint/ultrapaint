@@ -484,7 +484,6 @@ describe("the menus", () => {
           onCanvas: true,
           preset: null,
           statesFree: [],
-          variantsFree: [],
         })
       ),
       ...named(

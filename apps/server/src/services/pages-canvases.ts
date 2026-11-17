@@ -134,7 +134,6 @@ export const makeCanvasOperations = (
       home: "/",
       id: made,
       name: trimmed,
-      variants: [],
     } satisfies Canvas;
   });
 
@@ -337,7 +336,7 @@ export const makeCanvasOperations = (
     }
     const families = new Set(
       picked
-        .filter((p) => p.variant === undefined && p.state === undefined)
+        .filter((p) => p.state === undefined)
         .flatMap((p) => familyOf(all.pages, p))
     );
     const chosen = all.pages.filter(
@@ -458,9 +457,7 @@ export const makeCanvasOperations = (
         const canvas = yield* canvasById(id, all);
         yield* tx.name(`Open ${canvas.name} on ${home}`);
         // A home no page serves would open the prototype on nothing.
-        const served = all.pages.filter(
-          (p) => p.canvas === id && p.variant === undefined
-        );
+        const served = all.pages.filter((p) => p.canvas === id);
         if (!matchRoute(served, home)) {
           return yield* new BadRequest({
             message: `no page of ${canvas.name} serves ${home}; give a page that URL first`,

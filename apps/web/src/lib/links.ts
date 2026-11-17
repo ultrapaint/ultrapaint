@@ -9,7 +9,6 @@ import {
   linkTargetOf,
   pageOfLink,
 } from "@ultrapaint/shared/link";
-import { basePathOf } from "@ultrapaint/shared/route";
 import { toast } from "sonner";
 import { useDocuments } from "../state/documents.ts";
 import { pagesOfCanvas, useEditor } from "../state/editor.ts";
@@ -64,15 +63,7 @@ export const followLink = (link: string, options?: { push?: boolean }) => {
     });
     return;
   }
-  // A state serves no URL of its own; in a variant, the variant's own drawing of it.
-  const drawn =
-    page.route === undefined && editor.variant !== null
-      ? pages.find(
-          (p) =>
-            p.variant === editor.variant && basePathOf(p.path) === page.path
-        )
-      : undefined;
-  goTo({ page: (drawn ?? page).id }, options);
+  goTo({ page: page.id }, options);
 };
 
 /**
