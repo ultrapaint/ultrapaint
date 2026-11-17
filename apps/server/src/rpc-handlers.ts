@@ -326,6 +326,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         variations((v) => v.rename({ doc, node }, variation, name)),
       "variations.use": ({ doc, node, variation }) =>
         variations((v) => v.use({ doc, node }, variation)),
+      "variations.useTree": ({ doc, name, node, tree }) =>
+        variations((v) => v.useTree({ doc, node }, name, tree)),
     });
   })
 );

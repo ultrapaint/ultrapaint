@@ -43,12 +43,8 @@ import {
   useFrameBreakpoint,
   useSelectedIn,
 } from "../state/selection.ts";
-import {
-  drawnIn,
-  drawnWith,
-  useVariations,
-  writesThrough,
-} from "../state/variations.ts";
+import { drawnWith } from "../state/variation-parts.ts";
+import { drawnIn, useVariations, writesThrough } from "../state/variations.ts";
 import { FramePresence, PresenceLabel } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
 import { onScreen, screenPx, UNZOOM } from "./camera.ts";

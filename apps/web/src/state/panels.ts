@@ -16,6 +16,7 @@ import {
 import { toPageCanvas } from "./location.ts";
 import { LOOK_ITEM } from "./look-page.ts";
 import { surfaceNow } from "./surface.ts";
+import { useVariations } from "./variations.ts";
 
 /**
  * Whether the side panels are put away, for a clear look at the canvas. A preference of this
@@ -84,21 +85,25 @@ const subjectOf = (
     "selection" | "workspace"
   >,
   picks: number,
-  board: boolean
+  others: {
+    /** A board view's inspector. */
+    readonly board: boolean;
+    /** A part of a variation selected beside the page (ADR 0098). */
+    readonly part: boolean;
+  }
 ) =>
   editor.workspace === "design" &&
-  (editor.selection !== null || picks > 1 || board);
+  (editor.selection !== null || picks > 1 || others.board || others.part);
 
 /** The look page's samples have nothing to inspect: the dials are on the left. */
 const boardInspected = (open: ReturnType<typeof useBoard.getState>["open"]) =>
   open !== null && !(open.view === "system" && open.item === LOOK_ITEM);
 
 export const rightHasSubject = () =>
-  subjectOf(
-    useEditor.getState(),
-    useCanvasPicks.getState().ids.length,
-    boardInspected(useBoard.getState().open)
-  );
+  subjectOf(useEditor.getState(), useCanvasPicks.getState().ids.length, {
+    board: boardInspected(useBoard.getState().open),
+    part: (useVariations.getState().open?.part ?? null) !== null,
+  });
 
 export const useRightSubject = () => {
   const editor = useEditor(
@@ -109,7 +114,8 @@ export const useRightSubject = () => {
   );
   const picks = useCanvasPicks((s) => s.ids.length);
   const board = useBoard((s) => boardInspected(s.open));
-  return subjectOf(editor, picks, board);
+  const part = useVariations((s) => (s.open?.part ?? null) !== null);
+  return subjectOf(editor, picks, { board, part });
 };
 
 /**

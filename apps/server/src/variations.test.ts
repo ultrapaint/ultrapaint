@@ -648,3 +648,36 @@ inProject(
       ]);
     })
 );
+
+inProject(
+  "a preview made of several variations put in use joins the set as a variation of its own, as one undo step",
+  () =>
+    Effect.gen(function* () {
+      const { client } = yield* TestEnv;
+      yield* client["variations.add"]({ doc: HOME, node: "heading" });
+      const mixed = yield* client["variations.useTree"]({
+        doc: HOME,
+        name: "Original with Variation 2's heading",
+        node: "heading",
+        tree: {
+          id: "heading",
+          level: 1,
+          role: "heading",
+          text: "Hello, mixed",
+          type: "text",
+        } as DesignNode,
+      });
+      assert.deepStrictEqual(rows(mixed.sets.heading), [
+        ["Original", "", "Hello"],
+        ["Variation 2", "", "Hello"],
+        ["Original with Variation 2's heading", "in use", null],
+      ]);
+      const page = yield* client["documents.get"]({ doc: HOME });
+      assert.strictEqual(textOf(page.root, "heading"), "Hello, mixed");
+
+      const undone = yield* client["edit.undo"]();
+      assert.strictEqual(undone?.label, "Use a variation");
+      const back = yield* client["documents.get"]({ doc: HOME });
+      assert.strictEqual(textOf(back.root, "heading"), "Hello");
+    })
+);
