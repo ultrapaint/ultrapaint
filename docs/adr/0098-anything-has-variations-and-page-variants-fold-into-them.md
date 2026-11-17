@@ -163,3 +163,9 @@ file (`canvas.variations.json` beside `canvas.json`), which goes with the node.
   and the preview carries its own controls.
 - A variation drawn out of its page needs what its look depends on (its parent's layout, its
   theme). Building it measures this first.
+  - Measured on 17 Nov, on the Redesign canvas's 148 parts two to four levels down:
+    - Drawn at the thing's width, at its page's breakpoint and in its theme, 133 had the height
+      they have in their page.
+    - The 15 others all filled their parent's height, and drew shorter alone, some at nothing.
+    - A part whose height fills its parent is now drawn at its height in its page, and all 148
+      match.

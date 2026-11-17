@@ -382,6 +382,21 @@ export const deleteVariation = async (thing: Thing, variation: string) =>
 export const clearVariations = async (thing: Thing) =>
   takeVariations(await api().request("variations.clear", targetOf(thing)));
 
+/**
+ * A part drawn out of its page, sized as its parent sizes it there: at the thing's width, and at
+ * its height where it fills its parent's. Measured on 17 Nov (ADR 0098): of 148 parts of the
+ * Redesign canvas, the 15 drawn at another height than in their page all filled their parent's
+ * height; width, breakpoint and theme covered the rest.
+ */
+export const sizedAsInPage = (
+  tree: DesignNode,
+  thing: { readonly height: number; readonly width: number }
+): DesignNode => {
+  const width = typeof tree.width === "number" ? {} : { width: thing.width };
+  const height = tree.height === "fill" ? { height: thing.height } : {};
+  return { ...tree, ...width, ...height } as DesignNode;
+};
+
 /** The room between the page and its variations, and between two of them, on the canvas. */
 export const BESIDE_GAP = 80;
 
