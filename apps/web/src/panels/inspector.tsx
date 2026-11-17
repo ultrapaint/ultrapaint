@@ -158,8 +158,9 @@ export const Inspector = () => {
 };
 
 /**
- * A part of a variation selected beside the page (ADR 0098): its fields, read-only. Nothing in
- * them can be changed or focused: the variation is changed by putting it in use.
+ * A part of a variation selected beside the page (ADR 0098): its fields, read-only. They are
+ * read as any field is, by sight and by a screen reader, but no press or key changes one: the
+ * variation is changed by putting it in use.
  */
 const PartInspector = ({ part }: { part: PartOf }) => {
   const node = useVariations((s) => partNodeOf(s, part));
@@ -181,7 +182,18 @@ const PartInspector = ({ part }: { part: PartOf }) => {
           In {variation ?? "a variation"}, read-only
         </span>
       </div>
-      <div className="flex flex-col" inert>
+      <fieldset
+        className="flex min-w-0 flex-col"
+        data-read-only=""
+        disabled
+        onClickCapture={holdBack}
+        onKeyDownCapture={(e) => {
+          if (e.key !== "Tab") {
+            holdBack(e);
+          }
+        }}
+        onPointerDownCapture={holdBack}
+      >
         {node.type === "text" && <TextSection nodes={[node]} />}
         {node.type === "image" && <ImageSection nodes={[node]} />}
         {allStacks(nodes) && <LayoutSection nodes={nodes} />}
@@ -191,9 +203,15 @@ const PartInspector = ({ part }: { part: PartOf }) => {
         />
         <SpacingSection nodes={nodes} write={writeSides} />
         <AppearanceSection nodes={nodes} />
-      </div>
+      </fieldset>
     </div>
   );
+};
+
+/** A press or a key on a read-only field goes no further. */
+const holdBack = (e: React.SyntheticEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
 };
 
 /** Each node inspected keeps its own other sides. */

@@ -17,6 +17,14 @@ import {
 
 const LEVEL_RE = / \d+$/;
 
+/** The kinds of node that hold others: a part is added to one of them only. */
+const HOLDERS: ReadonlySet<DesignNode["type"]> = new Set([
+  "page",
+  "row",
+  "column",
+  "group",
+]);
+
 /** What putting a part in the preview gives: the tree it draws, or why it cannot. */
 export type PartPut =
   | {
@@ -106,11 +114,20 @@ export const putPart = (
     return { how: "use", tree: drawnWith(left, part) };
   }
   const parent = path.at(-2);
-  if (!(parent && findNode(left, parent.id))) {
+  const there = parent ? findNode(left, parent.id) : null;
+  if (!(parent && there)) {
     return {
       how: "none",
       tree: null,
       why: `The preview has no ${parent ? nodeLabel(parent) : "place"} to put it in`,
+    };
+  }
+  // The preview may draw the parent's id as a node that holds nothing: a text where it was a column.
+  if (!HOLDERS.has(there.type)) {
+    return {
+      how: "none",
+      tree: null,
+      why: `The preview's ${nodeLabel(there)} holds no parts`,
     };
   }
   const index = childrenOf(parent).findIndex((c) => c.id === id);

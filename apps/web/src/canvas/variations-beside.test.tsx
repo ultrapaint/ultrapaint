@@ -578,7 +578,16 @@ describe("one part of a variation (ADR 0098)", () => {
     act(() => r.render(<Inspector />));
     const inspector = container.querySelector("[data-part-inspector]");
     expect(inspector?.textContent).toContain("In Editorial, read-only");
-    expect(inspector?.querySelector("[inert]")).not.toBeNull();
+    // Read as any field is, and held back from presses.
+    const fields = inspector?.querySelector("fieldset[data-read-only]");
+    expect(fields?.hasAttribute("disabled")).toBe(true);
+    expect(fields?.querySelector("[inert]")).toBeNull();
+    const pressed = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+    });
+    fields?.querySelector("button")?.dispatchEvent(pressed);
+    expect(pressed.defaultPrevented).toBe(true);
   });
 
   it("adds a part the preview lacks in its place in its parent, writing nothing", () => {
@@ -672,7 +681,12 @@ describe("one part of a variation (ADR 0098)", () => {
     doubleClickIn("Editorial", ["hero", "kicker"]);
     click(arrow());
     press("enter");
+    // A second Use this while the first is saved saves nothing more.
+    press("enter");
     await act(() => fakeApi.requested("variations.useTree"));
+    expect(
+      fakeApi.calls.filter((c) => c.method === "variations.useTree")
+    ).toHaveLength(1);
     expect(
       fakeApi.calls.find((c) => c.method === "variations.useTree")?.input
     ).toMatchObject({
