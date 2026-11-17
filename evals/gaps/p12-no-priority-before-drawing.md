@@ -46,3 +46,5 @@ at 7b86c9bd), and fresh briefs with a rich domain (g78, g79): share of misplaced
 moved, against the built-in skill; and whether must-show elements stay in view.
 
 **Result.**
+
+- `placement-1`: 2026-11-17, through its gaps on `design-tab-code`: g77 and g79 caught 2/2 by both versions, g78 by neither; the candidate's ranking step shows no gain a recall can see, and its rows moved in-place controls on `element-toolbar` and `layers` (g77's line has the detail). The fresh briefs of g78 and g79 measure the step where it acts, in what an agent draws.

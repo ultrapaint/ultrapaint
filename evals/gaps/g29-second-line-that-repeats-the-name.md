@@ -36,3 +36,4 @@ named: shipped skill 1/2, redesign-gaps 0/2. The person rated it real
 - `propose`: 2026-11-11, the fix-or-leave call (Opus with the skill, the prompt of cf5bb6f8) leaves all four of this gap's findings in rt-2: it reads the route as a fact of its own that matches the name only in the sample data (runs/rt-2/propose-gaps.md)
 - `chk-1`: 2026-11-11, caught: shipped 2/3, shipped+checks 0/3 (opus, effort high; runs/chk-1/report.md)
 - `rt-2-gpt`: 2026-11-16, caught: shipped 0/2, review-table 0/2, review-inventory 0/2 (reviewed by gpt-6.1-sol, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2-gpt/report.md)
+- `placement-1`: 2026-11-17, caught: shipped 1/2, placement 2/2 (reviewed by opus, judged by opus, cursor:grok-4.7-high, effort high; runs/placement-1/report.md)
