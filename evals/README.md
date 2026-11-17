@@ -27,6 +27,7 @@ candidates/     skill files to try, at their paths in the skill (recall --skills
 gaps/           the design gaps' pictures, and the sections recall reviews (gaps/README.md)
 runs/           one directory per round, and <a>-vs-<b>/ for pairwise
 decisions/      the decks an agent asks the person, and their answers
+research/       outside sources read for a gap or a change to the skill (docs/agents/research.md)
 triage/         one directory per triage of the findings log
 corpus/, studies/, patterns/, patterns-landing/, gallery/   the studies' sources and notes
 .work/          the servers' configurations, scratch designs directories and logs

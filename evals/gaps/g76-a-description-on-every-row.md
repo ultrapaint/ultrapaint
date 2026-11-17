@@ -45,8 +45,8 @@ text, and nothing stops a line written because its neighbours have one. The lab'
 added text compares a design with its brief, so on a screen whose words are all the agent's it
 cannot tell a needed line from noise.
 
-The outside sources agree with the person (research of 2026-11-17, in the thread that found this;
-GitHub Discussions are off, so it has no note yet):
+The outside sources agree with the person (the note
+`research/2026-11-17-settings-copy-density.md` in the data directory):
 
 - Microsoft: "Adding a supplemental explanation to one control in a group doesn't mean that you
   have to provide explanations for all the other controls … Don't have supplemental explanations

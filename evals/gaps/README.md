@@ -55,6 +55,9 @@ sections: [chat-starters]
 - `sections`: the sections `pnpm evals recall` reviews for it. A `g` gap is the judge's ground
   truth for those sections; a `p` gap is measured by what is caught of the `g` gaps in its
   sections. Leave it empty when recall can't measure the gap.
+- Outside sources read for a gap (a guideline, a study) are a note in the data directory's
+  `research/` (`docs/agents/research.md`); the gap gives the conclusion in a line and cites the
+  note by its path.
 
 ## Pictures and sections
 
