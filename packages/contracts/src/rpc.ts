@@ -614,6 +614,16 @@ const requestRpcs = [
     payload: { ...VariationTarget.fields, variation: Schema.String },
     success: DocumentVariations,
   }),
+  /** A preview made of several variations put in use, as a variation of its own (ADR 0098). */
+  Rpc.make("variations.useTree", {
+    error: EditError,
+    payload: {
+      ...VariationTarget.fields,
+      name: Schema.String.check(Schema.isMinLength(1)),
+      tree: DesignNode,
+    },
+    success: DocumentVariations,
+  }),
   Rpc.make("variations.rename", {
     error: EditError,
     payload: {

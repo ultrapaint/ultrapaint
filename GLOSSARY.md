@@ -136,6 +136,11 @@ refactor and the board view left.
     The agent hands a take in by renaming its copy ("Editorial · Tone of the copy"), which saves
     it into the set and removes the copy; a copy still unnamed when the turn ends is a failed
     take, a red box with Try again.
+  - A **part** of a variation is one of its nodes, selected with a double-click beside the page
+    and shown read-only in the right panel. **Use in preview** puts it in place of the preview's
+    node with its id, **Add to preview** in the same place in its parent; the preview is then a
+    **mix** ("Original with Editorial's heading", `state/variation-parts.ts`), which Use this
+    puts in use as a variation of its own.
 - **Operation**: one change to a document (contracts' `DocOp`, design-document's `applyOps`),
   one undo step per request: insert, remove, move, update, set props, wrap, unwrap, duplicate,
   and **replace**, which puts a node where sibling nodes were (an instance drawn as now, detached

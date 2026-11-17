@@ -15,8 +15,8 @@ import { useEditor } from "../state/editor.ts";
 import { reportError } from "../state/project.ts";
 import {
   closeVariations,
-  openSet,
   previewDiffers,
+  previewName,
   putPreviewInUse,
   resetPreview,
   takesOfOpen,
@@ -44,10 +44,8 @@ const useThingRect = (
 /** The preview's controls: Done, or what it is with Reset and Use this. */
 export const PreviewControls = () => {
   const differs = useVariations(previewDiffers);
-  const name = useVariations(
-    (s) =>
-      openSet(s)?.variations.find((v) => v.id === s.open?.preview)?.name ?? ""
-  );
+  // A variation's name, or what the preview is made of (ADR 0098).
+  const name = useVariations(previewName);
   // An agent's takes still being made (ADR 0098).
   const coming = useVariations((s) => takesOfOpen(s).coming);
   return (

@@ -8,15 +8,29 @@
 import type { Box } from "@ultrapaint/contracts/canvas-layout";
 import { componentOfDoc } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import type { Rect as FrameRect } from "@ultrapaint/contracts/preview";
 import type {
   Variation,
   VariationRound,
 } from "@ultrapaint/contracts/variations";
 import { resolveAtBreakpoint } from "@ultrapaint/design-document/breakpoints";
 import { findNode } from "@ultrapaint/design-document/tree";
-import { memo, useEffect, useMemo, useState } from "react";
+import { ArrowLeft } from "lucide-react";
+import {
+  memo,
+  type MouseEvent as ReactMouseEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { tryAgain } from "../lib/ask-variations.ts";
 import { zoomToBoxes } from "../state/camera.ts";
@@ -29,24 +43,26 @@ import { nodeFrameLayout } from "../state/page-layout.ts";
 import { useFrameBreakpoint } from "../state/selection.ts";
 import {
   besideBoxes,
+  clickUndone,
+  clickVariation,
   closeOnSelecting,
   type OpenVariations,
   openSet,
+  partInPreview,
+  partShown,
+  putPartInPreview,
   rootOfDocument,
-  showVariation,
+  selectPart,
   sizedAsInPage,
   takesOfOpen,
   useVariations,
+  variationFrameOf,
 } from "../state/variations.ts";
-import { screenPx } from "./camera.ts";
-import { useFrameDrawing } from "./editor-frame.ts";
+import { screenPx, UNZOOM } from "./camera.ts";
+import { frameOf, useFrameDrawing } from "./editor-frame.ts";
 import { FrameHeader, HEADER_NAME } from "./frame.tsx";
 import { pageRequest } from "./page-request.ts";
 import { PreviewSurface } from "./preview-surface.tsx";
-
-/** The frame a variation is drawn in: none of the page canvas's frames. */
-const variationFrameOf = (open: OpenVariations, variation: string) =>
-  `variation:${open.doc}/${open.node}/${variation}`;
 
 /** The heights its variations were drawn at, by variation, from those told by frame. */
 const heightsOf = (
@@ -184,15 +200,138 @@ const VariationFrame = memo(
           aria-label={`Show ${variation.name}`}
           aria-pressed={shown}
           className="absolute inset-0 h-full w-full cursor-default"
-          onClick={() => showVariation(variation.id)}
+          onClick={(e) => clickVariation(variation.id, e.detail)}
+          onDoubleClick={(e) => pickPart(e, frameId, box.width, variation.id)}
           onPointerDown={(e) => e.stopPropagation()}
           type="button"
         />
+        <PartChrome frameId={frameId} variation={variation} />
       </div>
     );
   }
 );
 VariationFrame.displayName = "VariationFrame";
+
+/**
+ * A double-click inside a variation selects one of its parts, as on the canvas: the outermost
+ * under the pointer below its root, then one deeper with each double-click on the part selected.
+ */
+const pickPart = (
+  e: ReactMouseEvent<HTMLElement>,
+  frameId: string,
+  width: number,
+  variation: string
+) => {
+  const rect = e.currentTarget.getBoundingClientRect();
+  const scale = rect.width / width || 1;
+  const hits = frameOf(frameId).hitTest(
+    (e.clientX - rect.left) / scale,
+    (e.clientY - rect.top) / scale
+  );
+  // Under the pointer, the part one deeper than the one selected; else the outermost below the root.
+  const part = useVariations.getState().open?.part;
+  const at = part?.variation === variation ? hits.indexOf(part.node) : -1;
+  const node = at < 0 ? (hits[1] ?? hits[0]) : (hits[at + 1] ?? hits[at]);
+  // The double-click's clicks showed the variation: the preview goes back to what it was.
+  clickUndone();
+  if (node !== undefined) {
+    selectPart({ node, variation });
+  }
+};
+
+/**
+ * The part selected in this variation: outlined, with the arrow on its edge, pointing at the page,
+ * that puts it in the preview (Use in preview, or Add to preview where the preview lacks it), or
+ * says why it cannot.
+ */
+const PartChrome = ({
+  frameId,
+  variation,
+}: {
+  frameId: string;
+  variation: Variation;
+}) => {
+  const part = useVariations((s) =>
+    s.open?.part?.variation === variation.id ? s.open.part : null
+  );
+  const open = useVariations((s) => s.open);
+  const set = useVariations(openSet);
+  // Worked out once per change: each put makes a tree of its own.
+  const put = useMemo(
+    () => (part && open && set ? partInPreview(open, set, part) : null),
+    [part, open, set]
+  );
+  // Where the part is drawn, by the part it was measured for: measured once it is selected and
+  // again as the frame draws.
+  const [measured, setMeasured] = useState<{
+    readonly node: string;
+    readonly rect: FrameRect | null;
+  } | null>(null);
+  useEffect(() => {
+    if (!part) {
+      return;
+    }
+    const measure = () =>
+      setMeasured({
+        node: part.node,
+        rect: frameOf(frameId).measure([part.node])[part.node] ?? null,
+      });
+    measure();
+    return frameOf(frameId).listen({ rendered: measure, size: measure });
+  }, [frameId, part]);
+  const rect = measured?.node === part?.node ? (measured?.rect ?? null) : null;
+  if (!(part && rect)) {
+    return null;
+  }
+  // A part of the variation the preview shows whole has nowhere else to go: no arrow.
+  const shownWhole = open !== null && partShown(open, part);
+  const label = put?.how === "use" ? "Use in preview" : "Add to preview";
+  return (
+    <div
+      className="pointer-events-none absolute"
+      data-part={part.node}
+      style={{
+        height: rect.height,
+        left: rect.x,
+        outline: `${screenPx(1.5)} solid var(--selection)`,
+        top: rect.y,
+        width: rect.width,
+      }}
+    >
+      <div
+        className="pointer-events-auto absolute top-0 right-full pr-1"
+        hidden={shownWhole}
+        style={{ transform: UNZOOM, transformOrigin: "top right" }}
+      >
+        {put?.tree ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  aria-label={label}
+                  onClick={() => putPartInPreview(part)}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  size="icon-sm"
+                />
+              }
+            >
+              <ArrowLeft />
+            </TooltipTrigger>
+            <TooltipContent>{label}</TooltipContent>
+          </Tooltip>
+        ) : (
+          // A disabled button takes no pointer: why it cannot is said beside it.
+          <span className="flex items-center gap-1.5 whitespace-nowrap font-body-small text-muted-foreground">
+            {put?.why}
+            <Button aria-label={put?.why ?? label} disabled size="icon-sm">
+              <ArrowLeft />
+            </Button>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
 
 /**
  * A take an agent has not handed in: a placeholder in the agent's colour while it is made, or a

@@ -15,14 +15,18 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { pressWindowKey } from "../lib/keymap.ts";
 import { isMac } from "../lib/keys.ts";
+import { Inspector } from "../panels/inspector.tsx";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { rightHasSubject } from "../state/panels.ts";
 import { select } from "../state/selection.ts";
 import { followServer } from "../state/server-data.ts";
 import {
   closeVariations,
+  drawnIn,
   loadVariations,
   openVariations,
+  showVariation,
   useVariations,
 } from "../state/variations.ts";
 import { fakeApi } from "../testing/fake-api.ts";
@@ -47,6 +51,14 @@ const told = vi.hoisted(
       { size?: (size: { height: number; width: number }) => void }
     >()
 );
+/** What a frame's hit test and measure answer, as a test sets them. */
+const drawnAt = vi.hoisted(() => ({
+  hits: [] as string[],
+  rects: {} as Record<
+    string,
+    { height: number; width: number; x: number; y: number }
+  >,
+}));
 /** How often the camera was fitted to the variations. */
 const fits = vi.hoisted(() => ({ count: 0 }));
 vi.mock("../state/camera.ts", async (importOriginal) => ({
@@ -69,8 +81,13 @@ vi.mock("./preview-module.ts", () => {
     ) =>
       ({
         editText: () => undefined,
-        hitTest: () => [],
-        measure: () => ({}),
+        hitTest: () => drawnAt.hits,
+        measure: (ids: readonly string[]) =>
+          Object.fromEntries(
+            ids.flatMap((id) =>
+              drawnAt.rects[id] ? [[id, drawnAt.rects[id]]] : []
+            )
+          ),
         render: (request: RenderRequest) => {
           renders.push({ frame: options.frame, request });
           told.set(options.frame, options.events);
@@ -414,6 +431,254 @@ describe("an agent's takes on the thing (ADR 0098)", () => {
     expect(useVariations.getState().open).toMatchObject({
       frame: HOME,
       node: "title",
+    });
+  });
+});
+
+describe("one part of a variation (ADR 0098)", () => {
+  const hero = (children: DesignNode[]) =>
+    ({ children, id: "hero", type: "column" }) as DesignNode;
+  const text = (id: string, words: string) =>
+    ({ id, text: words, type: "text" }) as DesignNode;
+  const aside = {
+    children: [text("note", "PS")],
+    id: "aside",
+    name: "Aside",
+    type: "column",
+  } as DesignNode;
+
+  /** The page's hero opened, with Editorial's: a kicker, its own title, and an aside. */
+  const openHero = () => {
+    act(() => closeVariations());
+    act(() =>
+      useDocuments.setState({
+        docs: {
+          [HOME]: stateOf(HOME, {
+            children: [hero([text("title", "Notes"), text("lede", "Write")])],
+            id: "page",
+            type: "page",
+          } as DesignNode),
+        },
+      })
+    );
+    useEditor.setState({
+      rects: { [HOME]: { hero: { height: 200, width: 600, x: 32, y: 120 } } },
+    });
+    act(() =>
+      fakeApi.emit("variations", {
+        doc: HOME,
+        sets: {
+          hero: {
+            inUse: "original",
+            variations: [
+              { id: "original", name: "Original" },
+              {
+                id: "v2",
+                name: "Editorial",
+                tree: hero([
+                  text("kicker", "Field notes"),
+                  text("title", "Notes, now and then"),
+                  aside,
+                ]),
+              },
+            ],
+          },
+        },
+      })
+    );
+    act(() => openVariations({ frame: HOME, nodeId: "hero" }));
+    show();
+  };
+
+  const doubleClickIn = (variation: string, hits: string[]) => {
+    drawnAt.hits = hits;
+    // As a browser fires it: two clicks, then the double-click.
+    const target = document.querySelector(`[aria-label="Show ${variation}"]`);
+    act(() => {
+      for (const detail of [1, 2]) {
+        target?.dispatchEvent(
+          new MouseEvent("click", { bubbles: true, detail })
+        );
+      }
+      target?.dispatchEvent(
+        new MouseEvent("dblclick", { bubbles: true, detail: 2 })
+      );
+    });
+  };
+
+  /** The preview's tree, as the page draws it: its ids, nested. */
+  const previewShape = () => {
+    const tree = drawnIn(useVariations.getState(), HOME);
+    const shape = (n: DesignNode): unknown =>
+      "children" in n && n.children
+        ? [n.id, (n.children as DesignNode[]).map(shape)]
+        : n.id;
+    return tree ? shape(tree) : null;
+  };
+
+  const arrow = () =>
+    document.querySelector("[data-part] button") as HTMLButtonElement | null;
+
+  /** The right panel a test draws, taken down after it whatever the test found. */
+  let panel: Root | null = null;
+  afterEach(() => {
+    const r = panel;
+    panel = null;
+    act(() => r?.unmount());
+  });
+
+  beforeEach(() => {
+    drawnAt.hits = [];
+    drawnAt.rects = {
+      aside: { height: 40, width: 600, x: 0, y: 120 },
+      hero: { height: 200, width: 600, x: 0, y: 0 },
+      kicker: { height: 20, width: 600, x: 0, y: 0 },
+      note: { height: 20, width: 600, x: 0, y: 130 },
+      title: { height: 40, width: 600, x: 0, y: 30 },
+    };
+  });
+
+  it("selects the outermost part under the pointer with a double-click inside a variation", () => {
+    openHero();
+    doubleClickIn("Editorial", ["hero", "aside", "note"]);
+    expect(useVariations.getState().open?.part).toEqual({
+      node: "aside",
+      variation: "v2",
+    });
+  });
+
+  it("selects a part one deeper with each double-click on the part selected", () => {
+    openHero();
+    doubleClickIn("Editorial", ["hero", "aside", "note"]);
+    doubleClickIn("Editorial", ["hero", "aside", "note"]);
+    expect(useVariations.getState().open?.part?.node).toBe("note");
+  });
+
+  it("selects the outermost part elsewhere in the variation with a double-click there", () => {
+    openHero();
+    doubleClickIn("Editorial", ["hero", "aside", "note"]);
+    doubleClickIn("Editorial", ["hero", "title"]);
+    expect(useVariations.getState().open?.part?.node).toBe("title");
+  });
+
+  it("keeps the preview as it was through the double-click's clicks", () => {
+    openHero();
+    doubleClickIn("Editorial", ["hero", "kicker"]);
+    expect(useVariations.getState().open?.preview).toBe("original");
+  });
+
+  it("shows the part's fields in the right panel, read-only", () => {
+    openHero();
+    doubleClickIn("Editorial", ["hero", "kicker"]);
+    expect(rightHasSubject()).toBe(true);
+    const container = document.createElement("div");
+    document.body.append(container);
+    panel = createRoot(container);
+    const r = panel;
+    act(() => r.render(<Inspector />));
+    const inspector = container.querySelector("[data-part-inspector]");
+    expect(inspector?.textContent).toContain("In Editorial, read-only");
+    expect(inspector?.querySelector("[inert]")).not.toBeNull();
+  });
+
+  it("adds a part the preview lacks in its place in its parent, writing nothing", () => {
+    openHero();
+    doubleClickIn("Editorial", ["hero", "kicker"]);
+    expect(arrow()?.getAttribute("aria-label")).toBe("Add to preview");
+    click(arrow());
+    expect(previewShape()).toEqual(["hero", ["kicker", "title", "lede"]]);
+    expect(
+      fakeApi.calls.filter(
+        (c) =>
+          c.method.startsWith("variations.") && c.method !== "variations.list"
+      )
+    ).toEqual([]);
+  });
+
+  it("says under the preview what it is made of", () => {
+    openHero();
+    doubleClickIn("Editorial", ["hero", "kicker"]);
+    click(arrow());
+    expect(controls()).toBe("Original with Editorial's paragraphResetUse this");
+  });
+
+  it("takes the parts back out on Reset", () => {
+    openHero();
+    doubleClickIn("Editorial", ["hero", "kicker"]);
+    click(arrow());
+    click(
+      [...document.querySelectorAll("[data-variation-controls] button")].find(
+        (b) => b.textContent === "Reset"
+      )
+    );
+    expect(previewShape()).toBeNull();
+  });
+
+  it("names a part put in twice once", () => {
+    openHero();
+    doubleClickIn("Editorial", ["hero", "kicker"]);
+    click(arrow());
+    click(arrow());
+    expect(controls()).toBe("Original with Editorial's paragraphResetUse this");
+  });
+
+  it("offers no arrow on a part of the variation the preview shows whole", () => {
+    openHero();
+    act(() => showVariation("v2"));
+    doubleClickIn("Editorial", ["hero", "kicker"]);
+    expect(arrow()?.parentElement?.closest("[hidden]")).not.toBeNull();
+  });
+
+  it("names only the part drawn once a later part holds an earlier one", () => {
+    openHero();
+    doubleClickIn("Editorial", ["hero", "kicker"]);
+    click(arrow());
+    // The whole of Editorial's hero, which holds its kicker.
+    doubleClickIn("Editorial", ["hero"]);
+    click(arrow());
+    expect(useVariations.getState().open?.parts).toEqual([
+      { node: "hero", variation: "v2" },
+    ]);
+    expect(controls()).toBe("Original with Editorial's columnResetUse this");
+  });
+
+  it("uses a part the preview has in place of its own", () => {
+    openHero();
+    doubleClickIn("Editorial", ["hero", "title"]);
+    expect(arrow()?.getAttribute("aria-label")).toBe("Use in preview");
+    click(arrow());
+    const tree = drawnIn(useVariations.getState(), HOME);
+    expect(
+      tree && "children" in tree ? tree.children?.[0] : null
+    ).toMatchObject({
+      text: "Notes, now and then",
+    });
+  });
+
+  it("cannot add a part whose parent the preview lacks too, and says why", () => {
+    openHero();
+    doubleClickIn("Editorial", ["hero", "aside", "note"]);
+    doubleClickIn("Editorial", ["hero", "aside", "note"]);
+    expect(arrow()?.disabled).toBe(true);
+    // Said where it can be read, not only in a tooltip a disabled button never opens.
+    expect(document.querySelector("[data-part]")?.textContent).toBe(
+      "The preview has no Aside to put it in"
+    );
+  });
+
+  it("puts the mix in use as a variation of its own on Use this", async () => {
+    fakeApi.respond("variations.useTree", ({ doc }) => ({ doc, sets: {} }));
+    openHero();
+    doubleClickIn("Editorial", ["hero", "kicker"]);
+    click(arrow());
+    press("enter");
+    await act(() => fakeApi.requested("variations.useTree"));
+    expect(
+      fakeApi.calls.find((c) => c.method === "variations.useTree")?.input
+    ).toMatchObject({
+      doc: HOME,
+      name: "Original with Editorial's paragraph",
+      node: "hero",
     });
   });
 });

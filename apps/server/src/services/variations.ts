@@ -60,6 +60,20 @@ const withSet = (
   return set === null ? others : { ...others, [node]: set };
 };
 
+/**
+ * The set's variations, the tree in the document kept in the one in use as another is put in use:
+ * the original, for a thing with none yet. With none in use, the tree is kept by none.
+ */
+const keptAside = (
+  set: VariationSet | undefined,
+  node: DesignNode
+): readonly Variation[] =>
+  set === undefined
+    ? [{ ...ORIGINAL, tree: node }]
+    : set.variations.map((v) =>
+        v.id === set.inUse ? { ...v, tree: node } : v
+      );
+
 /** A new variation's id and name: the first number from 2 neither takes. */
 const nextVariationOf = (set: VariationSet | undefined) => {
   const ids = new Set(set?.variations.map((v) => v.id));
@@ -115,6 +129,15 @@ export class VariationsService extends Context.Service<
       target: VariationTarget,
       variation: string,
       name: string
+    ) => Effect.Effect<DocumentVariations, EditFailure>;
+    /**
+     * A tree of the thing's put in use as a new variation named `name`: a preview made of
+     * several variations (ADR 0098). The tree in the document is kept in the one it was.
+     */
+    readonly useTree: (
+      target: VariationTarget,
+      name: string,
+      tree: DesignNode
     ) => Effect.Effect<DocumentVariations, EditFailure>;
     /** One put in use: the tree in the document is kept in the one it was, and this one put in. */
     readonly use: (
@@ -291,14 +314,11 @@ export class VariationsService extends Context.Service<
       ) {
         return yield* change("New variation", target, (set, node) => {
           const { id, name } = nextVariationOf(set);
-          const variations =
-            set === undefined
-              ? [{ ...ORIGINAL, tree: node }]
-              : set.variations.map((v) =>
-                  v.id === set.inUse ? { ...v, tree: node } : v
-                );
           return Effect.succeed({
-            set: { inUse: id, variations: [...variations, { id, name }] },
+            set: {
+              inUse: id,
+              variations: [...keptAside(set, node), { id, name }],
+            },
           });
         });
       });
@@ -346,6 +366,28 @@ export class VariationsService extends Context.Service<
             putInUse(s, node, variation)
           )
         );
+      });
+
+      const useTree = Effect.fn("VariationsService.useTree")(function* (
+        target: VariationTarget,
+        name: string,
+        tree: DesignNode
+      ) {
+        if (tree.id !== target.node) {
+          return yield* new BadRequest({
+            message: `a variation of ${target.node} draws ${tree.id}`,
+          });
+        }
+        return yield* change("Use a variation", target, (set, node) => {
+          const { id } = nextVariationOf(set);
+          return Effect.succeed({
+            put: tree,
+            set: {
+              inUse: id,
+              variations: [...keptAside(set, node), { id, name }],
+            },
+          });
+        });
       });
 
       const rename = Effect.fn("VariationsService.rename")(function* (
@@ -437,6 +479,7 @@ export class VariationsService extends Context.Service<
         rename,
         sets: setsOf,
         use,
+        useTree,
       });
     })
   );

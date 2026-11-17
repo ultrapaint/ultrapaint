@@ -69,6 +69,13 @@ import { setPreset } from "../state/page-layout.ts";
 import { showLeftPanel, usePanels } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { useInspected, useSelectedAreSiblings } from "../state/selection.ts";
+import {
+  openSet,
+  type PartOf,
+  partNodeOf,
+  useVariations,
+  variationFrameOf,
+} from "../state/variations.ts";
 import { ComponentProps } from "./component-props.tsx";
 import { AppearanceSection } from "./inspector-appearance.tsx";
 import { BreakpointSection } from "./inspector-breakpoints.tsx";
@@ -103,6 +110,10 @@ import { VariationsSection } from "./inspector-variations.tsx";
 export const Inspector = () => {
   const inspected = useInspected();
   const picked = useCanvasPicks((s) => s.ids.length);
+  const part = useVariations((s) => s.open?.part ?? null);
+  if (part) {
+    return <PartInspector part={part} />;
+  }
   if (picked > 1) {
     return (
       <EmptyState icon={<BoxSelect />} title={`${picked} frames`}>
@@ -143,6 +154,45 @@ export const Inspector = () => {
         )}
       </div>
     </InspectedKey.Provider>
+  );
+};
+
+/**
+ * A part of a variation selected beside the page (ADR 0098): its fields, read-only. Nothing in
+ * them can be changed or focused: the variation is changed by putting it in use.
+ */
+const PartInspector = ({ part }: { part: PartOf }) => {
+  const node = useVariations((s) => partNodeOf(s, part));
+  const variation = useVariations(
+    (s) => openSet(s)?.variations.find((v) => v.id === part.variation)?.name
+  );
+  const open = useVariations((s) => s.open);
+  if (!(node && open)) {
+    return null;
+  }
+  const nodes = [node];
+  return (
+    <div className="flex flex-col pb-4" data-part-inspector="">
+      <div className="flex flex-col border-b px-3 pt-2.5 pb-2">
+        <CutText className="block truncate font-heading-xsmall">
+          {nodeLabel(node)}
+        </CutText>
+        <span className="font-body-small text-muted-foreground">
+          In {variation ?? "a variation"}, read-only
+        </span>
+      </div>
+      <div className="flex flex-col" inert>
+        {node.type === "text" && <TextSection nodes={[node]} />}
+        {node.type === "image" && <ImageSection nodes={[node]} />}
+        {allStacks(nodes) && <LayoutSection nodes={nodes} />}
+        <SizeSection
+          frame={variationFrameOf(open, part.variation)}
+          nodes={nodes}
+        />
+        <SpacingSection nodes={nodes} write={writeSides} />
+        <AppearanceSection nodes={nodes} />
+      </div>
+    </div>
   );
 };
 

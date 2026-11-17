@@ -30,9 +30,10 @@ import {
   canvasDocOf,
   childrenOf,
   findNode,
+  idsOf,
 } from "@ultrapaint/design-document/tree";
 import { create } from "zustand";
-import { appComponentOf } from "./components.ts";
+import { appComponentOf, useComponents } from "./components.ts";
 import { api } from "./connection.ts";
 import { docOfFrame, useDocuments } from "./documents.ts";
 import { type Selection, useEditor } from "./editor.ts";
@@ -40,13 +41,27 @@ import { nodeFrameOf } from "./frame-ref.ts";
 import { reportError } from "./project.ts";
 import { select, selectMany } from "./selection.ts";
 import { follow } from "./server-data.ts";
+import {
+  drawnWith,
+  mixName,
+  type PartPut,
+  putPart,
+} from "./variation-parts.ts";
 
 /** A thing whose variations are open: where its preview is drawn, and which is shown there. */
 export interface OpenVariations {
   readonly doc: string;
   /** The frame its page, or itself on the canvas, is drawn in. */
   readonly frame: string;
+  readonly mix: DesignNode | null;
   readonly node: string;
+  /** A part of a variation selected beside the page, its fields shown read-only. */
+  readonly part: PartOf | null;
+  /**
+   * The parts put in the preview from other variations (Use in preview, Add to preview), and the
+   * **mix**: the tree the preview draws with them; none while it draws one variation whole.
+   */
+  readonly parts: readonly PartOf[];
   /**
    * The variation shown in the preview: the one in use until another is shown; null for the
    * thing as it is drawn, while none is in use.
@@ -54,6 +69,12 @@ export interface OpenVariations {
   readonly preview: string | null;
   /** What was selected when they opened, the lead and the others, given back when they close. */
   readonly selected: readonly Selection[];
+}
+
+/** A part of one of the thing's variations: the variation, and the part's node id. */
+export interface PartOf {
+  readonly node: string;
+  readonly variation: string;
 }
 
 interface VariationsStore {
@@ -214,25 +235,15 @@ export const drawnIn = (
 ): DesignNode | null => {
   const { open } = state;
   const set = openSet(state);
-  if (!(open && set) || open.frame !== frame || open.preview === set.inUse) {
+  if (!(open && set) || open.frame !== frame) {
     return null;
   }
-  return set.variations.find((v) => v.id === open.preview)?.tree ?? null;
-};
-
-/** A tree with `part` in place of the node with its id; the same tree when it has none. */
-export const drawnWith = (root: DesignNode, part: DesignNode): DesignNode => {
-  if (root.id === part.id) {
-    return part;
+  if (open.mix !== null) {
+    return open.mix;
   }
-  const children = childrenOf(root);
-  if (children.length === 0) {
-    return root;
-  }
-  const next = children.map((child) => drawnWith(child, part));
-  return next.every((child, i) => child === children[i])
-    ? root
-    : ({ ...root, children: next } as DesignNode);
+  return open.preview === set.inUse
+    ? null
+    : (set.variations.find((v) => v.id === open.preview)?.tree ?? null);
 };
 
 /**
@@ -246,11 +257,15 @@ export const openVariations = (thing: Thing, preview?: string) => {
     return;
   }
   const { also, selection } = useEditor.getState();
+  beforeClick = null;
   select(null);
   useVariations.setState({
     open: {
       ...target,
       frame: thing.frame,
+      mix: null,
+      part: null,
+      parts: [],
       preview: preview ?? set.inUse,
       selected: selection ? [selection, ...also] : [],
     },
@@ -260,8 +275,154 @@ export const openVariations = (thing: Thing, preview?: string) => {
 /** Shows a variation in the preview (null: the thing as it is drawn); nothing is written. */
 export const showVariation = (variation: string | null) =>
   useVariations.setState(({ open }) =>
-    open ? { open: { ...open, preview: variation } } : {}
+    open ? { open: { ...open, mix: null, parts: [], preview: variation } } : {}
   );
+
+/** What the variations were before the click that may begin a double-click. */
+let beforeClick: OpenVariations | null = null;
+
+/**
+ * A click on a variation beside the page: it is shown in the preview, what the preview was kept
+ * for a double-click, which selects a part instead (`clickUndone`). The second click of a
+ * double-click shows nothing more.
+ */
+export const clickVariation = (variation: string, clicks: number) => {
+  if (clicks > 1) {
+    return;
+  }
+  beforeClick = useVariations.getState().open;
+  showVariation(variation);
+};
+
+/** The preview as it was before the click that began a double-click: its mix kept. */
+export const clickUndone = () => {
+  const was = beforeClick;
+  beforeClick = null;
+  if (was) {
+    useVariations.setState(({ open }) =>
+      open
+        ? {
+            open: {
+              ...open,
+              mix: was.mix,
+              parts: was.parts,
+              preview: was.preview,
+            },
+          }
+        : {}
+    );
+  }
+};
+
+/** A part of a variation selected beside the page, or none; nothing is written. */
+export const selectPart = (part: PartOf | null) =>
+  useVariations.setState(({ open }) =>
+    open ? { open: { ...open, part } } : {}
+  );
+
+/** A variation's tree: its own, or the document's for the one in use. */
+const treeOfVariation = (
+  set: VariationSet,
+  variation: string,
+  current: DesignNode | null
+): DesignNode | null =>
+  variation === set.inUse
+    ? current
+    : (set.variations.find((v) => v.id === variation)?.tree ?? null);
+
+/** The open thing as its document draws it now. */
+const currentThing = (open: OpenVariations): DesignNode | null =>
+  findNode(
+    rootOfDocument(
+      useDocuments.getState().docs,
+      useComponents.getState().components,
+      open.doc
+    ),
+    open.node
+  );
+
+/** The frame a variation is drawn in beside its page: none of the page canvas's frames. */
+export const variationFrameOf = (
+  open: Pick<OpenVariations, "doc" | "node">,
+  variation: string
+) => `variation:${open.doc}/${open.node}/${variation}`;
+
+/** A part of a variation, as its tree holds it; null when it holds none. */
+export const partNodeOf = (
+  state: VariationsStore,
+  part: PartOf
+): DesignNode | null => {
+  const { open } = state;
+  const set = openSet(state);
+  return open && set
+    ? findNode(
+        treeOfVariation(set, part.variation, currentThing(open)),
+        part.node
+      )
+    : null;
+};
+
+/** Whether the preview draws the part's variation whole: its parts are in it already. */
+export const partShown = (open: OpenVariations, part: PartOf): boolean =>
+  open.mix === null && open.preview === part.variation;
+
+/** What a part does to the preview: the tree it would draw, or why it cannot be put there. */
+export const partInPreview = (
+  open: OpenVariations,
+  set: VariationSet,
+  part: PartOf
+): PartPut | null => {
+  const current = currentThing(open);
+  const preview =
+    open.mix ??
+    (open.preview === null
+      ? current
+      : treeOfVariation(set, open.preview, current));
+  const source = treeOfVariation(set, part.variation, current);
+  return preview && source ? putPart(preview, source, part.node) : null;
+};
+
+/**
+ * Use in preview, or Add to preview: the part put in the preview's tree, which writes nothing;
+ * Reset takes it back out, and Use this puts the mix in use as a variation of its own.
+ */
+export const putPartInPreview = (part: PartOf) => {
+  const state = useVariations.getState();
+  const set = openSet(state);
+  const put = state.open && set ? partInPreview(state.open, set, part) : null;
+  if (state.open && put?.tree) {
+    // The parts are what the mix draws: one put in over another, or in one that holds it, is
+    // the part drawn now, and the other is no longer.
+    const placed = findNode(put.tree, part.node);
+    const holds = placed ? idsOf(placed) : new Set([part.node]);
+    useVariations.setState({
+      open: {
+        ...state.open,
+        mix: put.tree,
+        parts: [...state.open.parts.filter((p) => !holds.has(p.node)), part],
+      },
+    });
+  }
+};
+
+/** What the preview is: a variation's name, or what it is made of ("Original with Editorial's heading"). */
+export const previewName = (state: VariationsStore): string => {
+  const { open } = state;
+  const set = openSet(state);
+  if (!(open && set)) {
+    return "";
+  }
+  const nameOf = (id: string | null) =>
+    set.variations.find((v) => v.id === id)?.name ?? "As drawn";
+  const current = open.parts.length > 0 ? currentThing(open) : null;
+  return mixName(
+    nameOf(open.preview),
+    open.parts.flatMap((p) => {
+      const node = findNode(treeOfVariation(set, p.variation, current), p.node);
+      return node ? [{ node, variationName: nameOf(p.variation) }] : [];
+    })
+  );
+};
 
 /** The next variation in the preview (← -1, → +1), round from the last to the first. */
 export const stepVariation = (by: 1 | -1) => {
@@ -294,6 +455,7 @@ export const resetPreview = () => {
 /** Closes the variations, the one in use kept and what was selected selected again. */
 export const closeVariations = () => {
   const { open } = useVariations.getState();
+  beforeClick = null;
   useVariations.setState({ open: null });
   if (open && open.selected.length > 0) {
     selectMany(open.selected);
@@ -301,8 +463,10 @@ export const closeVariations = () => {
 };
 
 /** Whether text typed in a frame is written: not while its preview shows another variation. */
-export const writesThrough = (frame: string): boolean =>
-  drawnIn(useVariations.getState(), frame) === null;
+export const writesThrough = (frame: string): boolean => {
+  const state = useVariations.getState();
+  return state.open?.frame !== frame || !previewDiffers(state);
+};
 
 /**
  * Selecting something on the canvas closes the variations, the one in use kept (ADR 0098), so
@@ -323,6 +487,9 @@ export const closeOnSelecting = () =>
 export const previewDiffers = (state: VariationsStore): boolean => {
   const set = openSet(state);
   const preview = state.open?.preview ?? null;
+  if (set !== undefined && state.open?.mix) {
+    return true;
+  }
   // The thing as it is drawn is what is in use, whichever that is (an undo may put one back).
   return set !== undefined && preview !== null && preview !== set.inUse;
 };
@@ -337,7 +504,20 @@ export const putPreviewInUse = async () => {
   if (!open) {
     return;
   }
-  if (previewDiffers(state) && open.preview !== null) {
+  if (open.mix !== null) {
+    // A preview made of several variations joins the set as a variation of its own.
+    takeVariations(
+      await api().request("variations.useTree", {
+        doc: open.doc,
+        name: previewName(state),
+        node: open.node,
+        tree: open.mix,
+      })
+    );
+    if (useVariations.getState().open !== open) {
+      return;
+    }
+  } else if (previewDiffers(state) && open.preview !== null) {
     takeVariations(
       await api().request("variations.use", {
         doc: open.doc,
@@ -454,7 +634,12 @@ export const variationsKey = (key: string): boolean => {
       putPreviewInUse().catch(reportError);
       return true;
     case "Escape":
-      closeVariations();
+      // A part selected beside the page is let go first.
+      if (useVariations.getState().open?.part) {
+        selectPart(null);
+      } else {
+        closeVariations();
+      }
       return true;
     default:
       return false;
@@ -490,10 +675,12 @@ export const previewedComponents = (
   const state = useVariations.getState();
   const component = state.open ? componentOfDoc(state.open.doc) : null;
   const set = openSet(state);
-  const tree =
-    component !== null && set && state.open?.preview !== set.inUse
+  const shown =
+    state.open?.mix ??
+    (set && state.open?.preview !== set.inUse
       ? (set.variations.find((v) => v.id === state.open?.preview)?.tree ?? null)
-      : null;
+      : null);
+  const tree = component === null ? null : shown;
   if (tree === null) {
     return components;
   }
