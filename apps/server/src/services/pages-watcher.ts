@@ -31,8 +31,8 @@ export const watchDesigns = Effect.fnUntraced(function* (
     const layout = yield* Effect.exit(readCanvas(canvas));
     if (layout._tag === "Success") {
       yield* events.publish("canvas", { canvas, layout: layout.value });
-      const { home, name, routes, variants } = layout.value;
-      const info = JSON.stringify({ home, name, routes, variants });
+      const { home, name, routes, states } = layout.value;
+      const info = JSON.stringify({ home, name, routes, states });
       if (lastInfo.get(canvas) !== info) {
         lastInfo.set(canvas, info);
         yield* publishList;

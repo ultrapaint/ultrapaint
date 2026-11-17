@@ -6,12 +6,15 @@
 
 import { Json } from "@ultrapaint/contracts/base";
 import { SelectedNode } from "@ultrapaint/contracts/rpc";
+import type { VariationSet } from "@ultrapaint/contracts/variations";
 import { pageTemplates } from "@ultrapaint/design-document/factories";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
+import { DocumentService } from "../documents.ts";
 import { EditorSelection } from "../editor-selection.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { VariationRounds } from "../variation-rounds.ts";
+import { VariationsService } from "../variations.ts";
 import { makeLookup } from "./lookup.ts";
 import {
   asJson,
@@ -28,8 +31,8 @@ const PageSummary = Schema.Struct({
   name: Schema.String,
   /** The URL the prototype serves it at; absent when it has none. */
   route: Schema.optional(Schema.String),
-  /** The variant the page is drawn for; a route alone names the base page, its file this one. */
-  variant: Schema.optional(Schema.String),
+  /** Its variations (ADR 0098), the one in use marked; absent when it has none. */
+  variations: Schema.optional(Schema.Array(Schema.String)),
 });
 
 const CanvasSummary = Schema.Struct({
@@ -39,12 +42,11 @@ const CanvasSummary = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
   pages: Schema.Number,
-  variants: Schema.Array(Schema.String),
 });
 
 export const GetContext = Tool.make("get_context", {
   description:
-    "The project: root, designs directory, canvases, and the nodes selected in the editor. Call it first unless told the pages.",
+    "The project: root, designs directory, canvases, and the nodes selected in the editor; list_pages has the pages and their variations. Call it first unless told the pages.",
   failure: ToolFailure,
   success: Schema.Struct({
     canvases: Schema.Array(CanvasSummary),
@@ -59,7 +61,7 @@ export const GetContext = Tool.make("get_context", {
 
 const ListPages = Tool.make("list_pages", {
   description:
-    "Every page: canvas, name, file and URL. A variant (pricing@bold.page.json) shares its base's URL: name it by file.",
+    "Every page: canvas, name, file, URL and variations, the one in use being the page.",
   failure: ToolFailure,
   success: Schema.Struct({ pages: Schema.Array(PageSummary) }),
 }).annotateMerge(doing("read"));
@@ -104,7 +106,7 @@ const CreatePage = Tool.make("create_page", {
 }).annotateMerge(doing("edit"));
 
 const RenamePage = Tool.make("rename_page", {
-  description: "Rename a page and its variants' files; its URL and links stay.",
+  description: "Rename a page and its states' files; its URL and links stay.",
   failure: ToolFailure,
   parameters: Schema.Struct({
     /** Needed only when the URL is a page in more than one canvas. */
@@ -134,7 +136,7 @@ const SetPageUrl = Tool.make("set_page_url", {
 
 const DeletePage = Tool.make("delete_page", {
   description:
-    "Delete a page with its variants and comments; links to it break (list_links).",
+    "Delete a page with its states and comments; links to it break (list_links).",
   failure: ToolFailure,
   parameters: Schema.Struct({
     /** Needed only when the URL is a page in more than one canvas. */
@@ -142,7 +144,7 @@ const DeletePage = Tool.make("delete_page", {
     route: Schema.String,
   }),
   success: Schema.Struct({
-    /** Every file deleted: the page's, then its variants'. */
+    /** Every file deleted: the page's, then its states'. */
     deleted: Schema.Array(Schema.String),
   }),
 }).annotateMerge(doing("destructive"));
@@ -181,6 +183,12 @@ export const PageTools = Toolkit.make(
   ListTemplates
 );
 
+/** A page's variations as `list_pages` says them: by name, the one in use marked (ADR 0098). */
+const variationNames = (set: VariationSet | undefined): string[] =>
+  (set?.variations ?? []).map((v) =>
+    v.id === set?.inUse ? `${v.name} (in use)` : v.name
+  );
+
 export const PageToolsLive = PageTools.toLayer(
   Effect.gen(function* () {
     const {
@@ -193,6 +201,18 @@ export const PageToolsLive = PageTools.toLayer(
       project,
     } = yield* makeLookup;
     const selected = yield* EditorSelection;
+
+    /** The variations of a page's root; none for a page that cannot be read. */
+    const variationsOfPage = (doc: string) =>
+      project
+        .use(
+          Effect.gen(function* () {
+            const { root } = yield* (yield* DocumentService).get(doc);
+            const sets = yield* (yield* VariationsService).sets(doc);
+            return root === null ? [] : variationNames(sets[root.id]);
+          })
+        )
+        .pipe(Effect.orElseSucceed((): string[] => []));
 
     return PageTools.of({
       create_page: Effect.fn("EditorTools.create_page")(function* ({
@@ -243,7 +263,6 @@ export const PageToolsLive = PageTools.toLayer(
             id: canvas.id,
             name: canvas.name,
             pages: pages.pages.filter((p) => p.canvas === canvas.id).length,
-            variants: canvas.variants,
           })),
           designsDir: paths.settings.designsDir,
           pageCount: pages.pages.length,
@@ -255,15 +274,16 @@ export const PageToolsLive = PageTools.toLayer(
 
       list_pages: Effect.fn("EditorTools.list_pages")(function* () {
         const pages = yield* reported(pagesOf);
-        return {
-          pages: pages.pages.map((page) => ({
+        const listed = yield* Effect.forEach(pages.pages, (page) =>
+          Effect.map(variationsOfPage(page.id), (variations) => ({
             canvas: page.canvas,
             file: page.file,
             name: page.name,
             ...(page.route !== undefined && { route: page.route }),
-            ...(page.variant !== undefined && { variant: page.variant }),
-          })),
-        };
+            ...(variations.length > 0 && { variations }),
+          }))
+        );
+        return { pages: listed };
       }),
 
       list_templates: () =>

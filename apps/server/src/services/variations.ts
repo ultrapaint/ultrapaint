@@ -30,12 +30,14 @@ import { toPosix } from "../hash.ts";
 import { DesignFiles } from "./design-files.ts";
 import { DocumentService } from "./documents.ts";
 import type { EditFailure } from "./edit.ts";
+import { PageVariants } from "./page-variants.ts";
 import { PagesService } from "./pages.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import {
   documentFileOfVariations,
   opsPutting,
   variationsCodec,
+  withPageVariants,
   writeSets,
 } from "./variations-file.ts";
 
@@ -154,6 +156,7 @@ export class VariationsService extends Context.Service<
       const pages = yield* PagesService;
       const events = yield* EventBus;
       const designFiles = yield* DesignFiles;
+      const pageVariants = yield* PageVariants;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
 
@@ -174,8 +177,25 @@ export class VariationsService extends Context.Service<
         return yield* variationsCodec(file).decode(text);
       });
 
+      /** The sets with a page's variants from before ADR 0098 among its root's variations. */
+      const withVariantsOf = Effect.fnUntraced(function* (
+        doc: string,
+        sets: VariationSets,
+        rootId?: string
+      ) {
+        const variants = yield* pageVariants.of(doc);
+        if (variants.length === 0) {
+          return sets;
+        }
+        const id = rootId ?? (yield* documents.get(doc)).root?.id;
+        return id === undefined ? sets : withPageVariants(sets, id, variants);
+      });
+
       const setsOf = Effect.fnUntraced(function* (doc: string) {
-        return yield* readSets(variationsFileOf(yield* documents.fileOf(doc)));
+        const sets = yield* readSets(
+          variationsFileOf(yield* documents.fileOf(doc))
+        );
+        return yield* withVariantsOf(doc, sets);
       });
 
       const list = Effect.fn("VariationsService.list")(function* (
@@ -240,9 +260,10 @@ export class VariationsService extends Context.Service<
                 message: `there is no node ${target.node} in ${target.doc}`,
               });
             }
-            const sets = yield* step.tx.readDocument(
-              file,
-              variationsCodec(file)
+            const sets = yield* withVariantsOf(
+              target.doc,
+              yield* step.tx.readDocument(file, variationsCodec(file)),
+              root.id
             );
             const decided = yield* decide(sets[target.node], node);
             yield* writeSets(

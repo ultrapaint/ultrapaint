@@ -32,33 +32,24 @@ import { useProject } from "../state/project.ts";
 
 interface Entry {
   page: Page;
-  /**
-   * The route's pages drawn for a variant, in the canvas's order of variants, then the page in
-   * its states (ADR 0030), in the canvas's order of states.
-   */
-  variants: Page[];
+  /** The page in its states (ADR 0030), in the canvas's order of states. */
+  states: Page[];
 }
 
-const isBase = (p: Page) => p.variant === undefined && p.state === undefined;
+const isBase = (p: Page) => p.state === undefined;
 
 /**
- * The canvas's routes, one row each in the order of their URLs, with the page's variants and
- * states under it. A draft, a page without a route, is not in the prototype (ADR 0075).
+ * The canvas's routes, one row each in the order of their URLs, with the page's states under
+ * it. A draft, a page without a route, is not in the prototype (ADR 0075). A route serves one
+ * page, drawn as its variations in use draw it (ADR 0098).
  */
-const entriesOf = (
-  pages: readonly Page[],
-  order: readonly string[],
-  states: readonly string[]
-) => {
-  const rank = (p: Page) =>
-    p.variant === undefined
-      ? order.length + states.indexOf(p.state ?? "")
-      : order.indexOf(p.variant);
+const entriesOf = (pages: readonly Page[], states: readonly string[]) => {
+  const rank = (p: Page) => states.indexOf(p.state ?? "");
   const entries: Entry[] = pages
     .filter((p) => isBase(p) && p.route !== undefined)
     .map((page) => ({
       page,
-      variants: pages
+      states: pages
         .filter((p) => !isBase(p) && basePathOf(p.path) === page.path)
         .sort((a, b) => rank(a) - rank(b)),
     }));
@@ -126,7 +117,7 @@ export const Routes = () => {
   }
 
   const inCanvas = pages.filter((p) => p.canvas === canvas);
-  const entries = entriesOf(inCanvas, info?.variants ?? [], info?.states ?? []);
+  const entries = entriesOf(inCanvas, info?.states ?? []);
   const drafts = inCanvas
     .filter((p) => isBase(p) && p.route === undefined)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -190,8 +181,8 @@ const PageRow = ({ entry, home }: { entry: Entry; home: string }) => {
         </span>
         <StatusDot target={page.id} />
       </button>
-      {entry.variants.map((variant) => (
-        <VariantRow key={variant.id} page={variant} />
+      {entry.states.map((state) => (
+        <StateRow key={state.id} page={state} />
       ))}
     </>
   );
@@ -229,11 +220,8 @@ const StatusDot = ({ target }: { target: string }) => {
   );
 };
 
-/**
- * A page drawn again for a variant, opening which puts the prototype in that variant; or the
- * page in a state (ADR 0030), which a link opens.
- */
-const VariantRow = ({ page }: { page: Page }) => {
+/** The page in a state (ADR 0030), which a link opens. */
+const StateRow = ({ page }: { page: Page }) => {
   const active = useEditor((s) => s.activePage === page.id);
   return (
     <Tooltip>
@@ -248,20 +236,14 @@ const VariantRow = ({ page }: { page: Page }) => {
           />
         }
       >
-        {/* Under its page, named by what it is: a variant, or a state of the page. */}
-        <span className="min-w-0 flex-1 truncate">
-          {page.variant ?? page.state}
-        </span>
+        {/* Under its page, named by its state. */}
+        <span className="min-w-0 flex-1 truncate">{page.state}</span>
         <StatusDot target={page.id} />
         <span className="shrink-0 font-body-small text-muted-foreground">
-          {page.state === undefined ? "Variant" : "State"}
+          State
         </span>
       </TooltipTrigger>
-      <TooltipContent>
-        {page.state === undefined
-          ? `${page.name} in the ${page.variant} variant`
-          : `${page.name} when it is ${page.state}`}
-      </TooltipContent>
+      <TooltipContent>{`${page.name} when it is ${page.state}`}</TooltipContent>
     </Tooltip>
   );
 };

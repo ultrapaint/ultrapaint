@@ -19,14 +19,14 @@ serve in its prototype and nodes placed beside them — wireframes in one, compo
 second version of the application in a third. A link never leaves its canvas, and tools take
 \`canvas\` to say which (the designs directory's own is "").`;
 
-/** A page: a document of a canvas, its URL, its variants, and one tree for every width. */
+/** A page: a document of a canvas, its URL, its variations and states, and one tree for every width. */
 export const PAGES = `A page is a design document, not code: a <name>.page.json file inside its canvas. It may serve a
 URL, its route, in the canvas's prototype (/settings/billing, /invoices/:id), which canvas.json
 keeps: a screen of the application has one, a sketch or a sheet of components needs none. A page
 without one is a draft: the prototype shows only routes, and a link to a draft leads nowhere
-until it has one. pricing@bold.page.json is pricing.page.json drawn again for
-the variant "bold": it serves the same URL, shown in its place when the prototype is in that
-variant; orders@empty.page.json is the orders page in its empty state. A page is one tree for
+until it has one. A page, or a node of it, may have variations: other ways to draw it, kept in
+<name>.variations.json beside it, the one in use being what the page draws;
+orders@empty.page.json is the orders page in its empty state. A page is one tree for
 every width, mobile-first: a node's fields are the smallest screen's, and its \`at\` says what
 differs from a breakpoint of the design system up (at.md); its views draw it at other widths.`;
 

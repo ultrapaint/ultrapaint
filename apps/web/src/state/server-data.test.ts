@@ -134,7 +134,7 @@ const info = (): ProjectInfo => ({
 });
 
 const pagesNow = (): PageList => ({
-  canvases: [{ home: "/", id: "", name: "Designs", variants: [] }],
+  canvases: [{ home: "/", id: "", name: "Designs" }],
   pages: [page("home.page.json", `Home ${server.v}`)],
 });
 
@@ -438,7 +438,7 @@ describe("following the server", () => {
 
 describe("a point of the history on screen", () => {
   const view: PointView = {
-    canvases: [{ home: "/", id: "", name: "Designs", variants: [] }],
+    canvases: [{ home: "/", id: "", name: "Designs" }],
     documents: [doc("kept")],
     layouts: { "": layoutAt(-50) },
     pages: [page("home.page.json", "Home kept")],

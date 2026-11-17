@@ -221,7 +221,7 @@ const requestRpcs = [
     },
     success: Page,
   }),
-  /** Renames the page: its file and its variants' move, its URL stays. */
+  /** Renames the page: its file and its states' move, its URL stays. */
   Rpc.make("pages.rename", {
     error: PagesError,
     payload: { id: Schema.String, name: Schema.String },
@@ -238,19 +238,10 @@ const requestRpcs = [
     payload: { id: Schema.String },
     success: Page,
   }),
-  /** Deletes the pages, their variants and states with a base page: one undo step. */
+  /** Deletes the pages, and their states with a base page: one undo step. */
   Rpc.make("pages.delete", {
     error: PagesError,
     payload: { ids: Schema.Array(Schema.String) },
-  }),
-  /**
-   * The page drawn again for a variant: a copy of it serving the same URL, in the file of the
-   * variant (`pricing@bold.page.json`), with its frame under the page's.
-   */
-  Rpc.make("pages.createVariant", {
-    error: PagesError,
-    payload: { id: Schema.String, variant: Schema.String },
-    success: Page,
   }),
   /**
    * The page drawn again in a state (ADR 0030): a copy of it in the file of the state

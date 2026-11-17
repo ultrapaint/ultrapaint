@@ -848,14 +848,14 @@ describe("the tools for pages", () => {
         yield* Effect.flatMap(OpenProject, (project) =>
           project.use(
             Effect.flatMap(PagesService, (p) =>
-              p.createVariant("plans.page.json", "bold")
+              p.createState("plans.page.json", "empty")
             )
           )
         );
         const { deleted } = yield* tool("delete_page", { route: "/plans" });
         assert.deepStrictEqual(deleted, [
           "designs/plans.page.json",
-          "designs/plans@bold.page.json",
+          "designs/plans@empty.page.json",
         ]);
         const links = yield* tool("list_links", { brokenOnly: true });
         assert.deepStrictEqual(
@@ -1269,30 +1269,35 @@ describe("where a tool works, named by a node reference (ADR 0018)", () => {
   );
 
   inAProject(
-    "works on a variant's page named by the editor's link or by its file, the URL alone still naming the base page",
+    "reads a page variant from before ADR 0098 as its page's variation, and refuses to read it as the page",
     () =>
       Effect.gen(function* () {
-        yield* Effect.flatMap(OpenProject, (project) =>
-          project.use(
-            Effect.flatMap(PagesService, (p) =>
-              p.createVariant("home.page.json", "bold")
-            )
-          )
+        const { repo } = yield* ProjectFixture;
+        const fs = yield* FileSystem.FileSystem;
+        // Written past the editor, as a project made before variations has it.
+        yield* fs.writeFileString(
+          path.join(repo, "designs/home@bold.page.json"),
+          '{ "version": 1, "root": { "id": "root", "type": "page", "children": [{ "id": "heading", "role": "heading", "type": "text", "text": "BOLD" }] } }\n'
         );
-        yield* tool("apply_operations", {
-          ops: [{ id: "heading", op: "update", set: { text: "Bold" } }],
-          route: "http://localhost:4643/?route=/home&variant=bold&node=heading",
-        });
-        const textAt = (route: string) =>
-          Effect.map(
-            tool("read_page", { route }),
-            ({ document }) => (document as { text: string }).text
-          );
-        assert.strictEqual(
-          yield* textAt("home@bold.page.json#heading"),
-          "Bold"
+        const { pages } = yield* tool("list_pages", {});
+        assert.deepStrictEqual(
+          pages.map((p) => [p.file, p.variations]),
+          [["designs/home.page.json", ["Original (in use)", "Bold"]]]
         );
-        assert.notStrictEqual(yield* textAt("/home#heading"), "Bold");
+        // Named by its file or an old link, it is refused with why: a tool would work on the
+        // page in use, not on the variation.
+        assert.include(
+          yield* refusal("read_page", { route: "home@bold.page.json#heading" }),
+          "names Bold, a variation of its page now"
+        );
+        assert.include(
+          yield* refusal("apply_operations", {
+            ops: [],
+            route:
+              "http://localhost:4643/?route=/home&variant=bold&node=heading",
+          }),
+          "names Bold, a variation of its page now"
+        );
       })
   );
 

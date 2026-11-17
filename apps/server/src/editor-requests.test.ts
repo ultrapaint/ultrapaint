@@ -91,7 +91,7 @@ const headingSays = (text: string) =>
     })
   );
 
-/** Pricing with its frame and its bold variant, and a comment on each and on Home. */
+/** Pricing with its frame and its empty state (ADR 0030), and a comment on each and on Home. */
 const pricingWithComments = Effect.gen(function* () {
   const { client } = yield* TestEnv;
   const page = yield* client["pages.create"]({
@@ -103,14 +103,14 @@ const pricingWithComments = Effect.gen(function* () {
     canvas: "",
     frames: { [page.path]: frameAt(0) },
   });
-  const variant = yield* client["pages.createVariant"]({
+  const state = yield* client["pages.createState"]({
     id: page.id,
-    variant: "bold",
+    state: "empty",
   });
   yield* client["comments.create"](commentOn("", page.path, "Cheaper"));
-  yield* client["comments.create"](commentOn("", variant.path, "Bolder"));
+  yield* client["comments.create"](commentOn("", state.path, "Nothing yet"));
   yield* client["comments.create"](commentOn("", HOME, "Stays"));
-  return { page, variant };
+  return { page, state };
 });
 
 describe("the editor's requests on a project", () => {
@@ -1036,64 +1036,6 @@ describe("the editor's requests on a project", () => {
   );
 
   inProject(
-    "draws a page for a variant, at the page's route and under its frame",
-    () =>
-      Effect.gen(function* () {
-        const { client } = yield* TestEnv;
-        yield* client["canvas.set"]({
-          canvas: "",
-          frames: { [HOME]: frameAt(0) },
-        });
-        const variant = yield* client["pages.createVariant"]({
-          id: HOME,
-          variant: "Bold",
-        });
-        assert.strictEqual(variant.id, "home@bold.page.json");
-        assert.strictEqual(variant.route, "/home");
-        assert.strictEqual(variant.variant, "bold");
-        const { canvases } = yield* client["pages.list"]();
-        assert.deepStrictEqual(canvases.find((c) => c.id === "")?.variants, [
-          "bold",
-        ]);
-        const layout = yield* client["canvas.get"]({ canvas: "" });
-        const base = layout.frames[HOME];
-        const below = layout.frames["home@bold.page.json"];
-        assert.strictEqual(below?.x, base?.x);
-        assert.isAbove(below?.y ?? 0, (base?.y ?? 0) + (base?.height ?? 0));
-
-        const again = yield* Effect.flip(
-          client["pages.createVariant"]({ id: HOME, variant: "bold" })
-        );
-        assert.strictEqual(again._tag, "Conflict");
-        // A variant is named after its page: it is renamed with it, and keeps its URL.
-        const refused = yield* Effect.flip(
-          client["pages.rename"]({ id: variant.id, name: "Start" })
-        );
-        assert.strictEqual(refused._tag, "BadRequest");
-        yield* client["pages.rename"]({ id: HOME, name: "Start" });
-        const renamed = (yield* client["pages.list"]()).pages.find(
-          (p) => p.id === "start@bold.page.json"
-        );
-        assert.strictEqual(renamed?.route, "/home");
-        const copy = yield* client["pages.duplicate"]({
-          id: renamed?.id ?? "",
-        });
-        assert.strictEqual(copy.id, "start-2@bold.page.json");
-        assert.strictEqual(copy.variant, "bold");
-        yield* client["pages.delete"]({ ids: [copy.id] });
-        yield* client["pages.rename"]({
-          id: "start.page.json",
-          name: "Home",
-        });
-        assert.strictEqual(
-          (yield* client["pages.list"]()).pages.find((p) => p.id === HOME)
-            ?.route,
-          "/home"
-        );
-      })
-  );
-
-  inProject(
     "names a version, shows it as it was, and restores it in one step",
     () =>
       Effect.gen(function* () {
@@ -1202,7 +1144,7 @@ describe("the editor's requests on a project", () => {
   );
 
   inProject(
-    "deletes a base page with its variants and their comments, and undo brings all of it back",
+    "deletes a base page with its states and their comments, and undo brings all of it back",
     () =>
       Effect.gen(function* () {
         const { client } = yield* TestEnv;
@@ -1215,21 +1157,23 @@ describe("the editor's requests on a project", () => {
           canvas: "",
           frames: { [page.path]: frameAt(0) },
         });
-        const variant = yield* client["pages.createVariant"]({
+        const state = yield* client["pages.createState"]({
           id: page.id,
-          variant: "bold",
+          state: "empty",
         });
         yield* client["comments.create"](commentOn("", page.path, "Cheaper"));
-        yield* client["comments.create"](commentOn("", variant.path, "Bolder"));
+        yield* client["comments.create"](
+          commentOn("", state.path, "Nothing yet")
+        );
         yield* client["comments.create"](commentOn("", HOME, "Stays"));
 
         yield* client["pages.delete"]({ ids: [page.id] });
         const ids = (yield* client["pages.list"]()).pages.map((p) => p.id);
         assert.notInclude(ids, page.id);
-        assert.notInclude(ids, variant.id);
+        assert.notInclude(ids, state.id);
         const layout = yield* client["canvas.get"]({ canvas: "" });
         assert.notProperty(layout.frames, page.path);
-        assert.notProperty(layout.frames, variant.path);
+        assert.notProperty(layout.frames, state.path);
         assert.deepStrictEqual(
           commentedPages(
             (yield* client["comments.list"]({ canvas: "" })).comments
@@ -1238,23 +1182,23 @@ describe("the editor's requests on a project", () => {
         );
         assert.strictEqual(
           (yield* client["edit.state"]()).undoLabel,
-          "Delete Pricing and its variants"
+          "Delete Pricing and its states"
         );
 
         yield* client["edit.undo"]();
         const back = (yield* client["pages.list"]()).pages.map((p) => p.id);
         assert.include(back, page.id);
-        assert.include(back, variant.id);
+        assert.include(back, state.id);
         assert.deepStrictEqual(
           commentedPages(
             (yield* client["comments.list"]({ canvas: "" })).comments
           ),
-          [HOME, page.path, variant.path].sort()
+          [HOME, page.path, state.path].sort()
         );
       })
   );
 
-  inProject("renames a page's comments, and its variant's, with it", () =>
+  inProject("renames a page's comments, and its state's, with it", () =>
     Effect.gen(function* () {
       const { client } = yield* TestEnv;
       yield* pricingWithComments;
@@ -1267,14 +1211,14 @@ describe("the editor's requests on a project", () => {
         commentedPages(
           (yield* client["comments.list"]({ canvas: "" })).comments
         ),
-        [HOME, "plans.page.json", "plans@bold.page.json"]
+        [HOME, "plans.page.json", "plans@empty.page.json"]
       );
       yield* client["edit.undo"]();
       assert.deepStrictEqual(
         commentedPages(
           (yield* client["comments.list"]({ canvas: "" })).comments
         ),
-        [HOME, "pricing.page.json", "pricing@bold.page.json"]
+        [HOME, "pricing.page.json", "pricing@empty.page.json"]
       );
     })
   );
@@ -1348,7 +1292,7 @@ describe("the editor's requests on a project", () => {
   );
 
   inProject(
-    "copies a page with its variants and no comments, and moves one with both",
+    "copies a page with its states and no comments, and moves one with both",
     () =>
       Effect.gen(function* () {
         const { client } = yield* TestEnv;
@@ -1360,7 +1304,7 @@ describe("the editor's requests on a project", () => {
         });
         assert.deepStrictEqual(copied.map((p) => p.id).sort(), [
           "wireframes/pricing.page.json",
-          "wireframes/pricing@bold.page.json",
+          "wireframes/pricing@empty.page.json",
         ]);
         assert.deepStrictEqual(
           (yield* client["comments.list"]({ canvas: "wireframes" })).comments,
@@ -1378,10 +1322,10 @@ describe("the editor's requests on a project", () => {
         });
         assert.deepStrictEqual(moved.map((p) => p.id).sort(), [
           "final/pricing.page.json",
-          "final/pricing@bold.page.json",
+          "final/pricing@empty.page.json",
         ]);
         assert.strictEqual(
-          moved.find((p) => p.variant === undefined)?.route,
+          moved.find((p) => p.state === undefined)?.route,
           "/pricing"
         );
         assert.deepStrictEqual(
@@ -1394,11 +1338,11 @@ describe("the editor's requests on a project", () => {
           commentedPages(
             (yield* client["comments.list"]({ canvas: "final" })).comments
           ),
-          ["pricing.page.json", "pricing@bold.page.json"]
+          ["pricing.page.json", "pricing@empty.page.json"]
         );
         assert.deepStrictEqual(
-          (yield* client["canvas.get"]({ canvas: "final" })).variants,
-          ["bold"]
+          (yield* client["canvas.get"]({ canvas: "final" })).states,
+          ["empty"]
         );
         // One step: undo puts the pages and the comments back where they were.
         yield* client["edit.undo"]();
@@ -1408,7 +1352,7 @@ describe("the editor's requests on a project", () => {
         );
         assert.include(
           (yield* client["pages.list"]()).pages.map((p) => p.id),
-          "pricing@bold.page.json"
+          "pricing@empty.page.json"
         );
       })
   );

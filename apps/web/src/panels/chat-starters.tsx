@@ -103,22 +103,16 @@ const attachedStarters = (
     default:
       break;
   }
-  const variants: Starter = {
-    label: one ? "Make three variants of it" : "Make three variants of each",
-    prompt: one
-      ? `Make three variants of ${the}`
-      : `Make three variants of each of ${the}`,
-  };
+  // Variations are asked for from Ask an agent's Variations control (ADR 0098), not here.
   const states: Starter = {
     label: `Design ${its} empty, loading and error states`,
     prompt: `Design the empty, loading and error states of ${the}`,
   };
   if (subject === "component") {
-    return [variants, states, match];
+    return [states, match];
   }
   if (subject === "page") {
     return [
-      variants,
       states,
       match,
       ...(implementRoute
@@ -127,7 +121,6 @@ const attachedStarters = (
     ];
   }
   return [
-    variants,
     states,
     match,
     {

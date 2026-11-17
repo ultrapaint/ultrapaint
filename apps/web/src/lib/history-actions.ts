@@ -70,7 +70,6 @@ export const openPoint = async (point: HistoryPoint) => {
         canvas: editor.canvas,
         page: editor.activePage,
         route: editor.route,
-        variant: editor.variant,
       },
     }));
     await viewSnapshot(view);
@@ -82,7 +81,6 @@ export const openPoint = async (point: HistoryPoint) => {
       canvas,
       page: editor.activePage,
       route: editor.route,
-      variant: editor.variant,
     });
   } catch (error) {
     reportError(error);
@@ -102,7 +100,6 @@ export const closePoint = async () => {
     canvas,
     page: live?.page ?? null,
     route: live?.route ?? null,
-    variant: live?.variant ?? null,
   });
 };
 

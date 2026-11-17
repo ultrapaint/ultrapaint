@@ -217,19 +217,12 @@ describe("the design as the source, and its link to the code (ADR 0028–0030)",
           state: "Empty",
         });
         assert.strictEqual(empty.state, "empty");
-        assert.isUndefined(empty.variant);
         assert.isUndefined(empty.route);
         assert.strictEqual(empty.id, "home@empty.page.json");
         const layout = yield* client["canvas.get"]({ canvas: "" });
         assert.deepStrictEqual(layout.states, ["empty"]);
         const listed = yield* client["pages.list"]();
         assert.deepStrictEqual(listed.canvases[0]?.states, ["empty"]);
-        // A name the canvas uses for a variant is not a state's.
-        yield* client["pages.createVariant"]({ id: HOME, variant: "bold" });
-        const clash = yield* Effect.flip(
-          client["pages.createState"]({ id: HOME, state: "bold" })
-        );
-        assert.include(clash.message, "variant");
 
         // Deleting the state leaves the page; deleting the page takes the state along.
         yield* client["pages.delete"]({ ids: [empty.id] });

@@ -6,7 +6,7 @@ import { useEditor } from "../state/editor.ts";
 import { viewFrameOf } from "../state/frame-ref.ts";
 import { useProject } from "../state/project.ts";
 import { fakeBrowser } from "../testing/fake-browser.ts";
-import { copyNodeLink, copyNodeRef, copyPageLink } from "./node-links.ts";
+import { copyNodeLink, copyNodeRef } from "./node-links.ts";
 
 vi.mock(
   "../state/connection.ts",
@@ -26,10 +26,6 @@ const page = (path: string, extra: Partial<Page> = {}): Page => ({
 });
 
 const pricing = page("pricing.page.json", { route: "/pricing" });
-const bold = page("pricing@bold.page.json", {
-  route: "/pricing",
-  variant: "bold",
-});
 const draft = page("draft.page.json");
 
 const initialEditor = useEditor.getState();
@@ -51,8 +47,8 @@ beforeEach(() => {
   fakeBrowser.visit("/?canvas=main");
   useEditor.setState({ ...initialEditor, canvas: "main" }, true);
   useProject.setState({
-    canvases: [{ home: "/", id: "main", name: "Main", variants: ["bold"] }],
-    pages: [pricing, bold, draft],
+    canvases: [{ home: "/", id: "main", name: "Main" }],
+    pages: [pricing, draft],
   });
 });
 
@@ -70,43 +66,25 @@ describe("a node's reference", () => {
     expect(copied).toBe("draft.page.json#c_1");
   });
 
-  it("names a variant's page by its file, in its own frame or in a view of it", async () => {
-    await copyNodeRef({ frame: bold.id, nodeId: "c_1" });
-    expect(copied).toBe("pricing@bold.page.json#c_1");
-    await copyNodeRef({ frame: viewFrameOf(bold.id, "w390"), nodeId: "c_1" });
-    expect(copied).toBe("pricing@bold.page.json#c_1");
+  it("names a page in a view of it as in its own frame", async () => {
+    await copyNodeRef({ frame: viewFrameOf(draft.id, "w390"), nodeId: "c_1" });
+    expect(copied).toBe("draft.page.json#c_1");
   });
 
   it("says the canvas first when there are several", async () => {
     useProject.setState({
       canvases: [
-        { home: "/", id: "main", name: "Main", variants: ["bold"] },
-        { home: "/", id: "other", name: "Other", variants: [] },
+        { home: "/", id: "main", name: "Main" },
+        { home: "/", id: "other", name: "Other" },
       ],
     });
-    await copyNodeRef({ frame: bold.id, nodeId: "c_1" });
-    expect(copied).toBe("main:pricing@bold.page.json#c_1");
+    await copyNodeRef({ frame: draft.id, nodeId: "c_1" });
+    expect(copied).toBe("main:draft.page.json#c_1");
   });
 });
 
 describe("a link the editor copies", () => {
-  it("says the variant of a variant's page, to a node of it and to the page", async () => {
-    await copyNodeLink({ frame: bold.id, nodeId: "c_1" });
-    expect(parseEditorLink(copied)).toEqual({
-      canvas: "main",
-      nodeId: "c_1",
-      page: "/pricing",
-      variant: "bold",
-    });
-    await copyPageLink(bold);
-    expect(parseEditorLink(copied)).toEqual({
-      canvas: "main",
-      page: "/pricing",
-      variant: "bold",
-    });
-  });
-
-  it("says none for the base page", async () => {
+  it("names the page by its route, to a node of it", async () => {
     await copyNodeLink({ frame: pricing.id, nodeId: "c_1" });
     expect(parseEditorLink(copied)).toEqual({
       canvas: "main",

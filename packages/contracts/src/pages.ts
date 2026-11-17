@@ -19,8 +19,6 @@ export const Canvas = Schema.Struct({
   name: Schema.String,
   /** States its pages are drawn in, one page each (ADR 0030): `empty`, `loading`. */
   states: Schema.optional(Schema.Array(Schema.String)),
-  /** Variants its pages may be drawn in, in the order they are offered (ADR 0019). */
-  variants: Schema.Array(Schema.String),
 });
 export type Canvas = typeof Canvas.Type;
 
@@ -37,18 +35,13 @@ export const Page = Schema.Struct({
   name: Schema.String,
   /** Path inside the canvas, which is what the canvas layout is keyed by. */
   path: Schema.String,
-  /**
-   * The URL the page serves in its canvas's prototype, from the canvas's `routes`. A variant's
-   * page serves its base page's URL. Absent when the page has none.
-   */
+  /** The URL the page serves in its canvas's prototype, from the canvas's `routes`; absent for none. */
   route: Schema.optional(Schema.String),
   /**
    * The state the page is its base page in (`orders@empty.page.json`, with `empty` in the
-   * canvas's `states`, ADR 0030); a state's page has no `variant`.
+   * canvas's `states`, ADR 0030).
    */
   state: Schema.optional(Schema.String),
-  /** The variant the page is drawn for (`pricing@bold.page.json`); absent for the base. */
-  variant: Schema.optional(Schema.String),
 });
 export type Page = typeof Page.Type;
 
@@ -146,12 +139,12 @@ export const CanvasLayout = Schema.Struct({
    */
   routes: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   /**
-   * Names its pages' states go by (ADR 0030): a `@name` file of a page is that page in the state,
-   * not a prototype-wide variant.
+   * Names its pages' states go by (ADR 0030): a `@name` file of a page is that page in the state.
+   * Any other `@name` file is a page variant from before ADR 0098, which is folded into its
+   * page's variations; so is the `variants` list a layout written before then has, which reading
+   * leaves out.
    */
   states: Schema.optional(Schema.Array(Schema.String)),
-  /** Names of the variants its pages may be drawn in, in the order they are offered. */
-  variants: Schema.optional(Schema.Array(Schema.String)),
   version: Schema.Literal(1),
 });
 export type CanvasLayout = typeof CanvasLayout.Type;

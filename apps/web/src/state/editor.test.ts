@@ -28,10 +28,6 @@ const page = (
 
 const home = page("home.page.json", { route: "/" });
 const pricing = page("pricing.page.json", { route: "/pricing" });
-const boldPricing = page("pricing@bold.page.json", {
-  route: "/pricing",
-  variant: "bold",
-});
 const draft = page("draft.page.json");
 const other = page("about.page.json", { route: "/about" }, "other");
 
@@ -63,10 +59,10 @@ beforeEach(() => {
   fakeApi.respond("documents.list", () => []);
   useProject.setState({
     canvases: [
-      { home: "/", id: "main", name: "Main", variants: ["bold"] },
-      { home: "/about", id: "other", name: "Other", variants: [] },
+      { home: "/", id: "main", name: "Main" },
+      { home: "/about", id: "other", name: "Other" },
     ],
-    pages: [home, pricing, boldPricing, draft, other],
+    pages: [home, pricing, draft, other],
   });
   useEditor.setState(initial, true);
   useEditor.setState({ canvas: "main" });

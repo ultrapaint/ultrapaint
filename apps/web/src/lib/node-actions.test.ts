@@ -104,7 +104,7 @@ beforeEach(() => {
   fakeApi.reset();
   serve();
   useProject.setState({
-    canvases: [{ home: "/", id: "main", name: "Main", variants: [] }],
+    canvases: [{ home: "/", id: "main", name: "Main" }],
     info: {
       configured: true,
       storage: { mode: "managed" },

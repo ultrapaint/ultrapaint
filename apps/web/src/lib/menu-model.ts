@@ -381,8 +381,8 @@ export type PageAction =
   | { kind: "duplicate" }
   /** Ask an agent's popover on the page, set to make variations of it (ADR 0098). */
   | { kind: "variations" }
-  /** Draws the page for a variant of the canvas's, or for one asked for (`null`). */
-  | { kind: "variant"; variant: string | null }
+  /** The page as it is copied as a new variation, put in use to be edited (ADR 0098). */
+  | { kind: "newVariation" }
   /** Draws the page in a state of the canvas's, or in one asked for (`null`). */
   | { kind: "state"; state: string | null }
   /**
@@ -418,10 +418,6 @@ interface PageFacts {
   state?: string;
   /** The canvas's states the page has no drawing for yet. */
   statesFree: readonly string[];
-  /** The page's own variant; absent for a base page. */
-  variant?: string;
-  /** The canvas's variants the page has no drawing for yet. */
-  variantsFree: readonly string[];
 }
 
 /** Into another canvas, or a new one. */
@@ -434,29 +430,16 @@ const canvasTargets = (move: boolean, f: PageFacts): Entry<PageAction>[] =>
     item<PageAction>({ canvas: null, kind: "copyTo", move }, "New canvas…"),
   ]);
 
-/** Whether the page is a base page, not a variant's or a state's drawing of one. */
-const isBasePage = (f: PageFacts) =>
-  f.variant === undefined && f.state === undefined;
+/** Whether the page is a base page, not a state's drawing of one. */
+const isBasePage = (f: PageFacts) => f.state === undefined;
 
-/** A base page drawn again: for a variant of the prototype, or in a state (ADR 0030). */
+/** A base page drawn again: another way, as a variation (ADR 0098), or in a state (ADR 0030). */
 const drawingEntries = (f: PageFacts): Entry<PageAction>[] =>
   isBasePage(f)
     ? [
-        {
-          entries: tidy<PageAction>([
-            ...f.variantsFree.map((v) =>
-              item<PageAction>({ kind: "variant", variant: v }, v)
-            ),
-            f.variantsFree.length > 0 && separator,
-            item<PageAction>(
-              { kind: "variant", variant: null },
-              "New variant…"
-            ),
-          ]),
-          id: "variant",
-          kind: "submenu",
-          label: "Draw a variant",
-        },
+        item<PageAction>({ kind: "newVariation" }, "New variation", {
+          disabled: f.count > 1,
+        }),
         {
           entries: tidy<PageAction>([
             ...f.statesFree.map((v) =>
@@ -508,7 +491,7 @@ export const pageEntries = (f: PageFacts): Entry<PageAction>[] => {
   return tidy<PageAction>([
     {
       kind: "label",
-      label: `${f.name}${f.variant ? ` · ${f.variant}` : ""}${f.state ? ` · ${f.state}` : ""} · ${f.route ?? "draft"}`,
+      label: `${f.name}${f.state ? ` · ${f.state}` : ""} · ${f.route ?? "draft"}`,
     },
     item({ kind: "goTo" }, f.route ? `Go to ${f.route}` : "Go to page"),
     f.onCanvas && item({ kind: "zoomTo" }, "Zoom to page"),

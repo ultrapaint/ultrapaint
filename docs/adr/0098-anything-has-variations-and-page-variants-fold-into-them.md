@@ -143,6 +143,10 @@ file (`canvas.variations.json` beside `canvas.json`), which goes with the node.
 - A link's `variant=bold` opens its page with its variations laid out and **Bold** in the preview.
   A node reference to a variant's file (`orders@bold.page.json#c_8x2k1q`) is read the same way,
   on that node of the variation Bold.
+  - Built (stage D): an agent's tool given either is told that it names Bold, a variation of its
+    page now, and to name the page itself. The tools work on a page as its variation in use
+    draws it, so taking the reference as the page would change another variation than the one
+    it names.
 - The Routes panel lists no variants under a route.
 - The chat starter "Make three variants of it" goes: Ask an agent's Variations does it.
 - A page's **states** (ADR 0044) are not variations and stay as they are.

@@ -30,7 +30,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { IconButton } from "../components/icon-button.tsx";
-import { OptionSelect } from "../components/option-select.tsx";
 import { followLink } from "../lib/links.ts";
 import { basePageOf, editPageUrl, isDraft } from "../lib/page-actions.ts";
 import {
@@ -401,10 +400,6 @@ const reload = () => window.dispatchEvent(new CustomEvent(RELOAD_EVENT));
 const back = () => window.history.back();
 const forward = () => window.history.forward();
 
-const BASE = "";
-/** A canvas's variants before the canvas is known: one list, so the store's answer is stable. */
-const NO_VARIANTS: readonly string[] = [];
-
 /**
  * The prototype's address, as a browser's: the URL the editor holds, which can be typed over
  * and followed with Enter, Escape putting it back.
@@ -494,19 +489,13 @@ const BarDivider = () => (
 
 /**
  * The prototype's bar, at the bottom of it where the canvas has its tools: the history and a
- * restart, the address, the variant it clicks through when the canvas has variants, the device it
- * is tried on, then what can be pressed and commenting. The page it is on is picked in the left
+ * restart, the address, the device it is tried on (each page drawn as its variations in use
+ * draw it, ADR 0098), then what can be pressed and commenting. The page it is on is picked in the left
  * panel too.
  */
 const PrototypeControls = () => {
   const canvas = useEditor((s) => s.canvas);
-  const variant = useEditor((s) => s.variant);
   const commenting = useEditor((s) => s.mode === "comment");
-  const variants = useProject(
-    (s) => s.canvases.find((c) => c.id === canvas)?.variants ?? NO_VARIANTS
-  );
-  const pickVariant = (next: string) =>
-    goTo({ variant: next === BASE ? null : next });
 
   return (
     <div
@@ -540,19 +529,6 @@ const PrototypeControls = () => {
         <RotateCw />
       </IconButton>
       <AddressField />
-      {variants.length > 0 ? (
-        <div className="w-32 shrink-0 pl-1">
-          <OptionSelect
-            className="h-8 rounded-lg"
-            onChange={pickVariant}
-            options={[
-              { label: "No variant", value: BASE },
-              ...variants.map((v) => ({ label: v, value: v })),
-            ]}
-            value={variant ?? BASE}
-          />
-        </div>
-      ) : null}
       <BarDivider />
       <DeviceSwitch />
       <BarDivider />

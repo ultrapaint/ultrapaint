@@ -1,20 +1,19 @@
 /**
  * The pages service's page operations: making a page, from a template or a document made
- * elsewhere, renaming it, the URL it serves, duplicating it, drawing it for a variant and
+ * elsewhere, renaming it, the URL it serves, duplicating it, drawing it in a state and
  * deleting it. Each runs as one undo step, carries the page's comments, frame and links along,
  * and sends the editors the list it leaves.
  */
 import {
   FRAME_GAP,
   familyOf,
-  frameBottom,
   frameRight,
   placeFrame,
   placeFrameAt,
 } from "@ultrapaint/contracts/canvas-layout";
 import type { PageDocument } from "@ultrapaint/contracts/document";
 import { BadRequest, Conflict, NotFound } from "@ultrapaint/contracts/errors";
-import { emptyCanvasLayout, type Page } from "@ultrapaint/contracts/pages";
+import type { Page } from "@ultrapaint/contracts/pages";
 import {
   pageTemplates,
   renderTemplate,
@@ -24,10 +23,10 @@ import { PAGE_EXTENSION } from "@ultrapaint/design-document/tree";
 import { dirname, slugOf } from "@ultrapaint/shared/path";
 import {
   basePathOf,
-  isVariantName,
+  isSuffixName,
   normaliseRoute,
   pageNameOf,
-  variantPathOf,
+  suffixedPathOf,
 } from "@ultrapaint/shared/route";
 import { Effect } from "effect";
 import type { CommentsService } from "./comments.ts";
@@ -37,13 +36,13 @@ import type { PagesReading } from "./pages-reading.ts";
 import { copyVariationsFile } from "./variations-file.ts";
 
 /**
- * The pages deleting `asked` takes, each once, the first asked for first: a base page's variants
- * and states are drawings of it, and would be left serving nothing.
+ * The pages deleting `asked` takes, each once, the first asked for first: a base page's states
+ * are drawings of it, and would be left serving nothing.
  */
 const goingWith = (pages: readonly Page[], asked: readonly Page[]) => {
   const going = new Map<string, Page>();
   for (const page of asked) {
-    const base = page.variant === undefined && page.state === undefined;
+    const base = page.state === undefined;
     const family = base
       ? familyOf(pages, page).filter((p) => p.id !== page.id)
       : [];
@@ -59,12 +58,8 @@ const deleteLabel = (asked: readonly Page[], gone: readonly Page[]) => {
   const [first] = asked;
   const what =
     asked.length === 1 && first ? first.name : `${asked.length} pages`;
-  const drawings = [
-    gone.some((p) => p.variant !== undefined) ? "variants" : null,
-    gone.some((p) => p.state !== undefined) ? "states" : null,
-  ].filter(Boolean);
-  return drawings.length > 0
-    ? `Delete ${what} and ${asked.length === 1 ? "its" : "their"} ${drawings.join(" and ")}`
+  return gone.some((p) => p.state !== undefined)
+    ? `Delete ${what} and ${asked.length === 1 ? "its" : "their"} states`
     : `Delete ${what}`;
 };
 
@@ -74,7 +69,6 @@ export const makePageOperations = (
 ) => {
   const {
     byId,
-    canvasIn,
     checkRoute,
     contentIn,
     edit,
@@ -169,9 +163,9 @@ export const makePageOperations = (
         const all = yield* list;
         const { page } = yield* byId(id, all);
         yield* tx.name(`Rename ${page.name} to ${trimmed}`);
-        if (page.variant !== undefined || page.state !== undefined) {
+        if (page.state !== undefined) {
           return yield* new BadRequest({
-            message: `a ${page.state === undefined ? "variant" : "state"}'s page is named after its base page: rename ${pageNameOf(page.path)}`,
+            message: `a state's page is named after its base page: rename ${pageNameOf(page.path)}`,
           });
         }
         const dir = dirname(page.path);
@@ -180,18 +174,15 @@ export const makePageOperations = (
           return { page, targetPath: null };
         }
         const targetPath = yield* freePagePath(page.canvas, dir, trimmed);
-        // The page's variants and states are named after it, and go with it.
+        // The page's states are named after it, and go with it.
         const moving = familyOf(all.pages, page);
         const moves = new Map(
-          moving.map((p) => {
-            const suffix = p.variant ?? p.state;
-            return [
-              p.path,
-              suffix === undefined
-                ? targetPath
-                : variantPathOf(targetPath, suffix),
-            ];
-          })
+          moving.map((p) => [
+            p.path,
+            p.state === undefined
+              ? targetPath
+              : suffixedPathOf(targetPath, p.state),
+          ])
         );
         yield* movePages(
           tx,
@@ -270,12 +261,12 @@ export const makePageOperations = (
         const all = yield* list;
         const { page } = yield* byId(id, all);
         yield* tx.name(`Duplicate ${page.name}`);
-        // `pricing@bold` is copied as `pricing-2@bold`: the number goes to the name.
+        // `orders@empty` is copied as `orders-2@empty`: the number goes to the name.
         const copyPath = yield* freePagePath(
           page.canvas,
           dirname(page.path),
           pageNameOf(page.path),
-          page.variant ?? page.state
+          page.state
         );
         const target = yield* paths.resolve(
           path.join(root, page.canvas, copyPath)
@@ -310,80 +301,17 @@ export const makePageOperations = (
     return yield* toPage(copied.page.canvas, copied.copyPath, copied.target);
   });
 
-  const createVariant = Effect.fn("PagesService.createVariant")(function* (
-    id: string,
-    variant: string
-  ) {
-    const name = slugOf(variant);
-    if (!isVariantName(name)) {
-      return yield* new BadRequest({
-        message: `a variant is named with letters, digits and dashes: ${variant}`,
-      });
-    }
-    const drawn = yield* edit.transaction("Draw a variant", (tx) =>
-      Effect.gen(function* () {
-        const { page } = yield* byId(id, yield* list);
-        yield* tx.name(`Draw ${page.name} for ${name}`);
-        const basePath = basePathOf(page.path);
-        const variantPath = variantPathOf(basePath, name);
-        const target = yield* paths.resolve(
-          path.join(root, page.canvas, variantPath)
-        );
-        if (yield* exists(target)) {
-          return yield* new Conflict({
-            message: `${page.name} has a ${name} variant already`,
-          });
-        }
-        // Read in the action, so an edit made meanwhile is drawn again too.
-        yield* tx.create(
-          paths.relative(target),
-          yield* contentIn(tx, page.file)
-        );
-        yield* updateCanvas(tx, page.canvas, (layout) => {
-          const listed = layout.variants ?? [];
-          const frame = layout.frames[page.path] ?? layout.frames[basePath];
-          // Under the lowest frame of the page's column: a variant reads down from its base.
-          // Past everything when another page or its views are there.
-          const below = frame
-            ? Math.max(
-                ...Object.values(layout.frames)
-                  .filter((f) => f.x === frame.x)
-                  .map(frameBottom)
-              ) + FRAME_GAP
-            : 0;
-          return {
-            ...layout,
-            frames: frame
-              ? {
-                  ...layout.frames,
-                  [variantPath]: placeFrameAt(layout.frames, {
-                    ...frame,
-                    y: below,
-                  }),
-                }
-              : layout.frames,
-            variants: listed.includes(name) ? listed : [...listed, name],
-          };
-        });
-        return { page, target, variantPath };
-      })
-    );
-    yield* publishList;
-    return yield* toPage(drawn.page.canvas, drawn.variantPath, drawn.target);
-  });
-
   /**
    * The page drawn again in a state (ADR 0030): a copy of the base page in the state's file,
    * its frame to the right of the page's row (past everything when that is taken), the state
-   * listed in the canvas's `states`. A name the canvas uses for a variant is refused: a file is
-   * one or the other.
+   * listed in the canvas's `states`.
    */
   const createState = Effect.fn("PagesService.createState")(function* (
     id: string,
     state: string
   ) {
     const name = slugOf(state);
-    if (!isVariantName(name)) {
+    if (!isSuffixName(name)) {
       return yield* new BadRequest({
         message: `a state is named with letters, digits and dashes: ${state}`,
       });
@@ -393,16 +321,7 @@ export const makePageOperations = (
         const { page } = yield* byId(id, yield* list);
         yield* tx.name(`Draw ${page.name} ${name}`);
         const basePath = basePathOf(page.path);
-        const layout = yield* Effect.orElseSucceed(
-          canvasIn(tx, page.canvas),
-          () => emptyCanvasLayout()
-        );
-        if ((layout.variants ?? []).includes(name)) {
-          return yield* new Conflict({
-            message: `${name} is a variant of this canvas, not a state: name the state otherwise`,
-          });
-        }
-        const statePath = variantPathOf(basePath, name);
+        const statePath = suffixedPathOf(basePath, name);
         const target = yield* paths.resolve(
           path.join(root, page.canvas, statePath)
         );
@@ -478,7 +397,6 @@ export const makePageOperations = (
   return {
     create,
     createState,
-    createVariant,
     createWith,
     duplicate,
     remove,

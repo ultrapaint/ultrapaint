@@ -162,12 +162,8 @@ const CanvasRow = ({
   // Its pages as the Pages panel lists them: a page's variants and states are not pages.
   const count = useProject(
     (s) =>
-      s.pages.filter(
-        (p) =>
-          p.canvas === canvas.id &&
-          p.variant === undefined &&
-          p.state === undefined
-      ).length
+      s.pages.filter((p) => p.canvas === canvas.id && p.state === undefined)
+        .length
   );
   // Its ⋮ stays while its menu is open, the pointer having left the row for the menu.
   const menuOpen = useContextMenu(

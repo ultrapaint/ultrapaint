@@ -26,6 +26,7 @@ import {
   drawnIn,
   loadVariations,
   openVariations,
+  showPageVariation,
   showVariation,
   useVariations,
 } from "../state/variations.ts";
@@ -723,5 +724,51 @@ describe("one part of a variation (ADR 0098)", () => {
       await Promise.resolve();
     });
     expect(useVariations.getState().open).toBeNull();
+  });
+});
+
+describe("a link to a page variant from before ADR 0098", () => {
+  const bold: VariationSets = {
+    page: {
+      inUse: "original",
+      variations: [
+        { id: "original", name: "Original" },
+        {
+          id: "bold",
+          name: "Bold",
+          tree: {
+            children: [heading("LOUD")],
+            id: "page",
+            type: "page",
+          } as DesignNode,
+        },
+      ],
+    },
+  };
+
+  beforeEach(() => {
+    act(() => closeVariations());
+  });
+
+  it("lays its page's variations out, that one in the preview", () => {
+    act(() => fakeApi.emit("variations", { doc: HOME, sets: bold }));
+    act(() => showPageVariation(HOME, "bold"));
+    expect(useVariations.getState().open).toMatchObject({
+      doc: HOME,
+      node: "page",
+      preview: "bold",
+    });
+  });
+
+  it("waits for the page's variations to be read, as its canvas opens", async () => {
+    fakeApi.respond("variations.list", () => ({
+      documents: [{ doc: HOME, sets: bold }],
+      rounds: [],
+    }));
+    const reading = loadVariations("");
+    act(() => showPageVariation(HOME, "bold"));
+    expect(useVariations.getState().open).toBeNull();
+    await act(() => reading);
+    expect(useVariations.getState().open?.preview).toBe("bold");
   });
 });

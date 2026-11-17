@@ -1,16 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   basePathOf,
-  isVariantName,
+  isSuffixName,
   matchRoute,
   normaliseRoute,
   pageNameOf,
   pageRouteOf,
-  pagesInVariant,
   routeOf,
   routesOf,
-  variantOf,
-  variantPathOf,
+  suffixedPathOf,
+  suffixOf,
 } from "./route.ts";
 
 describe("a page's name and URL", () => {
@@ -19,13 +18,12 @@ describe("a page's name and URL", () => {
     expect(pageNameOf("index.page.json")).toBe("Home");
     expect(pageNameOf("settings/index.page.json")).toBe("Settings");
     expect(pageNameOf("invoices/[id].page.json")).toBe("Invoices id");
-    expect(pageNameOf("pricing@bold.page.json")).toBe("Pricing");
+    expect(pageNameOf("orders@empty.page.json")).toBe("Orders");
   });
 
   it("serves the URL the canvas gives it, or none", () => {
     const routes = { "pricing.page.json": "/plans" };
     expect(pageRouteOf(routes, "pricing.page.json")).toBe("/plans");
-    expect(pageRouteOf(routes, "pricing@bold.page.json")).toBe("/plans");
     expect(pageRouteOf(routes, "draft.page.json")).toBeUndefined();
   });
 
@@ -46,51 +44,32 @@ describe("a page's name and URL", () => {
   });
 });
 
-describe("variants of a page", () => {
-  it("reads the variant off the file, and serves the base's route", () => {
-    expect(variantOf("pricing@bold.page.json")).toBe("bold");
-    expect(variantOf("settings/billing@dark-2.page.json")).toBe("dark-2");
-    expect(variantOf("pricing.page.json")).toBeNull();
-    expect(routeOf("pricing@bold.page.json")).toBe("/pricing");
-    expect(routeOf("index@bold.page.json")).toBe("/");
-    expect(routeOf("invoices/[id]@bold.page.json")).toBe("/invoices/:id");
+describe("a page's `@name` file", () => {
+  it("reads the name off the file, the page's route from its base's path", () => {
+    expect(suffixOf("orders@empty.page.json")).toBe("empty");
+    expect(suffixOf("settings/billing@loading-2.page.json")).toBe("loading-2");
+    expect(suffixOf("orders.page.json")).toBeNull();
+    expect(routeOf("orders@empty.page.json")).toBe("/orders");
+    expect(routeOf("index@empty.page.json")).toBe("/");
+    expect(routeOf("invoices/[id]@empty.page.json")).toBe("/invoices/:id");
   });
 
-  it("goes between a base page's file and its variant's", () => {
-    expect(basePathOf("settings/billing@bold.page.json")).toBe(
+  it("goes between a page's file and its `@name` file", () => {
+    expect(basePathOf("settings/billing@empty.page.json")).toBe(
       "settings/billing.page.json"
     );
-    expect(variantPathOf("settings/billing.page.json", "bold")).toBe(
-      "settings/billing@bold.page.json"
+    expect(suffixedPathOf("settings/billing.page.json", "empty")).toBe(
+      "settings/billing@empty.page.json"
     );
-    expect(variantPathOf("pricing@calm.page.json", "bold")).toBe(
-      "pricing@bold.page.json"
+    expect(suffixedPathOf("orders@loading.page.json", "empty")).toBe(
+      "orders@empty.page.json"
     );
   });
 
-  it("names a variant with lowercase letters, digits and dashes", () => {
-    expect(isVariantName("bold-2")).toBe(true);
-    expect(isVariantName("Bold")).toBe(false);
-    expect(isVariantName("")).toBe(false);
-  });
-
-  it("serves the variant's page where it has one, the base's elsewhere", () => {
-    const pages = [
-      { path: "index.page.json" },
-      { path: "pricing.page.json" },
-      { path: "pricing@bold.page.json", variant: "bold" },
-      { path: "promo@bold.page.json", variant: "bold" },
-      { path: "pricing@calm.page.json", variant: "calm" },
-    ];
-    expect(pagesInVariant(pages, null).map((p) => p.path)).toEqual([
-      "index.page.json",
-      "pricing.page.json",
-    ]);
-    expect(pagesInVariant(pages, "bold").map((p) => p.path)).toEqual([
-      "index.page.json",
-      "pricing@bold.page.json",
-      "promo@bold.page.json",
-    ]);
+  it("names it with lowercase letters, digits and dashes", () => {
+    expect(isSuffixName("empty-2")).toBe(true);
+    expect(isSuffixName("Empty")).toBe(false);
+    expect(isSuffixName("")).toBe(false);
   });
 });
 

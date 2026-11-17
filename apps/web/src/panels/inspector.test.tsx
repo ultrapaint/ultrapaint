@@ -54,7 +54,7 @@ let container: HTMLElement;
 beforeEach(() => {
   fakeApi.reset();
   useProject.setState({
-    canvases: [{ home: "/", id: "main", name: "Main", variants: [] }],
+    canvases: [{ home: "/", id: "main", name: "Main" }],
     info: { configured: true, storage: { mode: "managed" } },
     pages: [
       {

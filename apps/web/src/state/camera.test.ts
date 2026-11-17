@@ -31,7 +31,7 @@ const initial = useEditor.getState();
 
 beforeEach(() => {
   useProject.setState({
-    canvases: [{ home: "/", id: "main", name: "Main", variants: [] }],
+    canvases: [{ home: "/", id: "main", name: "Main" }],
     pages: [home],
   });
   useEditor.setState(initial, true);

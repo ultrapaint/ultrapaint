@@ -12,6 +12,15 @@ import { DesignNode } from "./document.ts";
 /** The id of a set's first variation: the thing as it was before any other. */
 export const ORIGINAL_ID = "original";
 
+const MADE_ID_RE = /^v\d+$/;
+
+/**
+ * The variation a page variant from before ADR 0098 is folded into: its name (`bold`), or, for a
+ * name a variation of the page's own may have (`original`, `v2`), `variant-<name>`.
+ */
+export const pageVariantId = (name: string): string =>
+  name === ORIGINAL_ID || MADE_ID_RE.test(name) ? `variant-${name}` : name;
+
 /** A set's first variation while it is in use: its tree is the document's. */
 export const ORIGINAL = { id: ORIGINAL_ID, name: "Original" } as const;
 

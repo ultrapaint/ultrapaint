@@ -51,7 +51,7 @@ export const LinkField = ({
   const canvas = useEditor((s) => s.canvas);
   const pages = useProject((s) => s.pages);
   const own = pages.filter((p) => p.canvas === canvas);
-  const bases = own.filter((p) => p.variant === undefined);
+  const bases = own;
   const routed = bases
     .filter((p) => !isDraft(p, own))
     .sort((a, b) =>

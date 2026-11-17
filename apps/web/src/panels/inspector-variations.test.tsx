@@ -87,7 +87,7 @@ let stop: () => void = () => undefined;
 beforeEach(async () => {
   fakeApi.reset();
   useProject.setState({
-    canvases: [{ home: "/", id: "", name: "Main", variants: [] }],
+    canvases: [{ home: "/", id: "", name: "Main" }],
     info: { configured: true, storage: { mode: "managed" } },
     pages: [
       {

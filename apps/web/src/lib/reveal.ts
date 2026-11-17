@@ -160,7 +160,6 @@ const revealInFrame = async (
       canvas: page.canvas,
       page: page.id,
       route: page.route ?? null,
-      variant: page.variant ?? null,
     });
     // Another reveal or canvas was asked for while this one opened.
     if (!stillAsked(asked, page.canvas)) {

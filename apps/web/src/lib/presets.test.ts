@@ -41,7 +41,6 @@ describe("the viewport presets", () => {
       onCanvas: true,
       preset: "custom",
       statesFree: [],
-      variantsFree: [],
     });
     const submenu = entries.find(
       (e) => e.kind === "submenu" && e.id === "preset"

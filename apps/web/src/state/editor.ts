@@ -93,8 +93,8 @@ export interface Selection {
 interface EditorStore {
   /**
    * The page serving the current route, or the page without a URL the editor is on: what the
-   * prototype shows and agents are about. Where the editor is (`activePage`, `canvas`, `route`,
-   * `variant`) is written by `location.ts` alone.
+   * prototype shows and agents are about. Where the editor is (`activePage`, `canvas`, `route`)
+   * is written by `location.ts` alone.
    */
   activePage: string | null;
   /**
@@ -136,8 +136,6 @@ interface EditorStore {
   sizes: Record<string, { height: number; width: number }>;
   /** Space is held: the canvas pans whatever the current mode. */
   spacePan: boolean;
-  /** The variant the router is in: its pages serve their routes, the base's the rest. */
-  variant: string | null;
   /** Where the canvas is looked at from; `camera.ts` alone moves it. */
   view: { x: number; y: number; zoom: number };
   workspace: Workspace;
@@ -256,7 +254,6 @@ export const useEditor = create<EditorStore>((set, get) => ({
   },
   sizes: {},
   spacePan: false,
-  variant: null,
   view: { x: 80, y: 80, zoom: 0.5 },
   workspace: workspaceInUrl(),
 }));

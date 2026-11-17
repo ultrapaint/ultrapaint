@@ -134,7 +134,6 @@ describe("a new chat's starters on what is attached", () => {
     addChip(thread.id, pageChip(vibe));
     opened("saved");
     expect(starters()).toEqual([
-      "Make three variants of it",
       "Design its empty, loading and error states",
       "Match it to the design system",
       "Implement it",
@@ -155,7 +154,6 @@ describe("a new chat's starters on what is attached", () => {
     addChip(thread.id, node("b"));
     opened("saved");
     expect(starters()).toEqual([
-      "Make three variants of each",
       "Design their empty, loading and error states",
       "Match them to the design system",
       "Implement them as components",

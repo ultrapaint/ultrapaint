@@ -69,8 +69,8 @@ export const placeFrame = (
 };
 
 /**
- * A frame at the spot it asks for, by a page it is drawn from (a copy beside its page, a variant
- * under it, a state across from it), when neither it nor its views crowd a frame or view there;
+ * A frame at the spot it asks for, by a page it is drawn from (a copy beside its page, a state
+ * across from it), when neither it nor its views crowd a frame or view there;
  * else where `placeFrame` puts a new frame, past everything.
  */
 export const placeFrameAt = (
@@ -228,8 +228,7 @@ export const placeView = (
 
 /**
  * A page's family: the pages of its canvas drawn from the same base page, the base with its
- * variants and its states (ADRs 0019, 0030). They are named after the base, and move and go
- * with it.
+ * states (ADR 0030). They are named after the base, and move and go with it.
  */
 export const familyOf = <
   P extends { readonly canvas: string; readonly path: string },

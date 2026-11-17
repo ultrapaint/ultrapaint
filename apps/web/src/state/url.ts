@@ -1,7 +1,8 @@
 /**
  * The editor's own URL is where the router state lives:
- * `?canvas=marketing&route=/settings&variant=bold`, or `?page=marketing/draft.page.json` for a
- * page that serves no URL.
+ * `?canvas=marketing&route=/settings`, or `?page=marketing/draft.page.json` for a page that
+ * serves no URL. A link copied before ADR 0098 may say a page variant (`&variant=bold`), read as
+ * the page's variation to show and dropped once the editor is there.
  * A prototype can be reloaded, bookmarked and handed to someone else, and the browser's back
  * and forward buttons are the prototype's, because every navigation is a history entry.
  * The workspace rides along as `?mode=prototype`, so a reload comes back to the same one, and a
@@ -15,8 +16,6 @@ interface UrlState {
   page: string | null;
   /** Null while the editor is on a page that serves no URL. */
   route: string | null;
-  /** The variant the router serves its routes in; absent for the base. */
-  variant: string | null;
 }
 
 /** What a parameter means when it is absent, so it is left out rather than written. */
@@ -47,6 +46,8 @@ export type UrlRead = UrlState & {
   /** A node to open on, selected and in view: a link copied from its menu. */
   node: string | null;
   settings: string | null;
+  /** A page variant a link copied before ADR 0098 says: the page's variation to show. */
+  variant: string | null;
 };
 
 export const readUrl = (): UrlRead => {
@@ -123,8 +124,7 @@ export const setLinkProject = (configPath: string | undefined) => {
 /**
  * A link to a page or a node of it, as the editor's own URL: its canvas, its page's route (`/`
  * written too, so a node of the home page is not one beside the pages) or the page itself when it
- * has none (neither for a node on the canvas beside the pages), the variant when the page is a
- * variant's, whose route is its base page's, and the node, which the editor selects and brings
+ * has none (neither for a node on the canvas beside the pages), and the node, which the editor selects and brings
  * into view. A board view open is no part of it: the link leads to the page.
  * Agents take it as they take a node reference (`parseEditorLink`), inside the editor or outside;
  * the project's folder, when it is saved, lets one outside the editor reach it from anywhere.
@@ -134,7 +134,6 @@ export const linkToNode = (target: {
   page?: string | null;
   route: string | null;
   canvas: string;
-  variant?: string | undefined;
 }): string => {
   const url = new URL(window.location.href);
   const params = new URLSearchParams();
@@ -144,10 +143,6 @@ export const linkToNode = (target: {
   }
   if (target.route) {
     params.set("route", target.route);
-    // A page named by its id is the variant's own file already.
-    if (target.variant) {
-      params.set("variant", target.variant);
-    }
   } else if (!target.route && target.page) {
     params.set("page", target.page);
   }
@@ -195,7 +190,8 @@ export const writeUrl = (
     params.set("canvas", state.canvas ?? "");
     params.set("route", state.route ?? "");
     params.set("page", state.route === null ? (state.page ?? "") : "");
-    params.set("variant", state.variant ?? "");
+    // Read once, as the editor got there: not a place it stays at.
+    params.delete("variant");
     params.set("view", board?.view ?? "");
     params.set("item", board?.item ?? "");
   }, push);

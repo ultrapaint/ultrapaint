@@ -84,7 +84,7 @@ let stop: () => void = () => undefined;
 
 beforeEach(() => {
   useProject.setState({
-    canvases: [{ home: "/", id: "main", name: "Main", variants: [] }],
+    canvases: [{ home: "/", id: "main", name: "Main" }],
     pages: [HOME, ABOUT, SHOP],
   });
   useDocuments.setState({

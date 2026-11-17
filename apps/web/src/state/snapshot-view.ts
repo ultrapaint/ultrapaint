@@ -13,7 +13,6 @@ interface SnapshotViewStore {
     canvas: string | null;
     page: string | null;
     route: string | null;
-    variant: string | null;
   } | null;
   view: PointView | null;
 }

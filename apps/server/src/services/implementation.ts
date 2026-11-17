@@ -356,7 +356,7 @@ export class ImplementationService extends Context.Service<
       const pagesRead = new Map<string, PageRead>();
 
       const pageName = (page: Page) =>
-        [page.name, page.variant ?? page.state].filter(Boolean).join(" · ");
+        [page.name, page.state].filter(Boolean).join(" · ");
 
       const pageCurrent = Effect.fnUntraced(function* (
         page: Page,

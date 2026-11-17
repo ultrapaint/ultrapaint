@@ -136,8 +136,8 @@ beforeEach(async () => {
   );
   useProject.setState({
     canvases: [
-      { home: "/", id: "main", name: "Main", variants: [] },
-      { home: "/about", id: "other", name: "Other", variants: [] },
+      { home: "/", id: "main", name: "Main" },
+      { home: "/about", id: "other", name: "Other" },
     ],
     pages: [home, about],
   });

@@ -1056,10 +1056,7 @@ const PageRow = ({
       />
       {shared.renaming === key ? null : (
         <>
-          {/* The variant a page is drawn for tells it from its base page, named the same. */}
-          <CutText className="ml-1 min-w-0 flex-1 truncate font-body-small text-muted-foreground">
-            {page.variant}
-          </CutText>
+          <span className="ml-1 min-w-0 flex-1" />
           <RowMenu label={page.name} onOpen={selectThePage} target={target} />
         </>
       )}

@@ -42,7 +42,7 @@ describe("a board view in the URL", () => {
 
   it("stays while the editor catches up with its place", () => {
     writeBoard({ item: "color", view: "system" }, false);
-    writeUrl({ canvas: "main", page: null, route: "/", variant: null }, false, {
+    writeUrl({ canvas: "main", page: null, route: "/" }, false, {
       item: "color",
       view: "system",
     });
@@ -82,35 +82,14 @@ describe("a link to a page or a node", () => {
     ).toBe(false);
   });
 
-  it("says the variant of a variant's page beside its route, as the editor's own URL does", () => {
-    const link = linkToNode({
-      canvas: "main",
-      nodeId: "hero",
-      route: "/pricing",
-      variant: "bold",
-    });
-    fakeBrowser.visit(link.slice(new URL(link).origin.length));
-    expect(readUrl()).toMatchObject({
-      canvas: "main",
-      node: "hero",
-      route: "/pricing",
-      variant: "bold",
-    });
+  it("says no variant, which only a link copied before ADR 0098 does", () => {
+    const link = new URL(linkToNode({ canvas: "main", route: "/pricing" }));
+    expect(link.searchParams.has("variant")).toBe(false);
   });
 
-  it("says no variant for a base page, nor for a page named by its id", () => {
-    const base = new URL(linkToNode({ canvas: "main", route: "/pricing" }));
-    expect(base.searchParams.has("variant")).toBe(false);
-    const byId = new URL(
-      linkToNode({
-        canvas: "main",
-        page: "main/draft@bold.page.json",
-        route: null,
-        variant: "bold",
-      })
-    );
-    expect(byId.searchParams.get("page")).toBe("main/draft@bold.page.json");
-    expect(byId.searchParams.has("variant")).toBe(false);
+  it("reads such a link's variant, the page's variation to show", () => {
+    fakeBrowser.visit("/?canvas=main&route=/pricing&variant=bold");
+    expect(readUrl()).toMatchObject({ route: "/pricing", variant: "bold" });
   });
 });
 

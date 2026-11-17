@@ -38,10 +38,6 @@ const page = (
 
 const home = page("home.page.json", { route: "/" });
 const pricing = page("pricing.page.json", { route: "/pricing" });
-const boldPricing = page("pricing@bold.page.json", {
-  route: "/pricing",
-  variant: "bold",
-});
 const draft = page("draft.page.json");
 const other = page("about.page.json", { route: "/about" }, "other");
 
@@ -58,10 +54,10 @@ beforeEach(() => {
   fakeApi.respond("documents.list", () => []);
   useProject.setState({
     canvases: [
-      { home: "/", id: "main", name: "Main", variants: ["bold"] },
-      { home: "/about", id: "other", name: "Other", variants: [] },
+      { home: "/", id: "main", name: "Main" },
+      { home: "/about", id: "other", name: "Other" },
     ],
-    pages: [home, pricing, boldPricing, draft, other],
+    pages: [home, pricing, draft, other],
   });
   useEditor.setState(initial, true);
   useEditor.setState({ canvas: "main" });
@@ -226,7 +222,6 @@ describe("saving the layout", () => {
   const saved = layoutOf({
     [home.path]: desktop(0),
     [pricing.path]: desktop(0, 2000),
-    [boldPricing.path]: desktop(0, 4000),
     [draft.path]: desktop(0, 6000),
   });
   const pushed = (frames: CanvasLayout["frames"]) =>
@@ -284,7 +279,6 @@ describe("saving the layout", () => {
       {
         canvas: "main",
         frames: {
-          [boldPricing.path]: drawn[boldPricing.id],
           [draft.path]: drawn[draft.id],
           [home.path]: desktop(5000),
           [pricing.path]: drawn[pricing.id],

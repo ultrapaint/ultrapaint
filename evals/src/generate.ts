@@ -454,18 +454,12 @@ const recordAddedText = Effect.fn("recordAddedText")(function* (
 /** The page a run made: the one at `/`, else the first with a URL, and how each viewport draws it. */
 const homeOf = Effect.fn("homeOf")(function* (session: UltrapaintSession) {
   const list = yield* rpc("listing pages", session.client["pages.list"]());
-  const routed = list.pages.filter(
-    (p) => p.route !== undefined && !p.variant && !p.state
-  );
+  const routed = list.pages.filter((p) => p.route !== undefined && !p.state);
   const main = routed.find((p) => p.route === "/") ?? routed[0];
   const home = main?.route;
-  // A viewport is drawn from the variant made for it (`sign-in@mobile`) when there is one: that is
-  // how a page's phone design is kept apart in Ultrapaint.
-  const pageFor = (viewport: Viewport) =>
-    list.pages.find((p) => p.route === home && p.variant === viewport.name)
-      ?.file ??
-    home ??
-    "/";
+  // Every viewport draws the page at its width: one tree for every width (ADR 0036), its
+  // variation in use being the page (ADR 0098).
+  const pageFor = (_viewport: Viewport) => home ?? "/";
   return { home, list, main, pageFor };
 });
 
@@ -700,9 +694,7 @@ const runOnce = Effect.fn("runOnce")(function* (
       ))
     );
     const [first] = viewports;
-    const file = list.pages.find(
-      (p) => p.route === home && p.variant === first?.name
-    )?.file;
+    const file = main?.file;
     if (first && main) {
       const added = yield* recordAddedText(session, {
         brief,
@@ -736,9 +728,7 @@ const runOnce = Effect.fn("runOnce")(function* (
   yield* writeText(path.join(dir, "trace.md"), `${traceOf(items)}\n`);
   const info: RunInfo = {
     ...infoOf(options.agent, items, seconds),
-    pages: list.pages.map((p) =>
-      p.variant || p.state || !p.route ? p.file : p.route
-    ),
+    pages: list.pages.map((p) => (p.state || !p.route ? p.file : p.route)),
     problems,
   };
   yield* writeJson(path.join(dir, "run.json"), info);

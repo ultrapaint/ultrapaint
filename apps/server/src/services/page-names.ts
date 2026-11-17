@@ -4,13 +4,11 @@
  * (`designTargetNamed`): a page or a component; and what a miss of a page says
  * (`pageMissed`). Pure.
  *
- * - A URL names the base page that serves it in its canvas's prototype: not a variant's page,
- *   which serves the same URL and is named by its file, and not a state's page, which serves
- *   none (`orders@empty.page.json`, ADR 0030). Only a link the editor copies says a variant
- *   beside the URL (`variant=bold`): it names the page the router serves there, the variant's
- *   own or, when it has none, the base page.
+ * - A URL names the page that serves it in its canvas's prototype: not a state's page, which
+ *   serves none (`orders@empty.page.json`, ADR 0030).
  * - Anything else is a page's id, its file (repository-relative) or its path inside its canvas,
- *   whatever the page: a variant's and a state's included.
+ *   whatever the page: a state's included. The file of a page variant from before ADR 0098
+ *   (`pricing@bold.page.json`) names its page, whose variation it is now.
  * - Nothing names the only page there is.
  *
  * A canvas narrows the pages to its own. Without one, a name that pages of several canvases
@@ -22,7 +20,7 @@ import {
   parseEditorLink,
   parseNodeRef,
 } from "@ultrapaint/shared/node-ref";
-import { normaliseRoute } from "@ultrapaint/shared/route";
+import { basePathOf, normaliseRoute, suffixOf } from "@ultrapaint/shared/route";
 
 /** What a page needs for its name to be read. */
 export interface NamedPage {
@@ -32,7 +30,6 @@ export interface NamedPage {
   readonly path: string;
   readonly route?: string | undefined;
   readonly state?: string | undefined;
-  readonly variant?: string | undefined;
 }
 
 type PageNamed<T> =
@@ -45,32 +42,28 @@ type PageNamed<T> =
 export const pageNamed = <T extends NamedPage>(
   pages: readonly T[],
   name: string,
-  canvas?: string,
-  variant?: string
+  canvas?: string
 ): PageNamed<T> => {
   const where = name.trim();
   const route = where.startsWith("/") ? normaliseRoute(where) : null;
   const inCanvas = pages.filter(
     (p) => canvas === undefined || p.canvas === canvas
   );
-  /** Whether a page serves the URL drawn for `drawn`: a variant, or the base. */
-  const serves = (p: T, drawn: string | undefined) =>
-    p.route === route && p.variant === drawn && p.state === undefined;
+  // A page variant's file names its page (ADR 0098), which no other file does.
+  const named = (p: T, file: string) =>
+    p.id === file || p.file === file || p.path === file;
+  const byFile = (file: string) => inCanvas.filter((p) => named(p, file));
   const found = inCanvas.filter((p) => {
     if (where === "") {
       return inCanvas.length === 1;
     }
-    if (route === null) {
-      return p.id === where || p.file === where || p.path === where;
-    }
-    // In a variant, the base page serves the URL only where the variant has no page for it.
-    return (
-      serves(p, variant) ||
-      (variant !== undefined &&
-        serves(p, undefined) &&
-        !inCanvas.some((q) => q.canvas === p.canvas && serves(q, variant)))
-    );
+    return route === null
+      ? named(p, where)
+      : p.route === route && p.state === undefined;
   });
+  if (found.length === 0 && route === null && suffixOf(where) !== null) {
+    found.push(...byFile(basePathOf(where)));
+  }
   const [only] = found;
   if (only && found.length === 1) {
     return { _tag: "Found", page: only };
@@ -131,8 +124,7 @@ export const pageTargetNamed = <P extends NamedPage>(
   const found = pageNamed(
     pages,
     page,
-    canvas ?? ref?.canvas ?? link?.canvas ?? inCanvas?.[1],
-    link?.variant
+    canvas ?? ref?.canvas ?? link?.canvas ?? inCanvas?.[1]
   );
   if (found._tag !== "Found") {
     return found;
@@ -209,9 +201,7 @@ export const pageEntry = (page: {
   readonly file: string;
   readonly name: string;
   readonly route?: string | undefined;
-  readonly variant?: string | undefined;
-}) =>
-  `${page.name}${page.variant ? ` (variant ${page.variant})` : ""}, ${page.route ?? "no URL"}: ${page.file}`;
+}) => `${page.name}, ${page.route ?? "no URL"}: ${page.file}`;
 
 const quoted = (id: string) => JSON.stringify(id);
 
