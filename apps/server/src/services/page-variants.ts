@@ -20,7 +20,11 @@ import {
   type VariationSets,
   variationsFileOf,
 } from "@ultrapaint/contracts/variations";
-import { isPageFile, PAGE_EXTENSION } from "@ultrapaint/design-document/tree";
+import {
+  findNode,
+  isPageFile,
+  PAGE_EXTENSION,
+} from "@ultrapaint/design-document/tree";
 import {
   CANVAS_FILE,
   canvasIdOf,
@@ -151,13 +155,6 @@ export class PageVariants extends Context.Service<
         );
       };
 
-      /** A canvas's layout to read variants by: an empty one where it does not read. */
-      const layoutOf = (canvas: string): Effect.Effect<CanvasLayout> =>
-        Effect.map(
-          layoutRead(canvas),
-          (layout) => layout ?? emptyCanvasLayout()
-        );
-
       /** Every page variant of the designs: those beside their page, and those without one. */
       const variantFiles = Effect.gen(function* () {
         const files = yield* designFiles;
@@ -216,12 +213,16 @@ export class PageVariants extends Context.Service<
           if (suffix === null || !name.startsWith(`${stem}@`)) {
             continue;
           }
-          const canvas = yield* canvasOfFile(rel);
-          if (!isFoldedVariant(rel, files, yield* layoutOf(canvas))) {
+          const layout = yield* layoutRead(yield* canvasOfFile(rel));
+          // Its canvas's states not known, a `@name` file may be one: it is read as a page.
+          if (layout === null || !isFoldedVariant(rel, files, layout)) {
             continue;
           }
+          // Through the repository's paths: a link out of it reads as no page.
           const page = yield* variantOf(
-            fs.readFileString(path.join(root, rel))
+            Effect.flatMap(paths.resolve(path.join(root, rel)), (abs) =>
+              fs.readFileString(abs)
+            )
           );
           if (page) {
             variants.push({ file: repoFile(rel), name: suffix, root: page });
@@ -288,8 +289,9 @@ export class PageVariants extends Context.Service<
         }
         const rest = orphan ? read.slice(1) : read;
         // A variant's own variations go with it: the sets of the nodes it draws, kept by the
-        // page once it is a variation of it. One whose sets the page has already, or of its
-        // whole drawing, is left as it is: they could not be told apart.
+        // page once it is a variation of it. One with sets of its whole drawing, of a node the
+        // page draws too, or of one the page has sets of already, is left as it is: a set's
+        // choice would be read of the page's node, not of the variant's.
         const sidecarOf = (v: VariantFile) =>
           variationsFileOf(repoFile(v.file));
         const setsOf = (file: string) =>
@@ -302,7 +304,8 @@ export class PageVariants extends Context.Service<
         for (const v of rest) {
           const own = yield* setsOf(sidecarOf(v.file));
           const clash = Object.keys(own).filter(
-            (id) => id === page.id || id in merged
+            (id) =>
+              id === page.id || id in merged || findNode(page, id) !== null
           );
           if (clash.length > 0) {
             yield* log.log(

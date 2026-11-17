@@ -865,6 +865,28 @@ describe("the tools for pages", () => {
       })
   );
 
+  inAProject("reads a state's own page by its name in its canvas", () =>
+    Effect.gen(function* () {
+      const { id } = yield* tool("create_canvas", { name: "Marketing" });
+      const home = yield* tool("create_page", {
+        canvas: id,
+        name: "Home",
+        route: "/home",
+      });
+      yield* Effect.flatMap(OpenProject, (project) =>
+        project.use(
+          Effect.flatMap(PagesService, (p) =>
+            p.createState(home.file.slice("designs/".length), "empty")
+          )
+        )
+      );
+      const { file } = yield* tool("read_page", {
+        route: `${id}:home@empty.page.json`,
+      });
+      assert.strictEqual(file, `designs/${id}/home@empty.page.json`);
+    })
+  );
+
   inAProject("asks which canvas rather than guess, when a URL is in two", () =>
     Effect.gen(function* () {
       const { id } = yield* tool("create_canvas", { name: "Marketing" });

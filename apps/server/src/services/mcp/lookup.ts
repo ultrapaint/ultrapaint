@@ -10,7 +10,7 @@ import { suffixOf } from "@ultrapaint/shared/route";
 import { Effect } from "effect";
 import { OpenProject } from "../../project.ts";
 import { DocumentService } from "../documents.ts";
-import { pageMissed, pageTargetNamed } from "../page-names.ts";
+import { IN_CANVAS_RE, pageMissed, pageTargetNamed } from "../page-names.ts";
 import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { VariationRounds } from "../variation-rounds.ts";
@@ -144,9 +144,13 @@ export const makeLookup = Effect.gen(function* () {
   ) {
     const link = parseEditorLink(named);
     const ref = link ? null : parseNodeRef(named);
-    // The file a link (`page=`) or a reference names, and the canvas it is in, when it says one.
-    const file = link ? link.page : (ref?.page ?? named.trim());
-    const scope = canvas ?? link?.canvas ?? ref?.canvas;
+    const inCanvas = link || ref ? null : IN_CANVAS_RE.exec(named.trim());
+    // The file a link (`page=`) or a reference names, and the canvas it is in, when it says one
+    // (`marketing:home@empty.page.json`).
+    const file = link
+      ? link.page
+      : (ref?.page ?? inCanvas?.[2] ?? named.trim());
+    const scope = canvas ?? link?.canvas ?? ref?.canvas ?? inCanvas?.[1];
     const suffix = file === null ? null : suffixOf(file);
     let variant = link?.variant ?? null;
     if (variant === null && file !== null && suffix !== null) {

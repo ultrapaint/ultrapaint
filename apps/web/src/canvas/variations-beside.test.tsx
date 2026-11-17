@@ -784,4 +784,17 @@ describe("a link to a page variant from before ADR 0098", () => {
     await act(() => reading);
     expect(useVariations.getState().open).toBeNull();
   });
+
+  it("is let go though the person came back to its page before it was read", async () => {
+    fakeApi.respond("variations.list", () => ({
+      documents: [{ doc: HOME, sets: bold }],
+      rounds: [],
+    }));
+    const reading = loadVariations("");
+    act(() => showPageVariation(HOME, "bold"));
+    useEditor.setState({ activePage: "other.page.json" });
+    useEditor.setState({ activePage: HOME });
+    await act(() => reading);
+    expect(useVariations.getState().open).toBeNull();
+  });
 });
