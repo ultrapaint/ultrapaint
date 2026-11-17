@@ -371,7 +371,16 @@ pnpm evals variety <name>-<fix>
 ```
 
 `pairwise` judges a brief with no capture with `prompts/pairwise-fresh.md`: the two designs and
-the brief, with fit to the brief as a level of its own and no look counted as the right one.
+the brief, with fit to the brief judged too and no look counted as the right one. Beside the eight
+levels of the look, every pairwise verdict gives a side at use: whether the person can do what the
+screen is for, the main action found at once, a way back or out, each state the brief names drawn
+(ADR 0101).
+
+A fresh brief can be a short flow: its `reference.json` lists `screens`, in order, each a `name`
+and `what` it shows (`{"name": "bank-connected", "what": "step 3, one account connected"}`). The
+agent is told to show each at `?screen=<name>`, the first at the bare address too, and each is
+photographed: the first as any run's (`desktop-fold.jpg`), a later one by its place and name
+(`desktop@3-bank-connected-fold.jpg`), so the judge sees the flow whole.
 `variety` gives each brief run twice or more to one model with the runs' first screens, which
 rates how alike they are, 1 (unrelated pages) to 5 (the same page with other words), and what
 they share (`runs/<round>/variety.json`): a skill that gives every product one page wins pairs

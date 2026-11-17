@@ -28,15 +28,17 @@ import {
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { Browser } from "./browser.ts";
-import { foldName, tileName } from "./capture.ts";
+import { foldName, screenShotName, tileName } from "./capture.ts";
 import { EvalsConfig } from "./config.ts";
 import { EvalsError } from "./errors.ts";
 import { commitOf, RoundInfo, type RunInfo } from "./generate.ts";
 import { prompt, readJson, writeJson, writeText } from "./layout.ts";
 import { recordSkillTree, versionName, writeSkillTree } from "./recall.ts";
 import {
+  describeScreens,
   describeViewports,
   type LoadedReference,
+  screenQuery,
   viewportsOf,
 } from "./reference.ts";
 
@@ -454,15 +456,24 @@ const photograph = Effect.fn("photograph")(function* (
     Effect.mapError(failed("the app did not say where it is served"))
   );
   yield* fs.makeDirectory(dir, { recursive: true });
+  // The bare address shows the first screen; a flow's later ones are at their own (ADR 0101).
+  const later = (reference.screens ?? []).slice(1).map((s, i) => ({
+    at: `${url}${screenQuery(s.name)}`,
+    name: (viewport: string) => screenShotName(viewport, i + 1, s.name),
+  }));
+  const shots = [{ at: url, name: (viewport: string) => viewport }, ...later];
   for (const viewport of viewportsOf(reference)) {
-    const capture = yield* browser.capture(url, viewport, {
-      hide: [],
-      waitMs: 1500,
-    });
-    yield* fs.writeFile(path.join(dir, foldName(viewport.name)), capture.fold);
-    yield* Effect.forEach(capture.tiles, (tile, index) =>
-      fs.writeFile(path.join(dir, tileName(viewport.name, index)), tile)
-    );
+    for (const shot of shots) {
+      const capture = yield* browser.capture(shot.at, viewport, {
+        hide: [],
+        waitMs: 1500,
+      });
+      const name = shot.name(viewport.name);
+      yield* fs.writeFile(path.join(dir, foldName(name)), capture.fold);
+      yield* Effect.forEach(capture.tiles, (tile, index) =>
+        fs.writeFile(path.join(dir, tileName(name, index)), tile)
+      );
+    }
   }
 });
 
@@ -550,6 +561,7 @@ const runOnce = Effect.fn("runOnce")(function* (
     prompt: yield* prompt("generate-outside", {
       brief: brief.trim(),
       entry: host.entry,
+      screens: describeScreens(reference),
       viewports: describeViewports(viewportsOf(reference)),
     }),
   });

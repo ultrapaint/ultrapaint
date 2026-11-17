@@ -52,6 +52,21 @@ export const Reference = Schema.Struct({
   /** landing, dashboard, app, settings, form…: what kind of screen it is, for the report. */
   kind: Schema.String,
   name: Schema.String,
+  /**
+   * The screens of a fresh brief that is a short flow, in their order (ADR 0101): the agent shows
+   * each at `?screen=<name>`, the first at the bare address too, and each is photographed there,
+   * so the judges see the whole flow and not its first screen alone.
+   */
+  screens: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        /** A word for the address: `account`, `bank-connected`. */
+        name: Schema.String,
+        /** The screen and the state it is drawn in, as the brief says it. */
+        what: Schema.String,
+      })
+    )
+  ),
   /** Where it was found: the shot's page, for a person to look at. */
   source: Schema.optional(Schema.String),
   /** The site, for a reference `capture` takes from the web. */
@@ -83,6 +98,26 @@ export const viewportsOf = (reference: Reference): readonly Viewport[] =>
       reference.viewports === undefined ||
       reference.viewports.some((name) => name === v.name)
   );
+
+/** The address a flow's screen is shown at, from the app's root: `?screen=bank-connected`. */
+export const screenQuery = (name: string) =>
+  `?screen=${encodeURIComponent(name)}`;
+
+/**
+ * What the agent is told of a flow's screens, after its brief: where each is shown, for its
+ * pictures. Nothing for a brief of one screen, whose prompt stays as it was.
+ */
+export const describeScreens = (reference: Reference) =>
+  reference.screens === undefined || reference.screens.length === 0
+    ? ""
+    : [
+        "",
+        "",
+        `It is ${reference.screens.length} screens. Show each in the state named here at its own address, the first at the bare address too, so each can be opened alone; moving through the flow still works:`,
+        ...reference.screens.map(
+          (s) => `- \`${screenQuery(s.name)}\`: ${s.what}`
+        ),
+      ].join("\n");
 
 /** "a desktop window 1440 wide and a phone 390 wide", for the prompts. */
 export const describeViewports = (viewports: readonly Viewport[]) =>
