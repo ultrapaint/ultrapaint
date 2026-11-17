@@ -681,7 +681,8 @@ describe("one part of a variation (ADR 0098)", () => {
     doubleClickIn("Editorial", ["hero", "kicker"]);
     click(arrow());
     press("enter");
-    // A second Use this while the first is saved saves nothing more.
+    // A second Use this while the first is saved saves nothing more, the part let go meanwhile.
+    press("escape");
     press("enter");
     await act(() => fakeApi.requested("variations.useTree"));
     expect(
@@ -694,5 +695,10 @@ describe("one part of a variation (ADR 0098)", () => {
       name: "Original with Editorial's paragraph",
       node: "hero",
     });
+    // Saved, the variations close, the part let go before it made no difference.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(useVariations.getState().open).toBeNull();
   });
 });

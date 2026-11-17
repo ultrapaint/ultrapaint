@@ -69,6 +69,8 @@ export interface OpenVariations {
   readonly preview: string | null;
   /** What was selected when they opened, the lead and the others, given back when they close. */
   readonly selected: readonly Selection[];
+  /** Which opening of the variations this is: a part selected or let go is the same one. */
+  readonly session: number;
 }
 
 /** A part of one of the thing's variations: the variation, and the part's node id. */
@@ -258,6 +260,7 @@ export const openVariations = (thing: Thing, preview?: string) => {
   }
   const { also, selection } = useEditor.getState();
   beforeClick = null;
+  sessions += 1;
   select(null);
   useVariations.setState({
     open: {
@@ -268,9 +271,23 @@ export const openVariations = (thing: Thing, preview?: string) => {
       parts: [],
       preview: preview ?? set.inUse,
       selected: selection ? [selection, ...also] : [],
+      session: sessions,
     },
   });
 };
+
+/** The variations opened so far: each opening's own number. */
+let sessions = 0;
+
+/**
+ * Whether the variations open now show the preview `was` showed: the same opening, the same
+ * variation and parts in it, whatever part is selected meanwhile.
+ */
+const samePreview = (was: OpenVariations, now: OpenVariations | null) =>
+  now !== null &&
+  now.session === was.session &&
+  now.preview === was.preview &&
+  now.mix === was.mix;
 
 /** Shows a variation in the preview (null: the thing as it is drawn); nothing is written. */
 export const showVariation = (variation: string | null) =>
@@ -519,7 +536,7 @@ export const putPreviewInUse = (): Promise<void> => {
   if (open === null) {
     return Promise.resolve();
   }
-  if (putting?.open !== open) {
+  if (!(putting && samePreview(putting.open, open))) {
     const saving = {
       open,
       saved: putPreviewOnce().finally(() => {
@@ -549,7 +566,7 @@ const putPreviewOnce = async () => {
         tree: open.mix,
       })
     );
-    if (useVariations.getState().open !== open) {
+    if (!samePreview(open, useVariations.getState().open)) {
       return;
     }
   } else if (previewDiffers(state) && open.preview !== null) {
@@ -561,7 +578,7 @@ const putPreviewOnce = async () => {
       })
     );
     // Closed and opened again while it was on its way: those are left as they are.
-    if (useVariations.getState().open !== open) {
+    if (!samePreview(open, useVariations.getState().open)) {
       return;
     }
   }
