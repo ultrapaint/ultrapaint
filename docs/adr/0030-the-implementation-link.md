@@ -80,7 +80,7 @@ code; it runs in a design thread, since it writes nothing but the link.
 ## Consequences
 
 - The Pages panel shows each page's status; the inspector shows the binding, what changed, and
-  marks a page ready or implemented.
+  marks a page ready or implemented (the Code tab since 0102).
 - Deleting, renaming or moving a page to another canvas moves its binding and snapshot with it.
 - The tool budget of 0022 holds: `handoff` fits because descriptions elsewhere were cut, and its
   `export`/`import` (with a `tokens` parameter) fit by cutting more: 15,921 characters of 16,000.

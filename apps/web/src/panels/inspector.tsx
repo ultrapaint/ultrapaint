@@ -15,11 +15,10 @@ import type {
   ImageNode,
   InstanceNode,
 } from "@ultrapaint/contracts/document";
-import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
+import type { ViewportPreset } from "@ultrapaint/contracts/pages";
 import { nodeKind, nodeLabel } from "@ultrapaint/design-document/tree";
 import {
   BoxSelect,
-  Code,
   Columns3,
   Copy,
   Eye,
@@ -33,7 +32,7 @@ import {
   Upload,
 } from "lucide-react";
 import type * as React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -58,13 +57,7 @@ import {
 } from "../lib/node-actions.ts";
 import { TOKEN_FIELDS } from "../lib/node-fields.ts";
 import { copyNodeRef } from "../lib/node-links.ts";
-import {
-  DRAFT_HINT,
-  editPageUrl,
-  implementPage,
-  markImplemented,
-  setPageReady,
-} from "../lib/page-actions.ts";
+import { DRAFT_HINT, editPageUrl } from "../lib/page-actions.ts";
 import { presetOf, viewportPresets } from "../lib/presets.ts";
 import { MIXED, sharedValue, shownAs } from "../lib/shared-value.ts";
 import { withSides } from "../lib/sides.ts";
@@ -72,12 +65,6 @@ import { useCanvasPicks } from "../state/canvas-picks.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf, hasPrototypeLinks } from "../state/frame-ref.ts";
-import {
-  exportTokens,
-  statusLabel,
-  tokensWaiting,
-  useImplementation,
-} from "../state/implementation.ts";
 import { setPreset } from "../state/page-layout.ts";
 import { showLeftPanel, usePanels } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
@@ -404,149 +391,38 @@ const PageSection = ({ frame }: { frame: string }) => {
     return null;
   }
   return (
-    <>
-      <Section title="Page">
-        <Row label="Route">
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <button
-                  className={cn(
-                    "h-7 min-w-0 flex-1 truncate rounded-md bg-muted px-2 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25",
-                    page.route === undefined
-                      ? "font-body text-muted-foreground"
-                      : "font-code"
-                  )}
-                  onClick={() => editPageUrl(page)}
-                  type="button"
-                />
-              }
-            >
-              {page.route ?? "None: a draft"}
-            </TooltipTrigger>
-            <TooltipContent className="max-w-64">
-              {page.route === undefined ? DRAFT_HINT : "Change the route"}
-            </TooltipContent>
-          </Tooltip>
-        </Row>
-        <Row label="Viewport">
-          <OptionSelect
-            onChange={(v) => setPreset(frame, v as ViewportPreset)}
-            options={viewportPresets}
-            value={presetOf(layout)}
-          />
-        </Row>
-        <ViewsRow pageId={frame} />
-      </Section>
-      <CodeLink page={page} />
-    </>
-  );
-};
-
-/**
- * The tokens a design uses whose value has not reached the code (ADR 0028), and a way to bring
- * them over; what changed on both sides is left for the Sync view.
- */
-const TokensWaiting = ({ tokens }: { tokens: readonly string[] }) => (
-  <div className="flex items-start gap-2">
-    <p className="min-w-0 flex-1 font-body-small text-muted-foreground">
-      {tokens.length === 1 ? "A token" : `${tokens.length} tokens`} it uses wait
-      {tokens.length === 1 ? "s" : ""} for the code:{" "}
-      <span className="font-code text-foreground">{tokens.join(", ")}</span>
-    </p>
-    <Button
-      className="shrink-0"
-      onClick={() => exportTokens(tokens)}
-      size="sm"
-      variant="outline"
-    >
-      Export
-    </Button>
-  </div>
-);
-
-/**
- * Where the page stands with the code that implements it (ADR 0030): the files, whether the
- * design or the code changed since, what changed in the design, and the way to implement it.
- */
-const CodeLink = ({ page }: { page: Page }) => {
-  const item = useImplementation((s) => s.byTarget[page.id]);
-  const designChanged = item?.designChanged ?? false;
-  // What changed is read for the page and the status it has now; an answer for another is not shown.
-  const key = `${page.id}:${item?.at ?? 0}:${designChanged}`;
-  const [read, setRead] = useState<{ key: string; text: string } | null>(null);
-  useEffect(() => {
-    if (!designChanged) {
-      return;
-    }
-    api()
-      .request("implementation.changes", { target: page.id })
-      .then((c) => setRead({ key, text: c.text }))
-      .catch(() => undefined);
-  }, [page.id, designChanged, key]);
-  const changes = designChanged && read?.key === key ? read.text : null;
-  const bound = item?.status === "implemented" || item?.status === "changed";
-  const draft = item?.status === "draft" || item === undefined;
-  const behind = item?.status === "changed" || tokensWaiting(item);
-  return (
-    <Section title="Code">
-      <Row label="Status">
-        <span className="flex min-w-0 items-center gap-1.5 font-body">
-          {behind ? (
-            <span className="size-1.5 shrink-0 rounded-full bg-warning" />
-          ) : null}
-          <CutText className={cn("truncate", draft && "text-muted-foreground")}>
-            {item && item.status !== "draft"
-              ? statusLabel(item)
-              : "Not implemented"}
-          </CutText>
-        </span>
-      </Row>
-      {bound && item ? (
-        <Row label="Files">
-          <CutText className="truncate font-code text-muted-foreground">
-            {item.files.join(", ")}
-          </CutText>
-        </Row>
-      ) : null}
-      {item?.tokens ? <TokensWaiting tokens={item.tokens} /> : null}
-      {changes ? (
-        <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-2 font-code text-muted-foreground">
-          {changes}
-        </pre>
-      ) : null}
-      <div className="flex flex-col gap-1 pt-1">
-        <Button
-          className="w-full"
-          onClick={() => implementPage(page)}
-          variant="outline"
-        >
-          <Code />
-          {item?.status === "changed" && item.designChanged
-            ? "Implement what changed"
-            : "Implement"}
-        </Button>
-        <div className="flex gap-1">
-          {draft ? (
-            <Button
-              className="flex-1"
-              onClick={() => setPageReady(page, true)}
-              size="sm"
-              variant="ghost"
-            >
-              Mark ready
-            </Button>
-          ) : null}
-          <Button
-            className="flex-1"
-            onClick={() => markImplemented(page.id, page.name, item?.files)}
-            size="sm"
-            variant="ghost"
+    <Section title="Page">
+      <Row label="Route">
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                className={cn(
+                  "h-7 min-w-0 flex-1 truncate rounded-md bg-muted px-2 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25",
+                  page.route === undefined
+                    ? "font-body text-muted-foreground"
+                    : "font-code"
+                )}
+                onClick={() => editPageUrl(page)}
+                type="button"
+              />
+            }
           >
-            {bound ? "Mark implemented again…" : "Mark implemented…"}
-          </Button>
-        </div>
-      </div>
+            {page.route ?? "None: a draft"}
+          </TooltipTrigger>
+          <TooltipContent className="max-w-64">
+            {page.route === undefined ? DRAFT_HINT : "Change the route"}
+          </TooltipContent>
+        </Tooltip>
+      </Row>
+      <Row label="Viewport">
+        <OptionSelect
+          onChange={(v) => setPreset(frame, v as ViewportPreset)}
+          options={viewportPresets}
+          value={presetOf(layout)}
+        />
+      </Row>
+      <ViewsRow pageId={frame} />
     </Section>
   );
 };
