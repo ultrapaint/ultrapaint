@@ -125,3 +125,8 @@ A behaviour that crosses no wire is not tested over the socket.
 
 A slow test is run less, and a test run less hides more. A module test runs in milliseconds; a
 test over the socket in tens. A test that takes over a second says why in its name or a comment.
+
+`pnpm test` runs the server's and the web's suites at once, each on half the machine's cores
+(`--maxWorkers=50%` in their `test` scripts): together they fit it, and a test's time is its own
+work, not the queue for a core. A test that starts real processes (an agent, `git`) starts as
+few as what it proves needs, as each one is the slowest part of it on a loaded machine.
