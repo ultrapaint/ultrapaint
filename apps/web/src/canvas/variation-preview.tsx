@@ -24,6 +24,13 @@ import {
 } from "../state/variations.ts";
 import { screenPx, useExactInv } from "./camera.ts";
 
+/**
+ * How the canvas stacks while a thing's variations are open (ADR 0098): a scrim over every frame,
+ * a comment card's included (`CARD_LIFT`, 40), fading the rest of the canvas back; the variations
+ * over it; and the thing's page over them, so its preview's controls are never covered.
+ */
+export const CHOOSING_LIFT = { page: 52, scrim: 50, variations: 51 } as const;
+
 /** Where the open thing is in a frame: its rect, or the whole frame for the frame's own node. */
 const useThingRect = (
   frameId: string,

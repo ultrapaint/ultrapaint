@@ -349,6 +349,105 @@ describe("a thing's variations laid out beside its page", () => {
   });
 });
 
+describe("the rest of the canvas while they are open (ADR 0098)", () => {
+  const scrim = () =>
+    document.querySelector("[data-variations-scrim]") as HTMLElement | null;
+  const pressOn = (el: Element | null) =>
+    act(() => {
+      el?.dispatchEvent(
+        new PointerEvent("pointerdown", { bubbles: true, button: 0 })
+      );
+    });
+
+  it("fades back under the variations, which lie over it", () => {
+    show();
+    const lift = (el: Element | null | undefined) =>
+      Number((el as HTMLElement | null)?.style.zIndex);
+    const variations =
+      document.querySelector("[data-variation]")?.parentElement;
+    expect(lift(variations)).toBeGreaterThan(lift(scrim()));
+  });
+
+  it("closes them on a press, keeping the one in use and selecting nothing under it", () => {
+    show();
+    click(document.querySelector('[aria-label="Show Loud"]'));
+    pressOn(scrim());
+    expect(useVariations.getState().open).toBeNull();
+    expect(scrim()).toBeNull();
+    expect(useEditor.getState().selection).toBeNull();
+    expect(fakeApi.calls.filter((c) => c.method === "variations.use")).toEqual(
+      []
+    );
+  });
+
+  it("pans while Space is held, the variations kept open", () => {
+    show();
+    act(() => useEditor.setState({ spacePan: true }));
+    pressOn(scrim());
+    expect(useVariations.getState().open).not.toBeNull();
+  });
+});
+
+describe("a whole page's variations (ADR 0098)", () => {
+  beforeEach(async () => {
+    fakeApi.respond("variations.list", () => ({
+      documents: [
+        {
+          doc: HOME,
+          sets: {
+            page: {
+              inUse: "original",
+              variations: [
+                { id: "original", name: "Original" },
+                {
+                  id: "bold",
+                  name: "Bold",
+                  tree: { children: [], id: "page", type: "page" },
+                },
+                {
+                  id: "calm",
+                  name: "Calm",
+                  tree: { children: [], id: "page", type: "page" },
+                },
+              ],
+            },
+          } as VariationSets,
+        },
+      ],
+      rounds: [],
+    }));
+    act(() => closeVariations());
+    await loadVariations("");
+    act(() => openVariations({ frame: HOME, nodeId: "page" }));
+  });
+
+  it("draws each filling its box, as its page fills its frame", () => {
+    show();
+    const surface = document.querySelector(
+      // The page is drawn in the variation's second child, under its name.
+      '[data-variation="bold"] > :nth-child(2)'
+    ) as HTMLElement | null;
+    expect([surface?.style.width, surface?.style.height]).toEqual([
+      "1440px",
+      "900px",
+    ]);
+  });
+
+  it("leaves room under a row for the names over the next, at the zoom that fits them", () => {
+    show();
+    const at = [...document.querySelectorAll("[data-variation]")].map((el) => {
+      const { left, top } = (el as HTMLElement).style;
+      return [Number.parseFloat(left), Number.parseFloat(top)];
+    });
+    // An eighth of the page's 1440 px under the first row's 900 px.
+    expect(at).toEqual([
+      [1520, 0],
+      [3040, 0],
+      [1520, 1080],
+    ]);
+  });
+});
+
 describe("an agent's takes on the thing (ADR 0098)", () => {
   const round = (
     takes: { state: "working" | "handedIn" | "failed"; variation?: string }[],

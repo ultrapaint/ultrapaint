@@ -720,9 +720,19 @@ export const BESIDE_GAP = 80;
 const BESIDE_COLUMNS = 2;
 
 /**
+ * The room between two rows of variations: the name over a row is `28px` on screen at any zoom,
+ * and the camera fits the page and its variations, which zooms out by about the thing's larger
+ * side; an eighth of it holds the name in a window down to about `750px`.
+ */
+const rowGap = (thing: Box) =>
+  Math.max(BESIDE_GAP, Math.max(thing.width, thing.height) / 8);
+
+/**
  * Where a thing's variations are laid out beside its page: two to a row past the page's right
  * edge, the first row level with the thing, each as wide as the thing and as tall as it is drawn
- * (the thing's height until it is measured), a row below the tallest of the one above.
+ * (the thing's height until it is measured), a row below the tallest of the one above, by as much
+ * as its names need (`rowGap`). They may lie over a neighbouring page: the rest of the canvas
+ * fades back under them while they are open.
  */
 export const besideBoxes = (
   page: Box,
@@ -746,7 +756,7 @@ export const besideBoxes = (
         y,
       };
     });
-    y += Math.max(...row.map((id) => boxes[id]?.height ?? 0)) + BESIDE_GAP;
+    y += Math.max(...row.map((id) => boxes[id]?.height ?? 0)) + rowGap(thing);
   }
   return boxes;
 };

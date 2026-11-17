@@ -56,7 +56,7 @@ import { pageRequest } from "./page-request.ts";
 import { usePreview } from "./preview-module.ts";
 import { SelectionChrome } from "./selection-chrome.tsx";
 import { useFramePointer } from "./use-frame-pointer.ts";
-import { VariationPreviewChrome } from "./variation-preview.tsx";
+import { CHOOSING_LIFT, VariationPreviewChrome } from "./variation-preview.tsx";
 
 /**
  * Writes an inline text edit from the preview back into the document, at the breakpoint of the
@@ -265,7 +265,11 @@ export const Frame = memo(
           left: frame.x,
           top: frame.y,
           width: frame.width,
-          zIndex: liftOf(liftedForCard, holdsSelection, isNode),
+          // The thing whose variations are open keeps its page over the scrim (ADR 0098).
+          zIndex:
+            openNode === null
+              ? liftOf(liftedForCard, holdsSelection, isNode)
+              : CHOOSING_LIFT.page,
         }}
       >
         <FrameChrome

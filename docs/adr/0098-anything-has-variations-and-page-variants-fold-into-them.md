@@ -69,6 +69,13 @@ used. Once the one in use is deleted none is, the thing staying as it is drawn (
   - Each variation is drawn straight on the canvas background, with no card or container around
     it, with its name and what it varied above it. Original comes first, marked In use.
   - The camera fits the page and its variations.
+  - Two rows are an eighth of the thing's larger side apart, and at least `80px`, so the names
+    over a row hold at the zoom that fits them.
+  - **The rest of the canvas fades back** under a scrim in the canvas's own colour (the board's
+    on a board), with the thing's page and its variations over it. The variations may then lie
+    over a neighbouring page, which is out of the choice: nothing on the canvas moves for them.
+    A press on the faded canvas closes them, keeping the one in use, as Escape does, and selects
+    nothing under it. The canvas still pans and zooms.
   - The right panel stays closed until something is selected.
 - The thing in its page is the **preview** (the variation preview; the editor's Preview, which
   draws frames, is another thing).
@@ -163,8 +170,16 @@ file (`canvas.variations.json` beside `canvas.json`), which goes with the node.
   rewritten within the MCP budget.
 - A canvas can no longer be clicked through as a whole other version. Its pages' variations in
   use are what the prototype shows.
-- Choosing adds no view, no mode and no bar: the canvas draws the variations beside their page,
-  and the preview carries its own controls.
+- Choosing adds no view and no bar: the canvas draws the variations beside their page, fades
+  the rest back while they are open, and the preview carries its own controls.
+- Laid out beside the page, the variations covered the page right of it on a crowded canvas
+  (the Redesign canvas), and a press between them selected that page (found proving stage B).
+  Three ways were weighed on 17 Nov: moving the neighbours aside while they are open, which moves
+  pages the person placed; the first free room past the neighbours or under the page, which can
+  put them far from their thing; and a layer over the canvas. The layer was chosen and kept on
+  the canvas, beside the page: choosing is already a mode that selecting closes, a mode's way out
+  is a press outside it, and it holds on any canvas. The scrim takes the canvas's colour rather
+  than a dialog's dark one, so the variations are still drawn on its ground.
 - A variation drawn out of its page needs what its look depends on (its parent's layout, its
   theme). Building it measures this first.
   - Measured on 17 Nov, on the Redesign canvas's 148 parts two to four levels down:

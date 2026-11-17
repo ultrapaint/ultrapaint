@@ -3,7 +3,9 @@
  * straight on the canvas background, with no card around it, its name and what it varied over
  * it, the one in use marked. A click shows it in the preview, the thing in its page. Opening them
  * fits the camera to the page and its variations. After them, an agent's takes still coming are
- * placeholders in its colour, and those that failed red boxes with Try again.
+ * placeholders in its colour, and those that failed red boxes with Try again. The rest of the
+ * canvas fades back under them, so they may lie over a neighbouring page, and a press on it
+ * closes them.
  */
 import type { Box } from "@ultrapaint/contracts/canvas-layout";
 import { componentOfDoc } from "@ultrapaint/contracts/components";
@@ -46,6 +48,7 @@ import {
   clickUndone,
   clickVariation,
   closeOnSelecting,
+  closeVariations,
   type OpenVariations,
   openSet,
   partInPreview,
@@ -59,10 +62,12 @@ import {
   variationFrameOf,
 } from "../state/variations.ts";
 import { screenPx, UNZOOM } from "./camera.ts";
+import { pansAnywhere } from "./canvas-ground.tsx";
 import { frameOf, useFrameDrawing } from "./editor-frame.ts";
 import { FrameHeader, HEADER_NAME } from "./frame.tsx";
 import { pageRequest } from "./page-request.ts";
 import { PreviewSurface } from "./preview-surface.tsx";
+import { CHOOSING_LIFT } from "./variation-preview.tsx";
 
 /** The heights its variations were drawn at, by variation, from those told by frame. */
 const heightsOf = (
@@ -191,9 +196,14 @@ const VariationFrame = memo(
         </FrameHeader>
         <PreviewSurface
           canvas={canvas}
-          className="absolute top-0 left-0 w-max"
+          // A page fills the box it is drawn in, as its frame does; a part is as big as it draws.
+          className={cn(
+            "absolute top-0 left-0",
+            page ? "overflow-hidden" : "w-max"
+          )}
           frameId={frameId}
           listeners={listeners}
+          style={page ? { height: box.height, width: box.width } : undefined}
           title={variation.name}
         />
         <button
@@ -391,6 +401,39 @@ const TakeBox = ({
   </div>
 );
 
+/** How far the scrim reaches each way from the canvas's origin: past any canvas, at any zoom. */
+const SCRIM_REACH = 1_000_000;
+
+/**
+ * The rest of the canvas while a thing's variations are open (ADR 0098): faded back under the
+ * canvas's own colour, so the variations are drawn on its ground wherever they lie, a neighbouring
+ * page included. A press on it closes them, the one in use kept, as Escape does, and selects
+ * nothing under it; it pans as the canvas does.
+ */
+const Scrim = ({ board }: { board: boolean }) => (
+  <div
+    aria-hidden
+    className={cn(
+      "fade-in-0 absolute animate-in duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:animate-none",
+      board ? "bg-board/95" : "bg-canvas/95"
+    )}
+    data-variations-scrim=""
+    onPointerDown={(e) => {
+      if (e.button === 0 && !pansAnywhere(useEditor.getState())) {
+        e.stopPropagation();
+        closeVariations();
+      }
+    }}
+    style={{
+      height: 2 * SCRIM_REACH,
+      left: -SCRIM_REACH,
+      top: -SCRIM_REACH,
+      width: 2 * SCRIM_REACH,
+      zIndex: CHOOSING_LIFT.scrim,
+    }}
+  />
+);
+
 /** The keys of an agent's takes laid out after the variations: those coming, then those failed. */
 const useTakeKeys = () => {
   const coming = useVariations((s) => takesOfOpen(s).coming);
@@ -475,34 +518,41 @@ export const VariationsBeside = ({
   }
   return (
     <>
-      {set.variations.map((variation) => {
-        const box = boxes[variation.id];
-        return box ? (
-          <VariationFrame
-            at={at}
-            box={box}
-            frameId={variationFrameOf(open, variation.id)}
-            inPage={thing ?? box}
-            inUse={variation.id === set.inUse}
-            key={variation.id}
-            onHeight={onHeight}
-            page={isPage}
-            pageWidth={page.width}
-            shown={variation.id === open.preview}
-            sized={!whole}
-            tree={
-              variation.id === set.inUse
-                ? findNode(docRoot, open.node)
-                : (variation.tree ?? null)
-            }
-            variation={variation}
-          />
-        ) : null;
-      })}
-      {takes.map(({ key: take, round }) => {
-        const box = boxes[take];
-        return box ? <TakeBox box={box} key={take} round={round} /> : null;
-      })}
+      <Scrim board={board !== undefined} />
+      {/* Over the scrim, at the canvas's origin as the frames are. */}
+      <div
+        className="absolute top-0 left-0"
+        style={{ zIndex: CHOOSING_LIFT.variations }}
+      >
+        {set.variations.map((variation) => {
+          const box = boxes[variation.id];
+          return box ? (
+            <VariationFrame
+              at={at}
+              box={box}
+              frameId={variationFrameOf(open, variation.id)}
+              inPage={thing ?? box}
+              inUse={variation.id === set.inUse}
+              key={variation.id}
+              onHeight={onHeight}
+              page={isPage}
+              pageWidth={page.width}
+              shown={variation.id === open.preview}
+              sized={!whole}
+              tree={
+                variation.id === set.inUse
+                  ? findNode(docRoot, open.node)
+                  : (variation.tree ?? null)
+              }
+              variation={variation}
+            />
+          ) : null;
+        })}
+        {takes.map(({ key: take, round }) => {
+          const box = boxes[take];
+          return box ? <TakeBox box={box} key={take} round={round} /> : null;
+        })}
+      </div>
     </>
   );
 };
