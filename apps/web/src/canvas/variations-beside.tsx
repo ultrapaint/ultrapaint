@@ -407,8 +407,10 @@ const SCRIM_REACH = 1_000_000;
 /**
  * The rest of the canvas while a thing's variations are open (ADR 0098): faded back under the
  * canvas's own colour, so the variations are drawn on its ground wherever they lie, a neighbouring
- * page included. A press on it closes them, the one in use kept, as Escape does, and selects
- * nothing under it; it pans as the canvas does.
+ * page included. A click on it closes them, the one in use kept, as Escape does, and selects
+ * nothing under it; it pans as the canvas does. It closes on its own click, not on the press: a
+ * scrim gone at the press would leave the release, and a browser's click after it, to what lies
+ * under it, which would select it.
  */
 const Scrim = ({ board }: { board: boolean }) => (
   <div
@@ -418,10 +420,15 @@ const Scrim = ({ board }: { board: boolean }) => (
       board ? "bg-board/95" : "bg-canvas/95"
     )}
     data-variations-scrim=""
+    onClick={() => {
+      if (!pansAnywhere(useEditor.getState())) {
+        closeVariations();
+      }
+    }}
+    // The press is the scrim's, not the canvas's marquee; a pan's goes on to the canvas.
     onPointerDown={(e) => {
       if (e.button === 0 && !pansAnywhere(useEditor.getState())) {
         e.stopPropagation();
-        closeVariations();
       }
     }}
     style={{
