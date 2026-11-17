@@ -246,6 +246,29 @@ describe("a thing's variations laid out beside its page", () => {
     ).toEqual(["OriginalIn use", "EditorialTone of the copy", "Loud"]);
   });
 
+  it("says what each varied once, where several varied the same", () => {
+    fakeApi.emit("variations", {
+      doc: HOME,
+      sets: {
+        title: {
+          inUse: "original",
+          variations: [
+            { id: "original", name: "Original" },
+            { id: "v2", name: "Editorial", tree: heading("A"), varied: "Tone" },
+            { id: "v3", name: "Loud", tree: heading("B"), varied: "Tone" },
+            { id: "v4", name: "Wide", tree: heading("C"), varied: "Width" },
+          ],
+        },
+      } as VariationSets,
+    });
+    show();
+    expect(
+      [...document.querySelectorAll("[data-variation]")].map(
+        (el) => el.textContent
+      )
+    ).toEqual(["OriginalIn use", "EditorialTone", "Loud", "WideWidth"]);
+  });
+
   it("lays them out past the page's right edge, two to a row, the first level with the thing", () => {
     show();
     const at = [...document.querySelectorAll("[data-variation]")].map((el) => {
@@ -273,19 +296,23 @@ describe("a thing's variations laid out beside its page", () => {
     expect(drawnFor("v2")?.at).toBe("xl");
   });
 
-  it("shows one in the preview on a click or ← →, the controls under it saying what it is", () => {
+  it("shows one in the preview on a click or ← →, outlined beside the page, the controls under it Reset and Use this", () => {
     show();
     expect(controls()).toBe("Done");
     expect(outline()).toBe("none");
 
+    const shown = () =>
+      document
+        .querySelector('[aria-pressed="true"]')
+        ?.getAttribute("aria-label");
     click(document.querySelector('[aria-label="Show Editorial"]'));
-    expect(controls()).toContain("Editorial");
-    expect(controls()).toContain("Reset");
-    expect(controls()).toContain("Use this");
+    // Its name is over it beside the page: the controls do not say it again.
+    expect(controls()).toBe("ResetUse this");
+    expect(shown()).toBe("Show Editorial");
     expect(outline()).toBe("dashed");
 
     press("arrowright");
-    expect(controls()).toContain("Loud");
+    expect(shown()).toBe("Show Loud");
     press("arrowleft");
     press("arrowleft");
     expect(controls()).toBe("Done");

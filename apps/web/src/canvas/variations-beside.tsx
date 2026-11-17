@@ -82,6 +82,25 @@ const heightsOf = (
     })
   );
 
+/**
+ * What each variation varied, said over it once: a variation that varied what one before it
+ * said (three takes on "Colour of the page") leaves it to that one.
+ */
+export const variedOnce = (
+  variations: readonly Variation[]
+): Record<string, string | undefined> => {
+  const said = new Set<string>();
+  return Object.fromEntries(
+    variations.map((v) => {
+      if (!v.varied || said.has(v.varied)) {
+        return [v.id, undefined];
+      }
+      said.add(v.varied);
+      return [v.id, v.varied];
+    })
+  );
+};
+
 /** The box of the frame the preview is drawn in, on the canvas: a page's, or a node's beside them. */
 const useFrameBox = (frameId: string | null): Box | null => {
   const page = useEditor((s) => (frameId ? s.frames[frameId] : undefined));
@@ -114,6 +133,7 @@ const VariationFrame = memo(
     sized,
     tree,
     variation,
+    varied,
   }: {
     /** The breakpoint its page is drawn at, which a part is drawn at too. */
     at: string | null;
@@ -133,6 +153,8 @@ const VariationFrame = memo(
     sized: boolean;
     tree: DesignNode | null;
     variation: Variation;
+    /** What it varied, said over it; none where a variation before it said the same. */
+    varied: string | undefined;
   }) => {
     const designSystem = useDesignSystem((s) => s.designSystem);
     const breakpoints = useBreakpoints();
@@ -186,13 +208,17 @@ const VariationFrame = memo(
         }}
       >
         <FrameHeader width={box.width}>
-          <span className={cn(HEADER_NAME, "text-foreground")}>
+          {/* As tall as its text, as what follows it is, so the header centres both on one line. */}
+          <span className={cn(HEADER_NAME, "h-auto text-foreground")}>
             {variation.name}
           </span>
-          {variation.varied ? (
-            <span className="text-muted-foreground">{variation.varied}</span>
+          {varied ? (
+            <span className="text-muted-foreground">{varied}</span>
           ) : null}
-          {inUse ? <Badge variant="outline">In use</Badge> : null}
+          {inUse ? (
+            // Filled a step off the canvas, which shares the badge's own fill in the light theme.
+            <Badge className="bg-foreground/8">In use</Badge>
+          ) : null}
         </FrameHeader>
         <PreviewSurface
           canvas={canvas}
@@ -498,6 +524,7 @@ export const VariationsBeside = ({
       ? { ...rect, x: page.x + rect.x, y: page.y + rect.y }
       : page;
   const ids = useMemo(() => set?.variations.map((v) => v.id) ?? [], [set]);
+  const varied = useMemo(() => variedOnce(set?.variations ?? []), [set]);
   const takes = useTakeKeys();
   const heights = open ? heightsOf(open, ids, drawnHeights) : {};
   const boxes =
@@ -552,6 +579,7 @@ export const VariationsBeside = ({
                   : (variation.tree ?? null)
               }
               variation={variation}
+              varied={varied[variation.id]}
             />
           ) : null;
         })}
