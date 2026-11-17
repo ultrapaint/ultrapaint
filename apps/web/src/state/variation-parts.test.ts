@@ -108,6 +108,31 @@ describe("a parent the preview draws as a node that holds nothing", () => {
   });
 });
 
+describe("an instance in the preview", () => {
+  const instance = (id: string, children?: DesignNode[]) =>
+    ({
+      component: "Card",
+      from: "app",
+      id,
+      ...(children ? { children } : {}),
+      type: "instance",
+    }) as unknown as DesignNode;
+
+  it("takes a part where it is drawn with children of its own", () => {
+    const drawn = column("hero", [instance("card", [text("a", "A")])]);
+    const variation = column("hero", [
+      instance("card", [text("a", "A"), text("b", "B")]),
+    ]);
+    expect(putPart(drawn, variation, "b").how).toBe("add");
+  });
+
+  it("takes none where it is drawn from its text alone", () => {
+    const drawn = column("hero", [instance("card")]);
+    const variation = column("hero", [instance("card", [text("b", "B")])]);
+    expect(putPart(drawn, variation, "b").tree).toBeNull();
+  });
+});
+
 describe("what the preview is made of", () => {
   it("is its variation with each part's variation and kind", () => {
     expect(

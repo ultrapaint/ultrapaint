@@ -25,6 +25,14 @@ const HOLDERS: ReadonlySet<DesignNode["type"]> = new Set([
   "group",
 ]);
 
+/**
+ * Whether a node holds parts: a container, or an instance drawn with children of its own (its
+ * component's slot filled); one drawn from its text alone holds none.
+ */
+const holdsParts = (node: DesignNode): boolean =>
+  HOLDERS.has(node.type) ||
+  (node.type === "instance" && childrenOf(node).length > 0);
+
 /** What putting a part in the preview gives: the tree it draws, or why it cannot. */
 export type PartPut =
   | {
@@ -123,7 +131,7 @@ export const putPart = (
     };
   }
   // The preview may draw the parent's id as a node that holds nothing: a text where it was a column.
-  if (!HOLDERS.has(there.type)) {
+  if (!holdsParts(there)) {
     return {
       how: "none",
       tree: null,
