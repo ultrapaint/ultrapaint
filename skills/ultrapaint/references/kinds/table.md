@@ -18,8 +18,9 @@ Open with it, before the first element: `references/components.md`, `references/
 - The table sits in one bordered surface, or bare on the page when it is the page. Its outer
   corners take the surface's radius; rows and cells stay square. A table already on a surface
   gets no second frame.
+- The page title is the records' name, one or two words ("Customers"), at `18–24px`; no hero.
 - The title carries the count beside it as muted text ("Customers 1,284"), or no count at all.
-- Spacing: padding `24px`; text within a group `8px` apart; groups (toolbar, table, pagination)
+- Spacing: padding `16px`; text within a group `8px` apart; groups (toolbar, table, pagination)
   `24px` apart.
 
 ## Toolbar

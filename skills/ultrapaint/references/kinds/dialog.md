@@ -13,6 +13,10 @@ Open with it, before the first element: `references/components.md`, `references/
   themes: a dialog's pane never darker than the page behind it.
 - Padding, header, body and footer: the system's dialog padding when it names one, else `24px`
   on every side. Groups in the body `24px` apart, items within a group `12px`.
+- Corners: the system's radius when it names one, else `12px` on the pane and `6–8px` on the
+  fields, buttons and surfaces inside it.
+- The title `18px` semibold, the muted line and the body `14px`, hints and metadata `12–13px`;
+  nothing in a dialog is display-sized.
 - Escape, the close X and Cancel all leave, and Cancel leaves no trace.
 
 ## Header
@@ -46,6 +50,7 @@ Open with it, before the first element: `references/components.md`, `references/
   Copy link, Reset to default, the step dots of a short flow, or Cancel alone).
 - **Equal pair**: a confirmation, sign-in or onboarding dialog sets Cancel (outline) and its
   action as two buttons of equal width filling the footer.
+- Footer buttons are `36px` high, the same height as the fields above them.
 - On a phone the buttons stack full width, the primary first.
 - Set the footer off with a full-width hairline only when the body scrolls under it; otherwise
   the padding is the edge.

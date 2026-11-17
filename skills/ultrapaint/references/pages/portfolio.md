@@ -14,12 +14,13 @@ A portfolio picks one and keeps to it; the middle reads as a template.
   uppercase or title case; a render or photo may overlap the letters. Everything else is
   `11–14px` labels pinned to the corners (role, city, a live local time, contact) at one even
   inset of `14–30px`. Two to four sizes, nothing between giant and tiny.
-- **One small size:** everything at `13–15px`; rank by position and space alone.
+- **One quiet scale:** body `14–16px`, the name or the largest line `20–44px`; rank by position and space.
 
 ## The first screen
 
 - **The work is the hero:** no headline, or a one-sentence bio in its place.
-- **Or a statement:** one paragraph of `17–35` words at `36–58px`, regular, tight leading; one
+- **Or the name:** the person's or studio's name as the headline, `1–3` words, the most common
+  opening; a statement of `17–35` words is the rarer choice, at `36–58px`, regular, tight leading; one
   phrase may switch to a serif italic. No subhead, no eyebrow, at most one quiet action (a text
   link, or an underlined email field).
 - **Or one fixed scene:** a 3D render or a product in front of edge-to-edge type, image and
@@ -32,6 +33,7 @@ A portfolio picks one and keeps to it; the middle reads as a template.
   strip, mixed sizes; a tiny mono caption (client, year) or none.
 - **Index:** a hairline table, one row per project: the year muted, the title in the foreground,
   the client muted, an arrow at the right; the whole row is the link.
+- Corners square: images and tiles at radius `0`; at most `4px` on a small control.
 
 ## Navigation and actions
 
@@ -52,8 +54,10 @@ A portfolio picks one and keeps to it; the middle reads as a template.
 
 ## Space
 
-Airy. One screen with no section gap, or work bands `140–300px` apart. A manifesto puts
+Airy. One screen with no section gap, or work bands `80–160px` apart. A manifesto puts
 `300–700px` between its statements; a full-screen band holding one short paragraph is a pause.
+The page runs nearly edge to edge: side margins `14–80px` at `1440px`, never a centred
+`1100–1200px` column.
 
 ## Motion
 
@@ -63,6 +67,19 @@ Many expressive pages move nothing; type can carry the page.
 - `Scroll into view · image · clip-path inset(0 100% 0 0)→inset(0) · 900–1200ms · cubic-bezier(0.76, 0, 0.24, 1)`; or `inset(40% 0 0)` to open from below.
 - `Section enters · page background and text colour · cross-fade · 300–600ms · ease`; the section rethemes as it passes.
 - Images fade as they load (the image recipe), no movement.
+
+## Examples by character
+
+**Expressive**
+
+- A headline of two words at `220px`, uppercase, tight, edge to edge; a warm off-white ground,
+  near-black ink; corners `0`; the action an underlined email link with an arrow; a full-bleed
+  photograph overlapping the lower third of the letters; `12px` labels in the four corners at a
+  `20px` inset; set apart by space alone.
+- A headline of three words at `28px`, regular, top left; a pure black ground, off-white ink;
+  corners `0`; the action a bracketed text label; a contact sheet of mixed tiles with `4px`
+  gutters filling the rest of the screen, `11px` mono captions (client, year); set apart by
+  hairline rules.
 
 ## Check
 

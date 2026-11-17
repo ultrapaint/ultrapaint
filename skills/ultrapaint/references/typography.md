@@ -34,7 +34,8 @@ the page. Weights under `300` are for display sizes, `28px` and up.
 
 ## A public page's type
 
-- **The hero**: one size, about `62px`. Regular or medium; tracked `-0.02em` to `-0.03em`; sentence case. Uppercase headlines are a character's
+- **The hero**: one size, by character: **technical** about `64px`, **humanistic** about `76px`,
+  **expressive** `90–140px`; on a phone about half, `36–44px`. Regular or medium; tracked `-0.02em` to `-0.03em`; sentence case. Uppercase headlines are a character's
   choice (a restaurant, a brand page), not a default.
 - **Sizes**: about five across the page; everything but the hero is plainly smaller, so the
   headline carries the rank alone.
@@ -44,8 +45,8 @@ the page. Weights under `300` are for display sizes, `28px` and up.
   never to a running headline.
 - **One device in a headline, or none**: the second sentence in muted at the same size and
   weight; one word in the italic of the same serif; one word in the accent; a highlighter bar.
-- **An eyebrow** stays only when it states a fact the heading does not: a section number, a date,
-  a category, a release.
+- **No eyebrow** by default: no small uppercase label above a heading. One stays only when it
+  states a fact the heading cannot: a step in a sequence, a date, a story's category, a release.
 
 ## Details in running text
 
@@ -67,7 +68,7 @@ the page. Weights under `300` are for display sizes, `28px` and up.
 | Mono headings or mono body text | The sans; mono for code, ids and labels |
 | A public page with two hero sizes | One hero size; the rest plainly smaller |
 | A headline with two or more accents | One, or none |
-| An eyebrow that states nothing the heading does not | Remove it |
+| A small uppercase label above a heading | Remove it, unless it states a fact the heading cannot |
 | A running headline tracked wide | Tight; wide tracking only for small capitals |
 | A headline tracked tighter than `-0.03em`, its word spaces closing | `-0.02em` to `-0.03em` |
 | A link bold, in the accent, or on its own line after its sentence | In the sentence, at its weight, underlined |

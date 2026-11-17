@@ -18,7 +18,8 @@ the headline cannot: who it is for, the price, how it works. Otherwise the headl
 
 ## The eyebrow
 
-None by default. One stays only when it says what the heading does not: news (a "New" chip, about
+None: no label above the headline or above any section heading. One stays only where it was
+chosen for what it says and the heading cannot say it, at most one on a page: news (a "New" chip, about
 six words of announcement and an arrow), proof (a rating with its score and its source, only one
 the product really has), a sequence ("01 · Agents research", "Step 4"), a card's category.
 
@@ -44,7 +45,7 @@ to bag – €66"), a sale price beside its struck-through original. A date sits
 
 ## Copy by kind of page
 
-- **Technical hero**: the news eyebrow, a 6-word two-tone headline, a 19-word subhead saying what
+- **Technical hero**: a news chip when there is news, a 6-word two-tone headline, a 19-word subhead saying what
   it does for whom (product nouns inline can stand for a feature list), the verb primary and a
   quiet secondary, one reassurance line, the logos. Exact, sometimes dry, never vague.
 - **Pricing**: a headline of about `7` words and no subhead; the billing toggle with its saving
@@ -73,7 +74,7 @@ to bag – €66"), a sale price beside its struck-through original. A date sits
 | You see | Fix |
 | --- | --- |
 | A subhead that restates the headline | Delete it |
-| An eyebrow naming what its heading names | Delete it; keep news, proof, a number or a category |
+| A label above a section heading | Delete it; keep only news, proof, a step or a story's category |
 | Two actions of equal weight | One filled with a verb; the other outline, grey or a link |
 | Proof stated twice (a bar and an eyebrow; stars, laurels and logos) | The strongest one, under the actions |
 | A price far from its button | In the button or the sentence beside it |
