@@ -55,9 +55,11 @@ menu, how small a menu may be, or that the primary changes with the object's sta
 - An action is in view when it is frequent (most visits), the screen's job, or one everyone must
   find; the rest go in the surface's "More" menu, most used first, destructive last. Then the
   count limits: one primary per page (header and footer together); a header up to three secondary;
-  a row one action and its menu; a toolbar group two or three.
-- A menu holds three items or more; under three they stay inline. The primary, and a frequent
-  action, are never only in a menu.
+  a row one action and its menu; a toolbar group two or three. Frequency comes before the counts:
+  a row whose two actions are both taken on most visits shows both.
+- A menu holds three items or more. One or two rare actions join the object's own menu where it
+  has one; with none, they stay inline, quiet, after the frequent ones. The primary, and a
+  frequent action, are never only in a menu.
 - The primary follows the object's state and the domain's verb: a draft's next step (Mark ready),
   a ready page's (Implement), a changed one's (Implement what changed); an action the state makes
   pointless is not shown.

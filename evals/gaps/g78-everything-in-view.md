@@ -68,7 +68,7 @@ control". Nothing says what to hide, behind what, or what to leave out because n
 | In view | What most users need on most visits: the screen's job, the facts its decision needs, what everyone must discover |
 | One step away | What some users need some of the time: a menu, a "Show more", a disclosure named for what it holds ("Advanced options"), a drawer for context on the current view; always a visible, labelled trigger |
 | Elsewhere | General, rarely changed preferences: Settings. Another surface's job: that surface (g77) |
-| Nowhere | What serves no task; a choice a default settles; what the product can detect |
+| Nowhere | What serves no task; a choice a default settles; a question the product can answer itself (what it detects stays in view where the user must check or change it: a detected address on an invoice) |
 
 With: declutter by context before hiding (an object's controls when it is selected, follow-up
 fields after their prerequisite); at most two levels (no accordion in an accordion, no popover
