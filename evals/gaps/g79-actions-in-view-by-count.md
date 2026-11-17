@@ -62,13 +62,13 @@ menu, how small a menu may be, or that the primary changes with the object's sta
   frequent action, are never only in a menu.
 - The primary follows the object's state and the domain's verb: a draft's next step (Mark ready),
   a ready page's (Implement), a changed one's (Implement what changed); an action the state makes
-  pointless is not shown.
+  pointless is not shown, and a state with no next step has no primary.
 - Review row: "An action used once in an object's life shown at rest beside its frequent ones |
   The object's More menu; with no menu and one or two such actions, inline and quiet after the
   frequent ones".
 
 **Test.** Fresh briefs of objects with a lifecycle (an invoice: draft, sent, paid; a pull request;
-an order): the primary named per state, rare actions in a menu (one or two with no menu: inline and quiet after the frequent ones), nothing frequent hidden. Recall on
+an order): the primary named per state where the state has a next step, none where it has none (a paid invoice read), rare actions in a menu (one or two with no menu: inline and quiet after the frequent ones), nothing frequent hidden. Recall on
 the g77 section for Mark implemented….
 
 **Result.**
