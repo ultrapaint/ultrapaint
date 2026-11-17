@@ -1,8 +1,8 @@
 # ADR 0051: The desktop app ships with each release, unsigned
 
 Status: accepted, 2026-11-03. Carries out PLAN-desktop D14 and D15 now that the repository is
-public. How the macOS app and an AppImage update: amended by 0078. What the cask installs: amended
-by 0088. The release starting the tap's workflow: amended in place, 2026-11-17.
+public. How the macOS app and an AppImage update: amended by 0078. What the cask installs: amended by 0088. When the
+tap follows a release, and the main repository's key to it: amended by 0103.
 
 ## Context
 
@@ -28,13 +28,8 @@ from a tap of one's own, though not from its official one.
   and the download, on Linux with the download.
 - macOS installs through the tap `ultrapaint/homebrew-tap`:
   `brew install --cask ultrapaint/tap/ultrapaint`. The tap follows the latest release by a
-  workflow of its own, with its own token to write the cask. The release workflow starts it once
-  the release is published, so the cask follows within minutes; the tap also runs it hourly,
-  which GitHub delays by hours and which catches up when the start fails. The main repository
-  keeps one key to the tap, `HOMEBREW_TAP_TOKEN`, a fine-grained token that can only start its
-  workflows (Actions: read and write on that repository alone), never write its contents; a start
-  that fails warns and leaves the release published. Its caveats say how to open an unsigned app
-  (`xattr -dr com.apple.quarantine`).
+  workflow of its own, every hour, with its own token: the main repository keeps no key to it.
+  Its caveats say how to open an unsigned app (`xattr -dr com.apple.quarantine`).
 - The macOS app's icon is made as Icon Composer makes one (`apps/desktop/resources/icon.icon`:
   the black fill, the mark as its layer at 62% of the tile's width, in the range of the marks
   beside it in the Dock, larger than a round mark needs since a diagonal one covers less of its
@@ -48,8 +43,6 @@ from a tap of one's own, though not from its official one.
 - An unsigned macOS app has to be taken out of quarantine by hand after each install or upgrade.
   Signing and notarization, with an Apple Developer ID, make the cask `auto_updates true` and let
   electron-updater update the macOS app as it does the AppImage.
-- The tap's hourly schedule stops if GitHub disables it after 60 days without activity in the tap;
-  it is started again from its Actions tab; until then the release's start fails and warns.
-- `HOMEBREW_TAP_TOKEN` expires as fine-grained tokens do; until a new one is set, a release
-  warns and its cask waits for the tap's schedule.
+- The tap's hourly workflow stops if GitHub disables it after 60 days without activity in the tap;
+  it is started again from its Actions tab.
 - Intel Macs and Linux on arm64 get no build until there is a runner for each.
