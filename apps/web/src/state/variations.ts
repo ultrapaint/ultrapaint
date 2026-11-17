@@ -501,18 +501,36 @@ export const previewDiffers = (state: VariationsStore): boolean => {
   return set !== undefined && preview !== null && preview !== set.inUse;
 };
 
-/** The preview being put in use: a second Use this joins it rather than saving it again. */
-let putting: Promise<void> | null = null;
+/**
+ * The preview being put in use, by the variations it was open in: a second Use this on the same
+ * joins it rather than saving it again; another preview saves its own.
+ */
+let putting: {
+  readonly open: OpenVariations;
+  readonly saved: Promise<void>;
+} | null = null;
 
 /**
  * Use this: the preview put in use, as one undo step; the variations close and the thing stays
  * selected. Pressed again while it is saved, it waits for that save.
  */
 export const putPreviewInUse = (): Promise<void> => {
-  putting ??= putPreviewOnce().finally(() => {
-    putting = null;
-  });
-  return putting;
+  const { open } = useVariations.getState();
+  if (open === null) {
+    return Promise.resolve();
+  }
+  if (putting?.open !== open) {
+    const saving = {
+      open,
+      saved: putPreviewOnce().finally(() => {
+        if (putting === saving) {
+          putting = null;
+        }
+      }),
+    };
+    putting = saving;
+  }
+  return putting.saved;
 };
 
 const putPreviewOnce = async () => {
