@@ -246,63 +246,25 @@ eachTest(Opened, {
     })
   );
 
+  // The commands offered are editor-requests.test.ts's, each command's task tasks.test.ts's, and
+  // what /implement makes of a thread thread-session.test.ts's: this keeps what only the agent's
+  // process shows, the task reaching it over the protocol.
   it.effect(
     "gives the agent the task a slash command stands for, and keeps what was typed",
     () =>
       Effect.gen(function* () {
-        const { client } = yield* TestEnv;
-        const commands = yield* client["commands.list"]();
-        assert.deepStrictEqual(
-          commands.map((c) => c.name),
-          [
-            "setup",
-            "init",
-            "implement",
-            "import-figma",
-            "redraw",
-            "design-system",
-            "sync",
-            "variations",
-          ]
-        );
         const threadId = yield* startThread;
         yield* prompt(threadId, "/init");
-        const init = yield* waitForThread(threadId, turnEnded);
+        const { items } = yield* waitForThread(threadId, turnEnded);
         // The fixture configures no components, which the system components make no matter.
         assert.include(
-          said(init.items).join("\n"),
+          said(items).join("\n"),
           "task:init Import this repository's design system"
         );
         assert.include(
-          init.items.flatMap((i) => (i.kind === "user" ? [i.text] : [])),
+          items.flatMap((i) => (i.kind === "user" ? [i.text] : [])),
           "/init"
         );
-
-        // The thread designs and its agent is running: it cannot write the application, and
-        // is told to send the user to an implement thread (ADR 0030).
-        yield* prompt(threadId, "/implement /home");
-        const refused = yield* waitForThread(
-          threadId,
-          (thread, items) =>
-            turnEnded(thread, items) &&
-            items.filter((i) => i.kind === "turn_end").length === 2
-        );
-        assert.include(
-          said(refused.items).at(-1) ?? "",
-          "task:implement The user ran /implement in a thread that designs"
-        );
-        assert.isUndefined(refused.thread?.purpose);
-
-        // A thread that starts with /implement implements: its agent may write the repository.
-        const implementing = yield* startThread;
-        yield* prompt(implementing, "/implement /home");
-        const implement = yield* waitForThread(implementing, turnEnded);
-        assert.include(
-          said(implement.items).at(-1) ?? "",
-          "task:implement Implement the page Home of the design (designs/home.page.json)"
-        );
-        assert.strictEqual(implement.thread?.purpose, "implement");
-        // Each command's task, with and without the tools, is tasks.test.ts's.
       })
   );
 
