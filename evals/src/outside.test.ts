@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, FileSystem, Layer } from "effect";
+import { Effect, FileSystem, Layer, Option, Schema } from "effect";
 import { Browser } from "./browser.ts";
 import { EvalsConfig } from "./config.ts";
 import { EvalsError } from "./errors.ts";
@@ -12,7 +12,7 @@ import {
   readCodexEvents,
 } from "./outside.ts";
 import { skillReads } from "./pairwise.ts";
-import type { LoadedReference } from "./reference.ts";
+import { type LoadedReference, Reference } from "./reference.ts";
 import { readData, TestData, writeData } from "./test-data.ts";
 import { scriptedProcesses } from "./test-processes.ts";
 
@@ -346,6 +346,20 @@ describe("a run outside the editor", () => {
       );
     }
   );
+
+  it("takes a screen's name only as a word safe in an address and a file's name", () => {
+    const named = (name: string) =>
+      Option.isSome(
+        Schema.decodeUnknownOption(Reference)({
+          ...reference,
+          screens: [{ name, what: "a screen" }],
+        })
+      );
+    assert.isTrue(named("bank-connected"));
+    for (const name of ["billing/details", "../up", "Two Words", ""]) {
+      assert.isFalse(named(name), name);
+    }
+  });
 
   it.effect(
     "shows a flow's screens each at its own address, and photographs every one in the flow's order",

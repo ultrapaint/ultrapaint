@@ -30,6 +30,8 @@ export const VIEWPORTS: readonly Viewport[] = [
 export const ViewportName = Schema.Literals(["desktop", "mobile"]);
 export type ViewportName = typeof ViewportName.Type;
 
+const SCREEN_NAME_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
 export const Reference = Schema.Struct({
   /**
    * What the brief hands the agent: the screen's words as written (`copy`, the default), or its
@@ -60,8 +62,11 @@ export const Reference = Schema.Struct({
   screens: Schema.optional(
     Schema.Array(
       Schema.Struct({
-        /** A word for the address: `account`, `bank-connected`. */
-        name: Schema.String,
+        /**
+         * A word for the address and the pictures' names: `account`, `bank-connected`. Lower-case
+         * letters, digits and hyphens, so it is safe in both.
+         */
+        name: Schema.String.check(Schema.isPattern(SCREEN_NAME_RE)),
         /** The screen and the state it is drawn in, as the brief says it. */
         what: Schema.String,
       })
