@@ -30,12 +30,15 @@ import {
 } from "@ultrapaint/shared/route";
 import { Schema } from "effect";
 import { inEnglish } from "../hash.ts";
+import { WORKING_COPIES_DIR } from "./working-copies.ts";
 
 export const IGNORED_DIRS = new Set([
   "node_modules",
   ".ultrapaint",
   "dist",
   ".vite",
+  // An agent's takes on a thing, never pages of the canvas (ADR 0098).
+  WORKING_COPIES_DIR,
 ]);
 export const decodeOrder = Schema.decodeUnknownEffect(
   Schema.fromJsonString(CanvasOrder)

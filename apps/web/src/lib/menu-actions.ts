@@ -49,6 +49,7 @@ import { select } from "../state/selection.ts";
 import { ensureEditable } from "../state/setup.ts";
 import { onPageCanvas } from "../state/surface.ts";
 import { addToChat } from "./add-to-chat.ts";
+import { requestAsk } from "./ask-variations.ts";
 import {
   canvasById,
   copyPagesTo,
@@ -474,6 +475,9 @@ const runNode = (target: TargetOf<"node">, act: NodeAction): unknown => {
   switch (act.kind) {
     case "ask":
       return addToChat(actedOn(sel), { newThread: act.newChat });
+    case "variations":
+      select(sel);
+      return requestAsk();
     case "editText":
       select(sel);
       return frameOf(sel.frame).editText(sel.nodeId);
@@ -552,6 +556,14 @@ const runPage = (target: TargetOf<"page">, act: PageAction): unknown => {
       return setPageUrl(page, "");
     case "duplicate":
       return duplicatePage(page);
+    case "variations": {
+      const root = useDocuments.getState().docs[page.id]?.root;
+      if (root) {
+        select({ frame: page.id, nodeId: root.id });
+        requestAsk();
+      }
+      return;
+    }
     case "variant":
       return newVariant(page, act.variant ?? undefined);
     case "state":

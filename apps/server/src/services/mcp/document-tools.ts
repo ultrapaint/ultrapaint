@@ -243,7 +243,7 @@ export const DocumentToolsLive = DocumentTools.toLayer(
         ops,
         route,
       }) {
-        const { doc } = yield* where({ canvas, loose, route });
+        const { doc, takeOf } = yield* where({ canvas, loose, route });
         // A node an agent writes may leave its ids out; they are made before the ops are read.
         // Node references the user pasted stand for their node ids.
         const raw = (JSON.parse(JSON.stringify(ops)) as unknown[]).map(
@@ -279,9 +279,14 @@ export const DocumentToolsLive = DocumentTools.toLayer(
         // The work is the calling thread's: the canvas shows it on the nodes it changed.
         const threadId = yield* Effect.service(CallingThread);
         if (threadId && after.root) {
+          // A take's work shows on its thing, never on its working copy (ADR 0098).
           yield* events.publish("agent.edited", {
-            doc,
-            nodeIds: touchedBy(decoded, result.created, after.root),
+            ...(takeOf === undefined
+              ? {
+                  doc,
+                  nodeIds: touchedBy(decoded, result.created, after.root),
+                }
+              : { doc: takeOf.doc, nodeIds: [takeOf.node] }),
             threadId,
             ...(label !== undefined && { label }),
           });
@@ -310,15 +315,21 @@ export const DocumentToolsLive = DocumentTools.toLayer(
         route,
         canvas,
       }) {
-        const { doc, file, nodeId, page } = yield* where({ canvas, route });
-        // A reference names its node: the route's, or each of the nodes'.
-        const nodeIds =
-          nodes?.map(nodeIdOf) ?? (nodeId === undefined ? undefined : [nodeId]);
+        const { doc, file, nodeId, page, takeOf } = yield* where({
+          canvas,
+          route,
+        });
+        // A reference names its node: the route's, or each of the nodes'. A take's work shows
+        // on its thing (ADR 0098).
+        const nodeIds = takeOf
+          ? [takeOf.node]
+          : (nodes?.map(nodeIdOf) ??
+            (nodeId === undefined ? undefined : [nodeId]));
         const threadId = yield* Effect.service(CallingThread);
         if (threadId) {
           // The page, not the route: the same route can be a page in two canvases.
           yield* events.publish("agent.focus", {
-            pageId: doc,
+            pageId: takeOf?.doc ?? doc,
             threadId,
             ...(page?.route !== undefined && { route: page.route }),
             ...(nodeIds !== undefined && { nodeIds }),

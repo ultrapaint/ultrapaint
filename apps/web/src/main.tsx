@@ -21,6 +21,7 @@ import { followPreferences } from "./state/preferences.ts";
 import { useProject } from "./state/project.ts";
 import { select } from "./state/selection.ts";
 import { followTheme } from "./state/theme.ts";
+import { useVariations } from "./state/variations.ts";
 import "./styles.css";
 
 if (import.meta.env.DEV) {
@@ -45,6 +46,7 @@ if (import.meta.env.DEV) {
     useEditor,
     useIsolation,
     useProject,
+    useVariations,
     zoomToFit,
     // A page by its id, as a script has it.
     zoomToPage: (id: string) => {

@@ -336,7 +336,7 @@ export const makePromptContent = Effect.fnUntraced(function* () {
     text: string,
     tools: boolean
   ): Effect.fn.Return<string | null> {
-    const task = yield* commands.expand(text, { tools });
+    const task = yield* commands.expand(text, { thread: thread.id, tools });
     if (task === null) {
       return null;
     }

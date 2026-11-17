@@ -793,6 +793,7 @@ describe("the editor's requests on a project", () => {
             "redraw",
             "design-system",
             "sync",
+            "variations",
           ]
         );
       })

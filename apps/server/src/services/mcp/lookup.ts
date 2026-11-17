@@ -1,4 +1,8 @@
 import type { Page } from "@ultrapaint/contracts/pages";
+import {
+  targetOfRef,
+  type VariationTarget,
+} from "@ultrapaint/contracts/variations";
 import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { parseNodeRef } from "@ultrapaint/shared/node-ref";
 import { Effect } from "effect";
@@ -7,6 +11,7 @@ import { DocumentService } from "../documents.ts";
 import { pageMissed, pageTargetNamed } from "../page-names.ts";
 import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
+import { VariationRounds } from "../variation-rounds.ts";
 import { missing, reported } from "./tool-helpers.ts";
 
 /** Where a tool works: a page, or the nodes beside a canvas's pages, maybe one node of either. */
@@ -20,6 +25,11 @@ export interface Where {
   readonly nodeId?: string;
   /** Null for the nodes beside the pages. */
   readonly page: Page | null;
+  /**
+   * The thing whose take this is, when the page is an agent's working copy (ADR 0098): the
+   * canvas shows the work on the thing, and renaming the copy hands the take in.
+   */
+  readonly takeOf?: VariationTarget;
 }
 
 /** Where to work, as the parameters of every tool that takes it say it. */
@@ -89,6 +99,38 @@ export const makeLookup = Effect.gen(function* () {
     } satisfies Where;
   });
 
+  /** A page, maybe one node of it. */
+  const onPage = (page: Page, nodeId: string | undefined): Where => ({
+    canvas: page.canvas,
+    doc: page.id,
+    file: page.file,
+    page,
+    ...(nodeId !== undefined && { nodeId }),
+  });
+
+  /**
+   * Where a tool works when it names an agent's working copy (ADR 0098), by its file and maybe a
+   * node of it (`file#c_1`); null when it names none.
+   */
+  const copyAt = (named: string, nodeId: string | undefined) => {
+    const ref = targetOfRef(named);
+    const file = ref?.doc ?? named;
+    return reported(
+      project.use(
+        Effect.map(VariationRounds, (rounds) => rounds.copyNamed(file))
+      )
+    ).pipe(
+      Effect.map((copy): Where | null =>
+        copy === null
+          ? null
+          : {
+              ...onPage(copy.page, nodeId ?? ref?.node),
+              takeOf: copy.target,
+            }
+      )
+    );
+  };
+
   /** The page a name means, or the node beside the pages its reference does; a miss says why. */
   const targetNamed = Effect.fnUntraced(function* (
     named: string,
@@ -111,7 +153,7 @@ export const makeLookup = Effect.gen(function* () {
    * pages of the canvas named, or of the page's. A miss says it as a design target's does, the
    * pages listed.
    */
-  const where = Effect.fnUntraced(function* ({
+  const whereIn = Effect.fnUntraced(function* ({
     canvas,
     loose,
     node,
@@ -127,25 +169,24 @@ export const makeLookup = Effect.gen(function* () {
             "say which page with `route`, or pass `loose: true` for the nodes beside the pages"
           );
     }
+    const copy = yield* copyAt(named, nodeId);
+    if (copy !== null) {
+      return copy;
+    }
     const found = yield* targetNamed(named, canvas);
     if (found._tag === "Loose") {
       return yield* beside(canvas ?? found.canvas, nodeId ?? found.nodeId);
     }
     const { page } = found;
     const id = nodeId ?? found.nodeId;
-    return loose
-      ? yield* beside(page.canvas, id)
-      : ({
-          canvas: page.canvas,
-          doc: page.id,
-          file: page.file,
-          page,
-          ...(id !== undefined && { nodeId: id }),
-        } satisfies Where);
+    return loose ? yield* beside(page.canvas, id) : onPage(page, id);
   });
 
-  /** A page by `where`'s rule, for a tool that works on pages only. */
-  const pageAt = Effect.fnUntraced(function* (
+  // Its answers widened to `Where`, which a working copy's `takeOf` is part of.
+  const where = (given: Given) => Effect.map(whereIn(given), (at): Where => at);
+
+  /** A page by `where`'s rule, for a tool that works on pages only, and the take it is of. */
+  const pageWhere = Effect.fnUntraced(function* (
     route: string,
     canvas: string | undefined
   ) {
@@ -154,8 +195,12 @@ export const makeLookup = Effect.gen(function* () {
       ? yield* missing(
           `${route} is a node on the canvas beside the pages, not a page`
         )
-      : at.page;
+      : { page: at.page, takeOf: at.takeOf };
   });
+
+  /** A page by `where`'s rule, for a tool that works on pages only. */
+  const pageAt = (route: string, canvas: string | undefined) =>
+    Effect.map(pageWhere(route, canvas), ({ page }) => page);
 
   const documents = <A, E extends { readonly message: string }>(
     f: (service: DocumentService["Service"]) => Effect.Effect<A, E>
@@ -171,6 +216,7 @@ export const makeLookup = Effect.gen(function* () {
     pageAt,
     pagesOf,
     pagesService,
+    pageWhere,
     project,
     where,
   };

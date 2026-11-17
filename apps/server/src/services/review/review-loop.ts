@@ -23,6 +23,7 @@ import {
   reviewSettingsOf,
   verdictOf,
 } from "@ultrapaint/contracts/review";
+import { parseCommand } from "@ultrapaint/contracts/tasks";
 import {
   isModelOption,
   namedChoices,
@@ -356,8 +357,14 @@ export class ReviewLoop extends Context.Service<
         }
         const items = yield* store.items(threadId);
         const end = items.findLast((i) => i.kind === "turn_end");
+        // A turn of variations is never reviewed (ADR 0098): its takes are the person's to choose.
+        const asked = items.findLast((i) => i.kind === "user");
+        const parsed = asked?.kind === "user" ? parseCommand(asked.text) : null;
+        const variations =
+          parsed?._tag === "Request" && parsed.request._tag === "Variations";
         if (
           end?.kind === "turn_end" &&
+          !variations &&
           (thread.purpose ?? "design") === "design"
         ) {
           yield* wait(

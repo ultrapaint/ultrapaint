@@ -114,6 +114,7 @@ beforeEach(async () => {
   useDocuments.setState({ canvas: "", docs: { [HOME]: home } });
   fakeApi.respond("variations.list", () => ({
     documents: [{ doc: HOME, sets: SETS }],
+    rounds: [],
   }));
   stop = followServer({ report: () => undefined });
   await loadVariations("");
@@ -239,6 +240,7 @@ describe("a component's main tree's variations", () => {
           },
         },
       ],
+      rounds: [],
     }));
     await loadVariations("");
     act(() => mounted.render(<AppInspector name="Promo" />));

@@ -11,6 +11,7 @@ import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { EditorSelection } from "../editor-selection.ts";
 import { RepoPaths } from "../repo-paths.ts";
+import { VariationRounds } from "../variation-rounds.ts";
 import { makeLookup } from "./lookup.ts";
 import {
   asJson,
@@ -182,8 +183,15 @@ export const PageTools = Toolkit.make(
 
 export const PageToolsLive = PageTools.toLayer(
   Effect.gen(function* () {
-    const { canvasOf, documents, pageAt, pagesOf, pagesService, project } =
-      yield* makeLookup;
+    const {
+      canvasOf,
+      documents,
+      pageAt,
+      pageWhere,
+      pagesOf,
+      pagesService,
+      project,
+    } = yield* makeLookup;
     const selected = yield* EditorSelection;
 
     return PageTools.of({
@@ -268,7 +276,18 @@ export const PageToolsLive = PageTools.toLayer(
         canvas,
         name,
       }) {
-        const page = yield* pageAt(route, canvas);
+        const { page, takeOf } = yield* pageWhere(route, canvas);
+        if (takeOf !== undefined) {
+          // A working copy named is a take handed in (ADR 0098): it is saved, and goes.
+          yield* reported(
+            project.use(
+              Effect.flatMap(VariationRounds, (rounds) =>
+                rounds.handIn(page.id, name)
+              )
+            )
+          );
+          return { file: page.file };
+        }
         const moved = yield* pagesService((pages) =>
           pages.rename(page.id, name)
         );

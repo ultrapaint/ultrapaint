@@ -67,6 +67,25 @@ export const SetupStepTask = Schema.TaggedStruct("SetupStep", {
 });
 export type SetupStepTask = typeof SetupStepTask.Type;
 
+/** How many takes a `/variations` asks for at most, and when it does not say (ADR 0098). */
+export const MAX_TAKES = 4;
+export const DEFAULT_TAKES = 3;
+
+/**
+ * `/variations`: `count` takes on a thing of the canvas, kept as its variations (ADR 0098), made
+ * in working copies the server prepares. The thing is `<document>#<node>` (`variationRefOf`);
+ * `vary` says what should vary, and the agent picks when it is absent.
+ */
+/** The command a `Variations` task is written as. */
+export const VARIATIONS_COMMAND = "variations";
+
+export const VariationsTask = Schema.TaggedStruct("Variations", {
+  count: Schema.Number,
+  target: Schema.String,
+  vary: Schema.optional(Schema.String),
+});
+export type VariationsTask = typeof VariationsTask.Type;
+
 /** What `/sync` does: describe the code, match Figma's or DESIGN.md's tokens, bring the code up. */
 export const SyncSource = Schema.Literals([
   "describe",
@@ -92,6 +111,7 @@ export const TaskRequest = Schema.Union([
   RedrawTask,
   SetupStepTask,
   SyncTask,
+  VariationsTask,
 ]);
 export type TaskRequest = typeof TaskRequest.Type;
 
@@ -113,6 +133,7 @@ export const toldTheDesignSkill = (request: TaskRequest): boolean => {
     case "Init":
     case "ImportFigma":
     case "Redraw":
+    case "Variations":
       return true;
     case "SetupStep":
       return request.step === "define";
@@ -126,6 +147,7 @@ export const toldTheDesignSkill = (request: TaskRequest): boolean => {
 const ROOT_CANVAS = '""';
 const ADOPT_FLAG = "--adopt";
 const WHITESPACE_RE = /\s+/;
+const COUNT_RE = /^\d+$/;
 const COMMAND_RE = /^\/([a-z][\w-]*)(?:\s+([\s\S]*))?$/;
 /** `marketing:/pricing` or `marketing:pricing.page.json`: a page of a canvas, as node refs write it. */
 const IN_CANVAS_RE = new RegExp(
@@ -320,6 +342,34 @@ const COMMANDS: readonly Command[] = [
     },
     print: (request) => [request.source, request.extra],
     requests: ["Sync"],
+  }),
+  command({
+    argument: "<document>#<node> [1-4] [what should vary]",
+    description:
+      "Take a thing on the canvas a few ways, kept as its variations to choose from: say what should vary, or let the agent pick",
+    name: VARIATIONS_COMMAND,
+    parse: (argument) => {
+      const { first, rest } = splitWord(argument);
+      if (!first.includes("#")) {
+        return {
+          invalid: first
+            ? `${first} names no node (write it <document>#<node>)`
+            : "it did not say what to vary",
+        };
+      }
+      const { first: count, rest: vary } = splitWord(rest);
+      const counted = COUNT_RE.test(count);
+      return {
+        _tag: "Variations",
+        count: counted
+          ? Math.min(MAX_TAKES, Math.max(1, Number(count)))
+          : DEFAULT_TAKES,
+        target: first,
+        ...given("vary", counted ? vary : rest.trim()),
+      };
+    },
+    print: (request) => [request.target, String(request.count), request.vary],
+    requests: ["Variations"],
   }),
 ];
 

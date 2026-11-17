@@ -262,6 +262,7 @@ eachTest(Opened, {
             "redraw",
             "design-system",
             "sync",
+            "variations",
           ]
         );
         const threadId = yield* startThread;

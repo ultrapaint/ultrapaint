@@ -122,6 +122,8 @@ export const mapActions = <A, B>(
 
 export type NodeAction =
   | { kind: "ask"; newChat: boolean }
+  /** Ask an agent's popover on the node, set to make variations of it (ADR 0098). */
+  | { kind: "variations" }
   | { kind: "editText" }
   | { kind: "rename" }
   | { kind: "viewCode" }
@@ -283,6 +285,7 @@ export const nodeEntries = (f: NodeFacts): Entry<NodeAction>[] => {
     { kind: "label", label: several ? `${f.count} selected` : headingOf(node) },
     item({ kind: "ask", newChat: false }, "Add to chat"),
     item({ kind: "ask", newChat: true }, "Add to a new chat"),
+    item({ kind: "variations" }, "Make variations…", one),
     node.type === "text" &&
       item({ kind: "editText" }, "Edit text", {
         ...one,
@@ -376,6 +379,8 @@ export type PageAction =
   | { kind: "setUrl" }
   | { kind: "removeUrl" }
   | { kind: "duplicate" }
+  /** Ask an agent's popover on the page, set to make variations of it (ADR 0098). */
+  | { kind: "variations" }
   /** Draws the page for a variant of the canvas's, or for one asked for (`null`). */
   | { kind: "variant"; variant: string | null }
   /** Draws the page in a state of the canvas's, or in one asked for (`null`). */
@@ -527,6 +532,10 @@ export const pageEntries = (f: PageFacts): Entry<PageAction>[] => {
     item({ kind: "setUrl" }, f.route ? "Change route…" : "Give it a route…"),
     f.route !== undefined && item({ kind: "removeUrl" }, "Remove route"),
     item({ kind: "duplicate" }, "Duplicate page"),
+    f.onCanvas &&
+      item({ kind: "variations" }, "Make variations…", {
+        disabled: f.count > 1,
+      }),
     ...drawingEntries(f),
     {
       entries: canvasTargets(false, f),

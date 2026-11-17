@@ -115,6 +115,7 @@ import {
 } from "./threads.ts";
 import {
   DocumentVariations,
+  VariationRound,
   VariationsList,
   VariationTarget,
 } from "./variations.ts";
@@ -957,6 +958,8 @@ const eventSchemas = {
   skills: SkillList,
   /** The sync's plan, worked out again because something it reads changed. */
   syncPlan: SyncPlan,
+  /** The agents' rounds of takes changed: one began, a take came in or failed (ADR 0098). */
+  variationRounds: Schema.Array(VariationRound),
   /** A document's variations changed: a change, an undo, an agent, a checkout (ADR 0098). */
   variations: DocumentVariations,
 } as const;
