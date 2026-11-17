@@ -11,7 +11,7 @@
     "dev": "tsx watch --clear-screen=false src/bin.ts",
     "skills": "node scripts/skills.ts",
     "start": "tsx src/bin.ts",
-    "test": "vitest run",
+    "test": "vitest run --maxWorkers=50%",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

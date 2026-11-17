@@ -6,7 +6,7 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
-    "test": "vitest run",
+    "test": "vitest run --maxWorkers=50%",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
