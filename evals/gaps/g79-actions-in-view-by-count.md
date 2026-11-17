@@ -64,10 +64,11 @@ menu, how small a menu may be, or that the primary changes with the object's sta
   a ready page's (Implement), a changed one's (Implement what changed); an action the state makes
   pointless is not shown.
 - Review row: "An action used once in an object's life shown at rest beside its frequent ones |
-  The surface's More menu".
+  The object's More menu; with no menu and one or two such actions, inline and quiet after the
+  frequent ones".
 
 **Test.** Fresh briefs of objects with a lifecycle (an invoice: draft, sent, paid; a pull request;
-an order): the primary named per state, rare actions in a menu, nothing frequent hidden. Recall on
+an order): the primary named per state, rare actions in a menu (one or two with no menu: inline and quiet after the frequent ones), nothing frequent hidden. Recall on
 the g77 section for Mark implemented….
 
 **Result.**
