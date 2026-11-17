@@ -6,7 +6,7 @@ status: open
 found: 2026-11-17
 source: the editor's right panel, Design tab with a page selected (redesign of 3 Nov, b8e96677), corrected by the person
 skill: [SKILL.md, references/review.md, references/kinds/navigation.md]
-sections: []
+sections: [design-tab-code]
 ---
 
 **What happened.** The editor's right panel has two tabs: Design (how the selection looks) and
@@ -57,9 +57,10 @@ serves it. A section that is useful on its own passes every row.
   figure on a profile page) | Move it to the surface that has that job, or link to it".
 - Step 2 names the surface's job with the screen's (see p12).
 
-**Test.** Recall on a section captured at 7b86c9bd: the right panel's Design tab with a page
-selected, dark and light, the Code tab named in `where` (that a Code tab exists must be visible,
-or the reviewer cannot know). Caught: the Code section is flagged as belonging to the Code tab.
+**Test.** Recall on a section captured at 7b86c9bd, `design-tab-code`: the right panel's Design tab with a page
+selected, and its Code tab for the same page, dark and light, whole window and @2x crops of the
+panel, the Code tab named in `where` (that a Code tab exists must be visible, or the reviewer
+cannot know); `element-toolbar` and `layers` are the held-out sections. Caught: the Code section is flagged as belonging to the Code tab.
 A held-out check that the row does not move things that change the element (an override, a
 prototype link on its own surface) away from where they are edited.
 
