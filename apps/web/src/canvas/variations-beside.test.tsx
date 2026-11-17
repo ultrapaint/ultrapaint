@@ -352,12 +352,19 @@ describe("a thing's variations laid out beside its page", () => {
 describe("the rest of the canvas while they are open (ADR 0098)", () => {
   const scrim = () =>
     document.querySelector("[data-variations-scrim]") as HTMLElement | null;
-  const pressOn = (el: Element | null) =>
+  /** A press and its release on the scrim, then the click a browser sends wherever it lands. */
+  const pressOn = (el: Element | null) => {
+    const options = { bubbles: true, button: 0 };
     act(() => {
-      el?.dispatchEvent(
-        new PointerEvent("pointerdown", { bubbles: true, button: 0 })
-      );
+      el?.dispatchEvent(new PointerEvent("pointerdown", options));
     });
+    const scrimWas = el?.isConnected === true;
+    act(() => {
+      el?.dispatchEvent(new PointerEvent("pointerup", options));
+      el?.dispatchEvent(new MouseEvent("click", options));
+    });
+    return scrimWas;
+  };
 
   it("fades back under the variations, which lie over it", () => {
     show();
@@ -368,10 +375,11 @@ describe("the rest of the canvas while they are open (ADR 0098)", () => {
     expect(lift(variations)).toBeGreaterThan(lift(scrim()));
   });
 
-  it("closes them on a press, keeping the one in use and selecting nothing under it", () => {
+  it("closes them on a click, keeping the one in use and selecting nothing under it", () => {
     show();
     click(document.querySelector('[aria-label="Show Loud"]'));
-    pressOn(scrim());
+    // Still there at the release, so the click is its own and not what lies under it.
+    expect(pressOn(scrim())).toBe(true);
     expect(useVariations.getState().open).toBeNull();
     expect(scrim()).toBeNull();
     expect(useEditor.getState().selection).toBeNull();
@@ -385,6 +393,7 @@ describe("the rest of the canvas while they are open (ADR 0098)", () => {
     act(() => useEditor.setState({ spacePan: true }));
     pressOn(scrim());
     expect(useVariations.getState().open).not.toBeNull();
+    expect(scrim()).not.toBeNull();
   });
 });
 
