@@ -39,7 +39,8 @@ the page. Weights under `300` are for display sizes, `28px` and up.
   choice (a restaurant, a brand page), not a default.
 - **Sizes**: about five across the page; everything but the hero is plainly smaller, so the
   headline carries the rank alone.
-- **The subhead**: one `16–18px` line in muted.
+- **The subhead**: one line in muted, `18–20px` under the hero's headline, `16–18px` under a
+  section's heading.
 - **Small labels**: `11–12px` uppercase, tracked `0.05em` in a technical mono, `0.1em` and up
   for a humanistic or brand page. Wide tracking belongs to small capitals and spaced wordmarks,
   never to a running headline.

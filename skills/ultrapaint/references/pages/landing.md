@@ -35,7 +35,7 @@ Name the one thing that moves; by default nothing. Content shows at once, never 
 Smooth or scroll-linked scrolling only when the brief asks. Hover moves `transform` only on a card
 or a pressed button. What moves on its own has a pause control.
 
-- `Scroll into view · section blocks · opacity 0→1, translateY(20px)→0 · 700ms · cubic-bezier(0.23, 1, 0.32, 1) · 80ms apart, ≤6 steps, done in 500ms · once`. Size scales the move: an item `16px`/`400ms`, a block `24px`/`500ms`, a hero line `40px`/`800ms`.
+- `Scroll into view · section blocks · opacity 0→1, translateY(24px)→0 · 500ms · cubic-bezier(0.23, 1, 0.32, 1) · 80ms apart, ≤6 steps, done in 500ms · once`. Size scales the move: an item `16px`/`400ms`, a block `24px`/`500ms`, a hero line `40px`/`800ms`.
 - `Image loaded · image · opacity 0→1 · 400ms · cubic-bezier(0.4, 0, 0.2, 1)`, its space held.
 - `Scroll down/up · header · translateY(-100%)↔0 · 300ms · cubic-bezier(0.23, 1, 0.32, 1)`; `past the hero · its background · opacity 0→1 · 200ms · ease`; it compacts by scaling the logo, never its height.
 - `Always · logo row · translateX 0→-50% · 30000–90000ms · linear · paused off screen and under reduced motion`; one per screen, rows a few seconds apart, negative delays so it starts mid-cycle.
