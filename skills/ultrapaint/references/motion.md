@@ -71,8 +71,8 @@ shorter: `150ms` where the entrance took `200–250ms`.
 ## Stagger and loops
 
 - **Stagger** only on the rare tier (a scroll reveal, seen once, belongs there): `80ms` between
-  blocks, `20ms` between the words of a display headline, at most six steps, the whole cascade
-  within `500ms`.
+  blocks, `20ms` between the words of a display headline, at most six steps, the last of them
+  starting within `500ms` (the delays add up to it; each step then takes its own duration).
 - **A marquee or ambient drift**: `linear`, `20000ms` or more per cycle, slow enough to read; on a
   public page only, one per screen, paused off screen. Loops side by side fall out of step by
   duration, not delay; a negative delay starts them mid-cycle on first paint.
@@ -100,7 +100,7 @@ icon or a label. Nothing flashes more than three times a second.
 | `width`, `height`, `top` or `left` animated | `transform`; `height` only for an accordion |
 | An intro or preloader holding the content back | Show the content at once |
 | A selection fill that fades as the keyboard moves it | Instant; a fade only on hover |
-| A cascade running past `500ms`, or a stagger in a product's daily screen | Shorter steps, or none |
+| A cascade whose last step starts after `500ms`, or a stagger in a product's daily screen | Shorter steps, or none |
 | A scroll reveal that replays on scrolling up | Once |
 | Movement still running under reduced motion | An opacity fade |
 | Hover motion on a touch device | Gate it on `(hover: hover)` |
