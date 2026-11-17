@@ -355,10 +355,11 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       project,
       store,
       // A turn's end may start its review instead of leaving the thread idle. One that failed
-      // before it reached the agent fails its takes too: `ended` is told only of one that did.
+      // or was stopped before it reached the agent settles its takes too: `ended` is told only
+      // of one that did, and settling them twice changes nothing.
       transition: (event) => {
         if (event._tag === "TurnEnded") {
-          return turnOver;
+          return Effect.andThen(takesEnded, turnOver);
         }
         return event._tag === "Failed"
           ? Effect.andThen(takesEnded, transition(event))
