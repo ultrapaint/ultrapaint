@@ -68,7 +68,7 @@ menu, how small a menu may be, or that the primary changes with the object's sta
   frequent ones".
 
 **Test.** Fresh briefs of objects with a lifecycle (an invoice: draft, sent, paid; a pull request;
-an order): the primary named per state where the state has a next step, none where it has none (a paid invoice read), rare actions in a menu (one or two with no menu: inline and quiet after the frequent ones), nothing frequent hidden. Recall on
+an order): the primary named per state: the next step where the state has one, and where it is finished (a paid invoice, a delivered order) its most common action (Send receipt) or none, the briefs giving no frequency there (decided 2026-11-18), rare actions in a menu (one or two with no menu: inline and quiet after the frequent ones), nothing frequent hidden. Recall on
 the g77 section for Mark implemented….
 
 **Result.**
