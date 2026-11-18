@@ -1,0 +1,119 @@
+// @vitest-environment happy-dom
+import "../testing/fake-browser.ts";
+import type {
+  AppUpdate,
+  UpdateCheck,
+} from "@ultrapaint/contracts/shell-bridge";
+import { act } from "react";
+import { createRoot } from "react-dom/client";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { type Platform, setPlatform } from "../platform.ts";
+import { AboutSection } from "./settings-about.tsx";
+
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
+
+const host = document.createElement("div");
+document.body.append(host);
+const root = createRoot(host);
+
+const UPDATE: AppUpdate = {
+  current: "0.2.0",
+  install: "restart",
+  releases: [{ date: "2026-11-18T11:22:14Z", notes: "", version: "0.3.0" }],
+  url: "https://github.com/ultrapaint/ultrapaint/releases/tag/v0.3.0",
+};
+
+/**
+ * The desktop shell, with `update` as its last check left it and a check asked now that answers
+ * when the test says.
+ */
+const shell = (update: AppUpdate | null) => {
+  let answer: (found: UpdateCheck) => void = () => undefined;
+  const asked: string[] = [];
+  setPlatform({
+    checkUpdate: () => {
+      asked.push("check");
+      return new Promise<UpdateCheck>((resolve) => {
+        answer = resolve;
+      });
+    },
+    serverUrl: "ws://localhost:4000/ws",
+    update: {
+      current: () => update,
+      subscribe: () => () => undefined,
+    },
+  } as unknown as Platform);
+  return { answer: (found: UpdateCheck) => act(() => answer(found)), asked };
+};
+
+const render = () => act(() => root.render(<AboutSection />));
+
+afterEach(() => {
+  act(() => root.render(null));
+  setPlatform(null);
+  vi.unstubAllGlobals();
+});
+
+describe("About's update", () => {
+  // The server's version is not what these are about: its health answers nothing.
+  const quietHealth = () =>
+    vi.stubGlobal("fetch", () => new Promise<Response>(() => undefined));
+
+  it("asks GitHub as it opens, and says up to date only once that check finds nothing", async () => {
+    quietHealth();
+    const { answer, asked } = shell(null);
+    await render();
+    expect(asked).toEqual(["check"]);
+    expect(host.textContent).toContain("Checking for updates…");
+    expect(host.textContent).not.toContain("Up to date");
+    await answer("current");
+    expect(host.querySelector("[role=status]")?.textContent).toBe("Up to date");
+  });
+
+  it("says it could not check when GitHub could not be asked, never up to date", async () => {
+    quietHealth();
+    const { answer } = shell(null);
+    await render();
+    await answer("failed");
+    expect(host.textContent).toContain("Couldn’t check for updates");
+    expect(host.textContent).not.toContain("Up to date");
+  });
+
+  it("says the update is downloading while a release it found is not ready yet", async () => {
+    quietHealth();
+    const { answer } = shell(null);
+    await render();
+    await answer("newer");
+    expect(host.textContent).toContain("Downloading the update…");
+    expect(host.textContent).not.toContain("Up to date");
+  });
+
+  it("says nothing of its version where the shell cannot check, never up to date", async () => {
+    quietHealth();
+    setPlatform({
+      serverUrl: "ws://localhost:4000/ws",
+      update: { current: () => null, subscribe: () => () => undefined },
+    } as unknown as Platform);
+    await render();
+    expect(host.textContent).not.toContain("Up to date");
+    expect(host.textContent).not.toContain("Checking");
+  });
+
+  it("offers the update the hourly check found while it asks again", async () => {
+    quietHealth();
+    shell(UPDATE);
+    await render();
+    expect(
+      [...host.querySelectorAll("button")].some((b) =>
+        b.textContent?.includes("Restart to update")
+      )
+    ).toBe(true);
+    // Said in the status region too, so a screen reader hears it become ready.
+    expect(host.querySelector("[role=status]")?.textContent).toBe(
+      "Restart to update to 0.3.0"
+    );
+    expect(host.textContent).not.toContain("Checking");
+  });
+});

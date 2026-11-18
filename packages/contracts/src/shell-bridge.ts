@@ -169,6 +169,20 @@ export const AppUpdate = Schema.Struct({
 });
 export type AppUpdate = typeof AppUpdate.Type;
 
+/**
+ * What a check for a newer release asked now found (ADR 0104): `current` when GitHub has none,
+ * `newer` when it has one (ready, as `update` says, or still downloading), `failed` when GitHub
+ * could not be asked or the release not made ready, `unavailable` when this copy checks nothing
+ * (development).
+ */
+export const UpdateCheck = Schema.Literals([
+  "current",
+  "newer",
+  "failed",
+  "unavailable",
+]);
+export type UpdateCheck = typeof UpdateCheck.Type;
+
 /** What a folder the person chose holds, before anything is written in it. */
 export const FolderKind = Schema.Struct({
   /**
@@ -360,6 +374,11 @@ export const SHELL_BRIDGE = {
   ),
   /** Signs in through the shell (`chatgpt`): the browser opens, and this ends once it is done. */
   "agents.signIn": invoke([BuiltInAgentId], Schema.Void, LOCAL),
+  /**
+   * Asks GitHub for a newer release now (ADR 0104), as Settings › About does when it opens, and
+   * answers what it found once the newest is ready (`update`) or downloading.
+   */
+  checkUpdate: invoke([], UpdateCheck),
   /**
    * Writes the `ultrapaint` command into a folder on the PATH, a launcher of this app's own
    * server (ADR 0083), asking for the administrator's password where that folder needs it.

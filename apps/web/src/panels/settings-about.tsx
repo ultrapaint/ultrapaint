@@ -2,10 +2,15 @@
  * Settings › About: the version running and its update, where the person's things are kept, and
  * where to read more or report a problem.
  */
+import type { UpdateCheck } from "@ultrapaint/contracts/shell-bridge";
 import { ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { UpdateButton, useAppUpdate } from "../components/app-update.tsx";
+import {
+  UpdateButton,
+  updateLabel,
+  useAppUpdate,
+} from "../components/app-update.tsx";
 import { Logo } from "../components/logo.tsx";
 import { platform, serverAddress } from "../platform.ts";
 import { Group, Row, Status } from "./settings-group.tsx";
@@ -31,13 +36,73 @@ const useVersion = () => {
   return version;
 };
 
-/** The app's update: the one action when there is one, up to date otherwise (desktop only). */
+/**
+ * GitHub asked for a newer release as About opens (ADR 0104), rather than the last hourly check
+ * taken for an answer: a release out since then is found now. A shell that cannot ask (one from
+ * before the check) answers `unavailable`.
+ */
+const useCheckNow = () => {
+  const [check, setCheck] = useState<UpdateCheck | "checking">("checking");
+  useEffect(() => {
+    let open = true;
+    const settle = (next: UpdateCheck) => {
+      if (open) {
+        setCheck(next);
+      }
+    };
+    const ask = platform().checkUpdate;
+    if (ask) {
+      ask().then(settle, () => settle("failed"));
+    } else {
+      settle("unavailable");
+    }
+    return () => {
+      open = false;
+    };
+  }, []);
+  return check;
+};
+
+/** What the check asked as About opened says, while there is no update to act on. */
+const CheckStatus = ({ check }: { check: UpdateCheck | "checking" }) => {
+  switch (check) {
+    case "checking":
+      return <Status tone="muted">Checking for updates…</Status>;
+    case "newer":
+      // Found, and still downloading: the update's button replaces this once it is ready.
+      return <Status tone="muted">Downloading the update…</Status>;
+    case "failed":
+      return <Status tone="warning">Couldn’t check for updates</Status>;
+    case "current":
+      return <Status tone="success">Up to date</Status>;
+    default:
+      return null;
+  }
+};
+
+/**
+ * The app's update: the one action when there is one; otherwise what the check asked as About
+ * opened found, announced as it changes (desktop only).
+ */
 const UpdateState = () => {
   const update = useAppUpdate();
+  const check = useCheckNow();
   if (!platform().update) {
     return null;
   }
-  return update ? <UpdateButton /> : <Status tone="success">Up to date</Status>;
+  // The status region stays as the update becomes ready, so a screen reader hears that too.
+  return (
+    <>
+      <div role="status">
+        {update ? (
+          <span className="sr-only">{updateLabel(update)}</span>
+        ) : (
+          <CheckStatus check={check} />
+        )}
+      </div>
+      {update ? <UpdateButton /> : null}
+    </>
+  );
 };
 
 const LinkButton = ({ children, href }: { children: string; href: string }) => (

@@ -20,7 +20,11 @@ import path from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream as WebReadableStream } from "node:stream/web";
-import type { AppRelease, AppUpdate } from "@ultrapaint/contracts/shell-bridge";
+import type {
+  AppRelease,
+  AppUpdate,
+  UpdateCheck,
+} from "@ultrapaint/contracts/shell-bridge";
 import { Context, Effect, Layer, Schedule, Semaphore } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { UpdateCheckError } from "./errors.ts";
@@ -40,8 +44,14 @@ export type InstallMode =
       readonly executable: string;
       readonly stageDir: string;
     }
-  /** An AppImage: electron-updater downloads it when `check` asks, and says so (`downloaded`). */
-  | { readonly _tag: "Feed"; readonly check: Effect.Effect<void> }
+  /**
+   * An AppImage: electron-updater downloads it when `check` asks, and says so (`downloaded`);
+   * `check` fails when its feed cannot be read.
+   */
+  | {
+      readonly _tag: "Feed";
+      readonly check: Effect.Effect<void, UpdateCheckError>;
+    }
   /** Installed by hand from the release's page: a deb. */
   | { readonly _tag: "Download" }
   /** Not packaged (development): nothing is checked. */
@@ -141,6 +151,8 @@ export class Updater extends Context.Service<
   {
     /** Asks GitHub now, and makes the newest release ready to install. */
     readonly check: Effect.Effect<void>;
+    /** `check`, answering what it found (ADR 0104). */
+    readonly checkNow: Effect.Effect<UpdateCheck>;
     /** electron-updater has `version` downloaded (Feed): it is installed on a restart. */
     readonly downloaded: (version: string) => Effect.Effect<void>;
     /**
@@ -283,16 +295,17 @@ export class Updater extends Context.Service<
           }
         });
 
-        // Offline, rate-limited or a download cut short: tried again at the next check.
-        const check = checking.withPermits(1)(
-          Effect.ignore(
-            run.pipe(
-              Effect.tapError((error) =>
-                Effect.logWarning(`[desktop] update check: ${error.message}`)
-              )
-            )
+        const checkNow = checking.withPermits(1)(
+          run.pipe(
+            Effect.map((): UpdateCheck => (releases[0] ? "newer" : "current")),
+            Effect.tapError((error) =>
+              Effect.logWarning(`[desktop] update check: ${error.message}`)
+            ),
+            // Offline, rate-limited or a download cut short: tried again at the next check.
+            Effect.catch(() => Effect.succeed<UpdateCheck>("failed"))
           )
         );
+        const check = Effect.asVoid(checkNow);
 
         if (mode._tag !== "None") {
           yield* check.pipe(
@@ -303,6 +316,10 @@ export class Updater extends Context.Service<
 
         return Updater.of({
           check,
+          checkNow:
+            mode._tag === "None"
+              ? Effect.succeed<UpdateCheck>("unavailable")
+              : checkNow,
           downloaded: (version) =>
             Effect.suspend(() => {
               fed = version;
@@ -337,6 +354,7 @@ export const noUpdates = Layer.succeed(
   Updater,
   Updater.of({
     check: Effect.void,
+    checkNow: Effect.succeed("current"),
     downloaded: () => Effect.void,
     install: Effect.succeed(false),
   })

@@ -7,6 +7,7 @@ import { assert, describe, it } from "@effect/vitest";
 import { INSTALL_MARK } from "@ultrapaint/contracts/release-notes";
 import type { AppUpdate } from "@ultrapaint/contracts/shell-bridge";
 import { Effect, Layer } from "effect";
+import { UpdateCheckError } from "./errors.ts";
 import { type InstallMode, Updater } from "./updater.ts";
 import {
   bundleOf,
@@ -230,6 +231,60 @@ describe("the updater", () => {
       assert.isNotEmpty(told);
       assert.isTrue(told.every((update) => update === null));
     })
+  );
+
+  it.effect(
+    "answers what a check asked now found, failed when GitHub could not be asked, never current then",
+    () =>
+      Effect.gen(function* () {
+        const answered = (fetchFn: typeof fetch) =>
+          Updater.use((u) => u.checkNow).pipe(
+            Effect.provide(
+              Updater.layer({
+                current: "0.1.1",
+                fetch: fetchFn,
+                mode: { _tag: "Download" },
+                publish: () => undefined,
+              }).pipe(Layer.provide(NodeServices.layer))
+            )
+          );
+        const up = answering({
+          "/releases?": () => Response.json([release("v0.1.1")]),
+        });
+        assert.strictEqual(yield* answered(up.fetchFn), "current");
+        const out = answering(RELEASE_ROUTES);
+        assert.strictEqual(yield* answered(out.fetchFn), "newer");
+        const limited = answering({
+          "/releases?": () => new Response("", { status: 403 }),
+        });
+        assert.strictEqual(yield* answered(limited.fetchFn), "failed");
+      })
+  );
+
+  it.effect(
+    "answers newer while an AppImage's release downloads, and failed when its feed cannot be read",
+    () =>
+      Effect.gen(function* () {
+        const { fetchFn } = answering(RELEASE_ROUTES);
+        const answered = (check: Effect.Effect<void, UpdateCheckError>) =>
+          Updater.use((u) => u.checkNow).pipe(
+            Effect.provide(
+              Updater.layer({
+                current: "0.1.1",
+                fetch: fetchFn,
+                mode: { _tag: "Feed", check },
+                publish: () => undefined,
+              }).pipe(Layer.provide(NodeServices.layer))
+            )
+          );
+        assert.strictEqual(yield* answered(Effect.void), "newer");
+        assert.strictEqual(
+          yield* answered(
+            Effect.fail(new UpdateCheckError({ message: "feed: 404" }))
+          ),
+          "failed"
+        );
+      })
   );
 
   it.effect(
