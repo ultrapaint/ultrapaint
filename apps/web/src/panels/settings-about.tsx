@@ -165,6 +165,10 @@ const InstallNode = ({ children }: { children: ReactNode }) => (
   </RowMessage>
 );
 
+/** Check again searches the PATH the login shell gave as Ultrapaint started. */
+const RESTART =
+  "If the install added a folder to your PATH, restart Ultrapaint instead.";
+
 const NEEDED =
   "A new application installs its packages and runs with Node.js 22.12 or newer.";
 
@@ -205,7 +209,9 @@ const NodeRow = () => {
         {again}
       </div>
     );
-    message = <InstallNode>Install it, then check again.</InstallNode>;
+    message = (
+      <InstallNode>Install it, then check again. {RESTART}</InstallNode>
+    );
   } else if (status?._tag === "TooOld") {
     description = <code className="break-all font-code">{status.path}</code>;
     control = (
@@ -215,7 +221,9 @@ const NodeRow = () => {
       </div>
     );
     message = (
-      <InstallNode>{NEEDED} Install a newer one, then check again.</InstallNode>
+      <InstallNode>
+        {NEEDED} Install a newer one, then check again. {RESTART}
+      </InstallNode>
     );
   } else if (status?._tag === "Failed") {
     description = <code className="break-all font-code">{status.path}</code>;

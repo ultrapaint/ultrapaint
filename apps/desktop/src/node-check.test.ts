@@ -119,6 +119,14 @@ describe("the user's Node", () => {
       statusOf("/bin/node", { exitCode: 2, stderr: "", stdout: "" }),
       { _tag: "Failed", path: "/bin/node", reason: "exit code 2" }
     );
+    assert.strictEqual(
+      statusOf("/bin/node", {
+        exitCode: 0,
+        stderr: "",
+        stdout: "v24.3.0 is not installed\n",
+      })._tag,
+      "Failed"
+    );
     assert.deepStrictEqual(
       statusOf("/bin/node", { exitCode: 0, stderr: "", stdout: "hello\n" }),
       {

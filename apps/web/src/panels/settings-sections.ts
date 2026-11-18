@@ -109,6 +109,8 @@ export const labelOf = (id: SectionId) =>
 /** A setting as the search finds it: the row it scrolls to is `[data-setting=id]`. */
 export interface SettingEntry {
   id: string;
+  /** The shell's capability the row is drawn with, where only a shell gives it (`platform()`). */
+  needs?: "command" | "node";
   section: SectionId;
   /** Other words it is looked for by. */
   terms?: string;
@@ -310,6 +312,7 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
   },
   {
     id: "command",
+    needs: "command",
     section: "connections",
     terms: "ultrapaint command line install path",
     title: "Command line",
@@ -328,6 +331,7 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
   },
   {
     id: "node",
+    needs: "node",
     section: "about",
     terms: "nodejs npm version path install new application",
     title: "Node.js",
@@ -356,16 +360,23 @@ const scoreOf = (title: string, words: readonly string[]) => {
   return words.every((w) => title.includes(w)) ? 1 : 2;
 };
 
-/** Every word of the query in the setting's title, section or terms; the title's own first. */
+/**
+ * Every word of the query in the setting's title, section or terms; the title's own first. A row
+ * whose section is not shown, or that needs a capability the shell does not give, is left out.
+ */
 export const searchSettings = (
   query: string,
-  shown: (section: SectionId) => boolean = () => true
+  shown: (section: SectionId) => boolean = () => true,
+  has: (capability: NonNullable<SettingEntry["needs"]>) => boolean = () => true
 ): SettingEntry[] => {
   const words = query.toLowerCase().split(SPACES_RE).filter(Boolean);
   if (words.length === 0) {
     return [];
   }
-  const scored = SETTINGS_INDEX.filter((e) => shown(e.section)).flatMap((e) => {
+  const listed = SETTINGS_INDEX.filter(
+    (e) => shown(e.section) && (!e.needs || has(e.needs))
+  );
+  const scored = listed.flatMap((e) => {
     const title = e.title.toLowerCase();
     const all = `${title} ${labelOf(e.section).toLowerCase()} ${e.terms ?? ""}`;
     if (!words.every((w) => all.includes(w))) {

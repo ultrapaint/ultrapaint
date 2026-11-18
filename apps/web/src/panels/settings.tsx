@@ -532,7 +532,7 @@ const Sidebar = ({
   const project = useProject((s) => s.info.name);
   const [query, setQuery] = useState("");
   const search = useRef<HTMLInputElement>(null);
-  const results = searchSettings(query, shown);
+  const results = searchSettings(query, shown, (c) => Boolean(platform()[c]));
   const listed = SECTIONS.filter((s) => shown(s.id));
   // `/` reaches the search wherever the dialog is, unless something is being typed.
   useEffect(() => {

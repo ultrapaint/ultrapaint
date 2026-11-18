@@ -18,7 +18,8 @@ import { findExecutable } from "./which.ts";
 const MINIMUM = { major: 22, minor: 12 };
 const SUPPORTED_20 = { major: 20, minor: 19 };
 
-const VERSION_RE = /^v(\d+)\.(\d+)\.(\d+)/;
+/** A bare version and nothing else: a shim's "v24.3.0 is not installed" is not one. */
+const VERSION_RE = /^v(\d+)\.(\d+)\.(\d+)$/;
 
 /**
  * How long `node --version` may take: a version manager's shim (Vite+, mise, Volta) may fetch the
