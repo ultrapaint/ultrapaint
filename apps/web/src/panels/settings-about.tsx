@@ -170,7 +170,7 @@ const RESTART =
   "If the install added a folder to your PATH, restart Ultrapaint instead.";
 
 const NEEDED =
-  "A new application installs its packages and runs with Node.js 22.12 or newer.";
+  "A new application installs its packages and runs with Node.js 22.12 or newer, or 20.19 or newer on Node.js 20.";
 
 /**
  * The Node.js on this computer's PATH, its version, and what is wrong with it: the one place the
@@ -190,19 +190,16 @@ const NodeRow = () => {
       )}
     </Button>
   );
-  /** What is wrong, in a word or two, beside Check again. */
-  const wrong = (word: string) => (
-    <div className="flex items-center gap-3">
-      <Status tone="warning">{word}</Status>
-      {again}
-    </div>
-  );
   const found =
     status && status !== "unreachable" && "path" in status ? (
       <code className="break-all font-code">{status.path}</code>
     ) : null;
   const description: ReactNode = found ?? NEEDED;
-  let control: ReactNode = again;
+  // Check again until it is ready.
+  const retry =
+    typeof status === "object" && status?._tag === "Ready" ? null : again;
+  /** What was found, in a word or two: announced as it changes, Check again kept outside it. */
+  let word: ReactNode = null;
   let message: ReactNode = null;
   if (status === "unreachable") {
     message = (
@@ -211,21 +208,21 @@ const NodeRow = () => {
       </RowMessage>
     );
   } else if (status?._tag === "Ready") {
-    control = <Status tone="success">{status.version}</Status>;
+    word = <Status tone="success">{status.version}</Status>;
   } else if (status?._tag === "Missing") {
-    control = wrong("Not installed");
+    word = <Status tone="warning">Not installed</Status>;
     message = (
       <InstallNode>Install it, then check again. {RESTART}</InstallNode>
     );
   } else if (status?._tag === "TooOld") {
-    control = wrong(`${status.version}, too old`);
+    word = <Status tone="warning">{status.version}, too old</Status>;
     message = (
       <InstallNode>
         {NEEDED} Install a newer one, then check again. {RESTART}
       </InstallNode>
     );
   } else if (status?._tag === "Failed") {
-    control = wrong("Didn’t run");
+    word = <Status tone="warning">Didn’t run</Status>;
     message = (
       <RowMessage kind="notice">
         <div className="flex flex-col gap-1">
@@ -250,7 +247,10 @@ const NodeRow = () => {
       setting="node"
       title="Node.js"
     >
-      {control}
+      <div className="flex items-center gap-3">
+        <div role="status">{word}</div>
+        {retry}
+      </div>
     </Row>
   );
 };

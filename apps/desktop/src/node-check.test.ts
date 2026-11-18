@@ -34,6 +34,9 @@ describe("the user's Node", () => {
     assert.isFalse(supportedNode("v20.18.0"));
     assert.isFalse(supportedNode("v18.20.0"));
     assert.isTrue(supportedNode("v25.0.0-rc.1"));
+    assert.isTrue(supportedNode("v22.13.0-rc.1"));
+    assert.isFalse(supportedNode("v22.12.0-rc.1"));
+    assert.isFalse(supportedNode("v20.19.0-rc.1"));
     assert.isFalse(supportedNode("v24.3.0 is not installed"));
     assert.isFalse(supportedNode("not a version"));
   });
@@ -117,6 +120,18 @@ describe("the user's Node", () => {
     assert.deepStrictEqual(
       statusOf("/bin/node", { exitCode: 0, stderr: "", stdout: "" }),
       { _tag: "Failed", path: "/bin/node", reason: "It printed nothing." }
+    );
+    assert.deepStrictEqual(
+      statusOf("/bin/node", {
+        exitCode: 0,
+        stderr: "(node) a warning\n",
+        stdout: "",
+      }),
+      {
+        _tag: "Failed",
+        path: "/bin/node",
+        reason: "It printed nothing. It warned: (node) a warning",
+      }
     );
     assert.deepStrictEqual(
       statusOf("/bin/node", { exitCode: 2, stderr: "", stdout: "" }),

@@ -22,7 +22,7 @@ const SUPPORTED_20 = { major: 20, minor: 19 };
  * A version and nothing else, a pre-release's (`v25.0.0-rc.1`) too: a shim's "v24.3.0 is not
  * installed" is not one.
  */
-const VERSION_RE = /^v(\d+)\.(\d+)\.(\d+)(?:-[\w.]+)?$/;
+const VERSION_RE = /^v(\d+)\.(\d+)\.(\d+)(-[\w.]+)?$/;
 
 /**
  * How long `node --version` may take: a version manager's shim (Vite+, mise, Volta) may fetch the
@@ -33,6 +33,19 @@ const TIMEOUT_SECONDS = 30;
 /** At most this much of what a failing `node` printed is kept, for the settings to show. */
 const REASON_MAX = 300;
 
+/** Whether a version reaches `floor`: a pre-release of the floor itself (`v22.12.0-rc.1`) comes before it. */
+const reaches = (
+  floor: { major: number; minor: number },
+  major: number,
+  minor: number,
+  patch: number,
+  preRelease: boolean
+) =>
+  major > floor.major ||
+  (major === floor.major &&
+    (minor > floor.minor ||
+      (minor === floor.minor && (patch > 0 || !preRelease))));
+
 /** Whether Vite runs on this version of Node. */
 export const supportedNode = (version: string) => {
   const match: RegExpExecArray | null = VERSION_RE.exec(version.trim());
@@ -41,12 +54,12 @@ export const supportedNode = (version: string) => {
   }
   const major = Number(match[1]);
   const minor = Number(match[2]);
+  const patch = Number(match[3]);
+  const preRelease = match[4] !== undefined;
   if (major === SUPPORTED_20.major) {
-    return minor >= SUPPORTED_20.minor;
+    return reaches(SUPPORTED_20, major, minor, patch, preRelease);
   }
-  return (
-    major > MINIMUM.major || (major === MINIMUM.major && minor >= MINIMUM.minor)
-  );
+  return reaches(MINIMUM, major, minor, patch, preRelease);
 };
 
 /** The last line that says something, shortened to what a row can hold. */
@@ -67,17 +80,21 @@ export const statusOf = (path: string, result: CommandResult): NodeStatus => {
       ? { _tag: "Ready", path, version }
       : { _tag: "TooOld", path, version };
   }
-  const said = lastLine(result.stderr) || lastLine(result.stdout);
+  const warned = lastLine(result.stderr);
   if (result.exitCode !== 0) {
+    const said = warned || lastLine(result.stdout);
     const code = `exit code ${result.exitCode}`;
     return { _tag: "Failed", path, reason: said ? `${said} (${code})` : code };
   }
+  // It succeeded: what it printed is what failed to be a version, and a warning is said beside it.
+  const printed = lastLine(result.stdout);
+  const what = printed
+    ? `It printed “${printed}”, not a version.`
+    : "It printed nothing.";
   return {
     _tag: "Failed",
     path,
-    reason: said
-      ? `It printed “${said}”, not a version.`
-      : "It printed nothing.",
+    reason: warned ? `${what} It warned: ${warned}` : what,
   };
 };
 
