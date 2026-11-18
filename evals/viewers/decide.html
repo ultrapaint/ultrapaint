@@ -1245,13 +1245,21 @@
         `<figure><figcaption><div class="caption"><p>${caption(p.caption)}</p><span class="place">${shown + 1} / ${list.length}</span>${keys}<kbd>Esc</kbd></div></figcaption>${frame(p)}</figure>`;
       if (!$("lightbox").classList.contains("open")) {
         before = document.activeElement;
+        setBehind(true);
         $("lightbox").classList.add("open");
       }
       $("lightbox").focus();
     }
+    /** The bar and the card under the pictures: inert while they are open, so Tab, Enter and Space stay with them. */
+    function setBehind(inert) {
+      for (const el of [document.querySelector("header"), $("main")]) {
+        el.inert = inert;
+      }
+    }
     function closePicture() {
       shown = -1;
       $("lightbox").classList.remove("open");
+      setBehind(false);
       before?.focus?.();
       before = null;
     }
