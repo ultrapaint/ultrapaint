@@ -615,6 +615,26 @@
     .lightbox .frame {
       cursor: zoom-out;
     }
+    .lightbox .step {
+      display: grid;
+      place-items: center;
+      align-self: center;
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      color: rgb(255 255 255 / 0.92);
+      cursor: pointer;
+      background: none;
+      border: 0;
+      border-radius: 8px;
+    }
+    .lightbox .step:hover {
+      background: rgb(255 255 255 / 0.12);
+    }
+    .lightbox .step svg {
+      width: 20px;
+      height: 20px;
+    }
     .lightbox .frame img {
       max-height: calc(100dvh - 96px);
     }
@@ -1240,9 +1260,20 @@
       }
       shown = (i + list.length) % list.length;
       const p = list[shown];
-      const keys = list.length > 1 ? "<kbd>← →</kbd> " : "";
+      const many = list.length > 1;
+      const step = (by, label, path) =>
+        many
+          ? `<button type="button" class="step" data-by="${by}" aria-label="${label}"><svg aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="${path}" /></svg></button>`
+          : "";
       $("lightbox").innerHTML =
-        `<figure><figcaption><div class="caption"><p>${caption(p.caption)}</p><span class="place">${shown + 1} / ${list.length}</span>${keys}<kbd>Esc</kbd></div></figcaption>${frame(p)}</figure>`;
+        `<figure><figcaption><div class="caption"><p>${caption(p.caption)}</p>${step(-1, "Previous picture", "m15 18-6-6 6-6")}<span class="place">${shown + 1} / ${list.length}</span>${step(1, "Next picture", "m9 18 6-6-6-6")}${many ? "<kbd>← →</kbd> " : ""}<kbd>Esc</kbd></div></figcaption>${frame(p)}</figure>`;
+      // The steps move through the pictures, for a touch screen that has no arrow keys.
+      for (const button of $("lightbox").querySelectorAll(".step")) {
+        button.onclick = (event) => {
+          event.stopPropagation();
+          openPicture(shown + Number(button.dataset.by));
+        };
+      }
       if (!$("lightbox").classList.contains("open")) {
         before = document.activeElement;
         setBehind(true);
