@@ -153,26 +153,30 @@ describe("About's Node.js", () => {
     expect(button("Check again")).toBeUndefined();
   });
 
-  it("says why a node that didn't run failed, never that it is too old, and checks again", async () => {
+  const failed: NodeStatus = {
+    _tag: "Failed",
+    path: "/Users/someone/.vite-plus/bin/node",
+    reason: "vp: no Node.js version set (exit code 1)",
+  };
+
+  it("says why a node that didn't run failed, never that it is too old", async () => {
     quietHealth();
-    const asked = nodeShell([
-      {
-        _tag: "Failed",
-        path: "/Users/someone/.vite-plus/bin/node",
-        reason: "vp: no Node.js version set (exit code 1)",
-      },
-      {
-        _tag: "Ready",
-        path: "/Users/someone/.vite-plus/bin/node",
-        version: "v26.13.1",
-      },
-    ]);
+    nodeShell([failed]);
     await render();
     expect(row()?.textContent).toContain("Didn’t run");
     expect(row()?.textContent).toContain(
       "vp: no Node.js version set (exit code 1)"
     );
     expect(row()?.textContent).not.toContain("too old");
+  });
+
+  it("asks the shell again on Check again, and shows what it finds then", async () => {
+    quietHealth();
+    const asked = nodeShell([
+      failed,
+      { _tag: "Ready", path: failed.path, version: "v26.13.1" },
+    ]);
+    await render();
     await act(async () => {
       button("Check again")?.click();
       await Promise.resolve();

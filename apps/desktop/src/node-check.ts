@@ -11,15 +11,18 @@ import type {
   ShellNotice,
 } from "@ultrapaint/contracts/shell-bridge";
 import { Effect, Option } from "effect";
-import { runCommand } from "./command.ts";
+import { type CommandResult, runCommand } from "./command.ts";
 import { findExecutable } from "./which.ts";
 
 /** What a new application's Vite needs: `^20.19.0 || >=22.12.0`. */
 const MINIMUM = { major: 22, minor: 12 };
 const SUPPORTED_20 = { major: 20, minor: 19 };
 
-/** A bare version and nothing else: a shim's "v24.3.0 is not installed" is not one. */
-const VERSION_RE = /^v(\d+)\.(\d+)\.(\d+)$/;
+/**
+ * A version and nothing else, a pre-release's (`v25.0.0-rc.1`) too: a shim's "v24.3.0 is not
+ * installed" is not one.
+ */
+const VERSION_RE = /^v(\d+)\.(\d+)\.(\d+)(?:-[\w.]+)?$/;
 
 /**
  * How long `node --version` may take: a version manager's shim (Vite+, mise, Volta) may fetch the
@@ -57,10 +60,7 @@ const lastLine = (output: string) => {
 };
 
 /** What `node --version` did, as the status it makes. */
-export const statusOf = (
-  path: string,
-  result: { exitCode: number; stderr: string; stdout: string }
-): NodeStatus => {
+export const statusOf = (path: string, result: CommandResult): NodeStatus => {
   const version = result.stdout.trim();
   if (result.exitCode === 0 && VERSION_RE.test(version)) {
     return supportedNode(version)
@@ -105,11 +105,11 @@ export const checkNode = Effect.fnUntraced(function* (
       Effect.succeed<NodeStatus>({
         _tag: "Failed",
         path,
-        reason: `It didn’t answer within ${timeoutSeconds === 1 ? "a second" : `${timeoutSeconds} seconds`}.`,
+        reason: `It didn’t answer within ${timeoutSeconds} seconds.`,
       })
     ),
     // Not started at all: the system's reason (permission denied, a bad interpreter line).
-    Effect.catch((error) =>
+    Effect.catchTag("PlatformError", (error) =>
       Effect.succeed<NodeStatus>({
         _tag: "Failed",
         path,

@@ -125,16 +125,16 @@ const LinkButton = ({ children, href }: { children: string; href: string }) => (
 
 /**
  * The person's Node.js as the shell finds it (ADR 0105), asked as About opens and again on
- * Check again; null while it is asked.
+ * Check again; null while it is asked, `unreachable` when the shell could not be asked.
  */
 const useNodeStatus = () => {
   const ask = platform().node?.status;
-  const [status, setStatus] = useState<NodeStatus | "failed" | null>(null);
+  const [status, setStatus] = useState<NodeStatus | "unreachable" | null>(null);
   useEffect(() => {
     let open = true;
     ask?.().then(
       (found) => open && setStatus(found),
-      () => open && setStatus("failed")
+      () => open && setStatus("unreachable")
     );
     return () => {
       open = false;
@@ -142,7 +142,7 @@ const useNodeStatus = () => {
   }, [ask]);
   const check = () => {
     setStatus(null);
-    ask?.().then(setStatus, () => setStatus("failed"));
+    ask?.().then(setStatus, () => setStatus("unreachable"));
   };
   return { check, status };
 };
@@ -190,49 +190,42 @@ const NodeRow = () => {
       )}
     </Button>
   );
-  let description: ReactNode = NEEDED;
+  /** What is wrong, in a word or two, beside Check again. */
+  const wrong = (word: string) => (
+    <div className="flex items-center gap-3">
+      <Status tone="warning">{word}</Status>
+      {again}
+    </div>
+  );
+  const found =
+    status && status !== "unreachable" && "path" in status ? (
+      <code className="break-all font-code">{status.path}</code>
+    ) : null;
+  const description: ReactNode = found ?? NEEDED;
   let control: ReactNode = again;
   let message: ReactNode = null;
-  if (status === "failed") {
+  if (status === "unreachable") {
     message = (
       <RowMessage kind="error">
         <p>Couldn’t check for Node.js. Check again, or restart Ultrapaint.</p>
       </RowMessage>
     );
   } else if (status?._tag === "Ready") {
-    description = <code className="break-all font-code">{status.path}</code>;
     control = <Status tone="success">{status.version}</Status>;
   } else if (status?._tag === "Missing") {
-    control = (
-      <div className="flex items-center gap-3">
-        <Status tone="warning">Not installed</Status>
-        {again}
-      </div>
-    );
+    control = wrong("Not installed");
     message = (
       <InstallNode>Install it, then check again. {RESTART}</InstallNode>
     );
   } else if (status?._tag === "TooOld") {
-    description = <code className="break-all font-code">{status.path}</code>;
-    control = (
-      <div className="flex items-center gap-3">
-        <Status tone="warning">{status.version}, too old</Status>
-        {again}
-      </div>
-    );
+    control = wrong(`${status.version}, too old`);
     message = (
       <InstallNode>
         {NEEDED} Install a newer one, then check again. {RESTART}
       </InstallNode>
     );
   } else if (status?._tag === "Failed") {
-    description = <code className="break-all font-code">{status.path}</code>;
-    control = (
-      <div className="flex items-center gap-3">
-        <Status tone="warning">Didn’t run</Status>
-        {again}
-      </div>
-    );
+    control = wrong("Didn’t run");
     message = (
       <RowMessage kind="notice">
         <div className="flex flex-col gap-1">
