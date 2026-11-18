@@ -22,7 +22,8 @@ const SUPPORTED_20 = { major: 20, minor: 19 };
  * A version and nothing else, a pre-release's (`v25.0.0-rc.1`) too: a shim's "v24.3.0 is not
  * installed" is not one.
  */
-const VERSION_RE = /^v(\d+)\.(\d+)\.(\d+)(-[\w.]+)?$/;
+const VERSION_RE =
+  /^v(\d+)\.(\d+)\.(\d+)(-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 
 /**
  * How long `node --version` may take: a version manager's shim (Vite+, mise, Volta) may fetch the

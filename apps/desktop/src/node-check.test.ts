@@ -38,6 +38,8 @@ describe("the user's Node", () => {
     assert.isFalse(supportedNode("v22.12.0-rc.1"));
     assert.isFalse(supportedNode("v20.19.0-rc.1"));
     assert.isFalse(supportedNode("v24.3.0 is not installed"));
+    assert.isFalse(supportedNode("v24.3.0-rc..1"));
+    assert.isTrue(supportedNode("v25.0.0-nightly20250101abc"));
     assert.isFalse(supportedNode("not a version"));
   });
 
