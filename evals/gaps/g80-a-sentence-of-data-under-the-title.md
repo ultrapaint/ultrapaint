@@ -2,7 +2,7 @@
 id: g80
 title: A sentence of data under an object's title
 kind: missing
-status: testing
+status: open
 found: 2026-11-18
 source: the person, on the fresh-place screens of placement-3 (a paid invoice, a delivered order), decisions/placement3-nov18
 skill: [SKILL.md, references/review.md]
