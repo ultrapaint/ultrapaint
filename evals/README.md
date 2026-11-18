@@ -660,7 +660,7 @@ key opens a field they write in and send (⌘/Ctrl+Enter), and an option picked 
 words out. On a card with a call, the field is a comment that goes with Right or Wrong instead, or
 the own answer when sent alone (Esc, then R or W, sends it with the verdict). Backspace, or
 Clear answer, takes an answer back, with an Undo until the card is left. Images go with
-the words: pasted or dropped on the field, or picked with Add image (a phone's photos or camera). Each is saved as it is added, in `decisions/<deck>.images/`, and the answer lists them in `images`, by their path from the data directory: open them when reading the answer. A card's text and options are on the left, its pictures on the right, and a bar at the top
+the words: pasted or dropped on the field, or picked with Add image (a phone's photos or camera). Each is saved as it is added, in `decisions/<deck>.images/`, and the answer lists them in `images`, by their path from the data directory: open them when reading the answer. A card's text and options are on the left, its pictures on the right: a click or P opens them full screen with their captions, ← → moving through them and Esc closing. A bar at the top
 names the deck and moves through it from its middle (← →, A for every answer), the share of cards answered drawn as a line on
 its bottom border. The page follows the system's light or dark
 theme; the bar's switch (or T) sets one, kept in that browser.
