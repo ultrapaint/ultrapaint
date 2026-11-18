@@ -577,6 +577,10 @@
     .lightbox.open {
       display: grid;
     }
+    /* It takes focus to hold the keys, and draws none: the picture is what is shown. */
+    .lightbox:focus-visible {
+      outline: none;
+    }
     /* A table's caption takes the table's width: the caption wraps at the picture's edges. */
     .lightbox figure {
       display: table;
@@ -718,6 +722,7 @@
       class="lightbox"
       id="lightbox"
       role="dialog"
+      tabindex="-1"
     ></div>
     <script>
     "use strict";
@@ -1224,9 +1229,12 @@
 
     /** The card's picture open full screen, by its place among them; -1 when none is. */
     let shown = -1;
+    /** What had focus before the pictures opened, to have it back when they close. */
+    let before = null;
     /** Opens the card's picture `i` full screen, past either end going round to the other. */
     function openPicture(i) {
-      const list = deck.cards[at]?.pictures ?? [];
+      // The deck is undefined until the session loads.
+      const list = deck?.cards[at]?.pictures ?? [];
       if (list.length === 0) {
         return;
       }
@@ -1235,16 +1243,26 @@
       const keys = list.length > 1 ? "<kbd>← →</kbd> " : "";
       $("lightbox").innerHTML =
         `<figure><figcaption><div class="caption"><p>${caption(p.caption)}</p><span class="place">${shown + 1} / ${list.length}</span>${keys}<kbd>Esc</kbd></div></figcaption>${frame(p)}</figure>`;
-      $("lightbox").classList.add("open");
+      if (!$("lightbox").classList.contains("open")) {
+        before = document.activeElement;
+        $("lightbox").classList.add("open");
+      }
+      $("lightbox").focus();
     }
     function closePicture() {
       shown = -1;
       $("lightbox").classList.remove("open");
+      before?.focus?.();
+      before = null;
     }
 
     /** A key the page's shortcuts leave alone: it moves through or closes the pictures, is typed, or is the browser's. */
     function notAShortcut(event) {
       if (shown >= 0) {
+        // ⌘P, Ctrl+R and the like stay the browser's while the pictures are open too.
+        if (event.metaKey || event.ctrlKey || event.altKey) {
+          return true;
+        }
         if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
           event.preventDefault();
           openPicture(shown + (event.key === "ArrowLeft" ? -1 : 1));
