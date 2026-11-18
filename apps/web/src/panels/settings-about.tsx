@@ -1,21 +1,28 @@
 /**
- * Settings › About: the version running and its update, where the person's things are kept, and
- * where to read more or report a problem.
+ * Settings › About: the version running and its update, where the person's things are kept, the
+ * Node.js a new application needs, and where to read more or report a problem.
  */
-import type { UpdateCheck } from "@ultrapaint/contracts/shell-bridge";
+import type {
+  NodeStatus,
+  UpdateCheck,
+} from "@ultrapaint/contracts/shell-bridge";
 import { ExternalLink } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import {
   UpdateButton,
   updateLabel,
   useAppUpdate,
 } from "../components/app-update.tsx";
 import { Logo } from "../components/logo.tsx";
+import { isMac } from "../lib/keys.ts";
 import { platform, serverAddress } from "../platform.ts";
-import { Group, Row, Status } from "./settings-group.tsx";
+import { CopyLine } from "./settings-agents.tsx";
+import { Group, Row, RowMessage, Status } from "./settings-group.tsx";
 
 const REPOSITORY = "https://github.com/ultrapaint/ultrapaint";
+const NODE_DOWNLOAD = "https://nodejs.org/en/download";
 
 /** The version the server runs, as its health answers it; null until it does. */
 const useVersion = () => {
@@ -116,6 +123,137 @@ const LinkButton = ({ children, href }: { children: string; href: string }) => (
   </Button>
 );
 
+/**
+ * The person's Node.js as the shell finds it (ADR 0105), asked as About opens and again on
+ * Check again; null while it is asked.
+ */
+const useNodeStatus = () => {
+  const ask = platform().node?.status;
+  const [status, setStatus] = useState<NodeStatus | "failed" | null>(null);
+  useEffect(() => {
+    let open = true;
+    ask?.().then(
+      (found) => open && setStatus(found),
+      () => open && setStatus("failed")
+    );
+    return () => {
+      open = false;
+    };
+  }, [ask]);
+  const check = () => {
+    setStatus(null);
+    ask?.().then(setStatus, () => setStatus("failed"));
+  };
+  return { check, status };
+};
+
+/** How to put a Node that is missing or too old right: the install command, the download. */
+const InstallNode = ({ children }: { children: ReactNode }) => (
+  <RowMessage kind="notice">
+    <div className="flex flex-col items-start gap-2">
+      <p>{children}</p>
+      {isMac ? <CopyLine command="brew install node" label="Node.js" /> : null}
+      <a
+        className="text-foreground underline decoration-foreground/30 underline-offset-3 hover:decoration-foreground"
+        href={NODE_DOWNLOAD}
+        rel="noreferrer"
+        target="_blank"
+      >
+        Download Node.js
+      </a>
+    </div>
+  </RowMessage>
+);
+
+const NEEDED =
+  "A new application installs its packages and runs with Node.js 22.12 or newer.";
+
+/**
+ * The Node.js on this computer's PATH, its version, and what is wrong with it: the one place the
+ * notice over the editor's Details opens (ADR 0105). Shown where the shell can tell (desktop).
+ */
+const NodeRow = () => {
+  const { check, status } = useNodeStatus();
+  const again = (
+    <Button disabled={status === null} onClick={check} variant="outline">
+      {status === null ? (
+        <>
+          <Spinner />
+          Checking…
+        </>
+      ) : (
+        "Check again"
+      )}
+    </Button>
+  );
+  let description: ReactNode = NEEDED;
+  let control: ReactNode = again;
+  let message: ReactNode = null;
+  if (status === "failed") {
+    message = (
+      <RowMessage kind="error">
+        <p>Couldn’t check for Node.js. Check again, or restart Ultrapaint.</p>
+      </RowMessage>
+    );
+  } else if (status?._tag === "Ready") {
+    description = <code className="break-all font-code">{status.path}</code>;
+    control = <Status tone="success">{status.version}</Status>;
+  } else if (status?._tag === "Missing") {
+    control = (
+      <div className="flex items-center gap-3">
+        <Status tone="warning">Not installed</Status>
+        {again}
+      </div>
+    );
+    message = <InstallNode>Install it, then check again.</InstallNode>;
+  } else if (status?._tag === "TooOld") {
+    description = <code className="break-all font-code">{status.path}</code>;
+    control = (
+      <div className="flex items-center gap-3">
+        <Status tone="warning">{status.version}, too old</Status>
+        {again}
+      </div>
+    );
+    message = (
+      <InstallNode>{NEEDED} Install a newer one, then check again.</InstallNode>
+    );
+  } else if (status?._tag === "Failed") {
+    description = <code className="break-all font-code">{status.path}</code>;
+    control = (
+      <div className="flex items-center gap-3">
+        <Status tone="warning">Didn’t run</Status>
+        {again}
+      </div>
+    );
+    message = (
+      <RowMessage kind="notice">
+        <div className="flex flex-col gap-1">
+          <p>
+            <code className="break-all font-code text-foreground">
+              node --version
+            </code>{" "}
+            failed: {status.reason}
+          </p>
+          <p>
+            Ultrapaint runs it with the PATH your login shell sets. A version
+            manager’s node may need a default version set first.
+          </p>
+        </div>
+      </RowMessage>
+    );
+  }
+  return (
+    <Row
+      description={description}
+      message={message}
+      setting="node"
+      title="Node.js"
+    >
+      {control}
+    </Row>
+  );
+};
+
 export const AboutSection = ({ folders }: { folders?: React.ReactNode }) => {
   const version = useVersion();
   return (
@@ -131,6 +269,11 @@ export const AboutSection = ({ folders }: { folders?: React.ReactNode }) => {
         <UpdateState />
       </div>
       {folders}
+      {platform().node ? (
+        <Group>
+          <NodeRow />
+        </Group>
+      ) : null}
       <Group>
         <Row setting="documentation" title="Documentation">
           <LinkButton href={REPOSITORY}>Open</LinkButton>

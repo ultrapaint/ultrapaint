@@ -580,9 +580,13 @@ refactor and the board view left.
   its empty state's form, with Try again (`PanelFailed` in `components/panel.tsx`, ADR 0080);
   never the red box, which is for what the person can read and fix (git's words, a file's
   problem).
-- **Notice**: what the desktop app tells the editor it found missing on this machine, shown as
-  a banner over it until dismissed or the editor loads again (`Platform.notices`, the desktop's
-  `Notices`): Node.js.
+- **Notice**: what the desktop app tells the editor it found missing on this machine, one line
+  over it with Details opening the settings' section that says the rest, until dismissed or the
+  editor loads again (`Platform.notices`, the desktop's `Notices`, ADR 0105): Node.js.
+- **Node status**: the person's Node.js as the desktop app finds it on the login shell's `PATH`:
+  ready, too old, failed (a `node` that did not say its version, with why) or missing
+  (`NodeStatus`, `Platform.node.status`, `node-check.ts`); Settings › About's Node.js row
+  (ADR 0105).
 - **App update**: a newer release of the desktop app, once there is something to do about it:
   a restart into the release it downloaded, or a download by hand where this copy cannot replace
   itself (`Platform.update`, the desktop's `Updater`, `updates.ts`; the editor's `app-update.tsx`,

@@ -2,6 +2,7 @@
 import "../testing/fake-browser.ts";
 import type {
   AppUpdate,
+  NodeStatus,
   UpdateCheck,
 } from "@ultrapaint/contracts/shell-bridge";
 import { act } from "react";
@@ -115,5 +116,85 @@ describe("About's update", () => {
       "Restart to update to 0.3.0"
     );
     expect(host.textContent).not.toContain("Checking");
+  });
+});
+
+describe("About's Node.js", () => {
+  const quietHealth = () =>
+    vi.stubGlobal("fetch", () => new Promise<Response>(() => undefined));
+
+  /** The desktop shell, whose Node.js answers each ask with the next of `answers`. */
+  const nodeShell = (answers: NodeStatus[]) => {
+    const asked: string[] = [];
+    setPlatform({
+      node: {
+        status: () => {
+          asked.push("node");
+          return Promise.resolve(answers.shift() ?? { _tag: "Missing" });
+        },
+      },
+      serverUrl: "ws://localhost:4000/ws",
+    } as unknown as Platform);
+    return asked;
+  };
+
+  const row = () => host.querySelector("[data-setting=node]");
+  const button = (label: string) =>
+    [...host.querySelectorAll("button")].find((b) => b.textContent === label);
+
+  it("shows the version and where it is when Node.js is ready", async () => {
+    quietHealth();
+    nodeShell([
+      { _tag: "Ready", path: "/opt/homebrew/bin/node", version: "v26.13.1" },
+    ]);
+    await render();
+    expect(row()?.textContent).toContain("/opt/homebrew/bin/node");
+    expect(row()?.textContent).toContain("v26.13.1");
+    expect(button("Check again")).toBeUndefined();
+  });
+
+  it("says why a node that didn't run failed, never that it is too old, and checks again", async () => {
+    quietHealth();
+    const asked = nodeShell([
+      {
+        _tag: "Failed",
+        path: "/Users/someone/.vite-plus/bin/node",
+        reason: "vp: no Node.js version set (exit code 1)",
+      },
+      {
+        _tag: "Ready",
+        path: "/Users/someone/.vite-plus/bin/node",
+        version: "v26.13.1",
+      },
+    ]);
+    await render();
+    expect(row()?.textContent).toContain("Didn’t run");
+    expect(row()?.textContent).toContain(
+      "vp: no Node.js version set (exit code 1)"
+    );
+    expect(row()?.textContent).not.toContain("too old");
+    await act(async () => {
+      button("Check again")?.click();
+      await Promise.resolve();
+    });
+    expect(asked).toEqual(["node", "node"]);
+    expect(row()?.textContent).toContain("v26.13.1");
+  });
+
+  it("says how to install a Node.js that is missing or too old", async () => {
+    quietHealth();
+    nodeShell([{ _tag: "TooOld", path: "/usr/bin/node", version: "v18.19.0" }]);
+    await render();
+    expect(row()?.textContent).toContain("v18.19.0, too old");
+    expect(row()?.querySelector("a")?.getAttribute("href")).toContain(
+      "nodejs.org"
+    );
+  });
+
+  it("is not there where the shell cannot tell", async () => {
+    quietHealth();
+    setPlatform({ serverUrl: "ws://localhost:4000/ws" } as Platform);
+    await render();
+    expect(row()).toBeNull();
   });
 });
