@@ -790,7 +790,7 @@
       )
         .map(
           (m) =>
-            `<div class="mark ${m.at ?? (m.y < 0.08 ? "inside" : "above")}" style="left:${pct(m.x)};top:${pct(m.y)};width:${pct(m.width)};height:${pct(m.height)}">${
+            `<div class="mark ${esc(m.at ?? (m.y < 0.08 ? "inside" : "above"))}" style="left:${pct(m.x)};top:${pct(m.y)};width:${pct(m.width)};height:${pct(m.height)}">${
               m.label ? `<span>${esc(m.label)}</span>` : ""
             }</div>`
         )
@@ -1271,7 +1271,10 @@
       for (const button of $("lightbox").querySelectorAll(".step")) {
         button.onclick = (event) => {
           event.stopPropagation();
-          openPicture(shown + Number(button.dataset.by));
+          const { by } = button.dataset;
+          openPicture(shown + Number(by));
+          // The buttons are drawn anew with the picture: focus stays on the one just used.
+          $("lightbox").querySelector(`.step[data-by="${by}"]`)?.focus();
         };
       }
       if (!$("lightbox").classList.contains("open")) {
