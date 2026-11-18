@@ -25,6 +25,13 @@ describe("the settings' search", () => {
     ).toBe(false);
   });
 
+  it("leaves out a row the shell does not give, as in a browser", () => {
+    expect(searchSettings("node").map((e) => e.id)).toContain("node");
+    expect(
+      searchSettings("node", undefined, (c) => c !== "node").map((e) => e.id)
+    ).not.toContain("node");
+  });
+
   it("finds nothing for nothing typed", () => {
     expect(searchSettings("  ")).toEqual([]);
   });
