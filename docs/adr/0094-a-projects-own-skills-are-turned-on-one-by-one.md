@@ -36,7 +36,7 @@ skills.**
   `SKILL.md`'s repo-relative path (`.claude/skills/grilling/SKILL.md`); none when absent. A
   skill's MCP resource keeps its folder's name, numbered when two share one.
 - **Outside the tool**, Settings offers the design skill two ways: the open skills installer's
-  command (`SKILL_INSTALL_COMMAND`, `npx skills add ultrapaint/ultrapaint`), and **Save in this
+  command (`SKILL_INSTALL_COMMAND`, `npx skills add ultrapaint/ultrapaint --skill ultrapaint`), and **Save in this
   repository** (`skills.install`), which writes its `SKILL.md`, with its front matter, and its
   `references/` into `.claude/skills/ultrapaint/` (for Claude Code) or `.agents/skills/ultrapaint/`
   (for other agents), replacing a copy there whole. `SkillList.installed` says where copies are.

@@ -13,6 +13,7 @@
   <a href="#installation">Installation</a> ·
   <a href="#documentation">Documentation</a> ·
   <a href="#desktop-app">Desktop app</a> ·
+  <a href="#the-design-skill-alone">Design skill</a> ·
   <a href="#license">License</a>
 </p>
 
@@ -68,6 +69,20 @@ On Linux, download the AppImage (it updates itself) or the `.deb` from the
 
 The app isn't signed yet. On macOS, run `xattr -dr com.apple.quarantine /Applications/Ultrapaint.app`
 once after installing or updating it, or macOS will say it is damaged. Windows is not supported yet.
+
+### The design skill alone
+
+Ultrapaint tells its agents a design skill: how to design, review and word a screen, and how to
+make a design system. It works without Ultrapaint, for any agent building a web interface. To
+install it in a repository:
+
+```bash
+npx skills add ultrapaint/ultrapaint --skill ultrapaint
+```
+
+The [skills installer](https://github.com/vercel-labs/skills) asks which agents to install it for
+(Claude Code, Codex, Cursor and others); add `-g` to install it for every repository. Run it again
+to update. The skill's source is [`skills/ultrapaint`](skills/ultrapaint).
 
 ## Some notes
 
