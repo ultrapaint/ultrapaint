@@ -18,7 +18,9 @@ const root = createRoot(host);
 afterEach(() => {
   act(() => root.render(null));
   setPlatform(null);
-  useProject.setState({ settingsOpen: false });
+  // Details opened the settings and wrote them into the URL: both closed again.
+  useProject.getState().openSettings(false);
+  useProject.setState({ settingsSection: "repository" });
 });
 
 describe("the shell's notices", () => {

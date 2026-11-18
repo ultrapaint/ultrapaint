@@ -33,6 +33,8 @@ describe("the user's Node", () => {
     assert.isFalse(supportedNode("v22.11.0"));
     assert.isFalse(supportedNode("v20.18.0"));
     assert.isFalse(supportedNode("v18.20.0"));
+    assert.isTrue(supportedNode("v25.0.0-rc.1"));
+    assert.isFalse(supportedNode("v24.3.0 is not installed"));
     assert.isFalse(supportedNode("not a version"));
   });
 
@@ -103,10 +105,11 @@ describe("the user's Node", () => {
     Effect.gen(function* () {
       const { dir } = yield* fakeNode("exec /bin/sleep 5");
       const slow = yield* checkNode(onPath(dir), 1);
-      assert.deepInclude(slow, {
-        _tag: "Failed",
-        reason: "It didn’t answer within a second.",
-      });
+      assert.strictEqual(slow._tag, "Failed");
+      assert.include(
+        slow._tag === "Failed" ? slow.reason : "",
+        "didn’t answer within 1 seconds"
+      );
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
   );
 
