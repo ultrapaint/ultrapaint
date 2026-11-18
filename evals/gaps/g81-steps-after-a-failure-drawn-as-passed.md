@@ -21,7 +21,8 @@ than it did. The others marked the two steps "Not run".
 | With them (placement-3, show-less-1, the skill on main) | `pf-opus-p3`, `pf-opus-sl1`, `pf-opus-main` (18 Nov) | 5 of 6 |
 
 Fisher's exact test, one-sided: p ≈ 0.008. The old skill made on 18 November marks both runs "Not
-run", so the fault follows the rules, not the day. Which line brings it is not known: none of them
+run", so the fault goes with the rules rather than with the day, though two same-day runs and six
+runs a side cannot rule out run-to-run variation. Which line brings it is not known: none of them
 speaks of steps; what placement-3, show-less-1 and main share and placement-2 lacks is the header
 cap and the finished state's most used action.
 
@@ -30,6 +31,11 @@ cap and the finished state's most used action.
 
 **Proposed.** In `SKILL.md`, States: "In a run of steps, those after a failed one are not run:
 no tick, no time, marked as skipped."
+
+Scope: a pipeline can run steps in parallel or go on after a failure. The line as measured says
+"the steps after a failed one"; one that ships would name the steps that wait on it ("the steps
+that depend on a failed one did not run"), which reads the same on a sequential build like this
+brief's, and is checked on such a brief before it lands.
 
 **Test.** `fresh-place-deploy`, 2 runs each, Opus designing, the skill on main against main with
 the line: the failed screen's later steps, read from each run's picture and source.
