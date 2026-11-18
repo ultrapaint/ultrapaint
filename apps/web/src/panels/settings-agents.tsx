@@ -142,7 +142,13 @@ export const OUTSIDE_COMMANDS = [
 ] as const;
 
 /** A command to copy, on one line that scrolls. */
-const CopyLine = ({ command, label }: { command: string; label: string }) => {
+export const CopyLine = ({
+  command,
+  label,
+}: {
+  command: string;
+  label: string;
+}) => {
   const [copied, setCopied] = useState(false);
   const copy = () => {
     navigator.clipboard

@@ -327,6 +327,12 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     title: "Your folder",
   },
   {
+    id: "node",
+    section: "about",
+    terms: "nodejs npm version path install new application",
+    title: "Node.js",
+  },
+  {
     id: "documentation",
     section: "about",
     terms: "docs help",

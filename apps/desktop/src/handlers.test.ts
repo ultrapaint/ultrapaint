@@ -82,8 +82,9 @@ const withHandlers = <A, E>(
         Notices,
         Notices.of({
           list: Effect.succeed([
-            { detail: "Install it.", id: "node", title: "No Node.js" },
+            { id: "node", section: "about", title: "No Node.js" },
           ]),
+          node: Effect.succeed({ _tag: "Missing" }),
         })
       ),
       OpenProject.layer(dir),
@@ -333,6 +334,9 @@ describe("the bridge's handlers", () => {
           (yield* handlers.notices()).map((n) => n.id),
           ["node"]
         );
+        assert.deepStrictEqual(yield* handlers["node.status"](), {
+          _tag: "Missing",
+        });
       })
     )
   );

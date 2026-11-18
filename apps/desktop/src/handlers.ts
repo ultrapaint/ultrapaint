@@ -227,6 +227,7 @@ export const bridgeHandlers = (
   "newDesign.create": (input, report) =>
     NewDesigns.use((n) => n.create(input, report)),
   "newDesign.folderFor": (name) => NewDesigns.use((n) => n.folderFor(name)),
+  "node.status": () => Notices.use((n) => n.node),
   notices: () => Notices.use((n) => n.list),
   pickFolder: (picker) =>
     Effect.map(

@@ -41,21 +41,34 @@ export const ShellStatus = Schema.Struct({
 export type ShellStatus = typeof ShellStatus.Type;
 
 /**
- * Something the shell found the editor will miss, and how to put it right: Node.js not
- * installed, say. Shown as a banner over the editor until it is dismissed.
+ * Something the shell found the editor will miss: Node.js not installed, say. Shown as a banner
+ * over the editor until it is dismissed, one line, with Details opening the settings' section
+ * that says what was found and how to put it right (ADR 0105).
  */
 export const ShellNotice = Schema.Struct({
-  /** A command that puts it right, to copy. */
-  command: Schema.optional(Schema.String),
-  detail: Schema.String,
   id: Schema.String,
-  /** Where to read more or download what is missing; opens in the browser. */
-  link: Schema.optional(
-    Schema.Struct({ label: Schema.String, url: Schema.String })
-  ),
+  /** The settings' section that says more (`about`). */
+  section: Schema.String,
   title: Schema.String,
 });
 export type ShellNotice = typeof ShellNotice.Type;
+
+/**
+ * The person's Node.js, as the shell finds it on the login shell's `PATH`: a new application's
+ * packages are installed with it, and the application runs with it (ADR 0105). `Failed` is a
+ * `node` there that did not say its version, `reason` what it did instead: its error, its exit
+ * code, or no answer in time.
+ */
+export const NodeStatus = Schema.Union([
+  Schema.TaggedStruct("Ready", { path: Schema.String, version: Schema.String }),
+  Schema.TaggedStruct("TooOld", {
+    path: Schema.String,
+    version: Schema.String,
+  }),
+  Schema.TaggedStruct("Failed", { path: Schema.String, reason: Schema.String }),
+  Schema.TaggedStruct("Missing", {}),
+]);
+export type NodeStatus = typeof NodeStatus.Type;
 
 /** How an agent stands on this machine, as the shell found it. */
 export const PlatformAgent = Schema.Struct({
@@ -428,6 +441,11 @@ export const SHELL_BRIDGE = {
    * the new projects' folder (`folders.setNewProjects`), numbered when one is there already.
    */
   "newDesign.folderFor": invoke([Schema.String], Schema.String),
+  /**
+   * Asks again for the person's Node.js: `node` on the login shell's `PATH` and its version
+   * (ADR 0105).
+   */
+  "node.status": invoke([], NodeStatus, LOCAL),
   /** What the shell found missing on this machine. */
   notices: invoke([], Schema.Array(ShellNotice), LOCAL),
   /**

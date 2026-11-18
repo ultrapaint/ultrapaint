@@ -45,8 +45,8 @@ describe("the platform", () => {
       notices: () =>
         Promise.resolve([
           {
-            detail: "Install it.",
             id: "node",
+            section: "about",
             title: "Node.js is not installed",
           },
         ]),
