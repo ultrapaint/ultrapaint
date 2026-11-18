@@ -68,13 +68,20 @@ the brief, or none.
 ### Hierarchy
 
 - One primary action per screen, in the primary variant; the rest secondary, outline or ghost by
-  use; past three secondary actions, the rest in a "More" menu. A reading screen may have none.
+  use. At rest an object's header shows at most three actions: the primary and the two its state
+  makes most frequent; every other action is in the object's ⋯ menu. A reading screen may have none.
+- The primary is the next step the object's state allows; in a finished state (paid, delivered),
+  the action taken there most (Send receipt), none only where nothing is done.
 - The squint test: the content the screen is for and its primary action are the two heaviest
   shapes. When five things compete for first, demote four.
 - Rank by position first, then weight or colour, then size, which is the loudest. One tool per
   step; all three on one element shouts.
 - The page title says what the screen is in two to four words. Every heading leads its section;
   the text under it adds what the heading does not say.
+- Under an object's title, at most one quiet line of one or two facts that tell it from its
+  siblings (the client, the day it was placed), none of them shown elsewhere on the page; its
+  state is the badge beside the title. Amounts, payments and who did what are read where the page
+  shows them, never again in that line. With nothing to add, no line.
 - In a row, the identifying content leads; metadata and actions trail. The one figure the user
   came for tops its group, larger and heavier than its label. What the user does most sits where
   the hand already is; what frames the whole page sits in its header.
@@ -105,6 +112,10 @@ says what the content already shows is noise: remove it, rather than shrinking o
   already apart, a badge that says nothing, an icon inside a field its label names.
 - A value appears once, where it is read or set: not a size on its frame and again in a caption,
   not a count on a group and on its heading.
+- An object's page shows in view the facts a task on it needs. Facts needed only sometimes
+  (identifiers, build or machine details, sizes, codes another team uses, checks that passed) go
+  under one "Details" disclosure at the end of the side column, or on another tab: one step away,
+  never gone.
 - Context that depends on a selection or a mode appears only in that state, beside the action it
   affects.
 - A list holds one kind of item doing one kind of thing; an item that does something else goes
