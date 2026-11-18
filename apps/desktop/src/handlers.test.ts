@@ -22,6 +22,7 @@ import {
   makeRecorded,
   type Recorded,
 } from "./testing.ts";
+import { noUpdates } from "./updater.ts";
 
 /** Agents as the test layer has them, whose downloads and keys are recorded in `asked`. */
 const fakeAgents = (asked: string[]) =>
@@ -66,6 +67,7 @@ const withHandlers = <A, E>(
     const recorded = makeRecorded();
     const asked: string[] = [];
     const app = Layer.mergeAll(
+      noUpdates,
       Layer.succeed(
         NewDesigns,
         NewDesigns.of({

@@ -29,6 +29,7 @@ import { OpenProject } from "./open-project.ts";
 import { ProjectStore, projectDetail, remoteInputOf } from "./projects.ts";
 import { Shell } from "./shell.ts";
 import { readSshHosts } from "./ssh-hosts.ts";
+import { Updater } from "./updater.ts";
 
 /** What the handlers need besides the app's services. */
 interface HandlerOptions {
@@ -55,7 +56,8 @@ export type HandlerServices =
   | OpenProject
   | Path.Path
   | ProjectStore
-  | Shell;
+  | Shell
+  | Updater;
 
 const decodePreferences = Schema.decodeUnknownEffect(
   Schema.fromJsonString(ChatPreferencesFile)
@@ -183,6 +185,7 @@ export const bridgeHandlers = (
     ),
   // The agent keeps its sign-in itself: nothing to start again.
   "agents.signIn": (id) => Agents.use((a) => a.signIn(id)),
+  checkUpdate: () => Updater.use((u) => u.checkNow),
   "command.install": () => CommandLine.use((c) => c.install),
   "command.installed": () => CommandLine.use((c) => c.installed),
   "folders.current": () =>

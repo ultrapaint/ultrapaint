@@ -39,6 +39,7 @@ import {
   stateMessage,
 } from "./bridge-server.ts";
 import { CommandLine, commandApp } from "./command-line.ts";
+import { UpdateCheckError } from "./errors.ts";
 import { Folders } from "./folders.ts";
 import { bridgeHandlers, remoteOpen } from "./handlers.ts";
 import { LoginShell } from "./login-shell.ts";
@@ -306,14 +307,33 @@ const installMode = ((): InstallMode => {
   if (process.platform === "linux" && process.env.APPIMAGE) {
     return {
       _tag: "Feed",
-      // Downloaded in the background; `update-downloaded` says when it is there.
-      check: Effect.promise(() =>
-        autoUpdater.checkForUpdates().then(
-          () => undefined,
-          (error: unknown) =>
-            console.error(
-              `[desktop] the update could not be checked: ${String(error)}`
-            )
+      // Asked only once GitHub lists a newer release: the check waits for its download, as the
+      // macOS app's does, and `update-downloaded` says it is there. A feed that has none yet (its
+      // files not uploaded) or a download that fails is a check that failed.
+      check: Effect.tryPromise({
+        catch: (error) =>
+          new UpdateCheckError({
+            message: `the AppImage feed: ${String(error)}`,
+          }),
+        try: () => autoUpdater.checkForUpdates(),
+      }).pipe(
+        Effect.filterOrFail(
+          (result) => result?.isUpdateAvailable === true,
+          () =>
+            new UpdateCheckError({
+              message: "the AppImage feed lists no newer release yet",
+            })
+        ),
+        Effect.flatMap((result) =>
+          Effect.tryPromise({
+            catch: (error) =>
+              new UpdateCheckError({
+                message: `the AppImage download: ${String(error)}`,
+              }),
+            try: async () => {
+              await result?.downloadPromise;
+            },
+          })
         )
       ),
     };
