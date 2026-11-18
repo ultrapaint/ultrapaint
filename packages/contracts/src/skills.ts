@@ -38,7 +38,8 @@ export type SkillInstallFolder = typeof SkillInstallFolder.Type;
  * The command that installs the design skill for agents outside the tool, from its repository,
  * with the open skills installer.
  */
-export const SKILL_INSTALL_COMMAND = "npx skills add ultrapaint/ultrapaint";
+export const SKILL_INSTALL_COMMAND =
+  "npx skills add ultrapaint/ultrapaint --skill ultrapaint";
 
 const SkillSource = Schema.Literals(["built-in", "project"]);
 
