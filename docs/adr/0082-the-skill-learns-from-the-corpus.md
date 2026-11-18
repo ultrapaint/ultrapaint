@@ -30,7 +30,7 @@ annotations count what is common; what makes a page stand out sits unused in the
    or two that fit the brief.
 3. **The skill never names a company, product, site, library or person from the references or the
    corpus.** It describes the device. Faces, icon packages and tools it tells the agent to use
-   are instructions, not sources (`skills/ultrapaint/README.md`).
+   are instructions, not sources (`skills/README.md`).
 4. **The skill is measured on fresh briefs**, facts only, across kinds and characters: no skill,
    shipped and candidate, pairwise both ways, the person's look at a sample, the tells counted,
    and a variety measure (the same brief run several times, judged for how alike the runs are).

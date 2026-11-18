@@ -89,7 +89,7 @@ Pictures stay outside git, in the evals' data directory (`~/Code/ultrapaint-data
    core; `references/kinds/dialog.md`). A file named without `references/` is a reference by its
    path there (`states.md`). A candidate's lines hold for any product: one reference's layout is
    evidence, never a recipe, and no line names a company, product, site, library or person from the
-   references or the corpus (the skill's `README.md`).
+   references or the corpus (`skills/README.md`).
 4. Measure it where it can recur (ADR 0082):
    - A gap a review should catch, with `sections`: run `pnpm evals recall <round> --skills
      built-in,candidates/<fix>`. The run writes its line under **Result.** in each gap it
