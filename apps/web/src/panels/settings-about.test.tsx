@@ -182,7 +182,8 @@ describe("About's Node.js", () => {
       await Promise.resolve();
     });
     expect(asked).toEqual(["node", "node"]);
-    expect(row()?.textContent).toContain("v26.13.1");
+    // In the status region, so a screen reader hears what the check found.
+    expect(row()?.querySelector("[role=status]")?.textContent).toBe("v26.13.1");
   });
 
   it("says how to install a Node.js that is missing or too old", async () => {
