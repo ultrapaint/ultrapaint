@@ -10,10 +10,11 @@
 - `.agents/skills/`: the `up-*` workflow skills (`## Agent skills` below), used as they are and
   never edited there, and a link to the design skill. Where one asks for a form this repository
   does not have, this file, `GLOSSARY.md` and the existing ADRs give the form.
-- `skills/ultrapaint/`: the design skill agents are told. Its `README.md` says how it is built
-  into the server; a change to it starts from a gap in `evals/gaps/`. A change to the editor's
-  interface (`apps/web`) is designed with it too: name the job of each surface it touches (a tab,
-  a panel, a dialog) and put each element on the surface whose job it serves (ADR 0102).
+- `skills/ultrapaint/`: the design skill agents are told, shipped as the folder is.
+  `skills/README.md` says how it is written and built into the server; a change to it starts
+  from a gap in `evals/gaps/`. A change to the editor's interface (`apps/web`) is designed with
+  it too: name the job of each surface it touches (a tab, a panel, a dialog) and put each element
+  on the surface whose job it serves (ADR 0102).
 - `evals/gaps/`: the design skill's known gaps, one file each, with their status and the lab's
   results (`pnpm evals gaps` lists them). Read the ones a design task touches. When a person
   corrects a design made with the skill, add a gap there and leave `skills/ultrapaint/` as it is
