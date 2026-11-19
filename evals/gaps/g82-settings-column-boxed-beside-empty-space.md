@@ -33,3 +33,20 @@ space beside the navigation. Outside guidance to be read first.
 **Test.** The notification and preference briefs, 2 runs, Opus designing, against the shipped
 skill: the empty band on each side at 1440 and 1920 measured from the render, and the person's
 eye on the pairs.
+
+**Result.**
+
+- `fx-opus-cc`: 2026-11-19, the notification and preference briefs, 2 runs each, Opus in Claude
+  Code designing with `candidates/centred-column` (the column keeps `720–1090px` and is centred in
+  the space beside the navigation; its Check row with it), against `fx-opus-rl2`'s runs of the
+  same briefs. Outside guidance first: no source read gave a rule; the reference data's settings
+  pages were left-aligned in 91% (the source of the current line), which the person's eye
+  overrides. Spare width, left | right of the column, from each render:
+
+  | | 1440px | 1920px |
+  | --- | --- | --- |
+  | Shipped (4 runs) | 40–48 \| 248–344 | 40–48 \| 728–800, one 280 \| 584 |
+  | `centred-column` (4 runs) | 160–192 \| 160–192 | 400–432 \| 400–432 |
+
+  All four candidate runs centred the column and kept its width. The pairs are asked in
+  `decisions/width-nov19`.
