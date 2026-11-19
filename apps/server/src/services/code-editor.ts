@@ -30,10 +30,12 @@ const TERMINAL_EDITORS = new Set([
 const PATH_PART = /[/\\]/;
 
 /** Whether a command (`/usr/bin/vim`, `nvim -p`) starts an editor that runs in a terminal. */
-export const isTerminalEditor = (command: string) =>
-  TERMINAL_EDITORS.has(
-    command.trim().split(" ")[0]?.split(PATH_PART).pop() ?? ""
-  );
+export const isTerminalEditor = (command: string) => {
+  // The executable's own name: after its directories, which may hold spaces, and before any
+  // arguments written after it (`nvim -p`).
+  const name = command.trim().split(PATH_PART).pop() ?? "";
+  return TERMINAL_EDITORS.has(name.split(" ")[0] ?? "");
+};
 
 /**
  * A guess written back as the command `launch-editor` reads (`shell-quote`): each part quoted, so

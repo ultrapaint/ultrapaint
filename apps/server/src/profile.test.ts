@@ -1,6 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, FileSystem, Layer } from "effect";
+import { Context, Effect, FileSystem, Layer } from "effect";
 import { AppLog } from "./app-log.ts";
 import { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
@@ -71,6 +71,33 @@ describe("the user's profile", () => {
         assert.deepStrictEqual(read, {
           displayName: "Ada",
           preferences: { accent: "teal", theme: "dark" },
+        });
+      }).pipe(Effect.provide(NodeServices.layer))
+  );
+});
+
+describe("the user's profile, saved by two servers at once (ADR 0106)", () => {
+  it.effect(
+    "keeps what another server saved since this one read the profile",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const user = yield* fs.makeTempDirectoryScoped();
+        // Two projects' servers, both started before either saved.
+        const saved = yield* Effect.scoped(
+          Effect.gen(function* () {
+            const a = yield* Layer.build(profileOf(user));
+            const b = yield* Layer.build(profileOf(user));
+            const one = Context.get(a, ProfileService);
+            const other = Context.get(b, ProfileService);
+            yield* one.set({ preferences: { "ignoredProblems:/a": ["x"] } });
+            yield* other.set({ preferences: { "ignoredProblems:/b": ["y"] } });
+            return yield* one.get;
+          })
+        );
+        assert.deepStrictEqual(saved.preferences, {
+          "ignoredProblems:/a": ["x"],
+          "ignoredProblems:/b": ["y"],
         });
       }).pipe(Effect.provide(NodeServices.layer))
   );
