@@ -13,6 +13,7 @@ import { useDesignSystem } from "../state/design-system.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import { useLookPage } from "../state/look-page.ts";
 import { useProject } from "../state/project.ts";
+import { useSync } from "../state/sync.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { until } from "../testing/until.ts";
 import { DesignSystemList } from "./design-system-list.tsx";
@@ -45,6 +46,7 @@ const initialProject = useProject.getState();
 const initialDesignSystem = useDesignSystem.getState();
 const initialSetup = useDesignSystemSetup.getState();
 const initialLook = useLookPage.getState();
+const initialSync = useSync.getState();
 
 let mounted: Root;
 let container: HTMLElement;
@@ -82,6 +84,7 @@ afterEach(() => {
   useDesignSystem.setState(initialDesignSystem, true);
   useDesignSystemSetup.setState(initialSetup, true);
   useLookPage.setState(initialLook, true);
+  useSync.setState(initialSync, true);
 });
 
 describe("Foundations › a file of the design system that does not read", () => {
@@ -177,5 +180,26 @@ describe("Foundations › the Sync asked for over the look page (ADR 0106)", () 
     // The Sync's view, reading the project as it opens; not the look page's panel.
     expect(container.textContent).toContain("Reading the project");
     expect(container.textContent).not.toContain("Pick a look");
+  });
+
+  it("goes back from that Sync to the look page, with no design system yet", async () => {
+    fakeApi.respond("sync.plan", () => ({
+      at: 1,
+      case: "scratch",
+      drift: { tokensUndescribed: [] },
+      facts: { app: false, designSystem: false, stylesheets: 0 },
+      steps: [],
+      summary: "",
+    }));
+    useLookPage.setState({ open: true });
+    useDesignSystemSetup.setState({ loaded: true, shown: true });
+    await listOf({ designSystem: null, document: null });
+    await act(() => until(useSync, (s) => s.plan !== null));
+    const back = container.querySelector<HTMLButtonElement>(
+      "button[aria-label='Foundations']"
+    );
+    expect(back).not.toBeNull();
+    act(() => back?.click());
+    expect(useDesignSystemSetup.getState().shown).toBe(false);
   });
 });

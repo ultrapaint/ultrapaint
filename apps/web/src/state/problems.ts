@@ -10,6 +10,7 @@ import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { type Problem, problemsOf } from "../lib/problems.ts";
 import { save } from "../lib/settings-actions.ts";
+import { api } from "./connection.ts";
 import { useDesignSystem } from "./design-system.ts";
 import { reportError, useProject } from "./project.ts";
 import { useSync } from "./sync.ts";
@@ -19,35 +20,51 @@ const NONE: readonly never[] = [];
 /** Whose choice it was to leave a problem as it is. */
 export type IgnoredBy = "me" | "project";
 
+/**
+ * The profile's preference a project's own ignored problems are kept under, by its repository's
+ * path: one name per project, which the server merges one name at a time, so a save from one
+ * project's editor never writes over another's.
+ */
+export const IGNORED_PREFIX = "ignoredProblems:";
+
 interface PersonalIgnores {
   /** The problems the person left, by project (its repository's path), by the problems' ids. */
   readonly byProject: Readonly<Record<string, readonly string[]>>;
-  readonly setAll: (
+  /** The projects whose list was set here since the editor started: the profile's is older. */
+  readonly changed: ReadonlySet<string>;
+  /** One project's list, set here. */
+  readonly set: (repo: string, ids: readonly string[]) => void;
+  /** The lists the profile holds, but those set here meanwhile. */
+  readonly take: (
     byProject: Readonly<Record<string, readonly string[]>>
   ) => void;
 }
 
-/** What the person left as it is, kept in their profile (`ignoredProblems`, ADR 0093). */
+/** What the person left as it is, kept in their profile (ADR 0093, 0106). */
 export const usePersonalIgnores = create<PersonalIgnores>((set) => ({
   byProject: {},
-  setAll: (byProject) => set({ byProject }),
+  changed: new Set(),
+  set: (repo, ids) =>
+    set((s) => ({
+      byProject: { ...s.byProject, [repo]: ids },
+      changed: new Set([...s.changed, repo]),
+    })),
+  take: (kept) =>
+    set((s) => ({
+      byProject: {
+        ...s.byProject,
+        ...Object.fromEntries(
+          Object.entries(kept).filter(([repo]) => !s.changed.has(repo))
+        ),
+      },
+    })),
 }));
 
-/** A kept value as the store takes it: anything that is not a map of id lists is dropped. */
-export const personalIgnoresOf = (
-  value: unknown
-): Readonly<Record<string, readonly string[]>> => {
-  if (typeof value !== "object" || value === null) {
-    return {};
-  }
-  return Object.fromEntries(
-    Object.entries(value).flatMap(([project, ids]) =>
-      Array.isArray(ids)
-        ? [[project, ids.filter((id): id is string => typeof id === "string")]]
-        : []
-    )
-  );
-};
+/** A kept value as a list of ids: anything else is none. */
+export const idsOf = (value: unknown): readonly string[] =>
+  Array.isArray(value)
+    ? value.filter((id): id is string => typeof id === "string")
+    : [];
 
 /** Every problem as the stores have them now, the ones left as they are included. */
 const useAllProblems = (): readonly Problem[] => {
@@ -152,28 +169,41 @@ export const setIgnored = async (
     return;
   }
   if (by === "me") {
-    const { byProject, setAll } = usePersonalIgnores.getState();
     const repo = settings.repoPath;
-    setAll({
-      ...byProject,
-      [repo]: keptIds(byProject[repo] ?? NONE, id, add, present),
-    });
+    const ids = keptIds(
+      usePersonalIgnores.getState().byProject[repo] ?? NONE,
+      id,
+      add,
+      present
+    );
+    usePersonalIgnores.getState().set(repo, ids);
+    await api()
+      .request("profile.set", { preferences: { [IGNORED_PREFIX + repo]: ids } })
+      .catch(reportError);
     return;
   }
-  try {
-    const problems = await save({
-      ...settings,
-      ignoredProblems: keptIds(
-        settings.ignoredProblems ?? NONE,
-        id,
-        add,
-        present
-      ),
-    });
-    if (problems.length > 0) {
-      reportError(problems.join(" "));
+  // One write at a time, each reading the settings the one before it saved: two ignored in a
+  // row are both kept.
+  const write = projectWrites.then(async () => {
+    const now = useProject.getState().settings;
+    if (!now) {
+      return;
     }
-  } catch (error) {
-    reportError(error);
-  }
+    try {
+      const problems = await save({
+        ...now,
+        ignoredProblems: keptIds(now.ignoredProblems ?? NONE, id, add, present),
+      });
+      if (problems.length > 0) {
+        reportError(problems.join(" "));
+      }
+    } catch (error) {
+      reportError(error);
+    }
+  });
+  projectWrites = write;
+  await write;
 };
+
+/** The project's ignored problems being written, in turn. */
+let projectWrites: Promise<void> = Promise.resolve();

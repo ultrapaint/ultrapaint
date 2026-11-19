@@ -191,7 +191,10 @@ export const DesignSystemList = () => {
   // The Sync asked for (Problems' Review, ADR 0106) shows over the look page, which is there again
   // once it is left: opening the look page puts the Sync away.
   if (setupShown) {
-    return <SyncView onBack={designSystem ? hideSetup : undefined} />;
+    // Back to the foundations, or to the look page it covers.
+    return (
+      <SyncView onBack={designSystem || lookPage ? hideSetup : undefined} />
+    );
   }
   if (lookPage) {
     return <LookPanel />;

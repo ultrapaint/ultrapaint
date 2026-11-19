@@ -118,6 +118,19 @@ describe("Problems › DESIGN.md's linter, in Ultrapaint's words", () => {
     ]);
   });
 
+  it("names the unused colours in the problem's id, so one more is another problem", () => {
+    const one = problemsOf({
+      ...nothing,
+      document: documentWith([orphan("agent")]),
+    });
+    const two = problemsOf({
+      ...nothing,
+      document: documentWith([orphan("board"), orphan("agent")]),
+    });
+    expect(one[0]?.id).toBe("DESIGN.md:unused-colours:agent");
+    expect(two[0]?.id).toBe("DESIGN.md:unused-colours:agent,board");
+  });
+
   it("makes the colours no component uses one problem, not one each", () => {
     const problems = problemsOf({
       ...nothing,

@@ -12,7 +12,7 @@ import { startPrompt } from "../lib/start-thread.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import { showLeftPanel } from "../state/panels.ts";
-import { usePersonalIgnores } from "../state/problems.ts";
+import { setIgnored, usePersonalIgnores } from "../state/problems.ts";
 import { useProject } from "../state/project.ts";
 import { useSync } from "../state/sync.ts";
 import { fakeApi } from "../testing/fake-api.ts";
@@ -35,6 +35,17 @@ const MISSING_PRIMARY: DesignFinding = {
   path: "colors",
   severity: "warning",
 };
+const CONTRAST: DesignFinding = {
+  message:
+    "textColor (#9a9a9a) on backgroundColor (#ffffff) has contrast ratio 2.80:1, below WCAG AA minimum of 4.5:1.",
+  path: "components.button-secondary",
+  severity: "warning",
+};
+/** The ids of the two warnings, as Problems names them. */
+const problemIds = () => [
+  `DESIGN.md:colors:${MISSING_PRIMARY.message}`,
+  `DESIGN.md:components.button-secondary:${CONTRAST.message}`,
+];
 const BROKEN: DesignFinding = {
   message:
     "Reference {colors.brand-500} does not resolve to any defined token.",
@@ -193,6 +204,38 @@ describe("Problems › a problem's menu (ADR 0106)", () => {
     await pick("Ignore for me");
     expect(rows()).toEqual(["card points to a missing token"]);
     expect(usePersonalIgnores.getState().byProject["/repo"]).toHaveLength(1);
+    // Under this project's own name in the profile: another project's are left as they are.
+    expect(
+      fakeApi.calls.find((c) => c.method === "profile.set")?.input
+    ).toEqual({
+      preferences: {
+        "ignoredProblems:/repo": [
+          `DESIGN.md:colors:${MISSING_PRIMARY.message}`,
+        ],
+      },
+    });
+  });
+
+  it("keeps both of two warnings left for the project in a row", async () => {
+    let saved: readonly string[] = [];
+    fakeApi.respond("settings.set", (input) => {
+      saved = input.ignoredProblems ?? [];
+      return { ok: true, problems: [] };
+    });
+    fakeApi.respond("project.info", () => ({
+      ...initialProject.info,
+      configured: true,
+      settings: { ...defaultSettings("/repo"), ignoredProblems: saved },
+    }));
+    panelWith([MISSING_PRIMARY, CONTRAST]);
+    const present = new Set(problemIds());
+    await act(() =>
+      Promise.all([
+        setIgnored(problemIds()[0] ?? "", "project", true, present),
+        setIgnored(problemIds()[1] ?? "", "project", true, present),
+      ])
+    );
+    expect(saved).toEqual(problemIds());
   });
 
   it("leaves a warning as it is for the project, in its settings", async () => {

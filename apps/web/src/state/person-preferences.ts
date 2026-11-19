@@ -19,7 +19,7 @@ import {
   preferencesOf,
   usePreferences,
 } from "./preferences.ts";
-import { personalIgnoresOf, usePersonalIgnores } from "./problems.ts";
+import { IGNORED_PREFIX, idsOf, usePersonalIgnores } from "./problems.ts";
 import { reportError } from "./project.ts";
 import { type SendKey, useSendKey } from "./send-key.ts";
 import { follow } from "./server-data.ts";
@@ -93,13 +93,6 @@ export const KEPT: Readonly<Record<string, Kept>> = {
       }
     },
   },
-  // What the person left as it is in Problems, by project (ADR 0106).
-  ignoredProblems: {
-    current: () => usePersonalIgnores.getState().byProject,
-    subscribe: watching(usePersonalIgnores, (s) => s.byProject),
-    take: (value) =>
-      usePersonalIgnores.getState().setAll(personalIgnoresOf(value)),
-  },
   keybindings: {
     current: () => useKeybindings.getState().overrides,
     subscribe: watching(useKeybindings, (s) => s.overrides),
@@ -157,11 +150,16 @@ export const followPersonPreferences = () => {
     apply: (profile: UserProfile) => {
       taking = true;
       try {
+        // A project's ignored problems are each under a name of their own (ADR 0106).
+        const ignored: Record<string, readonly string[]> = {};
         for (const [name, value] of Object.entries(profile.preferences ?? {})) {
-          if (!changed.has(name)) {
+          if (name.startsWith(IGNORED_PREFIX)) {
+            ignored[name.slice(IGNORED_PREFIX.length)] = idsOf(value);
+          } else if (!changed.has(name)) {
             KEPT[name]?.take(value);
           }
         }
+        usePersonalIgnores.getState().take(ignored);
       } finally {
         taking = false;
       }

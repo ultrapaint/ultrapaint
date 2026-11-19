@@ -1,12 +1,39 @@
 import { BadRequest } from "@ultrapaint/contracts/errors";
 import { Context, Effect, Layer, Ref } from "effect";
 import launchEditor from "launch-editor";
+import guessEditor from "launch-editor/guess.js";
 
 /** A file opened, as the test adapter keeps it. */
 export interface Opened {
   readonly file: string;
   readonly line: number | undefined;
 }
+
+/**
+ * Editors that run in a terminal. The server has none to give them, and `launch-editor` kills
+ * the one it started last to start another, which loses what was not saved: never started.
+ */
+const TERMINAL_EDITORS = new Set([
+  "emacs",
+  "helix",
+  "hx",
+  "joe",
+  "kak",
+  "micro",
+  "nano",
+  "ne",
+  "nvim",
+  "vi",
+  "vim",
+]);
+
+const PATH_PART = /[/\\]/;
+
+/** Whether a command (`/usr/bin/vim`, `nvim -p`) starts an editor that runs in a terminal. */
+export const isTerminalEditor = (command: string) =>
+  TERMINAL_EDITORS.has(
+    command.trim().split(" ")[0]?.split(PATH_PART).pop() ?? ""
+  );
 
 const NO_EDITOR =
   "No code editor was found. Open the project in one (VS Code, Cursor, Zed…), or set LAUNCH_EDITOR to its command.";
@@ -15,8 +42,9 @@ const NO_EDITOR =
  * The person's code editor (ADR 0106): a file of the repository opened in it, at a line. Which
  * editor is guessed by `launch-editor` from the ones running (VS Code, Cursor, Zed, a JetBrains
  * IDE…), else `LAUNCH_EDITOR`, `VISUAL` or `EDITOR`, which the library reads itself. The editor
- * is the person's and outlives the request: nothing here waits for it or stops it. None found
- * is the request's error; one that fails once started is the library's to print.
+ * is the person's and outlives the request: nothing here waits for it or stops it. None found,
+ * or one that runs in a terminal, is the request's error; one that fails once started is the
+ * library's to print.
  */
 export class CodeEditor extends Context.Service<
   CodeEditor,
@@ -33,6 +61,12 @@ export class CodeEditor extends Context.Service<
     CodeEditor,
     CodeEditor.of({
       open: Effect.fn("CodeEditor.open")(function* (file, line) {
+        const [editor] = yield* Effect.sync(() => guessEditor());
+        if (editor && isTerminalEditor(editor)) {
+          return yield* new BadRequest({
+            message: `${editor} runs in a terminal, which Ultrapaint can't open it in. Set LAUNCH_EDITOR to a windowed editor's command (code, cursor, zed…).`,
+          });
+        }
         // Said at once when no editor is found; anything later comes after the answer.
         const found = yield* Effect.sync(() => {
           let none = false;
