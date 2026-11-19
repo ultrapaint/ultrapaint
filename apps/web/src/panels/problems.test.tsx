@@ -253,6 +253,39 @@ describe("Problems › a problem's menu (ADR 0106)", () => {
     ]);
   });
 
+  it("leaves another project, opened while an ignore waits, as it is", async () => {
+    let answer: () => void = () => undefined;
+    fakeApi.respond(
+      "settings.set",
+      () =>
+        new Promise((resolve) => {
+          answer = () => resolve({ ok: true, problems: [] });
+        })
+    );
+    // The project the server has open by then: the other one.
+    fakeApi.respond("project.info", () => ({
+      ...initialProject.info,
+      configured: true,
+      settings: defaultSettings("/other"),
+    }));
+    panelWith([MISSING_PRIMARY, CONTRAST]);
+    const present = new Set(problemIds());
+    // A save under way, then an ignore queued behind it, then another project opens.
+    const first = setIgnored(problemIds()[0] ?? "", "project", true, present);
+    await fakeApi.requested("settings.set");
+    const second = setIgnored(problemIds()[1] ?? "", "project", true, present);
+    useProject.setState({ settings: defaultSettings("/other") });
+    await act(async () => {
+      await Promise.resolve();
+      answer();
+      await first;
+      await second;
+    });
+    expect(
+      fakeApi.calls.filter((c) => c.method === "settings.set")
+    ).toHaveLength(1);
+  });
+
   it("offers no ignoring for an error, only where it is", async () => {
     panelWith([BROKEN]);
     const more = container.querySelector<HTMLButtonElement>(
