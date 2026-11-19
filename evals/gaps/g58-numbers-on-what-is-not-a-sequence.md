@@ -2,7 +2,7 @@
 id: g58
 title: Numbered section labels on content that is not a sequence
 kind: missing
-status: testing
+status: done
 found: 2026-11-10
 source: Impeccable's detector (numbered-section-labels), kept by the person in `decisions/design-research-nov10`; not a person's correction
 skill: [references/words/pages.md, references/pages/landing.md]
@@ -20,3 +20,4 @@ sections: []
 **Result.**
 
 - `out-land`: 2026-11-11, an outside landing round (Opus in Claude Code, plain React app; alignui-waitlist, hcare-landing, untitled-pricing; 2 runs each), marks counted per page by Opus (`pnpm evals tells`), as mean per page · pages with one, no skill / shipped / `candidates/public-page-tells`: numbered labels 0 · 0/6 in all three. None appeared even with no skill: these references can't measure it. Blind pairwise, shipped against the candidate: shipped 3, candidate 1, 2 ties (2 of 6 winners changed with the order); the shipped skill against no skill: 6 of 6 (runs/out-land/tells.md, runs/out-land-vs-out-land-tells/)
+- `gaps-nov18`, decided (the person, 2026-11-19, `decisions/gaps-nov18`): closed as done. On the last 40 fresh pages with the shipped skill, numbered labels on what is not a sequence appear on 1 of 40. Every round keeps counting it.

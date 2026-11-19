@@ -2,7 +2,7 @@
 id: g54
 title: Gradient-filled text
 kind: missing
-status: testing
+status: done
 found: 2026-11-10
 source: Impeccable's detector (gradient-text), kept by the person in `decisions/design-research-nov10`; not a person's correction
 skill: [SKILL.md, references/color.md]
@@ -22,3 +22,4 @@ The person, on 11 November, of the AlignUI reference (`decisions/skill-plan-nov1
 **Result.**
 
 - `out-land`: 2026-11-11, an outside landing round (Opus in Claude Code, plain React app; alignui-waitlist, hcare-landing, untitled-pricing; 2 runs each), marks counted per page by Opus (`pnpm evals tells`), as mean per page · pages with one, no skill / shipped / `candidates/public-page-tells`: gradient text 0.3 · 2/6, 0 · 0/6, 0 · 0/6. The shipped skill already leaves none here. Blind pairwise, shipped against the candidate: shipped 3, candidate 1, 2 ties (2 of 6 winners changed with the order); the shipped skill against no skill: 6 of 6 (runs/out-land/tells.md, runs/out-land-vs-out-land-tells/)
+- `gaps-nov18`, decided (the person, 2026-11-19, `decisions/gaps-nov18`): closed as done. On the last 40 fresh pages with the shipped skill, gradient-filled text appears on 0 of 40. Every round keeps counting it.

@@ -2,7 +2,7 @@
 id: g56
 title: A coloured border on one side of a card
 kind: missed
-status: testing
+status: done
 found: 2026-11-10
 source: Impeccable's detector (side-tab), kept by the person in `decisions/design-research-nov10`; not a person's correction
 skill: [SKILL.md, references/surfaces.md]
@@ -20,3 +20,4 @@ sections: []
 **Result.**
 
 - `out-land`: 2026-11-11, an outside landing round (Opus in Claude Code, plain React app; alignui-waitlist, hcare-landing, untitled-pricing; 2 runs each), marks counted per page by Opus (`pnpm evals tells`), as mean per page · pages with one, no skill / shipped / `candidates/public-page-tells`: side stripes 0 · 0/6 in all three. None appeared even with no skill: these references can't measure it. Blind pairwise, shipped against the candidate: shipped 3, candidate 1, 2 ties (2 of 6 winners changed with the order); the shipped skill against no skill: 6 of 6 (runs/out-land/tells.md, runs/out-land-vs-out-land-tells/)
+- `gaps-nov18`, decided (the person, 2026-11-19, `decisions/gaps-nov18`): closed as done. On the last 40 fresh pages with the shipped skill, a coloured border on one side of a card appears on 0 of 40. Every round keeps counting it.
