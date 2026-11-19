@@ -34,6 +34,7 @@ each gap. A row that matches is a finding: report where it is, the row's id and 
 | W21 | A line under an object's title holding a sentence of data, or a fact the page shows elsewhere (the total, the payment, the customer's name again) | One or two facts that tell the object apart, none repeated; or no line |
 | W22 | Facts a task needs only sometimes (an ID, the build machine, sizes, a job code, a passed check) in view at rest | One "Details" disclosure at the end of the side column, or another tab |
 | W23 | More than three actions in an object's header at rest | The primary and the two its state makes most frequent; the rest in its ⋯ menu |
+| W24 | A line under a label that a user who knows the label would not miss, or one there because its neighbours have one; most rows of a list with a line is the sign | Remove it; keep a consequence, a scope, a constraint, why it is unavailable, or the current value |
 
 ## Hierarchy
 

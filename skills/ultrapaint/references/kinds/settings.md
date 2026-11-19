@@ -23,7 +23,10 @@ Open with it, before the first element: `references/components.md`, `references/
   small outline button at the far right; it becomes a field in place when edited, the field
   taking the text's style and position so nothing moves.
 - A helper line carries a rule or live data ("Used on 3 invoices"), or a "Learn more" link where
-  the question comes; a row whose label says it all has none.
+  the question comes; a row whose label says it all has none. A line stays when the user would
+  miss it (a consequence, a scope, a constraint, why the setting is unavailable), not because it
+  is true or because the rows beside it have one: most rows carry none. A section's note only
+  where its name and rows leave its purpose unclear.
 - A setting with several options (permissions as checkboxes) is one row: its name, its line and
   its reset in the label column, the options stacked in the control column; never a heading
   across the full width with the options under it.
@@ -100,3 +103,4 @@ Open with it, before the first element: `references/components.md`, `references/
 | Save buttons on a page whose switches already save | One way of saving per page |
 | An icon tile in the gutter beside a section title | Remove it |
 | Every plan card with a primary button | The primary on the plan you can move to only |
+| Most rows with a line, or a section opening with a note its name and rows already make plain | Lines only on the rows that need them; a note only where the section's purpose is unclear |
