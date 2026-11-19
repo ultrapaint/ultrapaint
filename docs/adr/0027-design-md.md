@@ -3,6 +3,9 @@
 Status: accepted, 2026-10-15. Amends 0015 (the design system's two files) and 0025 (sync).
 Plan: `docs/plans/done/PLAN-design-md.md`.
 
+> Amended by [0106](0106-problems-are-a-place-on-the-rail.md), 2026-11-19: the linter's findings
+> are listed in Problems, on the rail, in Ultrapaint's words with a fix each, not under Foundations.
+
 > Amended 2026-11-10: a token's name is one rule (`isTokenName`, in the token table): letters,
 > digits and `_` in words joined by one dash, starting lower case, which is what the stylesheet
 > reads back, so every name the editor adds is one Sync can match. The mirror holds every

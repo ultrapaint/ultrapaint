@@ -313,25 +313,28 @@ const PLAN = {
 
 const FEATURED = "board:library/Plan/tone=featured";
 
-describe("the rail (ADR 0053)", () => {
-  it("is Canvas mode's on the page canvas, Design System mode's on a board view", () => {
+describe("the rail (ADR 0053, 0106)", () => {
+  it("is Canvas mode's on the page canvas, Design System mode's on a board view, Problems in both", () => {
     expect(railTabsFor(null)).toEqual([
       "chat",
       "layers",
       "library",
       "comments",
+      "problems",
       "changes",
     ]);
     expect(railTabsFor({ item: "color", view: "system" })).toEqual([
       "chat",
       "designSystem",
       "library",
+      "problems",
       "changes",
     ]);
     expect(railTabsFor({ item: "Button", view: "library" })).toEqual([
       "chat",
       "designSystem",
       "library",
+      "problems",
       "changes",
     ]);
   });
@@ -343,6 +346,7 @@ describe("the rail (ADR 0053)", () => {
       "designSystem",
       "library",
       "layers",
+      "problems",
       "changes",
     ]);
   });

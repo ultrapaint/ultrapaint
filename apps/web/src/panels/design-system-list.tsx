@@ -1,25 +1,16 @@
 /**
  * Design system's panel (ADR 0045): the navigation of its board view. The Foundations the design
  * system has data for, then the Guidelines, DESIGN.md's sections, with a search over the tokens;
- * the item open is lit, a click opens another, and what DESIGN.md's linter finds is under them.
- * The Sync and `/init` are in its title, a step the sync waits on is a row over the list, and the
+ * the item open is lit, a click opens another. The Sync and `/init` are in its title, and the
  * Sync's view takes its place while the set-up is shown. A project with no design system of its
  * own sees the default look's foundations, and the ways to make its own (ADR 0062). A file of the
  * design system that does not read is said over the list, in the foundations' place when it is
- * `design-system.json`; what the tokens file holds that was left out is with the linter's findings.
+ * `design-system.json`. What needs fixing (DESIGN.md's linter, what the tokens file left out, a
+ * step the sync waits on) is Problems', on the rail (ADR 0106).
  */
-import {
-  DESIGN_SYSTEM_FILE,
-  type DesignFinding,
-} from "@ultrapaint/contracts/design-system";
-import {
-  AlertTriangle,
-  ChevronDown,
-  RefreshCw,
-  Search,
-  Wand2,
-} from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { DESIGN_SYSTEM_FILE } from "@ultrapaint/contracts/design-system";
+import { ChevronDown, RefreshCw, Search, Wand2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -33,12 +24,6 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { cn } from "@/lib/cn";
-import {
   foundationsOf,
   guidelinesOf,
   type SystemItem,
@@ -50,18 +35,16 @@ import { NoFolder } from "../components/no-folder.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { pickFigmaFile } from "../lib/import-figma.ts";
 import { openLookPage } from "../lib/look-page.ts";
+import { reasonOf } from "../lib/problems.ts";
 import { makeSystemFromCode, startInit } from "../lib/start-thread.ts";
 import { openBoard, useBoard } from "../state/board.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import { useLookPage } from "../state/look-page.ts";
 import { useProject } from "../state/project.ts";
-import { syncWaiting, useSync } from "../state/sync.ts";
 import { LookPanel } from "./look-panel.tsx";
 import { problemParts } from "./page-problem.ts";
 import { SyncView } from "./sync.tsx";
-
-const NONE: readonly never[] = [];
 
 const showSetup = () => useDesignSystemSetup.getState().show(true);
 const hideSetup = () => useDesignSystemSetup.getState().show(false);
@@ -73,92 +56,8 @@ const Heading = ({ children }: { children: string }) => (
   </h3>
 );
 
-/** One thing a file's reader says that stops nothing, beside its warning: red for an error. */
-const Finding = ({
-  children,
-  error = false,
-}: {
-  children: ReactNode;
-  error?: boolean;
-}) => (
-  <li className="flex items-start gap-2">
-    <AlertTriangle
-      className={cn(
-        "mt-0.5 size-3.5 shrink-0",
-        error ? "text-destructive" : "text-warning"
-      )}
-    />
-    <span className="min-w-0 text-muted-foreground">{children}</span>
-  </li>
-);
-
-const QUOTED = /`([^`]+)`/;
-
-/** A note's words, with the token it names between backticks in mono. */
-const noteWords = (note: string) =>
-  note.split(QUOTED).map((part, i) =>
-    i % 2 === 1 ? (
-      // biome-ignore lint/suspicious/noArrayIndexKey: the parts of one note, in its order.
-      <code className="font-code text-foreground" key={i}>
-        {part}
-      </code>
-    ) : (
-      part
-    )
-  );
-
-/**
- * Under the guidelines, what the files' readers say that stops nothing: what the tokens file
- * holds that the design system could not take (`notes`), then DESIGN.md's linter's errors and
- * warnings; its information says nothing to act on.
- */
-const Findings = ({
-  findings,
-  notes,
-}: {
-  findings: readonly DesignFinding[];
-  notes: readonly string[];
-}) => {
-  const shown = findings.filter((f) => f.severity !== "info");
-  if (shown.length + notes.length === 0) {
-    return null;
-  }
-  return (
-    <ul className="mt-3 flex flex-col gap-2 px-3 font-body-small">
-      {notes.map((note) => (
-        <Finding key={note}>{noteWords(note)}</Finding>
-      ))}
-      {shown.map((f) => (
-        <Finding
-          error={f.severity === "error"}
-          key={`${f.path ?? ""}${f.message}`}
-        >
-          {f.path ? (
-            <span className="font-code text-foreground">{f.path} </span>
-          ) : null}
-          {f.message}
-        </Finding>
-      ))}
-    </ul>
-  );
-};
-
 /** The values' file (ADR 0035), beside `design-system.json` in the designs directory. */
 const DESIGN_TOKENS_FILE = "design.tokens.json";
-
-const NAMED = /^design(?:-system|\.tokens)\.json is (?:not valid: )?/;
-const MEANWHILE =
-  /: the values are design-system\.json's and the code's until it reads$/;
-
-/**
- * The server's reason alone: without the file's name and what the values are meanwhile, which
- * the message says in its own lines, and without the JSON parser's name.
- */
-const reasonOf = (problem: string) =>
-  problem
-    .replace(NAMED, "")
-    .replace(MEANWHILE, "")
-    .replace("SyntaxError: ", "");
 
 /**
  * One of the design system's two files does not read (ADR 0035), said over the list: with
@@ -227,45 +126,6 @@ const LoadingRows = () => (
   </div>
 );
 
-/** The sync has something waiting (the rail's dot): what, and the way to it. */
-const SyncWaiting = () => {
-  const waiting = useSync((s) =>
-    syncWaiting(s.plan)
-      ? (s.plan?.steps.find((step) => step.state === "attention") ?? null)
-      : null
-  );
-  if (!waiting) {
-    return null;
-  }
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <button
-            className="mx-2 mb-1 flex min-h-7 w-[calc(100%-1rem)] items-center gap-2 rounded-md px-2 py-1 text-left outline-none transition-colors hover:bg-accent focus-visible:bg-accent"
-            onClick={showSetup}
-            type="button"
-          />
-        }
-      >
-        <span
-          aria-hidden
-          className="size-1.5 shrink-0 rounded-full bg-warning"
-        />
-        <span className="min-w-0 flex-1 truncate font-body-small">
-          {waiting.title}
-        </span>
-        <span className="shrink-0 font-body-small text-muted-foreground">
-          Review
-        </span>
-      </TooltipTrigger>
-      {waiting.detail ? (
-        <TooltipContent side="right">{waiting.detail}</TooltipContent>
-      ) : null}
-    </Tooltip>
-  );
-};
-
 /**
  * No design system of its own (ADR 0062): the foundations listed are the default look's, and
  * this says so, with the ways to make the project's own. Nothing else asks for one.
@@ -312,7 +172,6 @@ export const DesignSystemList = () => {
   const document = useDesignSystem((s) => s.document);
   const loaded = useDesignSystem((s) => s.loaded);
   const problem = useDesignSystem((s) => s.problem);
-  const notes = useDesignSystem((s) => s.notes);
   const setupShown = useDesignSystemSetup((s) => s.shown);
   const lookPage = useLookPage((s) => s.open);
   const openItem = useBoard((s) =>
@@ -389,7 +248,7 @@ export const DesignSystemList = () => {
         {problem === undefined ? null : (
           <FilesProblem problem={problem} tokens={designSystem !== null} />
         )}
-        {loaded ? <SyncWaiting /> : <LoadingRows />}
+        {loaded ? null : <LoadingRows />}
         {foundations.map((item) => (
           <ItemRow item={item} key={item.id} open={item.id === openItem} />
         ))}
@@ -414,7 +273,6 @@ export const DesignSystemList = () => {
             Search by a token’s name or value, or a guideline’s words.
           </PanelEmpty>
         ) : null}
-        <Findings findings={document?.findings ?? NONE} notes={notes ?? NONE} />
       </div>
     </div>
   );

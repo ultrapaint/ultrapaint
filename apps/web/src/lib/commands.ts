@@ -294,6 +294,11 @@ const leftPanels: readonly {
     title: "Components",
   },
   { keywords: "feedback notes pins", tab: "comments", title: "Comments" },
+  {
+    keywords: "warnings errors lint design.md tokens fix",
+    tab: "problems",
+    title: "Problems",
+  },
   { keywords: "history diff git", tab: "changes", title: "Changes" },
 ];
 

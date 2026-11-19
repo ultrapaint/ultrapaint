@@ -100,7 +100,7 @@ const documentStatus = (
     };
   }
   return {
-    line: "Listed in the Design system panel.",
+    line: "Listed in Problems, on the rail.",
     status: (
       <Status tone="warning">
         {[

@@ -33,6 +33,7 @@ export type LeftTab =
   | "designSystem"
   | "library"
   | "comments"
+  | "problems"
   | "changes";
 
 /**
@@ -52,29 +53,32 @@ export const railTabs: readonly LeftTab[] = [
   "designSystem",
   "library",
   "comments",
+  "problems",
   "changes",
 ];
 
 /**
  * The rail in Canvas mode (ADR 0053): the agents, the pages' layers, the components to place,
- * the pages' comments (ADR 0058), the changes.
+ * the pages' comments (ADR 0058), the design system's problems (ADR 0106), the changes.
  */
 export const canvasRail: readonly LeftTab[] = [
   "chat",
   "layers",
   "library",
   "comments",
+  "problems",
   "changes",
 ];
 
 /**
  * The rail in Design System mode (ADR 0053): the agents, the foundations and guidelines, the
- * components' boards, the changes.
+ * components' boards, the design system's problems (ADR 0106), the changes.
  */
 export const systemRail: readonly LeftTab[] = [
   "chat",
   "designSystem",
   "library",
+  "problems",
   "changes",
 ];
 

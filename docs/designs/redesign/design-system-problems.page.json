@@ -1,0 +1,588 @@
+{
+  "root": {"type": "page", "id": "root", "direction": "column", "fill": "radial-gradient(circle, rgba(165, 180, 252, 0.11) 1px, transparent 1.2px) 0 0 / 20px 20px, #0d111c", "gap": 72, "padding": 48, "children": [
+    {"type": "column", "id": "c_p0176", "name": "Solution 1", "gap": 16, "children": [
+      {"type": "column", "id": "c_p0007", "gap": 4, "children": [
+        {"type": "text", "id": "t_p0005", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "role": "paragraph", "size": 20, "text": "1 · A Problems item on the rail"},
+        {"type": "text", "id": "t_p0006", "color": "$color-muted-foreground", "lineHeight": 1.45, "role": "paragraph", "size": 14, "text": "At the rail’s foot, over Changes, in both modes, only while there is something to fix. Its icon is the warning colour; it opens Problems as a panel of its own, like Comments. The place switch shows the same sign beside Design system.", "width": 1000}
+      ]},
+      {"type": "row", "id": "r_p0175", "crossAlign": "start", "gap": 32, "children": [
+        {"type": "column", "id": "c_p0066", "gap": 8, "children": [
+          {"type": "text", "id": "t_p0065", "color": "$color-muted-foreground", "role": "paragraph", "size": 12, "text": "On the canvas: the item and the sign are in view"},
+          {"type": "row", "id": "r_p0064", "name": "1 · Canvas", "gap": 24, "height": 640, "padding": {"bottom": 8, "left": 8, "right": 8, "top": 8}, "width": 1000, "children": [
+            {"type": "column", "id": "c_p0048", "name": "Left card", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-rail", "height": "fill", "radius": 12, "shadow": "0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.3)", "width": 384, "children": [
+              {"type": "column", "id": "c_p0042", "name": "Header", "width": "fill", "children": [
+                {"type": "row", "id": "r_p0036", "name": "Project", "crossAlign": "center", "gap": 8, "height": 48, "padding": {"left": 10, "right": 6}, "width": "fill", "children": [
+                  {"type": "image", "id": "m_p0026", "name": "ultrapaint-mark", "height": 22, "src": "assets/icons/ultrapaint-mark.svg", "tint": "#fafafa", "width": 22},
+                  {"type": "column", "id": "c_p0031", "gap": 0, "width": "fill", "children": [
+                    {"type": "text", "id": "t_p0027", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "role": "paragraph", "size": 14, "text": "ultrapaint"},
+                    {"type": "row", "id": "r_p0030", "crossAlign": "center", "gap": 4, "children": [
+                      {"type": "image", "id": "m_p0028", "name": "git-branch", "height": 11, "src": "assets/icons/git-branch.svg", "tint": "#a1a1aa", "width": 11},
+                      {"type": "text", "id": "t_p0029", "color": "$color-muted-foreground", "role": "paragraph", "size": 12, "text": "main"}
+                    ]}
+                  ]},
+                  {"type": "row", "id": "r_p0033", "name": "search button", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+                    {"type": "image", "id": "m_p0032", "name": "search", "height": 15, "src": "assets/icons/search.svg", "tint": "#a1a1aa", "width": 15}
+                  ]},
+                  {"type": "row", "id": "r_p0035", "name": "panel-left button", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+                    {"type": "image", "id": "m_p0034", "name": "panel-left", "height": 15, "src": "assets/icons/panel-left.svg", "tint": "#a1a1aa", "width": 15}
+                  ]}
+                ]},
+                {"type": "column", "id": "c_p0041", "padding": {"bottom": 6, "left": 8, "right": 8}, "width": "fill", "children": [
+                  {"type": "row", "id": "r_p0040", "name": "Canvas switcher", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "gap": 8, "height": 32, "padding": {"left": 10, "right": 10}, "radius": 8, "width": "fill", "children": [
+                    {"type": "image", "id": "m_p0037", "name": "hash", "height": 14, "src": "assets/icons/hash.svg", "tint": "#a1a1aa", "width": 14},
+                    {"type": "text", "id": "t_p0038", "color": "$color-foreground", "role": "paragraph", "size": 14, "text": "Redesign", "weight": 500, "width": "fill"},
+                    {"type": "image", "id": "m_p0039", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "#a1a1aa", "width": 14}
+                  ]}
+                ]}
+              ]},
+              {"type": "row", "id": "r_p0047", "height": "fill", "width": "fill", "children": [
+                {"type": "column", "id": "c_p0046", "name": "Rail", "crossAlign": "center", "gap": 4, "height": "fill", "padding": {"bottom": 10, "top": 2}, "width": 44, "children": [
+                  {"type": "row", "id": "r_p0016", "name": "Rail · sparkles", "align": "center", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-sidebar", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "m_p0015", "name": "sparkles", "height": 18, "src": "assets/icons/sparkles.svg", "tint": "#fafafa", "width": 18}
+                  ]},
+                  {"type": "row", "id": "r_p0018", "name": "Rail · layers", "align": "center", "crossAlign": "center", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "m_p0017", "name": "layers", "height": 18, "src": "assets/icons/layers.svg", "tint": "#a1a1aa", "width": 18}
+                  ]},
+                  {"type": "row", "id": "r_p0020", "name": "Rail · library-big", "align": "center", "crossAlign": "center", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "m_p0019", "name": "library-big", "height": 18, "src": "assets/icons/library-big.svg", "tint": "#a1a1aa", "width": 18}
+                  ]},
+                  {"type": "row", "id": "r_p0022", "name": "Rail · message-circle", "align": "center", "crossAlign": "center", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "m_p0021", "name": "message-circle", "height": 18, "src": "assets/icons/message-circle.svg", "tint": "#a1a1aa", "width": 18}
+                  ]},
+                  {"type": "column", "id": "c_p0043", "name": "Spacer", "height": "fill", "children": []},
+                  {"type": "row", "id": "r_p0024", "name": "Rail · triangle-alert", "align": "center", "crossAlign": "center", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "m_p0023", "name": "triangle-alert", "height": 18, "src": "assets/icons/triangle-alert.svg", "tint": "oklch(0.75 0.15 70)", "width": 18}
+                  ]},
+                  {"type": "row", "id": "r_p0002", "name": "Rail · git-compare-arrows", "align": "center", "crossAlign": "center", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "m_p0001", "name": "git-compare-arrows", "height": 18, "src": "assets/icons/git-compare-arrows.svg", "tint": "#a1a1aa", "width": 18}
+                  ]},
+                  {"type": "row", "id": "r_p0004", "name": "Rail · settings", "align": "center", "crossAlign": "center", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "m_p0003", "name": "settings", "height": 18, "src": "assets/icons/settings.svg", "tint": "#a1a1aa", "width": 18}
+                  ]},
+                  {"type": "row", "id": "r_p0045", "name": "Avatar", "align": "center", "crossAlign": "center", "fill": "$color-muted", "height": 28, "radius": 14, "width": 28, "children": [
+                    {"type": "text", "id": "t_p0044", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "AN", "weight": 500}
+                  ]}
+                ]},
+                {"type": "column", "id": "c_p0025", "name": "Panel", "border": {"color": "$color-border", "style": "solid", "width": "1px 0 0 1px"}, "fill": "$color-sidebar", "height": "fill", "radius": 10, "width": "fill", "children": [
+                  {"type": "row", "id": "r_p0011", "crossAlign": "center", "height": 44, "padding": {"left": 16, "right": 8}, "width": "fill", "children": [
+                    {"type": "text", "id": "t_p0008", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "role": "paragraph", "size": 14, "text": "Agents", "width": "fill"},
+                    {"type": "row", "id": "r_p0010", "name": "square-pen button", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+                      {"type": "image", "id": "m_p0009", "name": "square-pen", "height": 15, "src": "assets/icons/square-pen.svg", "tint": "#a1a1aa", "width": 15}
+                    ]}
+                  ]},
+                  {"type": "column", "id": "c_p0014", "crossAlign": "center", "gap": 4, "padding": {"top": 140}, "width": "fill", "children": [
+                    {"type": "text", "id": "t_p0012", "color": "$color-foreground", "role": "paragraph", "size": 14, "text": "No chats yet", "weight": 500},
+                    {"type": "text", "id": "t_p0013", "color": "$color-muted-foreground", "role": "paragraph", "size": 12, "text": "Select something on the canvas and add it to a chat, or start one.", "width": 220}
+                  ]}
+                ]}
+              ]}
+            ]},
+            {"type": "column", "id": "c_p0063", "name": "Canvas", "height": "fill", "padding": {"top": 0}, "width": "fill", "children": [
+              {"type": "column", "id": "c_p0060", "crossAlign": "center", "gap": 6, "width": "fill", "children": [
+                {"type": "row", "id": "r_p0056", "name": "Place switch", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-popover", "gap": 2, "padding": {"bottom": 4, "left": 4, "right": 4, "top": 4}, "radius": 10, "children": [
+                  {"type": "row", "id": "r_p0050", "name": "Place · Canvas", "crossAlign": "center", "fill": "$color-accent", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 6, "children": [
+                    {"type": "text", "id": "t_p0049", "color": "$color-foreground", "role": "paragraph", "size": 14, "text": "Canvas", "weight": 500}
+                  ]},
+                  {"type": "row", "id": "r_p0053", "name": "Place · Design system", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 6, "children": [
+                    {"type": "text", "id": "t_p0051", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "Design system", "weight": 500},
+                    {"type": "image", "id": "m_p0052", "name": "triangle-alert", "height": 13, "src": "assets/icons/triangle-alert.svg", "tint": "oklch(0.75 0.15 70)", "width": 13}
+                  ]},
+                  {"type": "row", "id": "r_p0055", "name": "Place · Prototype", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 6, "children": [
+                    {"type": "text", "id": "t_p0054", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "Prototype", "weight": 500}
+                  ]}
+                ]},
+                {"type": "row", "id": "r_p0058", "name": "Tooltip", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-popover", "padding": {"bottom": 4, "left": 8, "right": 8, "top": 4}, "radius": 6, "children": [
+                  {"type": "text", "id": "t_p0057", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "5 problems in the design system"}
+                ]}
+              ]},
+              {"type": "column", "id": "c_p0061", "height": 40, "children": []},
+              {"type": "row", "id": "r_p0062", "align": "center", "width": "fill", "children": [
+                {"type": "column", "id": "c_p0059", "name": "A page on the canvas", "fill": "#e9e7e3", "height": 260, "opacity": 0.9, "radius": 4, "width": 360, "children": []}
+              ]}
+            ]}
+          ]}
+        ]},
+        {"type": "column", "id": "c_p0174", "gap": 8, "children": [
+          {"type": "text", "id": "t_p0173", "color": "$color-muted-foreground", "role": "paragraph", "size": 12, "text": "Problems open, from either mode"},
+          {"type": "row", "id": "r_p0172", "name": "1 · Open", "gap": 24, "height": 640, "padding": {"bottom": 8, "left": 8, "right": 8, "top": 8}, "width": 1000, "children": [
+            {"type": "column", "id": "c_p0158", "name": "Left card", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-rail", "height": "fill", "radius": 12, "shadow": "0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.3)", "width": 384, "children": [
+              {"type": "column", "id": "c_p0152", "name": "Header", "width": "fill", "children": [
+                {"type": "row", "id": "r_p0146", "name": "Project", "crossAlign": "center", "gap": 8, "height": 48, "padding": {"left": 10, "right": 6}, "width": "fill", "children": [
+                  {"type": "image", "id": "m_p0136", "name": "ultrapaint-mark", "height": 22, "src": "assets/icons/ultrapaint-mark.svg", "tint": "#fafafa", "width": 22},
+                  {"type": "column", "id": "c_p0141", "gap": 0, "width": "fill", "children": [
+                    {"type": "text", "id": "t_p0137", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "role": "paragraph", "size": 14, "text": "ultrapaint"},
+                    {"type": "row", "id": "r_p0140", "crossAlign": "center", "gap": 4, "children": [
+                      {"type": "image", "id": "m_p0138", "name": "git-branch", "height": 11, "src": "assets/icons/git-branch.svg", "tint": "#a1a1aa", "width": 11},
+                      {"type": "text", "id": "t_p0139", "color": "$color-muted-foreground", "role": "paragraph", "size": 12, "text": "main"}
+                    ]}
+                  ]},
+                  {"type": "row", "id": "r_p0143", "name": "search button", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+                    {"type": "image", "id": "m_p0142", "name": "search", "height": 15, "src": "assets/icons/search.svg", "tint": "#a1a1aa", "width": 15}
+                  ]},
+                  {"type": "row", "id": "r_p0145", "name": "panel-left button", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+                    {"type": "image", "id": "m_p0144", "name": "panel-left", "height": 15, "src": "assets/icons/panel-left.svg", "tint": "#a1a1aa", "width": 15}
+                  ]}
+                ]},
+                {"type": "column", "id": "c_p0151", "padding": {"bottom": 6, "left": 8, "right": 8}, "width": "fill", "children": [
+                  {"type": "row", "id": "r_p0150", "name": "Canvas switcher", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "gap": 8, "height": 32, "padding": {"left": 10, "right": 10}, "radius": 8, "width": "fill", "children": [
+                    {"type": "image", "id": "m_p0147", "name": "hash", "height": 14, "src": "assets/icons/hash.svg", "tint": "#a1a1aa", "width": 14},
+                    {"type": "text", "id": "t_p0148", "color": "$color-foreground", "role": "paragraph", "size": 14, "text": "Redesign", "weight": 500, "width": "fill"},
+                    {"type": "image", "id": "m_p0149", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "#a1a1aa", "width": 14}
+                  ]}
+                ]}
+              ]},
+              {"type": "row", "id": "r_p0157", "height": "fill", "width": "fill", "children": [
+                {"type": "column", "id": "c_p0156", "name": "Rail", "crossAlign": "center", "gap": 4, "height": "fill", "padding": {"bottom": 10, "top": 2}, "width": 44, "children": [
+                  {"type": "row", "id": "r_p0126", "name": "Rail · sparkles", "align": "center", "crossAlign": "center", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "m_p0125", "name": "sparkles", "height": 18, "src": "assets/icons/sparkles.svg", "tint": "#a1a1aa", "width": 18}
+                  ]},
+                  {"type": "row", "id": "r_p0128", "name": "Rail · layers", "align": "center", "crossAlign": "center", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "m_p0127", "name": "layers", "height": 18, "src": "assets/icons/layers.svg", "tint": "#a1a1aa", "width": 18}
+                  ]},
+                  {"type": "row", "id": "r_p0130", "name": "Rail · library-big", "align": "center", "crossAlign": "center", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "m_p0129", "name": "library-big", "height": 18, "src": "assets/icons/library-big.svg", "tint": "#a1a1aa", "width": 18}
+                  ]},
+                  {"type": "row", "id": "r_p0132", "name": "Rail · message-circle", "align": "center", "crossAlign": "center", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "m_p0131", "name": "message-circle", "height": 18, "src": "assets/icons/message-circle.svg", "tint": "#a1a1aa", "width": 18}
+                  ]},
+                  {"type": "column", "id": "c_p0153", "name": "Spacer", "height": "fill", "children": []},
+                  {"type": "row", "id": "r_p0134", "name": "Rail · triangle-alert", "align": "center", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-sidebar", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "m_p0133", "name": "triangle-alert", "height": 18, "src": "assets/icons/triangle-alert.svg", "tint": "oklch(0.75 0.15 70)", "width": 18}
+                  ]},
+                  {"type": "row", "id": "r_nxfvjo", "name": "Rail · git-compare-arrows", "align": "center", "crossAlign": "center", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "img_aw4ee3", "name": "git-compare-arrows", "height": 18, "src": "assets/icons/git-compare-arrows.svg", "tint": "#a1a1aa", "width": 18}
+                  ]},
+                  {"type": "row", "id": "r_nere25", "name": "Rail · settings", "align": "center", "crossAlign": "center", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "img_28jxaq", "name": "settings", "height": 18, "src": "assets/icons/settings.svg", "tint": "#a1a1aa", "width": 18}
+                  ]},
+                  {"type": "row", "id": "r_p0155", "name": "Avatar", "align": "center", "crossAlign": "center", "fill": "$color-muted", "height": 28, "radius": 14, "width": 28, "children": [
+                    {"type": "text", "id": "t_p0154", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "AN", "weight": 500}
+                  ]}
+                ]},
+                {"type": "column", "id": "c_p0135", "name": "Panel", "border": {"color": "$color-border", "style": "solid", "width": "1px 0 0 1px"}, "fill": "$color-sidebar", "height": "fill", "radius": 10, "width": "fill", "children": [
+                  {"type": "row", "id": "r_p0069", "name": "Panel title", "crossAlign": "center", "gap": 6, "height": 44, "padding": {"left": 16, "right": 8}, "width": "fill", "children": [
+                    {"type": "text", "id": "t_p0067", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "role": "paragraph", "size": 14, "text": "Problems"},
+                    {"type": "text", "id": "t_p0068", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "5", "width": "fill"}
+                  ]},
+                  {"type": "row", "id": "r_p0071", "name": "Source · Sync", "crossAlign": "end", "height": 32, "padding": {"bottom": 4, "left": 16}, "width": "fill", "children": [
+                    {"type": "text", "id": "t_p0070", "color": "$color-muted-foreground", "role": "paragraph", "size": 12, "text": "Sync"}
+                  ]},
+                  {"type": "column", "id": "c_p0081", "padding": {"left": 8, "right": 8}, "width": "fill", "children": [
+                    {"type": "column", "id": "c_p0080", "name": "Problem · 3 values aren’t in the code yet", "gap": 2, "padding": {"bottom": 8, "left": 8, "right": 8, "top": 8}, "radius": 8, "width": "fill", "children": [
+                      {"type": "row", "id": "r_p0074", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+                        {"type": "image", "id": "m_p0072", "name": "refresh-cw", "height": 14, "src": "assets/icons/refresh-cw.svg", "tint": "#a1a1aa", "width": 14},
+                        {"type": "text", "id": "t_p0073", "color": "$color-foreground", "role": "paragraph", "size": 14, "text": "3 values aren’t in the code yet", "weight": 500, "width": "fill"}
+                      ]},
+                      {"type": "row", "id": "r_p0076", "padding": {"left": 22}, "width": "fill", "children": [
+                        {"type": "text", "id": "t_p0075", "color": "$color-muted-foreground", "lineHeight": 1.4, "role": "paragraph", "size": 12, "text": "DESIGN.md changed them; Sync takes them in or puts the code’s back.", "width": "fill"}
+                      ]},
+                      {"type": "row", "id": "r_p0079", "name": "Actions", "crossAlign": "center", "gap": 4, "padding": {"left": 22, "top": 4}, "width": "fill", "children": [
+                        {"type": "row", "id": "r_p0078", "name": "Button · Review", "align": "center", "crossAlign": "center", "fill": "$color-secondary", "gap": 4, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 6, "children": [
+                          {"type": "text", "id": "t_p0077", "color": "$color-foreground", "role": "paragraph", "size": 13, "text": "Review", "weight": 500}
+                        ]}
+                      ]}
+                    ]}
+                  ]},
+                  {"type": "row", "id": "r_p0083", "name": "Source · DESIGN.md", "crossAlign": "end", "height": 32, "padding": {"bottom": 4, "left": 16}, "width": "fill", "children": [
+                    {"type": "text", "id": "t_p0082", "color": "$color-muted-foreground", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 12, "text": "DESIGN.md"}
+                  ]},
+                  {"type": "column", "id": "c_p0095", "padding": {"left": 8, "right": 8}, "width": "fill", "children": [
+                    {"type": "column", "id": "c_p0094", "name": "Problem · No primary colour", "gap": 2, "padding": {"bottom": 8, "left": 8, "right": 8, "top": 8}, "radius": 8, "width": "fill", "children": [
+                      {"type": "row", "id": "r_p0086", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+                        {"type": "image", "id": "m_p0084", "name": "triangle-alert", "height": 14, "src": "assets/icons/triangle-alert.svg", "tint": "oklch(0.75 0.15 70)", "width": 14},
+                        {"type": "text", "id": "t_p0085", "color": "$color-foreground", "role": "paragraph", "size": 14, "text": "No primary colour", "weight": 500, "width": "fill"}
+                      ]},
+                      {"type": "row", "id": "r_p0088", "padding": {"left": 22}, "width": "fill", "children": [
+                        {"type": "text", "id": "t_p0087", "color": "$color-muted-foreground", "lineHeight": 1.4, "role": "paragraph", "size": 12, "text": "Agents can’t tell which colour marks an action. Name the one your buttons use primary.", "width": "fill"}
+                      ]},
+                      {"type": "row", "id": "r_p0093", "name": "Actions", "crossAlign": "center", "gap": 4, "padding": {"left": 22, "top": 4}, "width": "fill", "children": [
+                        {"type": "row", "id": "r_p0090", "name": "Button · Fix with agent", "align": "center", "crossAlign": "center", "fill": "$color-secondary", "gap": 4, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 6, "children": [
+                          {"type": "text", "id": "t_p0089", "color": "$color-foreground", "role": "paragraph", "size": 13, "text": "Fix with agent", "weight": 500}
+                        ]},
+                        {"type": "row", "id": "r_p0092", "name": "⋯ button", "align": "center", "crossAlign": "center", "height": 24, "radius": 6, "width": 24, "children": [
+                          {"type": "image", "id": "m_p0091", "name": "ellipsis", "height": 14, "src": "assets/icons/ellipsis.svg", "tint": "#a1a1aa", "width": 14}
+                        ]}
+                      ]}
+                    ]}
+                  ]},
+                  {"type": "column", "id": "c_p0107", "padding": {"left": 8, "right": 8}, "width": "fill", "children": [
+                    {"type": "column", "id": "c_p0106", "name": "Problem · Secondary button is hard to read", "gap": 2, "padding": {"bottom": 8, "left": 8, "right": 8, "top": 8}, "radius": 8, "width": "fill", "children": [
+                      {"type": "row", "id": "r_p0098", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+                        {"type": "image", "id": "m_p0096", "name": "triangle-alert", "height": 14, "src": "assets/icons/triangle-alert.svg", "tint": "oklch(0.75 0.15 70)", "width": 14},
+                        {"type": "text", "id": "t_p0097", "color": "$color-foreground", "role": "paragraph", "size": 14, "text": "Secondary button is hard to read", "weight": 500, "width": "fill"}
+                      ]},
+                      {"type": "row", "id": "r_p0100", "padding": {"left": 22}, "width": "fill", "children": [
+                        {"type": "text", "id": "t_p0099", "color": "$color-muted-foreground", "lineHeight": 1.4, "role": "paragraph", "size": 12, "text": "Its text is 2.8:1 on its fill; text needs 4.5:1.", "width": "fill"}
+                      ]},
+                      {"type": "row", "id": "r_p0105", "name": "Actions", "crossAlign": "center", "gap": 4, "padding": {"left": 22, "top": 4}, "width": "fill", "children": [
+                        {"type": "row", "id": "r_p0102", "name": "Button · Fix with agent", "align": "center", "crossAlign": "center", "fill": "$color-secondary", "gap": 4, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 6, "children": [
+                          {"type": "text", "id": "t_p0101", "color": "$color-foreground", "role": "paragraph", "size": 13, "text": "Fix with agent", "weight": 500}
+                        ]},
+                        {"type": "row", "id": "r_p0104", "name": "⋯ button", "align": "center", "crossAlign": "center", "height": 24, "radius": 6, "width": 24, "children": [
+                          {"type": "image", "id": "m_p0103", "name": "ellipsis", "height": 14, "src": "assets/icons/ellipsis.svg", "tint": "#a1a1aa", "width": 14}
+                        ]}
+                      ]}
+                    ]}
+                  ]},
+                  {"type": "column", "id": "c_p0119", "padding": {"left": 8, "right": 8}, "width": "fill", "children": [
+                    {"type": "column", "id": "c_p0118", "name": "Problem · Card points to a missing colour", "gap": 2, "padding": {"bottom": 8, "left": 8, "right": 8, "top": 8}, "radius": 8, "width": "fill", "children": [
+                      {"type": "row", "id": "r_p0110", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+                        {"type": "image", "id": "m_p0108", "name": "circle-alert", "height": 14, "src": "assets/icons/circle-alert.svg", "tint": "oklch(0.65 0.2 27)", "width": 14},
+                        {"type": "text", "id": "t_p0109", "color": "$color-foreground", "role": "paragraph", "size": 14, "text": "Card points to a missing colour", "weight": 500, "width": "fill"}
+                      ]},
+                      {"type": "row", "id": "r_p0112", "padding": {"left": 22}, "width": "fill", "children": [
+                        {"type": "text", "id": "t_p0111", "color": "$color-muted-foreground", "lineHeight": 1.4, "role": "paragraph", "size": 12, "text": "{colors.brand-500} isn’t in the colours.", "width": "fill"}
+                      ]},
+                      {"type": "row", "id": "r_p0117", "name": "Actions", "crossAlign": "center", "gap": 4, "padding": {"left": 22, "top": 4}, "width": "fill", "children": [
+                        {"type": "row", "id": "r_p0114", "name": "Button · Fix with agent", "align": "center", "crossAlign": "center", "fill": "$color-secondary", "gap": 4, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 6, "children": [
+                          {"type": "text", "id": "t_p0113", "color": "$color-foreground", "role": "paragraph", "size": 13, "text": "Fix with agent", "weight": 500}
+                        ]},
+                        {"type": "row", "id": "r_p0116", "name": "⋯ button", "align": "center", "crossAlign": "center", "height": 24, "radius": 6, "width": 24, "children": [
+                          {"type": "image", "id": "m_p0115", "name": "ellipsis", "height": 14, "src": "assets/icons/ellipsis.svg", "tint": "#a1a1aa", "width": 14}
+                        ]}
+                      ]}
+                    ]}
+                  ]},
+                  {"type": "column", "id": "c_p0120", "name": "Spacer", "height": "fill", "children": []},
+                  {"type": "row", "id": "r_p0124", "name": "Foot", "border": {"color": "$color-border", "style": "solid", "width": "1px 0 0 0"}, "padding": {"bottom": 12, "left": 12, "right": 12, "top": 12}, "width": "fill", "children": [
+                    {"type": "row", "id": "r_p0123", "name": "Button · Fix all with agent", "align": "center", "crossAlign": "center", "fill": "$color-primary", "gap": 4, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 6, "width": "fill", "children": [
+                      {"type": "image", "id": "m_p0121", "name": "sparkles", "height": 14, "src": "assets/icons/sparkles.svg", "tint": "#fafafa", "width": 14},
+                      {"type": "text", "id": "t_p0122", "color": "$color-primary-foreground", "role": "paragraph", "size": 14, "text": "Fix all with agent", "weight": 500}
+                    ]}
+                  ]}
+                ]}
+              ]}
+            ]},
+            {"type": "column", "id": "c_p0171", "name": "Canvas", "height": "fill", "padding": {"top": 0}, "width": "fill", "children": [
+              {"type": "column", "id": "c_p0168", "crossAlign": "center", "gap": 6, "width": "fill", "children": [
+                {"type": "row", "id": "r_p0166", "name": "Place switch", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-popover", "gap": 2, "padding": {"bottom": 4, "left": 4, "right": 4, "top": 4}, "radius": 10, "children": [
+                  {"type": "row", "id": "r_p0160", "name": "Place · Canvas", "crossAlign": "center", "fill": "$color-accent", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 6, "children": [
+                    {"type": "text", "id": "t_p0159", "color": "$color-foreground", "role": "paragraph", "size": 14, "text": "Canvas", "weight": 500}
+                  ]},
+                  {"type": "row", "id": "r_p0163", "name": "Place · Design system", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 6, "children": [
+                    {"type": "text", "id": "t_p0161", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "Design system", "weight": 500},
+                    {"type": "image", "id": "m_p0162", "name": "triangle-alert", "height": 13, "src": "assets/icons/triangle-alert.svg", "tint": "oklch(0.75 0.15 70)", "width": 13}
+                  ]},
+                  {"type": "row", "id": "r_p0165", "name": "Place · Prototype", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 6, "children": [
+                    {"type": "text", "id": "t_p0164", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "Prototype", "weight": 500}
+                  ]}
+                ]}
+              ]},
+              {"type": "column", "id": "c_p0169", "height": 40, "children": []},
+              {"type": "row", "id": "r_p0170", "align": "center", "width": "fill", "children": [
+                {"type": "column", "id": "c_p0167", "name": "A page on the canvas", "fill": "#e9e7e3", "height": 260, "opacity": 0.9, "radius": 4, "width": 360, "children": []}
+              ]}
+            ]}
+          ]}
+        ]}
+      ]}
+    ]},
+    {"type": "column", "id": "c_p0368", "name": "Solution 2", "gap": 16, "children": [
+      {"type": "column", "id": "c_p0224", "gap": 4, "children": [
+        {"type": "text", "id": "t_p0222", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "role": "paragraph", "size": 20, "text": "2 · A button in Foundations’ title"},
+        {"type": "text", "id": "t_p0223", "color": "$color-muted-foreground", "lineHeight": 1.45, "role": "paragraph", "size": 14, "text": "Beside Sync and /init, only while there is something to fix; it opens Problems in the panel, with Back to Foundations. From the canvas, the sign beside Design system is what says so: one click to the mode, one to the button.", "width": 1000}
+      ]},
+      {"type": "row", "id": "r_p0367", "crossAlign": "start", "gap": 32, "children": [
+        {"type": "column", "id": "c_p0265", "gap": 8, "children": [
+          {"type": "text", "id": "t_p0264", "color": "$color-muted-foreground", "role": "paragraph", "size": 12, "text": "Design system: the button in Foundations’ title"},
+          {"type": "row", "id": "r_p0263", "name": "2 · Foundations", "gap": 24, "height": 640, "padding": {"bottom": 8, "left": 8, "right": 8, "top": 8}, "width": 1000, "children": [
+            {"type": "column", "id": "c_p0249", "name": "Left card", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-rail", "height": "fill", "radius": 12, "shadow": "0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.3)", "width": 384, "children": [
+              {"type": "column", "id": "c_p0243", "name": "Header", "width": "fill", "children": [
+                {"type": "row", "id": "r_p0242", "name": "Project", "crossAlign": "center", "gap": 8, "height": 48, "padding": {"left": 10, "right": 6}, "width": "fill", "children": [
+                  {"type": "image", "id": "m_p0232", "name": "ultrapaint-mark", "height": 22, "src": "assets/icons/ultrapaint-mark.svg", "tint": "#fafafa", "width": 22},
+                  {"type": "column", "id": "c_p0237", "gap": 0, "width": "fill", "children": [
+                    {"type": "text", "id": "t_p0233", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "role": "paragraph", "size": 14, "text": "ultrapaint"},
+                    {"type": "row", "id": "r_p0236", "crossAlign": "center", "gap": 4, "children": [
+                      {"type": "image", "id": "m_p0234", "name": "git-branch", "height": 11, "src": "assets/icons/git-branch.svg", "tint": "#a1a1aa", "width": 11},
+                      {"type": "text", "id": "t_p0235", "color": "$color-muted-foreground", "role": "paragraph", "size": 12, "text": "main"}
+                    ]}
+                  ]},
+                  {"type": "row", "id": "r_p0239", "name": "search button", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+                    {"type": "image", "id": "m_p0238", "name": "search", "height": 15, "src": "assets/icons/search.svg", "tint": "#a1a1aa", "width": 15}
+                  ]},
+                  {"type": "row", "id": "r_p0241", "name": "panel-left button", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+                    {"type": "image", "id": "m_p0240", "name": "panel-left", "height": 15, "src": "assets/icons/panel-left.svg", "tint": "#a1a1aa", "width": 15}
+                  ]}
+                ]}
+              ]},
+              {"type": "row", "id": "r_p0248", "height": "fill", "width": "fill", "children": [
+                {"type": "column", "id": "c_p0247", "name": "Rail", "crossAlign": "center", "gap": 4, "height": "fill", "padding": {"bottom": 10, "top": 2}, "width": 44, "children": [
+                  {"type": "row", "id": "r_p0226", "name": "Rail · sparkles", "align": "center", "crossAlign": "center", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "m_p0225", "name": "sparkles", "height": 18, "src": "assets/icons/sparkles.svg", "tint": "#a1a1aa", "width": 18}
+                  ]},
+                  {"type": "row", "id": "r_p0228", "name": "Rail · palette", "align": "center", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-sidebar", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "m_p0227", "name": "palette", "height": 18, "src": "assets/icons/palette.svg", "tint": "#fafafa", "width": 18}
+                  ]},
+                  {"type": "row", "id": "r_p0230", "name": "Rail · library-big", "align": "center", "crossAlign": "center", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "m_p0229", "name": "library-big", "height": 18, "src": "assets/icons/library-big.svg", "tint": "#a1a1aa", "width": 18}
+                  ]},
+                  {"type": "column", "id": "c_p0244", "name": "Spacer", "height": "fill", "children": []},
+                  {"type": "row", "id": "r_jdeiwv", "name": "Rail · git-compare-arrows", "align": "center", "crossAlign": "center", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "img_keza0u", "name": "git-compare-arrows", "height": 18, "src": "assets/icons/git-compare-arrows.svg", "tint": "#a1a1aa", "width": 18}
+                  ]},
+                  {"type": "row", "id": "r_opklf5", "name": "Rail · settings", "align": "center", "crossAlign": "center", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "img_od968i", "name": "settings", "height": 18, "src": "assets/icons/settings.svg", "tint": "#a1a1aa", "width": 18}
+                  ]},
+                  {"type": "row", "id": "r_p0246", "name": "Avatar", "align": "center", "crossAlign": "center", "fill": "$color-muted", "height": 28, "radius": 14, "width": 28, "children": [
+                    {"type": "text", "id": "t_p0245", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "AN", "weight": 500}
+                  ]}
+                ]},
+                {"type": "column", "id": "c_p0231", "name": "Panel", "border": {"color": "$color-border", "style": "solid", "width": "1px 0 0 1px"}, "fill": "$color-sidebar", "height": "fill", "radius": 10, "width": "fill", "children": [
+                  {"type": "row", "id": "r_p0185", "name": "Panel title", "crossAlign": "center", "gap": 2, "height": 44, "padding": {"left": 16, "right": 8}, "width": "fill", "children": [
+                    {"type": "text", "id": "t_p0180", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "role": "paragraph", "size": 14, "text": "Foundations", "width": "fill"},
+                    {"type": "row", "id": "r_p0179", "name": "Problems button", "crossAlign": "center", "gap": 4, "height": 28, "padding": {"left": 6, "right": 8}, "radius": 6, "children": [
+                      {"type": "image", "id": "m_p0177", "name": "triangle-alert", "height": 15, "src": "assets/icons/triangle-alert.svg", "tint": "oklch(0.75 0.15 70)", "width": 15},
+                      {"type": "text", "id": "t_p0178", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "5", "weight": 500}
+                    ]},
+                    {"type": "row", "id": "r_p0182", "name": "refresh-cw button", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+                      {"type": "image", "id": "m_p0181", "name": "refresh-cw", "height": 15, "src": "assets/icons/refresh-cw.svg", "tint": "#a1a1aa", "width": 15}
+                    ]},
+                    {"type": "row", "id": "r_p0184", "name": "wand-sparkles button", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+                      {"type": "image", "id": "m_p0183", "name": "wand-sparkles", "height": 15, "src": "assets/icons/wand-sparkles.svg", "tint": "#a1a1aa", "width": 15}
+                    ]}
+                  ]},
+                  {"type": "row", "id": "r_p0189", "name": "Search", "padding": {"bottom": 8, "left": 8, "right": 8}, "width": "fill", "children": [
+                    {"type": "row", "id": "r_p0188", "crossAlign": "center", "fill": "$color-muted", "gap": 8, "height": 30, "padding": {"left": 10, "right": 10}, "radius": 6, "width": "fill", "children": [
+                      {"type": "image", "id": "m_p0186", "name": "search", "height": 14, "src": "assets/icons/search.svg", "tint": "#a1a1aa", "width": 14},
+                      {"type": "text", "id": "t_p0187", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "Search"}
+                    ]}
+                  ]},
+                  {"type": "column", "id": "c_p0221", "name": "List", "padding": {"left": 8, "right": 8}, "width": "fill", "children": [
+                    {"type": "row", "id": "r_p0192", "name": "Item · Colour", "crossAlign": "center", "fill": "$color-accent", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+                      {"type": "text", "id": "t_p0190", "color": "$color-foreground", "role": "paragraph", "size": 14, "text": "Colour", "weight": 500, "width": "fill"},
+                      {"type": "text", "id": "t_p0191", "color": "$color-muted-foreground", "role": "paragraph", "size": 12, "text": "43", "weight": 500}
+                    ]},
+                    {"type": "row", "id": "r_p0194", "name": "Item · Spacing", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+                      {"type": "text", "id": "t_p0193", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "Spacing", "weight": 500, "width": "fill"}
+                    ]},
+                    {"type": "row", "id": "r_p0197", "name": "Item · Radius", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+                      {"type": "text", "id": "t_p0195", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "Radius", "weight": 500, "width": "fill"},
+                      {"type": "text", "id": "t_p0196", "color": "$color-muted-foreground", "role": "paragraph", "size": 12, "text": "8", "weight": 500}
+                    ]},
+                    {"type": "row", "id": "r_p0200", "name": "Item · Elevation", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+                      {"type": "text", "id": "t_p0198", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "Elevation", "weight": 500, "width": "fill"},
+                      {"type": "text", "id": "t_p0199", "color": "$color-muted-foreground", "role": "paragraph", "size": 12, "text": "14", "weight": 500}
+                    ]},
+                    {"type": "row", "id": "r_p0203", "name": "Item · Motion", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+                      {"type": "text", "id": "t_p0201", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "Motion", "weight": 500, "width": "fill"},
+                      {"type": "text", "id": "t_p0202", "color": "$color-muted-foreground", "role": "paragraph", "size": 12, "text": "20", "weight": 500}
+                    ]},
+                    {"type": "row", "id": "r_p0206", "name": "Item · Breakpoints", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+                      {"type": "text", "id": "t_p0204", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "Breakpoints", "weight": 500, "width": "fill"},
+                      {"type": "text", "id": "t_p0205", "color": "$color-muted-foreground", "role": "paragraph", "size": 12, "text": "18", "weight": 500}
+                    ]},
+                    {"type": "row", "id": "r_p0208", "name": "Heading · Guidelines", "crossAlign": "end", "height": 36, "padding": {"bottom": 6, "left": 8}, "width": "fill", "children": [
+                      {"type": "text", "id": "t_p0207", "color": "$color-muted-foreground", "role": "paragraph", "size": 12, "text": "Guidelines"}
+                    ]},
+                    {"type": "row", "id": "r_p0210", "name": "Item · Overview", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+                      {"type": "text", "id": "t_p0209", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "Overview", "weight": 500, "width": "fill"}
+                    ]},
+                    {"type": "row", "id": "r_p0212", "name": "Item · Colors", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+                      {"type": "text", "id": "t_p0211", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "Colors", "weight": 500, "width": "fill"}
+                    ]},
+                    {"type": "row", "id": "r_p0214", "name": "Item · Typography", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+                      {"type": "text", "id": "t_p0213", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "Typography", "weight": 500, "width": "fill"}
+                    ]},
+                    {"type": "row", "id": "r_p0216", "name": "Item · Layout", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+                      {"type": "text", "id": "t_p0215", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "Layout", "weight": 500, "width": "fill"}
+                    ]},
+                    {"type": "row", "id": "r_p0218", "name": "Item · Elevation & Depth", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+                      {"type": "text", "id": "t_p0217", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "Elevation & Depth", "weight": 500, "width": "fill"}
+                    ]},
+                    {"type": "row", "id": "r_p0220", "name": "Item · Shapes", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+                      {"type": "text", "id": "t_p0219", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "Shapes", "weight": 500, "width": "fill"}
+                    ]}
+                  ]}
+                ]}
+              ]}
+            ]},
+            {"type": "column", "id": "c_p0262", "name": "Canvas", "height": "fill", "padding": {"top": 0}, "width": "fill", "children": [
+              {"type": "column", "id": "c_p0259", "crossAlign": "center", "gap": 6, "width": "fill", "children": [
+                {"type": "row", "id": "r_p0257", "name": "Place switch", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-popover", "gap": 2, "padding": {"bottom": 4, "left": 4, "right": 4, "top": 4}, "radius": 10, "children": [
+                  {"type": "row", "id": "r_p0251", "name": "Place · Canvas", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 6, "children": [
+                    {"type": "text", "id": "t_p0250", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "Canvas", "weight": 500}
+                  ]},
+                  {"type": "row", "id": "r_p0254", "name": "Place · Design system", "crossAlign": "center", "fill": "$color-accent", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 6, "children": [
+                    {"type": "text", "id": "t_p0252", "color": "$color-foreground", "role": "paragraph", "size": 14, "text": "Design system", "weight": 500},
+                    {"type": "image", "id": "m_p0253", "name": "triangle-alert", "height": 13, "src": "assets/icons/triangle-alert.svg", "tint": "oklch(0.75 0.15 70)", "width": 13}
+                  ]},
+                  {"type": "row", "id": "r_p0256", "name": "Place · Prototype", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 6, "children": [
+                    {"type": "text", "id": "t_p0255", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "Prototype", "weight": 500}
+                  ]}
+                ]}
+              ]},
+              {"type": "column", "id": "c_p0260", "height": 40, "children": []},
+              {"type": "row", "id": "r_p0261", "align": "center", "width": "fill", "children": [
+                {"type": "column", "id": "c_p0258", "name": "A page on the canvas", "fill": "#e9e7e3", "height": 260, "opacity": 0.9, "radius": 4, "width": 360, "children": []}
+              ]}
+            ]}
+          ]}
+        ]},
+        {"type": "column", "id": "c_p0366", "gap": 8, "children": [
+          {"type": "text", "id": "t_p0365", "color": "$color-muted-foreground", "role": "paragraph", "size": 12, "text": "Problems open in the panel"},
+          {"type": "row", "id": "r_p0364", "name": "2 · Open", "gap": 24, "height": 640, "padding": {"bottom": 8, "left": 8, "right": 8, "top": 8}, "width": 1000, "children": [
+            {"type": "column", "id": "c_p0350", "name": "Left card", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-rail", "height": "fill", "radius": 12, "shadow": "0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.3)", "width": 384, "children": [
+              {"type": "column", "id": "c_p0344", "name": "Header", "width": "fill", "children": [
+                {"type": "row", "id": "r_p0343", "name": "Project", "crossAlign": "center", "gap": 8, "height": 48, "padding": {"left": 10, "right": 6}, "width": "fill", "children": [
+                  {"type": "image", "id": "m_p0333", "name": "ultrapaint-mark", "height": 22, "src": "assets/icons/ultrapaint-mark.svg", "tint": "#fafafa", "width": 22},
+                  {"type": "column", "id": "c_p0338", "gap": 0, "width": "fill", "children": [
+                    {"type": "text", "id": "t_p0334", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "role": "paragraph", "size": 14, "text": "ultrapaint"},
+                    {"type": "row", "id": "r_p0337", "crossAlign": "center", "gap": 4, "children": [
+                      {"type": "image", "id": "m_p0335", "name": "git-branch", "height": 11, "src": "assets/icons/git-branch.svg", "tint": "#a1a1aa", "width": 11},
+                      {"type": "text", "id": "t_p0336", "color": "$color-muted-foreground", "role": "paragraph", "size": 12, "text": "main"}
+                    ]}
+                  ]},
+                  {"type": "row", "id": "r_p0340", "name": "search button", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+                    {"type": "image", "id": "m_p0339", "name": "search", "height": 15, "src": "assets/icons/search.svg", "tint": "#a1a1aa", "width": 15}
+                  ]},
+                  {"type": "row", "id": "r_p0342", "name": "panel-left button", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+                    {"type": "image", "id": "m_p0341", "name": "panel-left", "height": 15, "src": "assets/icons/panel-left.svg", "tint": "#a1a1aa", "width": 15}
+                  ]}
+                ]}
+              ]},
+              {"type": "row", "id": "r_p0349", "height": "fill", "width": "fill", "children": [
+                {"type": "column", "id": "c_p0348", "name": "Rail", "crossAlign": "center", "gap": 4, "height": "fill", "padding": {"bottom": 10, "top": 2}, "width": 44, "children": [
+                  {"type": "row", "id": "r_p0327", "name": "Rail · sparkles", "align": "center", "crossAlign": "center", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "m_p0326", "name": "sparkles", "height": 18, "src": "assets/icons/sparkles.svg", "tint": "#a1a1aa", "width": 18}
+                  ]},
+                  {"type": "row", "id": "r_p0329", "name": "Rail · palette", "align": "center", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-sidebar", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "m_p0328", "name": "palette", "height": 18, "src": "assets/icons/palette.svg", "tint": "#fafafa", "width": 18}
+                  ]},
+                  {"type": "row", "id": "r_p0331", "name": "Rail · library-big", "align": "center", "crossAlign": "center", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "m_p0330", "name": "library-big", "height": 18, "src": "assets/icons/library-big.svg", "tint": "#a1a1aa", "width": 18}
+                  ]},
+                  {"type": "column", "id": "c_p0345", "name": "Spacer", "height": "fill", "children": []},
+                  {"type": "row", "id": "r_psz0jm", "name": "Rail · git-compare-arrows", "align": "center", "crossAlign": "center", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "img_ah1fl5", "name": "git-compare-arrows", "height": 18, "src": "assets/icons/git-compare-arrows.svg", "tint": "#a1a1aa", "width": 18}
+                  ]},
+                  {"type": "row", "id": "r_b07l17", "name": "Rail · settings", "align": "center", "crossAlign": "center", "height": 32, "radius": 6, "width": 32, "children": [
+                    {"type": "image", "id": "img_cet6c8", "name": "settings", "height": 18, "src": "assets/icons/settings.svg", "tint": "#a1a1aa", "width": 18}
+                  ]},
+                  {"type": "row", "id": "r_p0347", "name": "Avatar", "align": "center", "crossAlign": "center", "fill": "$color-muted", "height": 28, "radius": 14, "width": 28, "children": [
+                    {"type": "text", "id": "t_p0346", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "AN", "weight": 500}
+                  ]}
+                ]},
+                {"type": "column", "id": "c_p0332", "name": "Panel", "border": {"color": "$color-border", "style": "solid", "width": "1px 0 0 1px"}, "fill": "$color-sidebar", "height": "fill", "radius": 10, "width": "fill", "children": [
+                  {"type": "row", "id": "r_p0270", "name": "Panel title", "crossAlign": "center", "gap": 4, "height": 44, "padding": {"left": 6, "right": 8}, "width": "fill", "children": [
+                    {"type": "row", "id": "r_p0267", "name": "arrow-left button", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+                      {"type": "image", "id": "m_p0266", "name": "arrow-left", "height": 15, "src": "assets/icons/arrow-left.svg", "tint": "#a1a1aa", "width": 15}
+                    ]},
+                    {"type": "text", "id": "t_p0268", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "role": "paragraph", "size": 14, "text": "Problems"},
+                    {"type": "text", "id": "t_p0269", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "5", "width": "fill"}
+                  ]},
+                  {"type": "row", "id": "r_p0272", "name": "Source · Sync", "crossAlign": "end", "height": 32, "padding": {"bottom": 4, "left": 16}, "width": "fill", "children": [
+                    {"type": "text", "id": "t_p0271", "color": "$color-muted-foreground", "role": "paragraph", "size": 12, "text": "Sync"}
+                  ]},
+                  {"type": "column", "id": "c_p0282", "padding": {"left": 8, "right": 8}, "width": "fill", "children": [
+                    {"type": "column", "id": "c_p0281", "name": "Problem · 3 values aren’t in the code yet", "gap": 2, "padding": {"bottom": 8, "left": 8, "right": 8, "top": 8}, "radius": 8, "width": "fill", "children": [
+                      {"type": "row", "id": "r_p0275", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+                        {"type": "image", "id": "m_p0273", "name": "refresh-cw", "height": 14, "src": "assets/icons/refresh-cw.svg", "tint": "#a1a1aa", "width": 14},
+                        {"type": "text", "id": "t_p0274", "color": "$color-foreground", "role": "paragraph", "size": 14, "text": "3 values aren’t in the code yet", "weight": 500, "width": "fill"}
+                      ]},
+                      {"type": "row", "id": "r_p0277", "padding": {"left": 22}, "width": "fill", "children": [
+                        {"type": "text", "id": "t_p0276", "color": "$color-muted-foreground", "lineHeight": 1.4, "role": "paragraph", "size": 12, "text": "DESIGN.md changed them; Sync takes them in or puts the code’s back.", "width": "fill"}
+                      ]},
+                      {"type": "row", "id": "r_p0280", "name": "Actions", "crossAlign": "center", "gap": 4, "padding": {"left": 22, "top": 4}, "width": "fill", "children": [
+                        {"type": "row", "id": "r_p0279", "name": "Button · Review", "align": "center", "crossAlign": "center", "fill": "$color-secondary", "gap": 4, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 6, "children": [
+                          {"type": "text", "id": "t_p0278", "color": "$color-foreground", "role": "paragraph", "size": 13, "text": "Review", "weight": 500}
+                        ]}
+                      ]}
+                    ]}
+                  ]},
+                  {"type": "row", "id": "r_p0284", "name": "Source · DESIGN.md", "crossAlign": "end", "height": 32, "padding": {"bottom": 4, "left": 16}, "width": "fill", "children": [
+                    {"type": "text", "id": "t_p0283", "color": "$color-muted-foreground", "font": "'Geist Mono Variable', monospace", "role": "paragraph", "size": 12, "text": "DESIGN.md"}
+                  ]},
+                  {"type": "column", "id": "c_p0296", "padding": {"left": 8, "right": 8}, "width": "fill", "children": [
+                    {"type": "column", "id": "c_p0295", "name": "Problem · No primary colour", "gap": 2, "padding": {"bottom": 8, "left": 8, "right": 8, "top": 8}, "radius": 8, "width": "fill", "children": [
+                      {"type": "row", "id": "r_p0287", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+                        {"type": "image", "id": "m_p0285", "name": "triangle-alert", "height": 14, "src": "assets/icons/triangle-alert.svg", "tint": "oklch(0.75 0.15 70)", "width": 14},
+                        {"type": "text", "id": "t_p0286", "color": "$color-foreground", "role": "paragraph", "size": 14, "text": "No primary colour", "weight": 500, "width": "fill"}
+                      ]},
+                      {"type": "row", "id": "r_p0289", "padding": {"left": 22}, "width": "fill", "children": [
+                        {"type": "text", "id": "t_p0288", "color": "$color-muted-foreground", "lineHeight": 1.4, "role": "paragraph", "size": 12, "text": "Agents can’t tell which colour marks an action. Name the one your buttons use primary.", "width": "fill"}
+                      ]},
+                      {"type": "row", "id": "r_p0294", "name": "Actions", "crossAlign": "center", "gap": 4, "padding": {"left": 22, "top": 4}, "width": "fill", "children": [
+                        {"type": "row", "id": "r_p0291", "name": "Button · Fix with agent", "align": "center", "crossAlign": "center", "fill": "$color-secondary", "gap": 4, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 6, "children": [
+                          {"type": "text", "id": "t_p0290", "color": "$color-foreground", "role": "paragraph", "size": 13, "text": "Fix with agent", "weight": 500}
+                        ]},
+                        {"type": "row", "id": "r_p0293", "name": "⋯ button", "align": "center", "crossAlign": "center", "height": 24, "radius": 6, "width": 24, "children": [
+                          {"type": "image", "id": "m_p0292", "name": "ellipsis", "height": 14, "src": "assets/icons/ellipsis.svg", "tint": "#a1a1aa", "width": 14}
+                        ]}
+                      ]}
+                    ]}
+                  ]},
+                  {"type": "column", "id": "c_p0308", "padding": {"left": 8, "right": 8}, "width": "fill", "children": [
+                    {"type": "column", "id": "c_p0307", "name": "Problem · Secondary button is hard to read", "gap": 2, "padding": {"bottom": 8, "left": 8, "right": 8, "top": 8}, "radius": 8, "width": "fill", "children": [
+                      {"type": "row", "id": "r_p0299", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+                        {"type": "image", "id": "m_p0297", "name": "triangle-alert", "height": 14, "src": "assets/icons/triangle-alert.svg", "tint": "oklch(0.75 0.15 70)", "width": 14},
+                        {"type": "text", "id": "t_p0298", "color": "$color-foreground", "role": "paragraph", "size": 14, "text": "Secondary button is hard to read", "weight": 500, "width": "fill"}
+                      ]},
+                      {"type": "row", "id": "r_p0301", "padding": {"left": 22}, "width": "fill", "children": [
+                        {"type": "text", "id": "t_p0300", "color": "$color-muted-foreground", "lineHeight": 1.4, "role": "paragraph", "size": 12, "text": "Its text is 2.8:1 on its fill; text needs 4.5:1.", "width": "fill"}
+                      ]},
+                      {"type": "row", "id": "r_p0306", "name": "Actions", "crossAlign": "center", "gap": 4, "padding": {"left": 22, "top": 4}, "width": "fill", "children": [
+                        {"type": "row", "id": "r_p0303", "name": "Button · Fix with agent", "align": "center", "crossAlign": "center", "fill": "$color-secondary", "gap": 4, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 6, "children": [
+                          {"type": "text", "id": "t_p0302", "color": "$color-foreground", "role": "paragraph", "size": 13, "text": "Fix with agent", "weight": 500}
+                        ]},
+                        {"type": "row", "id": "r_p0305", "name": "⋯ button", "align": "center", "crossAlign": "center", "height": 24, "radius": 6, "width": 24, "children": [
+                          {"type": "image", "id": "m_p0304", "name": "ellipsis", "height": 14, "src": "assets/icons/ellipsis.svg", "tint": "#a1a1aa", "width": 14}
+                        ]}
+                      ]}
+                    ]}
+                  ]},
+                  {"type": "column", "id": "c_p0320", "padding": {"left": 8, "right": 8}, "width": "fill", "children": [
+                    {"type": "column", "id": "c_p0319", "name": "Problem · Card points to a missing colour", "gap": 2, "padding": {"bottom": 8, "left": 8, "right": 8, "top": 8}, "radius": 8, "width": "fill", "children": [
+                      {"type": "row", "id": "r_p0311", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+                        {"type": "image", "id": "m_p0309", "name": "circle-alert", "height": 14, "src": "assets/icons/circle-alert.svg", "tint": "oklch(0.65 0.2 27)", "width": 14},
+                        {"type": "text", "id": "t_p0310", "color": "$color-foreground", "role": "paragraph", "size": 14, "text": "Card points to a missing colour", "weight": 500, "width": "fill"}
+                      ]},
+                      {"type": "row", "id": "r_p0313", "padding": {"left": 22}, "width": "fill", "children": [
+                        {"type": "text", "id": "t_p0312", "color": "$color-muted-foreground", "lineHeight": 1.4, "role": "paragraph", "size": 12, "text": "{colors.brand-500} isn’t in the colours.", "width": "fill"}
+                      ]},
+                      {"type": "row", "id": "r_p0318", "name": "Actions", "crossAlign": "center", "gap": 4, "padding": {"left": 22, "top": 4}, "width": "fill", "children": [
+                        {"type": "row", "id": "r_p0315", "name": "Button · Fix with agent", "align": "center", "crossAlign": "center", "fill": "$color-secondary", "gap": 4, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 6, "children": [
+                          {"type": "text", "id": "t_p0314", "color": "$color-foreground", "role": "paragraph", "size": 13, "text": "Fix with agent", "weight": 500}
+                        ]},
+                        {"type": "row", "id": "r_p0317", "name": "⋯ button", "align": "center", "crossAlign": "center", "height": 24, "radius": 6, "width": 24, "children": [
+                          {"type": "image", "id": "m_p0316", "name": "ellipsis", "height": 14, "src": "assets/icons/ellipsis.svg", "tint": "#a1a1aa", "width": 14}
+                        ]}
+                      ]}
+                    ]}
+                  ]},
+                  {"type": "column", "id": "c_p0321", "name": "Spacer", "height": "fill", "children": []},
+                  {"type": "row", "id": "r_p0325", "name": "Foot", "border": {"color": "$color-border", "style": "solid", "width": "1px 0 0 0"}, "padding": {"bottom": 12, "left": 12, "right": 12, "top": 12}, "width": "fill", "children": [
+                    {"type": "row", "id": "r_p0324", "name": "Button · Fix all with agent", "align": "center", "crossAlign": "center", "fill": "$color-primary", "gap": 4, "height": 28, "padding": {"left": 10, "right": 10}, "radius": 6, "width": "fill", "children": [
+                      {"type": "image", "id": "m_p0322", "name": "sparkles", "height": 14, "src": "assets/icons/sparkles.svg", "tint": "#fafafa", "width": 14},
+                      {"type": "text", "id": "t_p0323", "color": "$color-primary-foreground", "role": "paragraph", "size": 14, "text": "Fix all with agent", "weight": 500}
+                    ]}
+                  ]}
+                ]}
+              ]}
+            ]},
+            {"type": "column", "id": "c_p0363", "name": "Canvas", "height": "fill", "padding": {"top": 0}, "width": "fill", "children": [
+              {"type": "column", "id": "c_p0360", "crossAlign": "center", "gap": 6, "width": "fill", "children": [
+                {"type": "row", "id": "r_p0358", "name": "Place switch", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-popover", "gap": 2, "padding": {"bottom": 4, "left": 4, "right": 4, "top": 4}, "radius": 10, "children": [
+                  {"type": "row", "id": "r_p0352", "name": "Place · Canvas", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 6, "children": [
+                    {"type": "text", "id": "t_p0351", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "Canvas", "weight": 500}
+                  ]},
+                  {"type": "row", "id": "r_p0355", "name": "Place · Design system", "crossAlign": "center", "fill": "$color-accent", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 6, "children": [
+                    {"type": "text", "id": "t_p0353", "color": "$color-foreground", "role": "paragraph", "size": 14, "text": "Design system", "weight": 500},
+                    {"type": "image", "id": "m_p0354", "name": "triangle-alert", "height": 13, "src": "assets/icons/triangle-alert.svg", "tint": "oklch(0.75 0.15 70)", "width": 13}
+                  ]},
+                  {"type": "row", "id": "r_p0357", "name": "Place · Prototype", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": 6, "children": [
+                    {"type": "text", "id": "t_p0356", "color": "$color-muted-foreground", "role": "paragraph", "size": 14, "text": "Prototype", "weight": 500}
+                  ]}
+                ]}
+              ]},
+              {"type": "column", "id": "c_p0361", "height": 40, "children": []},
+              {"type": "row", "id": "r_p0362", "align": "center", "width": "fill", "children": [
+                {"type": "column", "id": "c_p0359", "name": "A page on the canvas", "fill": "#e9e7e3", "height": 260, "opacity": 0.9, "radius": 4, "width": 360, "children": []}
+              ]}
+            ]}
+          ]}
+        ]}
+      ]}
+    ]}
+  ]},
+  "version": 1
+}

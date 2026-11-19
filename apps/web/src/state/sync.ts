@@ -1,10 +1,11 @@
 /**
  * The design-system sync (ADR 0025): the plan the server works out for the project as it is,
- * pushed again whenever something it reads changes. The Sync view draws it, and the rail's
- * Design system button shows a dot while it has something waiting.
+ * pushed again whenever something it reads changes. The Sync view draws it, and Problems lists
+ * the steps that wait for the person (ADR 0106).
  */
 import type { SyncPlan } from "@ultrapaint/contracts/sync";
 import { create } from "zustand";
+import { waitingSteps } from "../lib/problems.ts";
 import { api } from "./connection.ts";
 import { reportError } from "./project.ts";
 import { follow } from "./server-data.ts";
@@ -41,14 +42,6 @@ const syncData = follow({
   whole: ["syncPlan"],
 });
 
-/** Whether the plan has something the user should look at: what the rail's dot says. */
+/** Whether the plan has something the user should look at. */
 export const syncWaiting = (plan: SyncPlan | null) =>
-  plan?.steps.some(
-    (s) =>
-      s.state === "attention" &&
-      (s.kind === "settings" ||
-        s.kind === "describe" ||
-        s.kind === "design-md" ||
-        s.kind === "design-tokens" ||
-        s.kind === "figma-tokens")
-  ) ?? false;
+  waitingSteps(plan).length > 0;

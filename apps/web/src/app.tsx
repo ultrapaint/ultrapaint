@@ -127,6 +127,9 @@ const layersPanel = deferred(() =>
 const libraryPanel = deferred(() =>
   import("./panels/library.tsx").then((m) => m.Library)
 );
+const problemsPanel = deferred(() =>
+  import("./panels/problems.tsx").then((m) => m.Problems)
+);
 const routesPanel = deferred(() =>
   import("./panels/routes.tsx").then((m) => m.Routes)
 );
@@ -145,6 +148,7 @@ const preloadPanels = () =>
       designSystemListPanel,
       layersPanel,
       libraryPanel,
+      problemsPanel,
       routesPanel,
       settingsPanel,
     ].map((panel) => panel.preload()),
@@ -158,6 +162,7 @@ const Comments = commentsPanel.Component;
 const DesignSystemList = designSystemListPanel.Component;
 const Layers = layersPanel.Component;
 const Library = libraryPanel.Component;
+const Problems = problemsPanel.Component;
 const Routes = routesPanel.Component;
 const SettingsPage = settingsPanel.Component;
 
@@ -363,6 +368,7 @@ const leftPanels: Record<LeftTab, ComponentType> = {
   designSystem: DesignSystemList,
   layers: Layers,
   library: Library,
+  problems: Problems,
 };
 
 const leftBounds = { defaultWidth: 288, max: 480, min: 200 };

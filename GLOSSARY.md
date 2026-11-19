@@ -512,7 +512,12 @@ refactor and the board view left.
   canvas, or the design system on boards. It is Design system exactly while a board view is open,
   and the rail shows the mode's places.
 - **Place switch**: Canvas · Design system · Prototype at the top centre of the canvas (ADR 0058;
-  `components/place-switch.tsx`): the two modes and the prototype workspace in one control.
+  `components/place-switch.tsx`): the two modes and the prototype workspace in one control Design system carries the warning sign while there are **Problems**.
+- **Problems**: what needs fixing in the design system's files and the sync, the rail's place for
+  it in both modes, shown while there are some (ADR 0106; `lib/problems.ts`, `panels/problems.tsx`):
+  the sync's waiting steps, a file that does not read, what the tokens file left out, DESIGN.md's
+  linter findings in Ultrapaint's words; each with its fix (Review, Fix with agent), and Fix all
+  with agent.
 - **Editor theme**: light, dark or the system's, the person's pick kept in the browser (ADR 0058;
   `state/theme.ts`); the editor's chrome only, never a design's theme.
 - **Preferences**: how the editor looks and behaves for the person, in every project, drawn on

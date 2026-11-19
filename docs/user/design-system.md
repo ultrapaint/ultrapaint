@@ -20,8 +20,8 @@ The design system is three files, all meant to be committed:
     which component to use for what, and what to always or never do.
 
   Every agent is told it, and an agent outside the editor finds it too. The format's own linter
-  checks it: broken references, contrast, section order. A `DESIGN.md` in the designs directory
-  is still read, and Sync moves it to the root.
+  checks it: broken references, contrast, section order. What it finds is listed in **Problems**
+  (below). A `DESIGN.md` in the designs directory is still read, and Sync moves it to the root.
 
 **A token's value lives in the design system**
 ([ADR 0028](../adr/0028-the-design-holds-the-values.md)). A change made in the editor writes both
@@ -31,13 +31,24 @@ shown are `design-system.json`'s and the code's. When `design-system.json` does 
 **Not a valid design system.**, lists no foundations, and designs are drawn in Ultrapaint's
 default look until you fix it. The editor reads a file again when it is saved.
 
+## Problems
+
+While something in the design system needs fixing, **Problems** is on the rail, at its foot over
+**Changes**, in both modes, and **Design system** in the place switch shows a warning sign
+([ADR 0106](../adr/0106-problems-are-a-place-on-the-rail.md)). It lists, by the file each comes
+from, the steps Sync waits on, a file that does not read, what `design.tokens.json` left out, and
+what `DESIGN.md`'s linter finds, each said with what it costs ("No primary colour: agents can't
+tell which colour marks an action"). **Review** opens a step in Sync; **Fix with agent** opens a
+new chat with the problem written in its composer, for you to send; **Fix all with agent** does
+that for all of them at once. When nothing needs fixing, the item is not there.
+
 ## Foundations
 
 **Design system**, in the place switch at the top, shows the design system on boards of its own,
 on a tinted, dotted canvas so that it is never taken for the pages. **Foundations**, on the rail,
 lists the foundations it has tokens for (Colour, Typography, Spacing, Radius, Elevation, Motion,
-Breakpoints) and the **Guidelines**, `DESIGN.md`'s sections, with a search over the tokens; what
-the linter says is listed under them. Each opens as boards: every palette as its ramp, 50 to 950,
+Breakpoints) and the **Guidelines**, `DESIGN.md`'s sections, with a search over the tokens. Each
+opens as boards: every palette as its ramp, 50 to 950,
 the light and the dark theme side by side, with the usual pairs of foreground and background and
 their contrast; the type scale and the text styles; the other tokens as specimens, the easings
 animated. On boards other than Colour, the tools' sun and moon pick the theme they are drawn in.

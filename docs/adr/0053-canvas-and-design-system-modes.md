@@ -2,6 +2,9 @@
 
 Status: accepted, 2026-11-03. Supersedes 0052; amends 0045 (the rail and the way to the boards).
 
+> Amended by [0106](0106-problems-are-a-place-on-the-rail.md), 2026-11-19: both modes' rails have
+> Problems at their foot, over Changes, while there is something to fix.
+
 ## Context
 
 Design system and the Library opened a board view in place of the page canvas (0045), from the
