@@ -125,3 +125,24 @@ describe("the user's profile, unreadable for a moment (ADR 0106)", () => {
     }).pipe(Effect.provide(NodeServices.layer))
   );
 });
+
+describe("the user's profile, unreadable from the start (ADR 0106)", () => {
+  it.effect("keeps the file it can't read beside the one it saves", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const user = yield* fs.makeTempDirectoryScoped();
+      const broken = '{"displayName": "Ada", ';
+      yield* fs.writeFileString(`${user}/profile.json`, broken);
+      const saved = yield* Effect.scoped(
+        ProfileService.use((profile) =>
+          profile.set({ preferences: { theme: "dark" } })
+        ).pipe(Effect.provide(profileOf(user)))
+      );
+      assert.deepStrictEqual(saved, { preferences: { theme: "dark" } });
+      assert.strictEqual(
+        yield* fs.readFileString(`${user}/profile.json.unreadable`),
+        broken
+      );
+    }).pipe(Effect.provide(NodeServices.layer))
+  );
+});

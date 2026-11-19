@@ -15,7 +15,6 @@ import {
 import { AppLog } from "../app-log.ts";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { ServerConfig } from "../config.ts";
-import { makeExists } from "../fs-exists.ts";
 
 const ProfileJson = Schema.fromJsonString(UserProfile);
 const decodeProfile = Schema.decodeUnknownEffect(ProfileJson);
@@ -48,11 +47,11 @@ export class ProfileService extends Context.Service<
       const path = yield* Path.Path;
       const log = yield* AppLog;
       const writeAtomic = makeWriteAtomic(fs, path);
-      const exists = makeExists(fs);
       const file = path.join(userDir, PROFILE_FILE);
 
+      // None only when the file is known not to be there: one that can't be looked at fails.
       const readFile = Effect.gen(function* () {
-        if (!(yield* exists(file))) {
+        if (!(yield* fs.exists(file))) {
           return {};
         }
         return yield* decodeProfile(yield* fs.readFileString(file));
@@ -79,10 +78,30 @@ export class ProfileService extends Context.Service<
        * The profile as its file has it now: another project's server, the desktop app's other
        * windows, may have saved it since this one read it (ADR 0106).
        */
-      // One that cannot be read now is taken as this server last had it, never as none: a save
-      // on it keeps what the file held (ADR 0106).
+      /** The profile as its file has it now, or as this server last had it. */
       const fresh = Effect.tap(readOr(Ref.get(current)), (profile) =>
         Ref.set(current, profile)
+      );
+
+      /**
+       * What a save is merged into: the file as it is now. One that can't be read is moved aside
+       * (`profile.json.unreadable`), never written over, and the save goes on from what this
+       * server last had: nothing the file held is lost, and saving still works (ADR 0106).
+       */
+      const toSaveOn = readFile.pipe(
+        Effect.catch((error) =>
+          Effect.gen(function* () {
+            const aside = `${file}.unreadable`;
+            yield* fs.rename(file, aside).pipe(Effect.ignore);
+            yield* log.log(
+              "server",
+              "warn",
+              `${file} could not be read (${error.message}): kept as ${aside}`
+            );
+            return yield* Ref.get(current);
+          })
+        ),
+        Effect.tap((profile) => Ref.set(current, profile))
       );
 
       const set = Effect.fn("ProfileService.set")(function* (
@@ -91,7 +110,7 @@ export class ProfileService extends Context.Service<
         // A field the request leaves out keeps its value: the name is set apart from the rest,
         // and each preference apart from the others; merged into the file as it is now, so a
         // save from another server since is kept.
-        const kept: UserProfile = yield* fresh;
+        const kept: UserProfile = yield* toSaveOn;
         const merged = { ...kept, ...profile };
         const name = merged.displayName?.trim();
         const preferences = { ...kept.preferences, ...profile.preferences };
