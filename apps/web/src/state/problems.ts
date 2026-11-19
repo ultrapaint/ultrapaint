@@ -9,7 +9,7 @@ import { useMemo } from "react";
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { type Problem, problemsOf } from "../lib/problems.ts";
-import { save } from "../lib/settings-actions.ts";
+import { saveWith } from "../lib/settings-actions.ts";
 import { api } from "./connection.ts";
 import { useDesignSystem } from "./design-system.ts";
 import { reportError, useProject } from "./project.ts";
@@ -182,28 +182,26 @@ export const setIgnored = async (
       .catch(reportError);
     return;
   }
-  // One write at a time, each reading the settings the one before it saved: two ignored in a
-  // row are both kept.
-  const write = projectWrites.then(async () => {
-    const now = useProject.getState().settings;
-    if (!now) {
-      return;
+  // In turn with every other save of the settings, on what the one before it saved: two
+  // ignored in a row, or one beside a change in the dialog, are all kept.
+  try {
+    const problems = await saveWith((now) =>
+      now
+        ? {
+            ...now,
+            ignoredProblems: keptIds(
+              now.ignoredProblems ?? NONE,
+              id,
+              add,
+              present
+            ),
+          }
+        : null
+    );
+    if (problems.length > 0) {
+      reportError(problems.join(" "));
     }
-    try {
-      const problems = await save({
-        ...now,
-        ignoredProblems: keptIds(now.ignoredProblems ?? NONE, id, add, present),
-      });
-      if (problems.length > 0) {
-        reportError(problems.join(" "));
-      }
-    } catch (error) {
-      reportError(error);
-    }
-  });
-  projectWrites = write;
-  await write;
+  } catch (error) {
+    reportError(error);
+  }
 };
-
-/** The project's ignored problems being written, in turn. */
-let projectWrites: Promise<void> = Promise.resolve();

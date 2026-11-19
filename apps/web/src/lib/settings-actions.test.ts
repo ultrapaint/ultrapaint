@@ -10,7 +10,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useProject } from "../state/project.ts";
 import { caughtUp, followServer } from "../state/server-data.ts";
 import { fakeApi } from "../testing/fake-api.ts";
-import { detect, save, saveToFile, setUpDesigns } from "./settings-actions.ts";
+import {
+  detect,
+  save,
+  saveToFile,
+  saveWith,
+  setUpDesigns,
+} from "./settings-actions.ts";
 
 vi.mock(
   "../state/connection.ts",
@@ -122,6 +128,32 @@ describe("saving the settings", () => {
     expect(await save({ ...running, codeTokens: "auto" })).toEqual([]);
     expect(useProject.getState().settings).toEqual(server.settings);
     expect(useProject.getState().settings?.codeTokens).toBe("auto");
+  });
+
+  it("makes a change on what the save before it saved, never beside it (ADR 0106)", async () => {
+    let answer: () => void = () => undefined;
+    fakeApi.respond(
+      "settings.set",
+      (next: Settings) =>
+        new Promise<SettingsValidation>((resolve) => {
+          answer = () => resolve(saving(next));
+        })
+    );
+    // The dialog's switch, still being saved as Problems ignores a warning.
+    const first = save({ ...running, pagePngs: true });
+    const second = saveWith((now) =>
+      now ? { ...now, ignoredProblems: ["DESIGN.md:colors:x"] } : null
+    );
+    await Promise.resolve();
+    answer();
+    await first;
+    fakeApi.respond("settings.set", (next: Settings) => saving(next));
+    await second;
+    expect(server.settings).toEqual({
+      ...running,
+      ignoredProblems: ["DESIGN.md:colors:x"],
+      pagePngs: true,
+    });
   });
 
   it("gives what is wrong, and changes nothing, when the server refuses", async () => {

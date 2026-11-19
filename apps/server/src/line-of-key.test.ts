@@ -40,4 +40,9 @@ describe("the line a path of keys is on", () => {
       "colors:\n  secondary: blue\ncomponents:\n  button:\n    primary: red\n";
     expect(lineOfKey(text, "colors.primary")).toBe(1);
   });
+
+  it("reads past a comment written at a shallower indent", () => {
+    const text = "colors:\n# Brand colours\n  primary: blue\n";
+    expect(lineOfKey(text, "colors.primary")).toBe(3);
+  });
 });
