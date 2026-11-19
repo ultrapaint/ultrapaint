@@ -38,10 +38,20 @@ const indentOf = (line: string) => {
   return match === null ? 0 : match[0].length;
 };
 
-/** Where a block that starts at `from` ends: the first written line no deeper than `indent`. */
+/** A line that is only a comment, which YAML lets sit at any indent. */
+const COMMENT = /^\s*(?:#|\/\/)/;
+
+/**
+ * Where a block that starts at `from` ends: the first line no deeper than `indent` that writes
+ * something, a comment never ending it.
+ */
 const blockEnd = (lines: readonly string[], from: number, indent: number) => {
   const end = lines.findIndex(
-    (line, i) => i >= from && line.trim() !== "" && indentOf(line) <= indent
+    (line, i) =>
+      i >= from &&
+      line.trim() !== "" &&
+      !COMMENT.test(line) &&
+      indentOf(line) <= indent
   );
   return end === -1 ? lines.length : end;
 };

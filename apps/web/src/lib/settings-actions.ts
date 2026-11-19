@@ -17,18 +17,38 @@ import {
 import { api } from "../state/connection.ts";
 import { useProject } from "../state/project.ts";
 
+/** The saves under way, one after another. */
+let saving: Promise<unknown> = Promise.resolve();
+
 /**
- * Saves the settings, and reads the project again: the server's `project` event brings the
- * settings, but may come after the answer, and the pages are read again only when another
- * repository opened. Returns what is wrong with them, nothing when they were saved.
+ * Saves the settings `change` makes of the ones the project has when its turn comes, and reads
+ * the project again: the server's `project` event brings the settings, but may come after the
+ * answer, and the pages are read again only when another repository opened. Saves go one at a
+ * time, each on what the one before it saved: a save replaces the whole settings, so two at once
+ * would undo each other (the dialog's, and Problems' ignores, ADR 0106). Returns what is wrong
+ * with them, nothing when they were saved or `change` had nothing to save.
  */
-export const save = async (next: Settings): Promise<readonly string[]> => {
-  const validation = await api().request("settings.set", next);
-  if (validation.ok) {
-    await useProject.getState().load();
-  }
-  return validation.problems;
+export const saveWith = (
+  change: (now: Settings | null) => Settings | null
+): Promise<readonly string[]> => {
+  const run = saving.then(async () => {
+    const next = change(useProject.getState().settings);
+    if (next === null) {
+      return [];
+    }
+    const validation = await api().request("settings.set", next);
+    if (validation.ok) {
+      await useProject.getState().load();
+    }
+    return validation.problems;
+  });
+  saving = run.catch(() => undefined);
+  return run;
 };
+
+/** Saves the settings as they are given, in turn with any other save. */
+export const save = (next: Settings): Promise<readonly string[]> =>
+  saveWith(() => next);
 
 /**
  * Saves an unsaved session to a configuration file, with the settings it runs, and reads the

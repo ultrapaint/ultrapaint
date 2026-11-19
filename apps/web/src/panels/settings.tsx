@@ -30,7 +30,7 @@ import { useAutosave } from "../lib/autosave.ts";
 import { isTyping } from "../lib/keys.ts";
 import { placeDocument } from "../lib/place-document.ts";
 import type { Problem } from "../lib/problems.ts";
-import { detect, save, setUpDesigns } from "../lib/settings-actions.ts";
+import { detect, saveWith, setUpDesigns } from "../lib/settings-actions.ts";
 import { startInit } from "../lib/start-thread.ts";
 import { platform } from "../platform.ts";
 import { api } from "../state/connection.ts";
@@ -788,10 +788,13 @@ const same = (a: unknown, b: unknown) =>
   JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
 /** `settings` with the problems the project ignores now (ADR 0106). */
-const withIgnoredNow = (settings: Settings): Settings => {
+const withIgnoredNow = (
+  settings: Settings,
+  now: Settings | null = useProject.getState().settings
+): Settings => {
   const { ignoredProblems, ...rest } = settings;
-  const now = useProject.getState().settings?.ignoredProblems;
-  return now === undefined ? rest : { ...rest, ignoredProblems: now };
+  const ignored = now?.ignoredProblems;
+  return ignored === undefined ? rest : { ...rest, ignoredProblems: ignored };
 };
 
 /**
@@ -844,7 +847,8 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
       sent.current = settings;
       let refused: readonly string[];
       try {
-        refused = await save(settings);
+        // In turn with any other save, with the ignores the project has when it goes.
+        refused = await saveWith((now) => withIgnoredNow(drafted, now));
       } catch (error) {
         refused = [(error as Error).message];
       }
