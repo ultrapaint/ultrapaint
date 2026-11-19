@@ -108,6 +108,11 @@ says what the content already shows is noise: remove it, rather than shrinking o
 - No description that restates its heading, no intro or subtitle on a screen whose purpose is
   plain, no heading over a group its content names, no "Click to upload" under an
   upload area, no label repeated on every row that a column header says once.
+- A line under a label stays only when the user would miss it: a consequence, a scope, a
+  constraint, why the setting is unavailable, or its current value. A line that is true and
+  adds nothing goes. One row's line never asks its neighbours for one; a section opens with a
+  note only when its name and rows leave its purpose unclear. Rewrite the label before adding a
+  line under it.
 - No decoration: an icon beside every label, a box around one element, a divider between things
   already apart, a badge that says nothing, an icon inside a field its label names.
 - A value appears once, where it is read or set: not a size on its frame and again in a caption,
