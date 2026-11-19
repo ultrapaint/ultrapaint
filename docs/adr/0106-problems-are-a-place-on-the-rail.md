@@ -34,8 +34,11 @@ put to another use.
 - **A problem's menu shows it in its file and can leave it as it is.** **Show in file** opens the
   file in the person's code editor at the line of its place (`files.open`, the server's
   `CodeEditor`: `launch-editor` guesses the editor from those running, else `LAUNCH_EDITOR`,
-  `VISUAL` or `EDITOR`, which it reads itself). A warning an agent would fix can be ignored: **for
-  me**, kept in the person's profile by project (`ignoredProblems`), or **for the project**, kept
+  `VISUAL` or `EDITOR`, which it reads itself); one that runs in a terminal (vim, nano…) is refused,
+  as the server has no terminal to give it and the library kills the last one it started. A warning
+  an agent would fix can be ignored: **for me**, kept in the person's profile under a name of the
+  project's own (`ignoredProblems:<repository>`, so one project's editor never writes over
+  another's), or **for the project**, kept
   in its settings (`ignoredProblems` in `ultrapaint.config.json`) so the whole team stops seeing
   it. An error and a sync step can't be ignored. A problem is ignored by its id, which holds the
   file's words, so one whose words change (a contrast that moved) is listed again; ids of problems

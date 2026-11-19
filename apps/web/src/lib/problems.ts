@@ -197,7 +197,8 @@ const unusedColours = (
     detail: `${names.map(code).join(", ")}. Use ${one ? "it" : "them"} in a component, or remove ${one ? "it" : "them"}.`,
     file: { at: `colors.${names[0]}`, path: file },
     fix: "agent",
-    id: "DESIGN.md:unused-colours",
+    // The colours named: one more or one fewer is another problem, listed again if left.
+    id: `DESIGN.md:unused-colours:${[...names].sort().join(",")}`,
     severity: "warning",
     source: "DESIGN.md",
     title: one

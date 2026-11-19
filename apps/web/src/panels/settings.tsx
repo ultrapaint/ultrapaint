@@ -787,6 +787,13 @@ const NarrowSections = ({
 const same = (a: unknown, b: unknown) =>
   JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
+/** `settings` with the problems the project ignores now (ADR 0106). */
+const withIgnoredNow = (settings: Settings): Settings => {
+  const { ignoredProblems, ...rest } = settings;
+  const now = useProject.getState().settings?.ignoredProblems;
+  return now === undefined ? rest : { ...rest, ignoredProblems: now };
+};
+
 /**
  * The settings, saved as they change (ADR 0079): a switch, a choice or a select at once, a path
  * when its field is left, and what waits when the dialog closes. Nothing says a change was saved;
@@ -821,7 +828,16 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const problems = refusal?.problems ?? [];
 
   const saver = useAutosave(
-    async ({ at, settings }: { at: ChangedAt; settings: Settings }) => {
+    async ({
+      at,
+      settings: drafted,
+    }: {
+      at: ChangedAt;
+      settings: Settings;
+    }) => {
+      // The problems ignored are set from Problems and Show again, not in the draft: what the
+      // project has now goes with any other change, never the list the dialog opened with.
+      const settings = withIgnoredNow(drafted);
       if (same(settings, sent.current)) {
         return;
       }

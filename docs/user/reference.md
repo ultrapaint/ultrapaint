@@ -43,7 +43,8 @@ The agent's own slash commands are listed after these.
 | The inspector → **Code** → **Implement** | `/implement` for that page |
 | The composer → the **Review** chip | This design's review level ([Agents](agents.md#designs-are-reviewed)) |
 | The ⚠ beside the project's name | Save the settings to `ultrapaint.config.json` |
-| A dot on **Design system** and on **Foundations** | Sync has something waiting: settings to fix, drift to describe, Figma tokens to take |
+| A ⚠ on **Design system** and **Problems** on the rail | Something in the design system needs fixing: a step Sync waits on (settings to fix, drift to describe, Figma tokens to take), a file that doesn't read, or what `DESIGN.md`'s linter warns of |
+| **Settings** › **Design system** › **Ignored problems** | The warnings ignored for you or for the project, with **Show again** |
 | **Settings** › **Repository** | Where the repository, the designs and your code are; **Write a PNG of every page** |
 | **Settings** › **Design system** | The design system and `DESIGN.md`, with an agent to set them up or update them; the stylesheets Sync reads and writes |
 | **Settings** › **Preferences** | The editor's **Theme**, your **Display name** (for comments when git has none), the **Send key**, and **Keep findings** |

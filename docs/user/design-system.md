@@ -109,9 +109,9 @@ before the first screen, and your prompt is sent once the look is settled.
 ## Sync
 
 **Sync** (Foundations' ⟳ **Sync with the code**, or `/sync` in a chat) reads what the repository
-has and lays out the steps for its case. **Design system** in the place switch, and Foundations on
-the rail, have a dot while something is waiting, and Foundations lists it at the top with
-**Review**.
+has and lays out the steps for its case. While a step waits for you, **Problems** is on the rail
+and **Design system** in the place switch shows a warning sign; the step is listed in Problems
+under **Sync**, with **Review**.
 
 | You have | Sync does |
 |---|---|

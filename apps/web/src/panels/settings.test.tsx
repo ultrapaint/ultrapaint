@@ -94,6 +94,22 @@ describe("the settings save as they change (ADR 0079)", () => {
     expect(buttons).not.toContain("Save");
   });
 
+  it("saves the problems the project ignores now, not the list the dialog opened with (ADR 0106)", async () => {
+    fakeApi.respond("settings.set", () => ({ ok: true, problems: [] }));
+    // Ignored from Problems while the dialog is open.
+    useProject.setState({
+      settings: { ...settings, ignoredProblems: ["DESIGN.md:colors:x"] },
+    });
+    const toggle = container.querySelector<HTMLElement>("#settings-page-pngs");
+    act(() => toggle?.click());
+    await act(async () => {
+      await fakeApi.requested("settings.set");
+    });
+    expect(sets()).toEqual([
+      { ...settings, ignoredProblems: ["DESIGN.md:colors:x"], pagePngs: true },
+    ]);
+  });
+
   it("has no footer: the close button is the way out, and the header names the section alone", () => {
     const buttons = [...container.querySelectorAll("button")].map(
       (b) => b.textContent

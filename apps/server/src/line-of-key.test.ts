@@ -34,4 +34,10 @@ describe("the line a path of keys is on", () => {
     expect(lineOfKey(DESIGN_MD, "colors.missing")).toBe(2);
     expect(lineOfKey(DESIGN_MD, "spacing")).toBeUndefined();
   });
+
+  it("looks for a key among its parent's own, not in a block after it", () => {
+    const text =
+      "colors:\n  secondary: blue\ncomponents:\n  button:\n    primary: red\n";
+    expect(lineOfKey(text, "colors.primary")).toBe(1);
+  });
 });
