@@ -21,6 +21,9 @@ const ProfileJson = Schema.fromJsonString(UserProfile);
 const decodeProfile = Schema.decodeUnknownEffect(ProfileJson);
 const encodeProfile = Schema.encodeEffect(ProfileJson);
 
+/** How many names an unreadable profile is tried under before the save gives up. */
+const ASIDE_TRIES = 100;
+
 /** File in the user's directory (`~/.ultrapaint`) the profile is kept in. */
 const PROFILE_FILE = "profile.json";
 
@@ -79,6 +82,31 @@ export class ProfileService extends Context.Service<
        * The profile as its file has it now: another project's server, the desktop app's other
        * windows, may have saved it since this one read it (ADR 0106).
        */
+      /**
+       * `file` kept under a name of its own, `<file>.unreadable-<time>`, then `-1`, `-2`… when
+       * that is taken: a hard link, which fails rather than replace what is there, then the file
+       * removed. Fails, the file left as it is, when it can't be kept.
+       */
+      const keptAside = Effect.fnUntraced(function* (from: string) {
+        const at = yield* Clock.currentTimeMillis;
+        for (let n = 0; n < ASIDE_TRIES; n += 1) {
+          const aside = `${from}.unreadable-${at}${n === 0 ? "" : `-${n}`}`;
+          const linked = yield* fs.link(from, aside).pipe(
+            Effect.as(true),
+            Effect.catchReason("PlatformError", "AlreadyExists", () =>
+              Effect.succeed(false)
+            )
+          );
+          if (linked) {
+            yield* fs.remove(from);
+            return aside;
+          }
+        }
+        return yield* new BadRequest({
+          message: `no free name beside ${from} after ${ASIDE_TRIES} tries`,
+        });
+      });
+
       /** The profile as its file has it now, or as this server last had it. */
       const fresh = Effect.tap(readOr(Ref.get(current)), (profile) =>
         Ref.set(current, profile)
@@ -93,9 +121,7 @@ export class ProfileService extends Context.Service<
       const toSaveOn = readFile.pipe(
         Effect.catch((error) =>
           Effect.gen(function* () {
-            // Its own name each time, so an earlier one is never replaced; not moved, no save.
-            const aside = `${file}.unreadable-${yield* Clock.currentTimeMillis}`;
-            yield* fs.rename(file, aside).pipe(
+            const aside = yield* keptAside(file).pipe(
               Effect.mapError(
                 (moved) =>
                   new BadRequest({
