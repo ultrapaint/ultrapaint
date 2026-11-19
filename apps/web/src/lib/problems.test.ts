@@ -160,6 +160,8 @@ describe("Problems › what else needs fixing", () => {
     });
     expect(tokens).toMatchObject({
       brief: "design.tokens.json doesn’t read: not JSON: Unexpected end",
+      detail:
+        "Not JSON: Unexpected end. Its values are design-system.json’s and the code’s until it reads.",
       severity: "error",
       source: "design.tokens.json",
       title: "design.tokens.json doesn’t read",

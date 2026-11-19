@@ -20,8 +20,9 @@ The design system is three files, all meant to be committed:
     which component to use for what, and what to always or never do.
 
   Every agent is told it, and an agent outside the editor finds it too. The format's own linter
-  checks it: broken references, contrast, section order. What it finds is listed in **Problems**
-  (below). A `DESIGN.md` in the designs directory is still read, and Sync moves it to the root.
+  checks it: broken references, contrast, section order. Its warnings and errors are listed in
+  **Problems** (below). A `DESIGN.md` in the designs directory is still read, and Sync moves it to
+  the root.
 
 **A token's value lives in the design system**
 ([ADR 0028](../adr/0028-the-design-holds-the-values.md)). A change made in the editor writes both
@@ -37,10 +38,12 @@ While something in the design system needs fixing, **Problems** is on the rail, 
 **Changes**, in both modes, and **Design system** in the place switch shows a warning sign
 ([ADR 0106](../adr/0106-problems-are-a-place-on-the-rail.md)). It lists, by the file each comes
 from, the steps Sync waits on, a file that does not read, what `design.tokens.json` left out, and
-what `DESIGN.md`'s linter finds, each said with what it costs ("No primary colour: agents can't
+the warnings and errors of `DESIGN.md`'s linter (not its information, such as how many tokens
+there are), each said with what it costs ("No primary colour: agents can't
 tell which colour marks an action"). **Review** opens a step in Sync; **Fix with agent** opens a
-new chat with the problem written in its composer, for you to send; **Fix all with agent** does
-that for all of them at once. A problem's **⋯** menu has **Show in file**, which opens the file
+new chat with the problem written in its composer, for you to send; **Fix all with agent**, there
+while two or more problems have **Fix with agent**, puts all of those in one chat (a Sync step is
+answered in Sync, so it is not among them). A problem's **⋯** menu has **Show in file**, which opens the file
 in your code editor at its line, and, for a warning, **Ignore for me** or **Ignore for the
 project** (kept in `ultrapaint.config.json`, so everyone on the project stops seeing it).
 **Settings** › **Design system** › **Ignored problems** lists what is ignored, with **Show

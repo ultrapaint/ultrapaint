@@ -20,6 +20,7 @@ import {
 } from "../state/board.ts";
 import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
+import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import {
   hideLookPage,
   LOOK_ITEM,
@@ -33,6 +34,8 @@ import { startNewLook } from "./start-thread.ts";
 
 /** Opens the look page on its samples; `pending` is sent once the look is settled. */
 export const openLookPage = (pending: FirstPrompt | null = null) => {
+  // The page's own panel, not a Sync left open over it.
+  useDesignSystemSetup.getState().show(false);
   showLookPage(pending);
   openBoard({ item: LOOK_ITEM, view: "system" });
   fitBoardsWhenLaidOut();
