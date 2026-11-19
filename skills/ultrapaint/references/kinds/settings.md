@@ -24,6 +24,8 @@ Open with it, before the first element: `references/components.md`, `references/
 - A row that only shows a stored value reads label | the value as text | an "Edit" link or a
   small outline button at the far right; it becomes a field in place when edited, the field
   taking the text's style and position so nothing moves.
+- A row whose control is one action (Export, Transfer ownership, Delete): its label and line take
+  the row's width up to the action, never the label column of the field rows around it.
 - A helper line carries a rule or live data ("Used on 3 invoices"), or a "Learn more" link where
   the question comes; a row whose label says it all has none. A line stays when the user would
   miss it (a consequence, a scope, a constraint, why the setting is unavailable), not because it
@@ -100,6 +102,7 @@ Open with it, before the first element: `references/components.md`, `references/
 | A row taller than its neighbours because of its control | Buttons and fields at the system's control height |
 | Options of one setting across the full width, or its reset at the far right | The options in the control column, the reset under its name |
 | An event name in muted grey, or a group's name on a filled bar | The name in the label style; the group's name a quiet label |
+| A row with one action whose line wraps in the label column, the row empty up to the action | The text runs to the action |
 | A stored value drawn as a disabled field | The value as text, an Edit action at the row's end |
 | An inline edit that shifts the text or its weight | The field takes the text's style and place |
 | Save buttons on a page whose switches already save | One way of saving per page |
