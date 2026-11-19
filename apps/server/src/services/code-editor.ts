@@ -35,6 +35,13 @@ export const isTerminalEditor = (command: string) =>
     command.trim().split(" ")[0]?.split(PATH_PART).pop() ?? ""
   );
 
+/**
+ * A guess written back as the command `launch-editor` reads (`shell-quote`): each part quoted, so
+ * a path with spaces stays one.
+ */
+export const commandOf = (parts: readonly string[]) =>
+  parts.map((part) => `'${part.replaceAll("'", "'\\''")}'`).join(" ");
+
 const NO_EDITOR =
   "No code editor was found. Open the project in one (VS Code, Cursor, Zed…), or set LAUNCH_EDITOR to its command.";
 
@@ -42,9 +49,9 @@ const NO_EDITOR =
  * The person's code editor (ADR 0106): a file of the repository opened in it, at a line. Which
  * editor is guessed by `launch-editor` from the ones running (VS Code, Cursor, Zed, a JetBrains
  * IDE…), else `LAUNCH_EDITOR`, `VISUAL` or `EDITOR`, which the library reads itself. The editor
- * is the person's and outlives the request: nothing here waits for it or stops it. None found,
- * or one that runs in a terminal, is the request's error; one that fails once started is the
- * library's to print.
+ * is the person's and outlives the request: nothing here waits for it or stops it. It is guessed
+ * once and that guess is what starts: none found, or one that runs in a terminal, is the
+ * request's error; one that fails once started is the library's to print.
  */
 export class CodeEditor extends Context.Service<
   CodeEditor,
@@ -61,26 +68,25 @@ export class CodeEditor extends Context.Service<
     CodeEditor,
     CodeEditor.of({
       open: Effect.fn("CodeEditor.open")(function* (file, line) {
-        const [editor] = yield* Effect.sync(() => guessEditor());
-        if (editor && isTerminalEditor(editor)) {
+        // Guessed once, checked, and that one started: a second guess could find another.
+        const [editor, ...args] = yield* Effect.sync(() => guessEditor());
+        if (!editor) {
+          return yield* new BadRequest({ message: NO_EDITOR });
+        }
+        if (isTerminalEditor(editor)) {
           return yield* new BadRequest({
             message: `${editor} runs in a terminal, which Ultrapaint can't open it in. Set LAUNCH_EDITOR to a windowed editor's command (code, cursor, zed…).`,
           });
         }
-        // Said at once when no editor is found; anything later comes after the answer.
-        const found = yield* Effect.sync(() => {
-          let none = false;
+        yield* Effect.sync(() =>
           launchEditor(
             line === undefined ? file : `${file}:${line}`,
-            (_name, message) => {
-              none = message === null;
-            }
-          );
-          return !none;
-        });
-        if (!found) {
-          return yield* new BadRequest({ message: NO_EDITOR });
-        }
+            commandOf([editor, ...args]),
+            // Anything that goes wrong once it is started comes after the answer: the library
+            // prints it.
+            () => undefined
+          )
+        );
       }),
       opened: Effect.succeed([]),
     })
