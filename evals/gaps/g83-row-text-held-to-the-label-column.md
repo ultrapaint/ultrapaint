@@ -29,5 +29,6 @@ runs each, Opus designing. From each render, for every row whose control is one 
 text's width against the space from the row's start to the action. A row fails when its text
 wraps while it has under three quarters of that space. The candidate passes only when the shipped
 skill fails in at least 2 of its 4 runs and the candidate in none, with no field row changed.
-With fewer shipped failures the result is inconclusive (the fault was seen in 1 of 6 runs), the
-runs grow to 8 a side or the gap stays open.
+With fewer shipped failures the result is inconclusive (the fault was seen in 1 of 6 runs) and
+the runs grow to 8 a side: then the candidate passes only when the shipped skill fails in at least
+4 of 8 and the candidate in none (Fisher one-sided p ≈ 0.04); otherwise the gap stays open.
