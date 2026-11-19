@@ -156,6 +156,21 @@ describe("saving the settings", () => {
     });
   });
 
+  it("builds the next save on what the server took, when reading the project again failed", async () => {
+    fakeApi.respond("settings.set", () => ok);
+    fakeApi.respond("project.info", () => {
+      throw new Error("the server went away");
+    });
+    await save({ ...running, pagePngs: true });
+    let seen: Settings | null = null;
+    fakeApi.respond("settings.set", (next: Settings) => {
+      seen = next;
+      return ok;
+    });
+    await saveWith((now) => now);
+    expect(seen).toEqual({ ...running, pagePngs: true });
+  });
+
   it("gives what is wrong, and changes nothing, when the server refuses", async () => {
     fakeApi.respond("settings.set", () => ({
       ok: false,

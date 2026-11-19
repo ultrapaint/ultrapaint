@@ -168,8 +168,8 @@ export const setIgnored = async (
   if (!settings) {
     return;
   }
+  const repo = settings.repoPath;
   if (by === "me") {
-    const repo = settings.repoPath;
     const ids = keptIds(
       usePersonalIgnores.getState().byProject[repo] ?? NONE,
       id,
@@ -185,8 +185,9 @@ export const setIgnored = async (
   // In turn with every other save of the settings, on what the one before it saved: two
   // ignored in a row, or one beside a change in the dialog, are all kept.
   try {
+    // On the project it was asked in: another one opened meanwhile is left as it is.
     const problems = await saveWith((now) =>
-      now
+      now && now.repoPath === repo
         ? {
             ...now,
             ignoredProblems: keptIds(

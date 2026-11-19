@@ -32,12 +32,19 @@ export const saveWith = (
   change: (now: Settings | null) => Settings | null
 ): Promise<readonly string[]> => {
   const run = saving.then(async () => {
-    const next = change(useProject.getState().settings);
+    const read = useProject.getState().settings;
+    const next = change(read);
     if (next === null) {
       return [];
     }
     const validation = await api().request("settings.set", next);
     if (validation.ok) {
+      // What the server took holds until the project is read again: a read that fails leaves
+      // it, never the settings from before, for the next save to build on. Settings that
+      // changed meanwhile (another project opened) are left as they are.
+      if (useProject.getState().settings === read) {
+        useProject.setState({ settings: next });
+      }
       await useProject.getState().load();
     }
     return validation.problems;
