@@ -51,21 +51,26 @@ export class ProfileService extends Context.Service<
       const exists = makeExists(fs);
       const file = path.join(userDir, PROFILE_FILE);
 
-      const read = Effect.gen(function* () {
+      const readFile = Effect.gen(function* () {
         if (!(yield* exists(file))) {
           return {};
         }
         return yield* decodeProfile(yield* fs.readFileString(file));
-      }).pipe(
-        // A profile that cannot be read costs the name, not the editor.
-        Effect.catch((error) =>
-          Effect.as(
-            log.log("server", "warn", `ignoring ${file}: ${error.message}`),
-            {}
+      });
+      /** The file as it is, or `fallback` when it cannot be read, which is logged. */
+      const readOr = (fallback: Effect.Effect<UserProfile>) =>
+        readFile.pipe(
+          Effect.catch((error) =>
+            Effect.andThen(
+              log.log("server", "warn", `ignoring ${file}: ${error.message}`),
+              fallback
+            )
           )
-        )
+        );
+      // A profile that cannot be read as the server starts costs the name, not the editor.
+      const current = yield* Ref.make<UserProfile>(
+        yield* readOr(Effect.succeed({}))
       );
-      const current = yield* Ref.make<UserProfile>(yield* read);
       const changes = yield* PubSub.unbounded<UserProfile>();
       /** One save at a time in this server. */
       const saving = yield* Semaphore.make(1);
@@ -74,7 +79,11 @@ export class ProfileService extends Context.Service<
        * The profile as its file has it now: another project's server, the desktop app's other
        * windows, may have saved it since this one read it (ADR 0106).
        */
-      const fresh = Effect.tap(read, (profile) => Ref.set(current, profile));
+      // One that cannot be read now is taken as this server last had it, never as none: a save
+      // on it keeps what the file held (ADR 0106).
+      const fresh = Effect.tap(readOr(Ref.get(current)), (profile) =>
+        Ref.set(current, profile)
+      );
 
       const set = Effect.fn("ProfileService.set")(function* (
         profile: UserProfile

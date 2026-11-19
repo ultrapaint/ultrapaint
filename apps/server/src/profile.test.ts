@@ -102,3 +102,26 @@ describe("the user's profile, saved by two servers at once (ADR 0106)", () => {
       }).pipe(Effect.provide(NodeServices.layer))
   );
 });
+
+describe("the user's profile, unreadable for a moment (ADR 0106)", () => {
+  it.effect("saves on what the server last had, never on nothing", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const user = yield* fs.makeTempDirectoryScoped();
+      const saved = yield* Effect.scoped(
+        Effect.gen(function* () {
+          const built = yield* Layer.build(profileOf(user));
+          const profile = Context.get(built, ProfileService);
+          yield* profile.set({ displayName: "Ada" });
+          // Half written by something else, as the next save reads it.
+          yield* fs.writeFileString(`${user}/profile.json`, '{"displayName": ');
+          return yield* profile.set({ preferences: { theme: "dark" } });
+        })
+      );
+      assert.deepStrictEqual(saved, {
+        displayName: "Ada",
+        preferences: { theme: "dark" },
+      });
+    }).pipe(Effect.provide(NodeServices.layer))
+  );
+});
