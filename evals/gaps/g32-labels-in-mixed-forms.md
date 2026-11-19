@@ -2,7 +2,7 @@
 id: g32
 title: Labels of one list in different forms
 kind: missing
-status: testing
+status: done
 found: 2026-11-04
 source: the Settings dialog, editor redesign at f608871 (held-out finding settings-14, rated real)
 skill: [SKILL.md, references/words/interface.md]
@@ -37,3 +37,7 @@ named: shipped skill 0/2, redesign-gaps 1/2. The person rated it real
 - `rt-2-gpt`: 2026-11-16, caught: shipped 0/2, review-table 0/2, review-inventory 0/2 (reviewed by gpt-6.1-sol, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2-gpt/report.md)
 - `g76-rl`: 2026-11-17, caught: shipped 0/2, row-lines 2/2 (reviewed by opus, judged by opus, cursor:grok-4.7-high, effort high; runs/g76-rl/report.md)
 - 2026-11-19: `row-lines-2` shipped for g76 (`decisions/rows-nov19`). Its catch of this gap (2 of 2 against 0 of 2) was measured with the first `row-lines` against the skill before #56; it stays `testing` until a recall with the skill on main.
+- `recall-main19`: 2026-11-19, caught: shipped 1/2 (opus, effort high; runs/recall-main19/report.md)
+- `recall-main19b`: 2026-11-19, caught: shipped 3/4 (opus, effort high; runs/recall-main19b/report.md)
+- With the skill on main (row-lines-2 shipped), caught in 4 of 6 reviews, against 0 of 2 with the
+  skill before it in `g76-rl` and 0 of 3 in `rt-2`: done.

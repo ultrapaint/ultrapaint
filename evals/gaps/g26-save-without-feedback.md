@@ -2,7 +2,7 @@
 id: g26
 title: A field that saves and loads with nothing shown
 kind: missing
-status: testing
+status: done
 found: 2026-11-04
 source: the Settings dialog, editor redesign at f608871 (held-out finding settings-15, rated real)
 skill: [references/states.md]
@@ -37,3 +37,6 @@ named: shipped skill 1/2, redesign-gaps 2/2. The person rated it real
 - `rt-2-gpt`: 2026-11-16, caught: shipped 2/2, review-table 2/2, review-inventory 2/2 (reviewed by gpt-6.1-sol, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2-gpt/report.md)
 - `g76-rl`: 2026-11-17, caught: shipped 1/2 (+1 partly), row-lines 2/2 (reviewed by opus, judged by opus, cursor:grok-4.7-high, effort high; runs/g76-rl/report.md)
 - 2026-11-19: `row-lines-2` shipped for g76 (`decisions/rows-nov19`). Its catch of this gap (2 of 2 against 1 of 2) was measured with the first `row-lines` against the skill before #56; it stays `testing` until a recall with the skill on main.
+- `recall-main19`: 2026-11-19, caught: shipped 2/2 (opus, effort high; runs/recall-main19/report.md)
+- `recall-main19b`: 2026-11-19, caught: shipped 4/4 (opus, effort high; runs/recall-main19b/report.md)
+- With the skill on main (row-lines-2 shipped), caught in 6 of 6 reviews: done.
