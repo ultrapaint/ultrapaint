@@ -28,6 +28,10 @@
           {"type": "row", "id": "r_skv", "padding": {"bottom": 4, "left": 8, "right": 8, "top": 12}, "width": "fill", "children": [
             {"type": "text", "id": "t_sku", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Project · ultrapaint", "weight": 500}
           ]},
+          {"type": "row", "id": "nai_00022", "name": "Nav · Name and icon", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
+            {"type": "image", "id": "nai_00023", "name": "shapes", "height": 16, "src": "assets/icons/shapes.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "nai_00024", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Name and icon", "weight": 500, "width": "fill"}
+          ]},
           {"type": "row", "id": "r_sky", "name": "Nav · Repository", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-sidebar", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
             {"type": "image", "id": "m_skw", "name": "folder-git-2", "height": 16, "src": "assets/icons/folder-git-2.svg", "tint": "$color-foreground", "width": 16},
             {"type": "text", "id": "t_skx", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Repository", "weight": 500, "width": "fill"}

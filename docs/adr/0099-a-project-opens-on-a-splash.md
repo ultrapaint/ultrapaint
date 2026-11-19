@@ -4,6 +4,7 @@ Status: accepted, 2026-11-16. Amends 0031 (one project open at a time; the windo
 start page while a project opens) and 0062 (the start page's Opening card). The decisions were
 taken in the `project-loading` decisions deck, and the drawings are the Loading canvas
 (`docs/designs/loading/`). Story UP-11.
+Amended by 0107: a switch between open projects stops nothing, and more than two servers run.
 
 > Extended by [0100](0100-the-desktop-app-opens-projects-in-its-own-editor.md), 2026-11-16: the editor
 > a project opens in is the app's own, so a switch reloads one page of one origin.

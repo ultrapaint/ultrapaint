@@ -1,0 +1,121 @@
+{
+  "root": {"type": "page", "id": "n_at2h1h", "crossAlign": "stretch", "direction": "column", "fill": "$color-canvas", "children": [
+    {"type": "row", "id": "r_00032", "name": "Tabs", "crossAlign": "center", "gap": 4, "height": 44, "padding": {"bottom": 0, "left": 14, "right": 10, "top": 0}, "width": "fill", "children": [
+      {"type": "row", "id": "r_00006", "crossAlign": "center", "gap": 8, "children": [
+        {"type": "row", "id": "r_00003", "crossAlign": "center", "fill": "#ff5f57", "height": 12, "radius": 999, "width": 12, "children": []},
+        {"type": "row", "id": "r_00004", "crossAlign": "center", "fill": "#febc2e", "height": 12, "radius": 999, "width": 12, "children": []},
+        {"type": "row", "id": "r_00005", "crossAlign": "center", "fill": "#28c840", "height": 12, "radius": 999, "width": 12, "children": []}
+      ]},
+      {"type": "row", "id": "r_00007", "crossAlign": "center", "width": 16, "children": []},
+      {"type": "row", "id": "r_00002", "name": "Home", "align": "center", "crossAlign": "center", "height": 32, "radius": 8, "width": 32, "children": [
+        {"type": "image", "id": "img_00001", "name": "house", "height": 16, "src": "assets/icons/house.svg", "tint": "$color-muted-foreground", "width": 16}
+      ]},
+      {"type": "row", "id": "r_00008", "crossAlign": "center", "width": 4, "children": []},
+      {"type": "row", "id": "r_00013", "name": "Tab, shop-admin, current", "crossAlign": "center", "fill": "$color-accent", "gap": 8, "height": 32, "padding": {"bottom": 0, "left": 10, "right": 10, "top": 0}, "radius": 8, "children": [
+        {"type": "row", "id": "r_00011", "name": "Project icon", "align": "center", "crossAlign": "center", "fill": "#60a5fa24", "height": 16, "radius": 4, "width": 16, "children": [
+          {"type": "image", "id": "img_00010", "name": "boxes", "height": 11, "src": "assets/icons/boxes.svg", "tint": "#60a5fa", "width": 11}
+        ]},
+        {"type": "text", "id": "t_00012", "color": "$color-foreground", "lineHeight": 1.43, "maxWidth": 150, "role": "paragraph", "size": 14, "text": "shop-admin", "weight": 500},
+        {"type": "image", "id": "img_00009", "name": "x", "height": 14, "src": "assets/icons/x.svg", "tint": "$color-muted-foreground", "width": 14}
+      ]},
+      {"type": "row", "id": "r_00018", "name": "Tab, docs-site", "crossAlign": "center", "gap": 8, "height": 32, "padding": {"bottom": 0, "left": 10, "right": 10, "top": 0}, "radius": 8, "children": [
+        {"type": "row", "id": "r_00016", "name": "Project icon", "align": "center", "crossAlign": "center", "fill": "#4ade8024", "height": 16, "radius": 4, "width": 16, "children": [
+          {"type": "image", "id": "img_00015", "name": "book-open", "height": 11, "src": "assets/icons/book-open.svg", "tint": "#4ade80", "width": 11}
+        ]},
+        {"type": "text", "id": "t_00017", "color": "$color-muted-foreground", "lineHeight": 1.43, "maxWidth": 150, "role": "paragraph", "size": 14, "text": "docs-site", "weight": 500},
+        {"type": "image", "id": "img_00014", "name": "loader-circle", "height": 14, "src": "assets/icons/loader-circle.svg", "tint": "$color-agent", "width": 14}
+      ]},
+      {"type": "row", "id": "r_00024", "name": "Tab, ultrapaint", "crossAlign": "center", "gap": 8, "height": 32, "padding": {"bottom": 0, "left": 10, "right": 10, "top": 0}, "radius": 8, "children": [
+        {"type": "row", "id": "r_00022", "name": "Favicon", "align": "center", "crossAlign": "center", "fill": "$color-muted", "height": 16, "radius": 4, "width": 16, "children": [
+          {"type": "image", "id": "img_00021", "name": "ultrapaint-mark", "height": 13, "src": "assets/icons/ultrapaint-mark.svg", "tint": "$color-foreground", "width": 13}
+        ]},
+        {"type": "text", "id": "t_00023", "color": "$color-muted-foreground", "lineHeight": 1.43, "maxWidth": 150, "role": "paragraph", "size": 14, "text": "ultrapaint", "weight": 500},
+        {"type": "row", "id": "r_00020", "align": "center", "crossAlign": "center", "height": 14, "width": 14, "children": [
+          {"type": "row", "id": "r_00019", "crossAlign": "center", "fill": "$color-warning", "height": 8, "radius": 999, "width": 8, "children": []}
+        ]}
+      ]},
+      {"type": "row", "id": "r_00028", "name": "Tab, bike-shop", "crossAlign": "center", "gap": 8, "height": 32, "padding": {"bottom": 0, "left": 10, "right": 10, "top": 0}, "radius": 8, "children": [
+        {"type": "row", "id": "r_00026", "name": "Project icon", "align": "center", "crossAlign": "center", "fill": "#fb923c24", "height": 16, "radius": 4, "width": 16, "children": [
+          {"type": "text", "id": "t_00025", "color": "#fb923c", "font": "'Geist Mono', ui-monospace, monospace", "lineHeight": 1, "role": "paragraph", "size": 12, "text": "B", "weight": 700}
+        ]},
+        {"type": "text", "id": "t_00027", "color": "$color-muted-foreground", "lineHeight": 1.43, "maxWidth": 150, "role": "paragraph", "size": 14, "text": "bike-shop", "weight": 500}
+      ]},
+      {"type": "row", "id": "r_00030", "name": "New tab", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+        {"type": "image", "id": "img_00029", "name": "plus", "height": 16, "src": "assets/icons/plus.svg", "tint": "$color-muted-foreground", "width": 16}
+      ]},
+      {"type": "row", "id": "r_00031", "crossAlign": "center", "width": "fill", "children": []}
+    ]},
+    {"type": "row", "id": "r_00080", "crossAlign": "start", "height": "fill", "padding": {"bottom": 0, "left": 8, "right": 8, "top": 0}, "width": "fill", "children": [
+      {"type": "column", "id": "c_00069", "name": "Left card", "border": {"color": "$color-border", "style": "solid", "width": "1px"}, "fill": "$color-sidebar", "height": "fill", "radius": 14, "width": 400, "children": [
+        {"type": "row", "id": "r_00046", "name": "Title row, as in the browser", "crossAlign": "center", "gap": 10, "height": 48, "padding": {"bottom": 0, "left": 10, "right": 10, "top": 0}, "width": "fill", "children": [
+          {"type": "row", "id": "r_00040", "name": "Mark", "align": "center", "crossAlign": "center", "height": 32, "radius": 8, "width": 32, "children": [
+            {"type": "image", "id": "img_00039", "name": "ultrapaint-mark", "height": 22, "src": "assets/icons/ultrapaint-mark.svg", "tint": "$color-foreground", "width": 22}
+          ]},
+          {"type": "text", "id": "t_00038", "name": "Divider", "color": "$color-muted-foreground", "lineHeight": 1, "role": "paragraph", "size": 22, "text": "/", "weight": 300},
+          {"type": "row", "id": "r_00037", "name": "Project menu", "crossAlign": "center", "gap": 6, "padding": {"bottom": 6, "left": 8, "right": 8, "top": 6}, "radius": 8, "children": [
+            {"type": "row", "id": "r_00034", "name": "Project icon", "align": "center", "crossAlign": "center", "fill": "#60a5fa24", "height": 16, "radius": 4, "width": 16, "children": [
+              {"type": "image", "id": "img_00033", "name": "boxes", "height": 11, "src": "assets/icons/boxes.svg", "tint": "#60a5fa", "width": 11}
+            ]},
+            {"type": "text", "id": "t_00035", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "shop-admin"},
+            {"type": "image", "id": "img_00036", "name": "chevron-down", "height": 16, "src": "assets/icons/chevron-down.svg", "tint": "$color-muted-foreground", "width": 16}
+          ]},
+          {"type": "row", "id": "r_00041", "crossAlign": "center", "width": "fill", "children": []},
+          {"type": "row", "id": "r_00043", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+            {"type": "image", "id": "img_00042", "name": "search", "height": 16, "src": "assets/icons/search.svg", "tint": "$color-muted-foreground", "width": 16}
+          ]},
+          {"type": "row", "id": "r_00045", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+            {"type": "image", "id": "img_00044", "name": "panel-left", "height": 16, "src": "assets/icons/panel-left.svg", "tint": "$color-muted-foreground", "width": 16}
+          ]}
+        ]},
+        {"type": "row", "id": "r_00052", "name": "Canvas", "crossAlign": "center", "padding": {"bottom": 8, "left": 8, "right": 8, "top": 0}, "width": "fill", "children": [
+          {"type": "row", "id": "r_00051", "crossAlign": "center", "fill": "$color-muted", "gap": 8, "height": 36, "padding": {"bottom": 0, "left": 10, "right": 10, "top": 0}, "radius": 8, "width": "fill", "children": [
+            {"type": "image", "id": "img_00047", "name": "frame", "height": 16, "src": "assets/icons/frame.svg", "tint": "$color-muted-foreground", "width": 16},
+            {"type": "text", "id": "t_00048", "color": "$color-foreground", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Checkout", "weight": 500},
+            {"type": "row", "id": "r_00049", "crossAlign": "center", "width": "fill", "children": []},
+            {"type": "image", "id": "img_00050", "name": "chevron-down", "height": 16, "src": "assets/icons/chevron-down.svg", "tint": "$color-muted-foreground", "width": 16}
+          ]}
+        ]},
+        {"type": "row", "id": "r_00068", "crossAlign": "start", "gap": 4, "width": "fill", "children": [
+          {"type": "column", "id": "c_00061", "gap": 4, "padding": {"bottom": 8, "left": 6, "right": 6, "top": 8}, "children": [
+            {"type": "row", "id": "r_00054", "align": "center", "crossAlign": "center", "fill": "$color-accent", "height": 36, "radius": 8, "width": 36, "children": [
+              {"type": "image", "id": "img_00053", "name": "sparkles", "height": 18, "src": "assets/icons/sparkles.svg", "tint": "$color-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00056", "align": "center", "crossAlign": "center", "height": 36, "radius": 8, "width": 36, "children": [
+              {"type": "image", "id": "img_00055", "name": "layers", "height": 18, "src": "assets/icons/layers.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00058", "align": "center", "crossAlign": "center", "height": 36, "radius": 8, "width": 36, "children": [
+              {"type": "image", "id": "img_00057", "name": "library-big", "height": 18, "src": "assets/icons/library-big.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00060", "align": "center", "crossAlign": "center", "height": 36, "radius": 8, "width": 36, "children": [
+              {"type": "image", "id": "img_00059", "name": "message-circle", "height": 18, "src": "assets/icons/message-circle.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]}
+          ]},
+          {"type": "column", "id": "c_00067", "width": "fill", "children": [
+            {"type": "row", "id": "r_00066", "crossAlign": "center", "padding": {"bottom": 8, "left": 12, "right": 12, "top": 8}, "width": "fill", "children": [
+              {"type": "text", "id": "t_00062", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.25, "role": "paragraph", "size": 16, "text": "Agents"},
+              {"type": "row", "id": "r_00063", "crossAlign": "center", "width": "fill", "children": []},
+              {"type": "row", "id": "r_00065", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+                {"type": "image", "id": "img_00064", "name": "square-pen", "height": 16, "src": "assets/icons/square-pen.svg", "tint": "$color-muted-foreground", "width": 16}
+              ]}
+            ]}
+          ]}
+        ]}
+      ]},
+      {"type": "row", "id": "r_00070", "crossAlign": "center", "width": "fill", "children": []},
+      {"type": "row", "id": "r_00077", "border": {"color": "$color-border", "style": "solid", "width": "1px"}, "crossAlign": "center", "fill": "$color-sidebar", "gap": 2, "padding": {"bottom": 4, "left": 4, "right": 4, "top": 4}, "radius": 12, "children": [
+        {"type": "row", "id": "r_00072", "crossAlign": "center", "fill": "$color-accent", "padding": {"bottom": 6, "left": 12, "right": 12, "top": 6}, "radius": 8, "children": [
+          {"type": "text", "id": "t_00071", "color": "$color-foreground", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Canvas", "weight": 500}
+        ]},
+        {"type": "row", "id": "r_00074", "crossAlign": "center", "padding": {"bottom": 6, "left": 12, "right": 12, "top": 6}, "radius": 8, "children": [
+          {"type": "text", "id": "t_00073", "color": "$color-muted-foreground", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Design system", "weight": 500}
+        ]},
+        {"type": "row", "id": "r_00076", "crossAlign": "center", "padding": {"bottom": 6, "left": 12, "right": 12, "top": 6}, "radius": 8, "children": [
+          {"type": "text", "id": "t_00075", "color": "$color-muted-foreground", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Prototype", "weight": 500}
+        ]}
+      ]},
+      {"type": "row", "id": "r_00078", "crossAlign": "center", "width": "fill", "children": []},
+      {"type": "row", "id": "r_00079", "crossAlign": "center", "height": 1, "width": 400, "children": []}
+    ]}
+  ]},
+  "version": 1
+}

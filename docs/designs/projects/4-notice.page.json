@@ -1,0 +1,16 @@
+{
+  "root": {"type": "page", "id": "root", "crossAlign": "stretch", "direction": "column", "fill": "$color-canvas", "children": [
+    {"type": "row", "id": "r_00173", "crossAlign": "end", "height": "fill", "padding": {"top": 24, "bottom": 24, "left": 24, "right": 24}, "width": "fill", "children": [
+      {"type": "row", "id": "r_00172", "width": "fill", "children": []},
+      {"type": "row", "id": "r_00171", "name": "Toast", "border": {"color": "$color-border", "style": "solid", "width": "1px"}, "crossAlign": "start", "fill": "$color-popover", "gap": 12, "padding": {"top": 12, "bottom": 12, "left": 14, "right": 14}, "radius": 12, "shadow": "$shadow-xl", "width": 420, "children": [
+        {"type": "row", "id": "r_00166", "crossAlign": "center", "fill": "$color-warning", "height": 8, "radius": 999, "width": 8, "children": []},
+        {"type": "column", "id": "c_00169", "gap": 2, "width": "fill", "children": [
+          {"type": "text", "id": "t_00167", "color": "$color-foreground", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "ultrapaint: Claude Code asks you something", "weight": 500},
+          {"type": "text", "id": "t_00168", "color": "$color-muted-foreground", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Which alarm types should the modal offer?"}
+        ]},
+        {"type": "instance", "id": "i_00170", "component": "Button", "from": "@ultrapaint/system", "props": {"variant": "outline", "size": "sm"}, "text": "Go to it", "children": []}
+      ]}
+    ]}
+  ]},
+  "version": 1
+}

@@ -1,0 +1,104 @@
+{
+  "root": {"type": "page", "id": "n_47kdx0", "crossAlign": "stretch", "direction": "column", "fill": "$color-canvas", "children": [
+    {"type": "row", "id": "r_00150", "name": "Tabs", "crossAlign": "center", "gap": 4, "height": 44, "padding": {"bottom": 0, "left": 14, "right": 10, "top": 0}, "width": "fill", "children": [
+      {"type": "row", "id": "r_00124", "crossAlign": "center", "gap": 8, "children": [
+        {"type": "row", "id": "r_00121", "crossAlign": "center", "fill": "#ff5f57", "height": 12, "radius": 999, "width": 12, "children": []},
+        {"type": "row", "id": "r_00122", "crossAlign": "center", "fill": "#febc2e", "height": 12, "radius": 999, "width": 12, "children": []},
+        {"type": "row", "id": "r_00123", "crossAlign": "center", "fill": "#28c840", "height": 12, "radius": 999, "width": 12, "children": []}
+      ]},
+      {"type": "row", "id": "r_00125", "crossAlign": "center", "width": 16, "children": []},
+      {"type": "row", "id": "r_00120", "name": "Home", "align": "center", "crossAlign": "center", "height": 32, "radius": 8, "width": 32, "children": [
+        {"type": "image", "id": "img_00119", "name": "house", "height": 16, "src": "assets/icons/house.svg", "tint": "$color-muted-foreground", "width": 16}
+      ]},
+      {"type": "row", "id": "r_00126", "crossAlign": "center", "width": 4, "children": []},
+      {"type": "row", "id": "r_00131", "name": "Tab, shop-admin, current", "crossAlign": "center", "fill": "$color-accent", "gap": 8, "height": 32, "padding": {"bottom": 0, "left": 10, "right": 10, "top": 0}, "radius": 8, "children": [
+        {"type": "row", "id": "r_00129", "name": "Project icon", "align": "center", "crossAlign": "center", "fill": "#60a5fa24", "height": 16, "radius": 4, "width": 16, "children": [
+          {"type": "image", "id": "img_00128", "name": "boxes", "height": 11, "src": "assets/icons/boxes.svg", "tint": "#60a5fa", "width": 11}
+        ]},
+        {"type": "text", "id": "t_00130", "color": "$color-foreground", "lineHeight": 1.43, "maxWidth": 150, "role": "paragraph", "size": 14, "text": "shop-admin", "weight": 500},
+        {"type": "image", "id": "img_00127", "name": "x", "height": 14, "src": "assets/icons/x.svg", "tint": "$color-muted-foreground", "width": 14}
+      ]},
+      {"type": "row", "id": "r_00136", "name": "Tab, docs-site", "crossAlign": "center", "gap": 8, "height": 32, "padding": {"bottom": 0, "left": 10, "right": 10, "top": 0}, "radius": 8, "children": [
+        {"type": "row", "id": "r_00134", "name": "Project icon", "align": "center", "crossAlign": "center", "fill": "#4ade8024", "height": 16, "radius": 4, "width": 16, "children": [
+          {"type": "image", "id": "img_00133", "name": "book-open", "height": 11, "src": "assets/icons/book-open.svg", "tint": "#4ade80", "width": 11}
+        ]},
+        {"type": "text", "id": "t_00135", "color": "$color-muted-foreground", "lineHeight": 1.43, "maxWidth": 150, "role": "paragraph", "size": 14, "text": "docs-site", "weight": 500},
+        {"type": "image", "id": "img_00132", "name": "loader-circle", "height": 14, "src": "assets/icons/loader-circle.svg", "tint": "$color-agent", "width": 14}
+      ]},
+      {"type": "row", "id": "r_00142", "name": "Tab, ultrapaint", "crossAlign": "center", "gap": 8, "height": 32, "padding": {"bottom": 0, "left": 10, "right": 10, "top": 0}, "radius": 8, "children": [
+        {"type": "row", "id": "r_00140", "name": "Favicon", "align": "center", "crossAlign": "center", "fill": "$color-muted", "height": 16, "radius": 4, "width": 16, "children": [
+          {"type": "image", "id": "img_00139", "name": "ultrapaint-mark", "height": 13, "src": "assets/icons/ultrapaint-mark.svg", "tint": "$color-foreground", "width": 13}
+        ]},
+        {"type": "text", "id": "t_00141", "color": "$color-muted-foreground", "lineHeight": 1.43, "maxWidth": 150, "role": "paragraph", "size": 14, "text": "ultrapaint", "weight": 500},
+        {"type": "row", "id": "r_00138", "align": "center", "crossAlign": "center", "height": 14, "width": 14, "children": [
+          {"type": "row", "id": "r_00137", "crossAlign": "center", "fill": "$color-warning", "height": 8, "radius": 999, "width": 8, "children": []}
+        ]}
+      ]},
+      {"type": "row", "id": "r_00146", "name": "Tab, bike-shop", "crossAlign": "center", "gap": 8, "height": 32, "padding": {"bottom": 0, "left": 10, "right": 10, "top": 0}, "radius": 8, "children": [
+        {"type": "row", "id": "r_00144", "name": "Project icon", "align": "center", "crossAlign": "center", "fill": "#fb923c24", "height": 16, "radius": 4, "width": 16, "children": [
+          {"type": "text", "id": "t_00143", "color": "#fb923c", "font": "'Geist Mono', ui-monospace, monospace", "lineHeight": 1, "role": "paragraph", "size": 12, "text": "B", "weight": 700}
+        ]},
+        {"type": "text", "id": "t_00145", "color": "$color-muted-foreground", "lineHeight": 1.43, "maxWidth": 150, "role": "paragraph", "size": 14, "text": "bike-shop", "weight": 500}
+      ]},
+      {"type": "row", "id": "r_00148", "name": "New tab, open", "align": "center", "crossAlign": "center", "fill": "$color-accent", "height": 28, "radius": 6, "width": 28, "children": [
+        {"type": "image", "id": "img_00147", "name": "plus", "height": 16, "src": "assets/icons/plus.svg", "tint": "$color-foreground", "width": 16}
+      ]},
+      {"type": "row", "id": "r_00149", "crossAlign": "center", "width": "fill", "children": []}
+    ]},
+    {"type": "column", "id": "c_00118", "name": "New tab menu", "border": {"color": "$color-border", "style": "solid", "width": "1px"}, "fill": "$color-popover", "margin": {"bottom": 0, "left": 646, "right": 0, "top": -4}, "padding": {"bottom": 4, "left": 4, "right": 4, "top": 4}, "radius": 10, "shadow": "$shadow-xl", "width": 300, "children": [
+      {"type": "row", "id": "r_00082", "crossAlign": "center", "padding": {"bottom": 2, "left": 8, "right": 8, "top": 6}, "width": "fill", "children": [
+        {"type": "text", "id": "t_00081", "color": "$color-muted-foreground", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "Recent", "weight": 500}
+      ]},
+      {"type": "row", "id": "r_00090", "crossAlign": "center", "fill": "$color-accent", "gap": 8, "padding": {"bottom": 6, "left": 8, "right": 8, "top": 6}, "radius": 6, "width": "fill", "children": [
+        {"type": "row", "id": "r_00084", "name": "Project icon", "align": "center", "crossAlign": "center", "fill": "#fb923c24", "height": 16, "radius": 4, "width": 16, "children": [
+          {"type": "text", "id": "t_00083", "color": "#fb923c", "font": "'Geist Mono', ui-monospace, monospace", "lineHeight": 1, "role": "paragraph", "size": 12, "text": "B", "weight": 700}
+        ]},
+        {"type": "column", "id": "c_00087", "gap": 1, "children": [
+          {"type": "text", "id": "t_00085", "color": "$color-foreground", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "bike-shop"},
+          {"type": "text", "id": "t_00086", "color": "$color-muted-foreground", "font": "'Geist Mono', ui-monospace, monospace", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "~/Code/bike-shop"}
+        ]},
+        {"type": "row", "id": "r_00088", "crossAlign": "center", "width": "fill", "children": []},
+        {"type": "image", "id": "img_00089", "name": "x", "height": 14, "src": "assets/icons/x.svg", "tint": "$color-muted-foreground", "width": 14}
+      ]},
+      {"type": "row", "id": "r_00097", "crossAlign": "center", "gap": 8, "padding": {"bottom": 6, "left": 8, "right": 8, "top": 6}, "radius": 6, "width": "fill", "children": [
+        {"type": "row", "id": "r_00092", "name": "Project icon", "align": "center", "crossAlign": "center", "fill": "#a78bfa24", "height": 16, "radius": 4, "width": 16, "children": [
+          {"type": "text", "id": "t_00091", "color": "#a78bfa", "font": "'Geist Mono', ui-monospace, monospace", "lineHeight": 1, "role": "paragraph", "size": 12, "text": "P", "weight": 700}
+        ]},
+        {"type": "column", "id": "c_00095", "gap": 1, "children": [
+          {"type": "text", "id": "t_00093", "color": "$color-foreground", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "portfolio"},
+          {"type": "text", "id": "t_00094", "color": "$color-muted-foreground", "font": "'Geist Mono', ui-monospace, monospace", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "~/Ultrapaint/portfolio"}
+        ]},
+        {"type": "row", "id": "r_00096", "crossAlign": "center", "width": "fill", "children": []}
+      ]},
+      {"type": "row", "id": "r_00104", "crossAlign": "center", "gap": 8, "padding": {"bottom": 6, "left": 8, "right": 8, "top": 6}, "radius": 6, "width": "fill", "children": [
+        {"type": "row", "id": "r_00099", "name": "Project icon", "align": "center", "crossAlign": "center", "fill": "#2dd4bf24", "height": 16, "radius": 4, "width": 16, "children": [
+          {"type": "image", "id": "img_00098", "name": "server", "height": 11, "src": "assets/icons/server.svg", "tint": "#2dd4bf", "width": 11}
+        ]},
+        {"type": "column", "id": "c_00102", "gap": 1, "children": [
+          {"type": "text", "id": "t_00100", "color": "$color-foreground", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "nas-tools"},
+          {"type": "text", "id": "t_00101", "color": "$color-muted-foreground", "font": "'Geist Mono', ui-monospace, monospace", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "nas:~/nas-tools"}
+        ]},
+        {"type": "row", "id": "r_00103", "crossAlign": "center", "width": "fill", "children": []}
+      ]},
+      {"type": "row", "id": "r_00106", "crossAlign": "center", "fill": "$color-border", "height": 1, "margin": {"bottom": 4, "left": -4, "right": -4, "top": 4}, "width": "fill", "children": [
+        {"type": "row", "id": "r_00105", "crossAlign": "center", "height": 1, "width": "fill", "children": []}
+      ]},
+      {"type": "row", "id": "r_00109", "crossAlign": "center", "gap": 8, "padding": {"bottom": 6, "left": 8, "right": 8, "top": 6}, "radius": 6, "width": "fill", "children": [
+        {"type": "text", "id": "t_00107", "color": "$color-foreground", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Open folder…"},
+        {"type": "row", "id": "r_00108", "crossAlign": "center", "width": "fill", "children": []}
+      ]},
+      {"type": "row", "id": "r_00112", "crossAlign": "center", "gap": 8, "padding": {"bottom": 6, "left": 8, "right": 8, "top": 6}, "radius": 6, "width": "fill", "children": [
+        {"type": "text", "id": "t_00110", "color": "$color-foreground", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Open over SSH…"},
+        {"type": "row", "id": "r_00111", "crossAlign": "center", "width": "fill", "children": []}
+      ]},
+      {"type": "row", "id": "r_00114", "crossAlign": "center", "fill": "$color-border", "height": 1, "margin": {"bottom": 4, "left": -4, "right": -4, "top": 4}, "width": "fill", "children": [
+        {"type": "row", "id": "r_00113", "crossAlign": "center", "height": 1, "width": "fill", "children": []}
+      ]},
+      {"type": "row", "id": "r_00117", "crossAlign": "center", "gap": 8, "padding": {"bottom": 6, "left": 8, "right": 8, "top": 6}, "radius": 6, "width": "fill", "children": [
+        {"type": "text", "id": "t_00115", "color": "$color-foreground", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "New project…"},
+        {"type": "row", "id": "r_00116", "crossAlign": "center", "width": "fill", "children": []}
+      ]}
+    ]}
+  ]},
+  "version": 1
+}

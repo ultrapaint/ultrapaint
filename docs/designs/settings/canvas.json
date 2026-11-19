@@ -19,7 +19,8 @@
     "review.page.json": "/review",
     "shortcuts.page.json": "/shortcuts",
     "skills.page.json": "/skills",
-    "states.page.json": "/states"
+    "states.page.json": "/states",
+    "name-and-icon.page.json": "/name-and-icon"
   },
   "frames": {
     "about.page.json": {
@@ -111,6 +112,13 @@
       "preset": "custom",
       "width": 1700,
       "x": 17400,
+      "y": 0
+    },
+    "name-and-icon.page.json": {
+      "height": 860,
+      "preset": "custom",
+      "width": 1440,
+      "x": 18920,
       "y": 0
     }
   },
