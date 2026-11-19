@@ -27,11 +27,11 @@ Open with it, before the first element: `references/components.md`, `references/
   miss it (a consequence, a scope, a constraint, why the setting is unavailable), not because it
   is true or because the rows beside it have one: most rows carry none. A section's note only
   where its name and rows leave its purpose unclear.
-- A setting with several options (permissions as checkboxes) is one row: its name, its line and
-  its reset in the label column, the options stacked in the control column; never a heading
+- A setting with several options (permissions as checkboxes) is one row: its name, its line if it
+  has one, and its reset in the label column, the options stacked in the control column; never a heading
   across the full width with the options under it.
-- A matrix of notifications: each event is a row whose name is a label (semibold, foreground)
-  with its muted line under it, and the channels are columns of switches under their names. A
+- A matrix of notifications: each event is a row whose name is a label (semibold, foreground),
+  a muted line under it only where it needs one, and the channels are columns of switches under their names. A
   group's name (Engagement, Teams) is a small quiet label over its rows, never a filled bar.
 - A helper action over a column of rows ("Disable all") is a muted underlined link.
 - On a phone the two sides stack: label, line, then the control full width.
