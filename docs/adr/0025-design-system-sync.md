@@ -3,6 +3,9 @@
 Status: accepted, 2026-10-06. Builds on 0016 (Figma import), 0023 (design-system setup) and
 0024 (style systems). Plan: `docs/plans/done/PLAN-design-system-sync.md`.
 
+> Amended by [0106](0106-problems-are-a-place-on-the-rail.md), 2026-11-19: a step the sync waits
+> on is listed in Problems, on the rail; the rail's and the place switch's pink dot are gone.
+
 > Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: the drift is what the code's comparison finds new; `SyncFacts`' unread fields and `tokensGone` go; Sync watches stylesheets only.
 
 > Amended by [0028](0028-the-design-holds-the-values.md), 2026-10-25: values live in the design

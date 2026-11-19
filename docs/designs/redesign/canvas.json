@@ -11,6 +11,7 @@
     "box-model.page.json": "/box-model",
     "components.page.json": "/components",
     "design-system-color.page.json": "/design-system-color",
+    "design-system-problems.page.json": "/design-system-problems",
     "design.page.json": "/design",
     "element-toolbar.page.json": "/element-toolbar",
     "frame-header.page.json": "/frame-header",
@@ -50,6 +51,13 @@
       "preset": "desktop",
       "width": 1440,
       "x": 0,
+      "y": 4200
+    },
+    "design-system-problems.page.json": {
+      "height": 1700,
+      "preset": "custom",
+      "width": 2200,
+      "x": 6400,
       "y": 4200
     },
     "design.page.json": {

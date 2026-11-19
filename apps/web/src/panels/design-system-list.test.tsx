@@ -156,16 +156,9 @@ describe("Foundations › files that read", () => {
     expect(container.querySelector("ul")).toBeNull();
   });
 
-  it("says what the tokens file holds that was left out, under the list", async () => {
+  it("leaves what the tokens file left out to Problems (ADR 0106)", async () => {
     await listOf({ designSystem: own, document: null, notes: [NOTE] });
     expect(problem()).toBeUndefined();
-    expect(
-      [...container.querySelectorAll("ul li")].map((li) => li.textContent)
-    ).toEqual([
-      "design.tokens.json: shadow.card: its value could not be read as CSS, so it is left out.",
-    ]);
-    expect(container.querySelector("ul li code")?.textContent).toBe(
-      "shadow.card"
-    );
+    expect(container.textContent).not.toContain("shadow.card");
   });
 });

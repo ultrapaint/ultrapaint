@@ -7,6 +7,7 @@ import {
   Palette as PaletteIcon,
   Settings,
   Sparkles,
+  TriangleAlert,
 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -14,6 +15,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/cn";
+import { worstOf } from "../lib/problems.ts";
 import { someBusy } from "../lib/thread-view.ts";
 import { useAgents } from "../state/agents.ts";
 import { useComponents } from "../state/components.ts";
@@ -23,9 +26,9 @@ import {
   showLeftPanelStart,
   usePanels,
 } from "../state/panels.ts";
+import { useProblems } from "../state/problems.ts";
 import { useProject } from "../state/project.ts";
 import { useSurface } from "../state/surface.ts";
-import { syncWaiting, useSync } from "../state/sync.ts";
 import { UpdateRailItem } from "./app-update.tsx";
 import { GitUserButton } from "./git-user.tsx";
 import { CommandKeys } from "./shortcut-sheet.tsx";
@@ -38,6 +41,7 @@ export const railItems: Record<LeftTab, { label: string; icon: LucideIcon }> = {
   designSystem: { icon: PaletteIcon, label: "Foundations" },
   layers: { icon: LayersIcon, label: "Layers" },
   library: { icon: LibraryBig, label: "Components" },
+  problems: { icon: TriangleAlert, label: "Problems" },
 };
 
 const openSettings = () => useProject.getState().openSettings(true);
@@ -52,6 +56,7 @@ const RailItem = ({
   command,
   dot = null,
   icon: Icon,
+  iconClassName,
   name,
   onClick,
 }: {
@@ -61,6 +66,8 @@ const RailItem = ({
   /** What the dot says, for a screen reader; no dot when null. */
   dot?: string | null;
   icon: LucideIcon;
+  /** The icon's colour, when it says something itself: Problems' warning. */
+  iconClassName?: string;
   name: string;
   onClick: () => void;
 }) => (
@@ -76,7 +83,7 @@ const RailItem = ({
         />
       }
     >
-      <Icon className="size-[18px]" strokeWidth={1.75} />
+      <Icon className={cn("size-[18px]", iconClassName)} strokeWidth={1.75} />
       {dot ? (
         <span
           aria-label={dot}
@@ -92,7 +99,13 @@ const RailItem = ({
   </Tooltip>
 );
 
-const RailButton = ({ value }: { value: LeftTab }) => {
+const RailButton = ({
+  iconClassName,
+  value,
+}: {
+  iconClassName?: string;
+  value: LeftTab;
+}) => {
   // A panel put away is not the one open: nothing on the rail says it is.
   const hidden = usePanels((s) => s.left);
   const active = useEditor((s) => s.leftTab === value) && !hidden;
@@ -103,15 +116,10 @@ const RailButton = ({ value }: { value: LeftTab }) => {
     }
     return value === "changes" && s.changed.length > 0;
   });
-  // Design system: the sync has something waiting, a drift or settings to fix (ADR 0025).
-  const syncDot = useSync(
-    (s) => value === "designSystem" && syncWaiting(s.plan)
-  );
+  // What the sync waits for is one of the Problems, said by their own item (ADR 0106).
   let dot: string | null = null;
   if (agentDot) {
     dot = value === "chat" ? "An agent is working" : "Changes to look at";
-  } else if (syncDot) {
-    dot = "The design system and the code need syncing";
   }
   const item = railItems[value];
   // The open panel's button takes it back to where it starts, and never puts it away (ADR 0086).
@@ -128,6 +136,7 @@ const RailButton = ({ value }: { value: LeftTab }) => {
       command={`panel:${value}`}
       dot={dot}
       icon={item.icon}
+      iconClassName={iconClassName}
       name={item.label}
       onClick={onClick}
     />
@@ -135,9 +144,27 @@ const RailButton = ({ value }: { value: LeftTab }) => {
 };
 
 /**
+ * Problems (ADR 0106), at the rail's foot in either mode while there is something to fix, its icon
+ * in the warning's colour, or the error's when one is an error; kept while its panel is open, so
+ * the panel fixed to none still has its item.
+ */
+const ProblemsRailButton = () => {
+  const problems = useProblems();
+  const open = useEditor((s) => s.leftTab === "problems");
+  if (problems.length === 0 && !open) {
+    return null;
+  }
+  let tone = "";
+  if (problems.length > 0) {
+    tone = worstOf(problems) === "error" ? "text-destructive" : "text-warning";
+  }
+  return <RailButton iconClassName={tone} value="problems" />;
+};
+
+/**
  * The left panels the workspace offers, in a column of icons at the left card's edge: the agents
  * always first. What changed, the settings and who the user is sit at its foot, under a newer
- * release of the app while there is one (ADR 0078).
+ * release of the app while there is one (ADR 0078) and the problems while there are some (ADR 0106).
  */
 export const Rail = () => {
   // The mode's places (ADR 0053): Canvas's on the page canvas, Design System's on a board view,
@@ -151,12 +178,13 @@ export const Rail = () => {
       className="flex min-h-0 w-11 shrink-0 flex-col items-center gap-1 overflow-y-auto pt-0.5 pb-2 [scrollbar-width:none]"
     >
       {tabs
-        .filter((value) => value !== "changes")
+        .filter((value) => value !== "changes" && value !== "problems")
         .map((value) => (
           <RailButton key={value} value={value} />
         ))}
       <div className="flex-1" />
       <UpdateRailItem />
+      {tabs.includes("problems") ? <ProblemsRailButton /> : null}
       {tabs.includes("changes") ? <RailButton value="changes" /> : null}
       <RailItem
         command="settings"

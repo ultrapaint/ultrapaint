@@ -213,7 +213,7 @@ export const railTabsFor = (open: BoardPlace | null): readonly LeftTab[] => {
     return canvasRail;
   }
   return appOpen(open)
-    ? ["chat", "designSystem", "library", "layers", "changes"]
+    ? ["chat", "designSystem", "library", "layers", "problems", "changes"]
     : systemRail;
 };
 
