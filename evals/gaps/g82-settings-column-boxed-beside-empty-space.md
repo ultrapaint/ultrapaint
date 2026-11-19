@@ -2,7 +2,7 @@
 id: g82
 title: A settings column boxed against the navigation, beside empty space
 kind: missing
-status: open
+status: done
 found: 2026-11-19
 source: the person, on the notification screens of decisions/rows-nov19 (fx-opus-rl2, fx-opus-sl)
 skill: [references/kinds/settings.md, SKILL.md]
@@ -50,3 +50,9 @@ eye on the pairs.
 
   All four candidate runs centred the column and kept its width. The pairs are asked in
   `decisions/width-nov19`.
+- `width-nov19`, decided (the person, 2026-11-19): centred is better on the notification pairs
+  and on the preference pairs; ship it. Shipped in `references/kinds/settings.md`, "Settings are
+  rows": "On a desktop the content column keeps `720–1090px` and is centred in the space beside
+  the navigation, so what the window has to spare falls on both sides of it, not all on its
+  right; never a narrow column, never rows stretched across a wide window. On a phone it takes the
+  full width.", with its Check row. Done.
