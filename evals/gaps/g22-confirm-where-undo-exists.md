@@ -2,7 +2,7 @@
 id: g22
 title: A blocking confirm for what undo can take back
 kind: missing
-status: testing
+status: done
 found: 2026-11-04
 source: the Changes panel, editor redesign at f608871 (held-out finding changes-31, rated real)
 skill: [references/states.md]
@@ -35,3 +35,4 @@ named: shipped skill 0/2, redesign-gaps 1/2. The person rated it real
 - `ep-1`: 2026-11-11, caught: review-table@opus+untold 0/2 (+1 partly), review-table@opus+told 2/2, review-table@gpt-6.1-sol+untold 0/2 (+2 partly), review-table@gpt-6.1-sol+told 2/2 (reviewed by opus, gpt-6.1-sol, judged by cursor:grok-4.7-high, effort high; runs/ep-1/report.md)
 - `chk-1`: 2026-11-11, caught: shipped 3/3, shipped+checks 1/3 (opus, effort high; runs/chk-1/report.md)
 - `rt-2-gpt`: 2026-11-16, caught: shipped 2/2, review-table 2/2, review-inventory 2/2 (reviewed by gpt-6.1-sol, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2-gpt/report.md)
+- `gaps-nov18`, decided (the person, 2026-11-19, `decisions/gaps-nov18`): closed as done. The shipped skill catches it in every recent review: 3 of 3 and 2 of 2.

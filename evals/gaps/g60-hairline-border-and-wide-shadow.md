@@ -20,3 +20,4 @@ sections: []
 **Result.**
 
 - `out-land`: 2026-11-11, an outside landing round (Opus in Claude Code, plain React app; alignui-waitlist, hcare-landing, untitled-pricing; 2 runs each), marks counted per page by Opus (`pnpm evals tells`), as mean per page · pages with one, no skill / shipped / `candidates/public-page-tells`: border with a wide shadow 1.3 · 4/6, 0.7 · 2/6, 0.7 · 2/6. No rule was proposed; the candidate left it as the shipped skill does. Blind pairwise, shipped against the candidate: shipped 3, candidate 1, 2 ties (2 of 6 winners changed with the order); the shipped skill against no skill: 6 of 6 (runs/out-land/tells.md, runs/out-land-vs-out-land-tells/)
+- `gaps-nov18`, decided (the person, 2026-11-19, `decisions/gaps-nov18`): kept open, measured by the same count: 4 of 40 fresh pages; no rule has been tried.

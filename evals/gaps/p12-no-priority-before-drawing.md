@@ -2,7 +2,7 @@
 id: p12
 title: Elements drawn before they are ranked
 kind: process
-status: open
+status: wontfix
 found: 2026-11-17
 source: the Code section in the Design tab (g77), redrawn in place by the 3 Nov redesign
 skill: [SKILL.md]
@@ -48,3 +48,4 @@ moved, against the built-in skill; and whether must-show elements stay in view.
 **Result.**
 
 - `placement-1`: 2026-11-17, through its gaps on `design-tab-code`: g77 and g79 caught 2/2 by both versions, g78 by neither; the candidate's ranking step shows no gain a recall can see, and its rows moved in-place controls on `element-toolbar` and `layers` (g77's line has the detail). The fresh briefs of g78 and g79 measure the step where it acts, in what an agent draws.
+- `gaps-nov18`, decided (the person, 2026-11-19, `decisions/gaps-nov18`): closed as won't fix. The ranking step showed no gain in three rounds, and what it was for shipped instead as plain rules in #56 (g78–g80).

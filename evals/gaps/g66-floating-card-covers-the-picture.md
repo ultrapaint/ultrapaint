@@ -2,7 +2,7 @@
 id: g66
 title: A floating card that covers the product picture's content
 kind: missing
-status: testing
+status: wontfix
 found: 2026-11-11
 source: the outside landing rounds `out-land` and `out-land-none` (Opus in Claude Code, plain React app, 2026-11-11), judged per run and blind pairwise; kept by the person in `decisions/skill-plan-nov11`
 skill: [references/pages/landing.md, references/surfaces.md]
@@ -21,3 +21,4 @@ sections: []
 
 - `pp-in`, `held-pp`: 2026-11-11, Opus in Claude Code designs and judges. In-sample: shipped (`out-land`) against `candidates/public-pages` (`pp-in`) on alignui-waitlist, hcare-landing and untitled-pricing, 3 runs each. Held-out: `held-ship` against `held-pp` on six `held-*` pages from facts briefs, 2 runs each. Counts are the per-run judge's gap lists (`runs/<round>/gaps.json`); pairwise in both orders, a winner that changed with the order counted as a tie (`runs/out-land-vs-pp-in/`, `runs/held-ship-vs-held-pp/`). hcare-landing: shipped 3/3 ("Lifted cards placed carelessly over the product picture"); candidate 3/3 ("placed out of the first window or off the picture"): the cards no longer cover the chart but moved off the picture or below the fold. "The picture as loud as the cards" stays 2/3 in each. held-helply: both 2/2, a floating card covers the screenshot's content. Pairwise hcare-landing: candidate 2, tie 1. Not shown: the fault moved.
 - 12 November: the person: the candidate's cards are fine but not as exact as the reference; resemblance is no longer the measure (`lab-direction-nov12`).
+- `gaps-nov18`, decided (the person, 2026-11-19, `decisions/gaps-nov18`): closed without a fix, kept as a record. It came from copying reference landing pages on 11 Nov; since 12 Nov a design is no longer measured by its closeness to a reference, and it has not appeared in a fresh round since.
