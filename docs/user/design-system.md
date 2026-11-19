@@ -40,7 +40,12 @@ from, the steps Sync waits on, a file that does not read, what `design.tokens.js
 what `DESIGN.md`'s linter finds, each said with what it costs ("No primary colour: agents can't
 tell which colour marks an action"). **Review** opens a step in Sync; **Fix with agent** opens a
 new chat with the problem written in its composer, for you to send; **Fix all with agent** does
-that for all of them at once. When nothing needs fixing, the item is not there.
+that for all of them at once. A problem's **⋯** menu has **Show in file**, which opens the file
+in your code editor at its line, and, for a warning, **Ignore for me** or **Ignore for the
+project** (kept in `ultrapaint.config.json`, so everyone on the project stops seeing it).
+**Settings** › **Design system** › **Ignored problems** lists what is ignored, with **Show
+again**; a warning whose words change is listed again on its own. When nothing needs fixing,
+the item is not there.
 
 ## Foundations
 

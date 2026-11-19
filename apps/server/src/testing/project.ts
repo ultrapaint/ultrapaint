@@ -18,6 +18,7 @@ import { EventBus } from "../events.ts";
 import { ListenPort } from "../listen-port.ts";
 import { OpenProject, ProjectManager } from "../project.ts";
 import { RpcHandlers } from "../rpc-handlers.ts";
+import { CodeEditor } from "../services/code-editor.ts";
 import { DesignFiles } from "../services/design-files.ts";
 import { CallingThread } from "../services/mcp/access.ts";
 import { rawTools } from "../services/mcp/raw-tools.ts";
@@ -35,6 +36,7 @@ export const TEST_PORT = 1;
  */
 export const TestAdapters = {
   agents: Layer.mergeAll(ScriptedAgents.layer, AgentSandbox.layerTest),
+  codeEditor: CodeEditor.layerTest,
   designFiles: DesignFiles.layerTest,
 } satisfies Adapters<ScriptedAgents | AgentSandbox>;
 

@@ -23,8 +23,17 @@ export interface Problem {
   readonly brief: string;
   /** What it costs, or how to fix it; none when the title says it all. */
   readonly detail: string | null;
+  /**
+   * Where it is written, for Show in file: the file (repository-relative) and the path of keys
+   * to its line, when it has one. None for a sync step, which lives in no file.
+   */
+  readonly file: { readonly at: string | null; readonly path: string } | null;
   /** `sync`: answered in the Sync. `agent`: a chat drafted to fix it. */
   readonly fix: "agent" | "sync";
+  /**
+   * A stable name for it, whose words are the file's: a problem whose words change (a contrast
+   * that moved) is a new one, and an ignored one comes back.
+   */
   readonly id: string;
   readonly severity: "error" | "warning";
   readonly source: ProblemSource;
@@ -186,6 +195,7 @@ const unusedColours = (
   return {
     brief: `${file}: ${names.map(code).join(", ")} ${one ? "is" : "are"} defined but never referenced by any component.`,
     detail: `${names.map(code).join(", ")}. Use ${one ? "it" : "them"} in a component, or remove ${one ? "it" : "them"}.`,
+    file: { at: `colors.${names[0]}`, path: file },
     fix: "agent",
     id: "DESIGN.md:unused-colours",
     severity: "warning",
@@ -207,6 +217,7 @@ const documentProblems = (document: DesignDocument | null): Problem[] => {
     .map((f) => ({
       ...findingWords(f),
       brief: briefOf(file, f),
+      file: { at: f.path ?? null, path: file },
       fix: "agent",
       id: `DESIGN.md:${f.path ?? ""}:${f.message}`,
       severity: f.severity === "error" ? "error" : "warning",
@@ -228,10 +239,14 @@ export const reasonOf = (problem: string) =>
     .replace("SyntaxError: ", "");
 
 const TOKENS_PREFIX = "design.tokens.json: ";
+/** The token a note names first, between backticks: where its line is. */
+const QUOTED_TOKEN = /`([^`]+)`/;
 
 export interface ProblemsInput {
   /** Whether `design-system.json` read: a `problem` is then the tokens file's. */
   readonly designSystemRead: boolean;
+  /** The designs directory, repository-relative: where the design system's two files are. */
+  readonly designsDir: string;
   readonly document: DesignDocument | null;
   readonly notes: readonly string[];
   readonly plan: SyncPlan | null;
@@ -245,6 +260,7 @@ export const problemsOf = (input: ProblemsInput): readonly Problem[] => {
       (step): Problem => ({
         brief: `${step.title}: ${step.detail}`,
         detail: step.detail,
+        file: null,
         fix: "sync",
         id: `Sync:${step.kind}`,
         severity: "warning",
@@ -262,6 +278,7 @@ export const problemsOf = (input: ProblemsInput): readonly Problem[] => {
       detail: input.designSystemRead
         ? "Its values are design-system.json’s and the code’s until it reads."
         : "Designs use Ultrapaint’s default look until it reads.",
+      file: { at: null, path: `${input.designsDir}/${file}` },
       fix: "agent",
       id: `${file}:problem`,
       severity: "error",
@@ -273,9 +290,14 @@ export const problemsOf = (input: ProblemsInput): readonly Problem[] => {
     const said = note.startsWith(TOKENS_PREFIX)
       ? note.slice(TOKENS_PREFIX.length)
       : note;
+    const token: RegExpExecArray | null = QUOTED_TOKEN.exec(said);
     all.push({
       brief: note,
       detail: null,
+      file: {
+        at: token === null ? null : (token[1] ?? null),
+        path: `${input.designsDir}/design.tokens.json`,
+      },
       fix: "agent",
       id: `design.tokens.json:${note}`,
       severity: "warning",
@@ -288,6 +310,13 @@ export const problemsOf = (input: ProblemsInput): readonly Problem[] => {
     (a, b) => SOURCES.indexOf(a.source) - SOURCES.indexOf(b.source)
   );
 };
+
+/**
+ * Whether a problem can be left as it is: a warning an agent would fix. An error breaks what
+ * agents read, and a sync step is answered in the Sync.
+ */
+export const ignorable = (problem: Problem) =>
+  problem.severity === "warning" && problem.fix === "agent";
 
 /** Whether any of them is an error: the rail's sign is red then, amber otherwise. */
 export const worstOf = (problems: readonly Problem[]) =>

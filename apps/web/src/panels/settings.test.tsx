@@ -4,6 +4,7 @@ import { defaultSettings, type Settings } from "@ultrapaint/contracts/settings";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useDesignSystem } from "../state/design-system.ts";
 import { useProject } from "../state/project.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { problemRow, SettingsPage } from "./settings.tsx";
@@ -16,6 +17,8 @@ vi.mock(
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
+
+const initialDesignSystem = useDesignSystem.getState();
 
 describe("a refused save's reasons", () => {
   it("go under the row they are about", () => {
@@ -268,5 +271,86 @@ describe("the settings before they are read", () => {
     expect(useProject.getState().loaded).toBe(true);
     expect(container.querySelector("#settings-designs")).not.toBeNull();
     expect(container.querySelector("[role=alert]")).toBeNull();
+  });
+});
+
+describe("Settings › Design system › Ignored problems (ADR 0106)", () => {
+  const MISSING_PRIMARY = {
+    message: "No 'primary' color defined.",
+    path: "colors",
+    severity: "warning",
+  } as const;
+  const ID = `DESIGN.md:colors:${MISSING_PRIMARY.message}`;
+  let mounted: Root;
+  let container: HTMLElement;
+
+  const open = (ignoredProblems: readonly string[]) => {
+    const settings = { ...defaultSettings("/repo"), ignoredProblems };
+    const info = {
+      configured: true,
+      settings,
+      storage: { configPath: "/repo/ultrapaint.config.json", mode: "file" },
+    } as const;
+    fakeApi.respond("project.info", () => info);
+    useProject.setState({
+      info,
+      loaded: true,
+      settings,
+      settingsOpen: true,
+      settingsSection: "designSystem",
+    });
+    useDesignSystem.setState({
+      document: {
+        body: "",
+        findings: [MISSING_PRIMARY],
+        held: [],
+        legacy: false,
+        path: "DESIGN.md",
+        sections: [],
+        text: "",
+      },
+      loaded: true,
+    });
+    act(() => mounted.render(<SettingsPage />));
+  };
+
+  const group = () =>
+    [...container.querySelectorAll("section")].find(
+      (s) => s.querySelector("h3")?.textContent === "Ignored problems"
+    );
+
+  beforeEach(() => {
+    fakeApi.reset();
+    container = document.createElement("div");
+    mounted = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => mounted.unmount());
+    useDesignSystem.setState(initialDesignSystem, true);
+  });
+
+  it("says nothing is ignored, so the place is found before it is needed", () => {
+    open([]);
+    expect(group()?.textContent).toContain("Nothing ignored");
+  });
+
+  it("lists a problem the project left, and shows it again", async () => {
+    fakeApi.respond("settings.set", () => ({ ok: true, problems: [] }));
+    open([ID]);
+    expect(group()?.textContent).toContain("No primary colour");
+    expect(group()?.textContent).toContain(
+      "DESIGN.md · ignored for the project"
+    );
+    const again = [...(group()?.querySelectorAll("button") ?? [])].find(
+      (b) => b.textContent === "Show again"
+    );
+    await act(async () => {
+      again?.click();
+      await Promise.resolve();
+    });
+    const saved = fakeApi.calls.find((c) => c.method === "settings.set")
+      ?.input as Settings | undefined;
+    expect(saved?.ignoredProblems).toEqual([]);
   });
 });

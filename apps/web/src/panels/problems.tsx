@@ -1,29 +1,45 @@
 /**
  * Problems' panel (ADR 0106): what the design system's files and the sync say needs fixing,
  * grouped by the file it is read from, each with what it costs and its fix: a chat drafted to fix
- * it, or the Sync for a step that waits there. Fix all drafts one chat for every problem an agent
+ * it, or the Sync for a step that waits there; its menu shows it in its file, or leaves a warning
+ * as it is, for the person or the project. Fix all drafts one chat for every problem an agent
  * can fix. The rail shows its item only while there is something here, so none is said only when
  * the last one was fixed with the panel open.
  */
 import {
   CircleAlert,
   CircleCheck,
+  Ellipsis,
+  EyeOff,
+  FileCode,
   RefreshCw,
   Sparkles,
   TriangleAlert,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/cn";
+import { IconButton } from "../components/icon-button.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import {
   fixPrompt,
+  ignorable,
   type Problem,
   type ProblemSource,
 } from "../lib/problems.ts";
 import { startPrompt } from "../lib/start-thread.ts";
+import { api } from "../state/connection.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import { showLeftPanel } from "../state/panels.ts";
-import { useProblems } from "../state/problems.ts";
+import { setIgnored, useProblemIds, useProblems } from "../state/problems.ts";
+import { reportError } from "../state/project.ts";
 
 const QUOTED = /`([^`]+)`/;
 
@@ -59,6 +75,68 @@ const SeverityIcon = ({ problem }: { problem: Problem }) => {
   );
 };
 
+/** Opens where the problem is written in the person's code editor, at its line. */
+const showInFile = (file: NonNullable<Problem["file"]>) =>
+  api()
+    .request("files.open", {
+      path: file.path,
+      ...(file.at ? { at: file.at } : {}),
+    })
+    .catch(reportError);
+
+/**
+ * A problem's other actions: where it is written, and leaving it as it is, for the person or for
+ * everyone on the project (ADR 0106). Settings lists what was left, to list it again.
+ */
+const More = ({ problem }: { problem: Problem }) => {
+  const present = useProblemIds();
+  const { file } = problem;
+  const leave = ignorable(problem);
+  if (!(file || leave)) {
+    return null;
+  }
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <IconButton
+            className="text-muted-foreground"
+            size="icon-sm"
+            tooltip="More"
+          />
+        }
+      >
+        <Ellipsis />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-52">
+        {file ? (
+          <DropdownMenuItem onClick={() => showInFile(file)}>
+            <FileCode />
+            Show in file
+          </DropdownMenuItem>
+        ) : null}
+        {file && leave ? <DropdownMenuSeparator /> : null}
+        {leave ? (
+          <>
+            <DropdownMenuItem
+              onClick={() => setIgnored(problem.id, "me", true, present)}
+            >
+              <EyeOff />
+              Ignore for me
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setIgnored(problem.id, "project", true, present)}
+            >
+              <Users />
+              Ignore for the project
+            </DropdownMenuItem>
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
 /** One problem: what is wrong, what it costs, and its fix under them, on the text's edge. */
 const Row = ({ problem }: { problem: Problem }) => (
   <li
@@ -82,7 +160,7 @@ const Row = ({ problem }: { problem: Problem }) => (
         <Words text={problem.detail} />
       </p>
     ) : null}
-    <div className="col-start-2 pt-1.5">
+    <div className="col-start-2 flex items-center gap-1 pt-1.5">
       {problem.fix === "sync" ? (
         <Button onClick={reviewSync} size="sm" variant="secondary">
           Review
@@ -92,6 +170,7 @@ const Row = ({ problem }: { problem: Problem }) => (
           Fix with agent
         </Button>
       )}
+      <More problem={problem} />
     </div>
   </li>
 );

@@ -517,7 +517,8 @@ refactor and the board view left.
   it in both modes, shown while there are some (ADR 0106; `lib/problems.ts`, `panels/problems.tsx`):
   the sync's waiting steps, a file that does not read, what the tokens file left out, DESIGN.md's
   linter findings in Ultrapaint's words; each with its fix (Review, Fix with agent), and Fix all
-  with agent.
+  with agent. A warning can be **ignored** for the person or for the project (`ignoredProblems`),
+  listed in Settings › Design system with Show again.
 - **Editor theme**: light, dark or the system's, the person's pick kept in the browser (ADR 0058;
   `state/theme.ts`); the editor's chrome only, never a design's theme.
 - **Preferences**: how the editor looks and behaves for the person, in every project, drawn on
