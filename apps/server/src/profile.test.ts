@@ -1,6 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
-import { Context, Effect, FileSystem, Layer } from "effect";
+import { Context, Effect, FileSystem, Layer, PlatformError } from "effect";
 import { AppLog } from "./app-log.ts";
 import { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
@@ -139,10 +139,55 @@ describe("the user's profile, unreadable from the start (ADR 0106)", () => {
         ).pipe(Effect.provide(profileOf(user)))
       );
       assert.deepStrictEqual(saved, { preferences: { theme: "dark" } });
-      assert.strictEqual(
-        yield* fs.readFileString(`${user}/profile.json.unreadable`),
-        broken
+      const [aside] = (yield* fs.readDirectory(user)).filter((name) =>
+        name.startsWith("profile.json.unreadable-")
       );
+      assert.strictEqual(yield* fs.readFileString(`${user}/${aside}`), broken);
     }).pipe(Effect.provide(NodeServices.layer))
   );
 });
+
+it.effect(
+  "refuses the save when the file it can't read can't be kept aside",
+  () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const user = yield* fs.makeTempDirectoryScoped();
+      const broken = '{"displayName": "Ada", ';
+      yield* fs.writeFileString(`${user}/profile.json`, broken);
+      const refused = yield* Effect.scoped(
+        ProfileService.use((profile) =>
+          Effect.flip(profile.set({ preferences: { theme: "dark" } }))
+        ).pipe(
+          Effect.provide(
+            profileOf(user).pipe(
+              Layer.provide(
+                Layer.effect(
+                  FileSystem.FileSystem,
+                  Effect.map(FileSystem.FileSystem, (real) => ({
+                    ...real,
+                    rename: (from: string) =>
+                      Effect.fail(
+                        new PlatformError.PlatformError(
+                          new PlatformError.SystemError({
+                            _tag: "PermissionDenied",
+                            method: "rename",
+                            module: "FileSystem",
+                            pathOrDescriptor: from,
+                          })
+                        )
+                      ),
+                  }))
+                )
+              )
+            )
+          )
+        )
+      );
+      assert.strictEqual(refused._tag, "BadRequest");
+      assert.strictEqual(
+        yield* fs.readFileString(`${user}/profile.json`),
+        broken
+      );
+    }).pipe(Effect.provide(NodeServices.layer))
+);

@@ -1,6 +1,7 @@
 import { BadRequest } from "@ultrapaint/contracts/errors";
 import { UserProfile } from "@ultrapaint/contracts/settings";
 import {
+  Clock,
   Context,
   Effect,
   FileSystem,
@@ -85,14 +86,23 @@ export class ProfileService extends Context.Service<
 
       /**
        * What a save is merged into: the file as it is now. One that can't be read is moved aside
-       * (`profile.json.unreadable`), never written over, and the save goes on from what this
+       * (`profile.json.unreadable-<time>`), never written over, and the save is refused when it
+       * can't be; and the save goes on from what this
        * server last had: nothing the file held is lost, and saving still works (ADR 0106).
        */
       const toSaveOn = readFile.pipe(
         Effect.catch((error) =>
           Effect.gen(function* () {
-            const aside = `${file}.unreadable`;
-            yield* fs.rename(file, aside).pipe(Effect.ignore);
+            // Its own name each time, so an earlier one is never replaced; not moved, no save.
+            const aside = `${file}.unreadable-${yield* Clock.currentTimeMillis}`;
+            yield* fs.rename(file, aside).pipe(
+              Effect.mapError(
+                (moved) =>
+                  new BadRequest({
+                    message: `${file} can't be read (${error.message}) or kept aside (${moved.message}): the profile was not saved.`,
+                  })
+              )
+            );
             yield* log.log(
               "server",
               "warn",
