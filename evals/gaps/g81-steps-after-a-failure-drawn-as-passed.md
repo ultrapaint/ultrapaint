@@ -2,7 +2,7 @@
 id: g81
 title: Steps after a failure drawn as passed
 kind: missing
-status: testing
+status: done
 found: 2026-11-18
 source: the lab's fresh-place-deploy brief (a deployment whose build failed at typecheck), rounds of 17 and 18 November
 skill: [SKILL.md, references/states.md]
@@ -42,3 +42,4 @@ the line: the failed screen's later steps, read from each run's picture and sour
 
 **Result.**
 - `pf-opus-steps`, `pf-opus-main`: 2026-11-18, `fresh-place-deploy`, 4 runs each, Opus in Claude Code designing, read from each run's picture and source: `candidates/steps-1` (main with the line of **Proposed**, unscoped) draws the failed build's later steps as not run in 4 of 4; the skill on main draws them as passed in 1 of 4 (run 1, seen before; runs 2 to 4 mark them not run). With the 18 Nov runs of placement-3 (2 of 2) and show-less-1 (2 of 2), the rules of #56 come with the fault in 5 of 8 runs, against 0 of 6 without them (Fisher one-sided p ≈ 0.03); the skill as shipped, 1 of 4. Read: the line clears it on this brief at the cost of one line; whether to ship it, scoped to the steps that depend on the failed one, is asked in `decisions/gaps-nov18`.
+- `gaps-nov18`, decided (the person, 2026-11-19): ship the line, scoped to the steps that depend on the failed one. Shipped in `SKILL.md`, States: "In a run of steps (a build, an import, a checkout), the steps that depend on a failed one did not run: no tick, no time, marked as not run."
