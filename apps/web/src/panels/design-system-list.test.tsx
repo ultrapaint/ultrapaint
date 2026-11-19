@@ -10,6 +10,8 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useDesignSystem } from "../state/design-system.ts";
+import { useDesignSystemSetup } from "../state/design-system-setup.ts";
+import { useLookPage } from "../state/look-page.ts";
 import { useProject } from "../state/project.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { until } from "../testing/until.ts";
@@ -41,6 +43,8 @@ const NOTE =
 
 const initialProject = useProject.getState();
 const initialDesignSystem = useDesignSystem.getState();
+const initialSetup = useDesignSystemSetup.getState();
+const initialLook = useLookPage.getState();
 
 let mounted: Root;
 let container: HTMLElement;
@@ -76,6 +80,8 @@ afterEach(() => {
   act(() => mounted.unmount());
   useProject.setState(initialProject, true);
   useDesignSystem.setState(initialDesignSystem, true);
+  useDesignSystemSetup.setState(initialSetup, true);
+  useLookPage.setState(initialLook, true);
 });
 
 describe("Foundations › a file of the design system that does not read", () => {
@@ -160,5 +166,16 @@ describe("Foundations › files that read", () => {
     await listOf({ designSystem: own, document: null, notes: [NOTE] });
     expect(problem()).toBeUndefined();
     expect(container.textContent).not.toContain("shadow.card");
+  });
+});
+
+describe("Foundations › the Sync asked for over the look page (ADR 0106)", () => {
+  it("shows the Sync that Problems' Review asked for, not the look page", async () => {
+    useLookPage.setState({ open: true });
+    useDesignSystemSetup.setState({ shown: true });
+    await listOf({ designSystem: own, document: null });
+    // The Sync's view, reading the project as it opens; not the look page's panel.
+    expect(container.textContent).toContain("Reading the project");
+    expect(container.textContent).not.toContain("Pick a look");
   });
 });

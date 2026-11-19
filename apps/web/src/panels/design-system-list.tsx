@@ -188,11 +188,13 @@ export const DesignSystemList = () => {
   if (!configured) {
     return <NoFolder />;
   }
-  if (lookPage) {
-    return <LookPanel />;
-  }
+  // The Sync asked for (Problems' Review, ADR 0106) shows over the look page, which is there again
+  // once it is left: opening the look page puts the Sync away.
   if (setupShown) {
     return <SyncView onBack={designSystem ? hideSetup : undefined} />;
+  }
+  if (lookPage) {
+    return <LookPanel />;
   }
   // `design-system.json` is there and does not read: not a project with no design system, whose
   // foundations listed are the default look's.

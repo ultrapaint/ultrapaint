@@ -238,6 +238,15 @@ export const reasonOf = (problem: string) =>
     .replace(MEANWHILE, "")
     .replace("SyntaxError: ", "");
 
+const ENDS_A_SENTENCE = /[.!?]$/;
+
+/** A reason as a sentence: capitalised, ending in a full stop. */
+const sentence = (text: string) => {
+  const trimmed = text.trim();
+  const capital = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  return ENDS_A_SENTENCE.test(capital) ? capital : `${capital}.`;
+};
+
 const TOKENS_PREFIX = "design.tokens.json: ";
 /** The token a note names first, between backticks: where its line is. */
 const QUOTED_TOKEN = /`([^`]+)`/;
@@ -275,9 +284,12 @@ export const problemsOf = (input: ProblemsInput): readonly Problem[] => {
       : "design-system.json";
     all.push({
       brief: `${file} doesn’t read: ${reasonOf(input.problem)}`,
-      detail: input.designSystemRead
-        ? "Its values are design-system.json’s and the code’s until it reads."
-        : "Designs use Ultrapaint’s default look until it reads.",
+      // Why it doesn't read, then what holds meanwhile: the person sees the cause without a chat.
+      detail: `${sentence(reasonOf(input.problem))} ${
+        input.designSystemRead
+          ? "Its values are design-system.json’s and the code’s until it reads."
+          : "Designs use Ultrapaint’s default look until it reads."
+      }`,
       file: { at: null, path: `${input.designsDir}/${file}` },
       fix: "agent",
       id: `${file}:problem`,
