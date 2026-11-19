@@ -44,7 +44,8 @@ the line: the failed screen's later steps, read from each run's picture and sour
 - `pf-opus-steps`, `pf-opus-main`: 2026-11-18, `fresh-place-deploy`, 4 runs each, Opus in Claude Code designing, read from each run's picture and source: `candidates/steps-1` (main with the line of **Proposed**, unscoped) draws the failed build's later steps as not run in 4 of 4; the skill on main draws them as passed in 1 of 4 (run 1, seen before; runs 2 to 4 mark them not run). With the 18 Nov runs of placement-3 (2 of 2) and show-less-1 (2 of 2), the rules of #56 come with the fault in 5 of 8 runs, against 0 of 6 without them (Fisher one-sided p ≈ 0.03); the skill as shipped, 1 of 4. Read: the line clears it on this brief at the cost of one line; whether to ship it, scoped to the steps that depend on the failed one, is asked in `decisions/gaps-nov18`.
 - `gaps-nov18`, decided (the person, 2026-11-19): ship the line, scoped to the steps that depend on the failed one. Shipped in `SKILL.md`, States: "In a run of steps (a build, an import, a checkout), the steps that depend on a failed one did not run: no tick, no time, marked as not run." The scoped wording has not yet had its own run on `fresh-place-deploy`, as **Scope** asks; the gap stays `testing` until two runs of the skill with it are recorded here.
 - `pf-opus-main19`: 2026-11-19, `fresh-place-deploy`, 2 runs, Opus in Claude Code designing with
-  the skill on main (the scoped line), read from each run's source: both draw the failed build's
-  Build and Upload as "Not run", no tick, no time. Run 2 keeps the brief's "Checks: 3 of 3 passed"
+  the skill on main (the scoped line), read from each run's picture (`shots/desktop-01.jpg`) and
+  source: both draw the failed build's Build and Upload with an empty circle and "Not run", no
+  tick, no time. Run 2 keeps the brief's "Checks: 3 of 3 passed"
   under the failed screen's Details; run 1 shows "Not run" there. The brief gives that fact once
   for the deployment, so it is not a step drawn after the failure. Done.
