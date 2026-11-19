@@ -4,6 +4,7 @@ Status: accepted, 2026-10-26. Amends 0017 (the desktop shell returns, for a reas
 here), 0004, 0013, 0018 and 0023 (git is no longer needed). Builds on 0008, 0010 and 0019. The
 work is planned in [PLAN-desktop](../plans/done/PLAN-desktop.md); this records its decisions and what Phase 0
 changed in the server and the editor, and what Phases 1, 2 and 3 added.
+Amended by 0107: several projects stay open, each with its server, in tabs.
 
 > Amended by [0100](0100-the-desktop-app-opens-projects-in-its-own-editor.md), 2026-11-16: the window
 > shows the app's own copy of the editor for every server of the app's version, at

@@ -1,0 +1,143 @@
+{
+  "root": {"type": "page", "id": "n_ya1qvx", "align": "center", "crossAlign": "center", "direction": "column", "fill": "$color-canvas", "children": [
+    {"type": "column", "id": "c_00292", "name": "Choose icon", "border": {"color": "$color-border", "style": "solid", "width": "1px"}, "fill": "$color-popover", "gap": 20, "padding": {"bottom": 24, "left": 24, "right": 24, "top": 24}, "radius": 14, "shadow": "$shadow-2xl", "width": 440, "children": [
+      {"type": "row", "id": "r_00291", "crossAlign": "center", "width": "fill", "children": [
+        {"type": "text", "id": "t_00287", "color": "$color-foreground", "lineHeight": 1.33, "role": "paragraph", "size": 18, "text": "Choose icon", "weight": 600},
+        {"type": "row", "id": "r_00288", "crossAlign": "center", "width": "fill", "children": []},
+        {"type": "row", "id": "r_00290", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
+          {"type": "image", "id": "img_00289", "name": "x", "height": 16, "src": "assets/icons/x.svg", "tint": "$color-muted-foreground", "width": 16}
+        ]}
+      ]},
+      {"type": "row", "id": "r_00266", "name": "Preview", "crossAlign": "center", "gap": 12, "width": "fill", "children": [
+        {"type": "row", "id": "r_00262", "name": "Project icon", "align": "center", "crossAlign": "center", "fill": "#60a5fa24", "height": 40, "radius": 10, "width": 40, "children": [
+          {"type": "image", "id": "img_00261", "name": "boxes", "height": 28, "src": "assets/icons/boxes.svg", "tint": "#60a5fa", "width": 28}
+        ]},
+        {"type": "column", "id": "c_00265", "gap": 1, "children": [
+          {"type": "text", "id": "t_00263", "color": "$color-foreground", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "shop-admin", "weight": 500},
+          {"type": "text", "id": "t_00264", "color": "$color-muted-foreground", "font": "'Geist Mono', ui-monospace, monospace", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "~/Code/shop-admin"}
+        ]}
+      ]},
+      {"type": "row", "id": "r_00285", "name": "Colour", "crossAlign": "center", "gap": 4, "children": [
+        {"type": "row", "id": "r_00268", "name": "blue, chosen", "align": "center", "border": {"color": "$color-foreground", "style": "solid", "width": "2px"}, "crossAlign": "center", "height": 28, "radius": 999, "width": 28, "children": [
+          {"type": "row", "id": "r_00267", "crossAlign": "center", "fill": "#60a5fa", "height": 20, "radius": 999, "width": 20, "children": []}
+        ]},
+        {"type": "row", "id": "r_00270", "name": "teal", "align": "center", "crossAlign": "center", "height": 28, "radius": 999, "width": 28, "children": [
+          {"type": "row", "id": "r_00269", "crossAlign": "center", "fill": "#2dd4bf", "height": 20, "radius": 999, "width": 20, "children": []}
+        ]},
+        {"type": "row", "id": "r_00272", "name": "green", "align": "center", "crossAlign": "center", "height": 28, "radius": 999, "width": 28, "children": [
+          {"type": "row", "id": "r_00271", "crossAlign": "center", "fill": "#4ade80", "height": 20, "radius": 999, "width": 20, "children": []}
+        ]},
+        {"type": "row", "id": "r_00274", "name": "yellow", "align": "center", "crossAlign": "center", "height": 28, "radius": 999, "width": 28, "children": [
+          {"type": "row", "id": "r_00273", "crossAlign": "center", "fill": "#facc15", "height": 20, "radius": 999, "width": 20, "children": []}
+        ]},
+        {"type": "row", "id": "r_00276", "name": "orange", "align": "center", "crossAlign": "center", "height": 28, "radius": 999, "width": 28, "children": [
+          {"type": "row", "id": "r_00275", "crossAlign": "center", "fill": "#fb923c", "height": 20, "radius": 999, "width": 20, "children": []}
+        ]},
+        {"type": "row", "id": "r_00278", "name": "red", "align": "center", "crossAlign": "center", "height": 28, "radius": 999, "width": 28, "children": [
+          {"type": "row", "id": "r_00277", "crossAlign": "center", "fill": "#f87171", "height": 20, "radius": 999, "width": 20, "children": []}
+        ]},
+        {"type": "row", "id": "r_00280", "name": "pink", "align": "center", "crossAlign": "center", "height": 28, "radius": 999, "width": 28, "children": [
+          {"type": "row", "id": "r_00279", "crossAlign": "center", "fill": "#f472b6", "height": 20, "radius": 999, "width": 20, "children": []}
+        ]},
+        {"type": "row", "id": "r_00282", "name": "violet", "align": "center", "crossAlign": "center", "height": 28, "radius": 999, "width": 28, "children": [
+          {"type": "row", "id": "r_00281", "crossAlign": "center", "fill": "#a78bfa", "height": 20, "radius": 999, "width": 20, "children": []}
+        ]},
+        {"type": "row", "id": "r_00284", "name": "grey", "align": "center", "crossAlign": "center", "height": 28, "radius": 999, "width": 28, "children": [
+          {"type": "row", "id": "r_00283", "crossAlign": "center", "fill": "#a1a1aa", "height": 20, "radius": 999, "width": 20, "children": []}
+        ]}
+      ]},
+      {"type": "column", "id": "c_00286", "gap": 10, "width": "fill", "children": [
+        {"type": "row", "id": "r_00256", "name": "Search", "border": {"color": "$color-input", "style": "solid", "width": "1px"}, "crossAlign": "center", "gap": 8, "height": 36, "padding": {"bottom": 0, "left": 10, "right": 10, "top": 0}, "radius": 8, "width": "fill", "children": [
+          {"type": "image", "id": "img_00254", "name": "search", "height": 16, "src": "assets/icons/search.svg", "tint": "$color-muted-foreground", "width": 16},
+          {"type": "text", "id": "t_00255", "color": "$color-muted-foreground", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Search icons"}
+        ]},
+        {"type": "column", "id": "c_00253", "name": "Icons", "gap": 6, "children": [
+          {"type": "row", "id": "r_00218", "crossAlign": "center", "gap": 6, "children": [
+            {"type": "row", "id": "r_00203", "align": "center", "border": {"color": "#60a5fa", "style": "solid", "width": "1px"}, "crossAlign": "center", "fill": "#60a5fa24", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00202", "name": "boxes", "height": 18, "src": "assets/icons/boxes.svg", "tint": "#60a5fa", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00205", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00204", "name": "book-open", "height": 18, "src": "assets/icons/book-open.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00207", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00206", "name": "shapes", "height": 18, "src": "assets/icons/shapes.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00209", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00208", "name": "flame", "height": 18, "src": "assets/icons/flame.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00211", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00210", "name": "globe", "height": 18, "src": "assets/icons/globe.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00213", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00212", "name": "code", "height": 18, "src": "assets/icons/code.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00215", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00214", "name": "server", "height": 18, "src": "assets/icons/server.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00217", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00216", "name": "palette", "height": 18, "src": "assets/icons/palette.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]}
+          ]},
+          {"type": "row", "id": "r_00235", "crossAlign": "center", "gap": 6, "children": [
+            {"type": "row", "id": "r_00220", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00219", "name": "chart-column", "height": 18, "src": "assets/icons/chart-column.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00222", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00221", "name": "calendar", "height": 18, "src": "assets/icons/calendar.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00224", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00223", "name": "camera", "height": 18, "src": "assets/icons/camera.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00226", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00225", "name": "map-pin", "height": 18, "src": "assets/icons/map-pin.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00228", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00227", "name": "message-square", "height": 18, "src": "assets/icons/message-square.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00230", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00229", "name": "shield-check", "height": 18, "src": "assets/icons/shield-check.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00232", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00231", "name": "swatch-book", "height": 18, "src": "assets/icons/swatch-book.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00234", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00233", "name": "pen-tool", "height": 18, "src": "assets/icons/pen-tool.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]}
+          ]},
+          {"type": "row", "id": "r_00252", "crossAlign": "center", "gap": 6, "children": [
+            {"type": "row", "id": "r_00237", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00236", "name": "mic", "height": 18, "src": "assets/icons/mic.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00239", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00238", "name": "bell", "height": 18, "src": "assets/icons/bell.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00241", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00240", "name": "plug", "height": 18, "src": "assets/icons/plug.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00243", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00242", "name": "user", "height": 18, "src": "assets/icons/user.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00245", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00244", "name": "layout-grid", "height": 18, "src": "assets/icons/layout-grid.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00247", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00246", "name": "file-text", "height": 18, "src": "assets/icons/file-text.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00249", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00248", "name": "wand-sparkles", "height": 18, "src": "assets/icons/wand-sparkles.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]},
+            {"type": "row", "id": "r_00251", "align": "center", "crossAlign": "center", "height": 40, "radius": 8, "width": 40, "children": [
+              {"type": "image", "id": "img_00250", "name": "sticky-note", "height": 18, "src": "assets/icons/sticky-note.svg", "tint": "$color-muted-foreground", "width": 18}
+            ]}
+          ]}
+        ]}
+      ]},
+      {"type": "row", "id": "r_00260", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+        {"type": "row", "id": "r_00257", "crossAlign": "center", "width": "fill", "children": []},
+        {"type": "instance", "id": "i_00258", "component": "Button", "from": "@ultrapaint/system", "props": {"variant": "outline", "size": "sm"}, "text": "Cancel"},
+        {"type": "instance", "id": "i_00259", "component": "Button", "from": "@ultrapaint/system", "props": {"variant": "primary", "size": "sm"}, "text": "Save"}
+      ]}
+    ]}
+  ]},
+  "version": 1
+}

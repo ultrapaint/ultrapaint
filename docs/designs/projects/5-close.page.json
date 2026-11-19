@@ -1,0 +1,15 @@
+{
+  "root": {"type": "page", "id": "n_t17pwz", "align": "center", "crossAlign": "center", "direction": "column", "fill": "$color-canvas", "children": [
+    {"type": "column", "id": "c_00329", "name": "Close docs-site?", "border": {"color": "$color-border", "style": "solid", "width": "1px"}, "fill": "$color-popover", "gap": 20, "padding": {"bottom": 24, "left": 24, "right": 24, "top": 24}, "radius": 14, "shadow": "$shadow-2xl", "width": 380, "children": [
+      {"type": "column", "id": "c_00325", "crossAlign": "center", "gap": 6, "width": "fill", "children": [
+        {"type": "text", "id": "t_00323", "align": "center", "color": "$color-foreground", "lineHeight": 1.33, "role": "paragraph", "size": 18, "text": "Close docs-site?", "weight": 600},
+        {"type": "text", "id": "t_00324", "align": "center", "color": "$color-muted-foreground", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Claude Code is working there. Closing the project stops it."}
+      ]},
+      {"type": "row", "id": "r_00328", "align": "center", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+        {"type": "instance", "id": "i_00326", "component": "Button", "from": "@ultrapaint/system", "props": {"variant": "outline", "size": "sm"}, "text": "Cancel"},
+        {"type": "instance", "id": "i_00327", "component": "Button", "from": "@ultrapaint/system", "props": {"variant": "primary", "size": "sm"}, "text": "Close project"}
+      ]}
+    ]}
+  ]},
+  "version": 1
+}

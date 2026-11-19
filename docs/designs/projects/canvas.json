@@ -1,0 +1,69 @@
+{
+  "defaults": {
+    "color": "$color-foreground",
+    "fill": "$color-background",
+    "font": "'Figtree Variable', system-ui, sans-serif",
+    "theme": "dark"
+  },
+  "name": "Projects",
+  "routes": {},
+  "frames": {
+    "1-tabs.page.json": {
+      "x": 0,
+      "y": 0,
+      "width": 1440,
+      "height": 320,
+      "preset": "custom"
+    },
+    "2a-new-tab.page.json": {
+      "x": 0,
+      "y": 480,
+      "width": 1440,
+      "height": 440,
+      "preset": "custom"
+    },
+    "2b-project-menu.page.json": {
+      "x": 0,
+      "y": 1080,
+      "width": 1440,
+      "height": 420,
+      "preset": "custom"
+    },
+    "3a-choose-icon.page.json": {
+      "x": 0,
+      "y": 1660,
+      "width": 1440,
+      "height": 560,
+      "preset": "custom"
+    },
+    "3b-choose-file.page.json": {
+      "x": 0,
+      "y": 2380,
+      "width": 1440,
+      "height": 480,
+      "preset": "custom"
+    },
+    "4-notice.page.json": {
+      "x": 0,
+      "y": 3020,
+      "width": 1440,
+      "height": 200,
+      "preset": "custom"
+    },
+    "5-close.page.json": {
+      "x": 0,
+      "y": 3380,
+      "width": 1440,
+      "height": 300,
+      "preset": "custom"
+    },
+    "6-quit.page.json": {
+      "x": 0,
+      "y": 3840,
+      "width": 1440,
+      "height": 300,
+      "preset": "custom"
+    }
+  },
+  "version": 1
+}
