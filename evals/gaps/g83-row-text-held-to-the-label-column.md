@@ -2,7 +2,7 @@
 id: g83
 title: A row's text held to the label column beside its action
 kind: missing
-status: open
+status: done
 found: 2026-11-19
 source: the person, on the workspace screens of decisions/rows-nov19 (fx-opus-rl2 run 1)
 skill: [references/kinds/settings.md]
@@ -51,3 +51,12 @@ the runs grow to 8 a side: then the candidate passes only when the shipped skill
   at about 606px by a 60-character measure, wrapping one or two words with 60 to 90px of room
   left before the action. No field row changed in any candidate run: every one keeps its label
   column. Which wraps count as the fault is asked in `decisions/width-nov19`.
+- `width-nov19`, decided (the person, 2026-11-19): the 60-character wrap is not a fault ("The run
+  2 of the shipped is okay"); the text held to the label column beside a lone action is, and how
+  to avoid it was left to the lab. Read that way, the fault came in 1 of 4 shipped runs (1 of 6
+  with `fx-opus-sl`) and in none of the 4 `action-rows` runs, with no field row changed; too few
+  to pass the test as written, which counted both wraps. The line is the fault's fix in so many
+  words and costs two lines, so it ships on the person's eye: `references/kinds/settings.md`,
+  "Settings are rows": "A row whose control is one action (Export, Transfer ownership, Delete):
+  its label and line take the row's width up to the action, never the label column of the field
+  rows around it.", with its Check row. A row's line capped at the reading measure passes. Done.
