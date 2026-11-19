@@ -9,6 +9,7 @@ import {
   PubSub,
   Ref,
   Schema,
+  Semaphore,
   Stream,
 } from "effect";
 import { AppLog } from "../app-log.ts";
@@ -66,13 +67,22 @@ export class ProfileService extends Context.Service<
       );
       const current = yield* Ref.make<UserProfile>(yield* read);
       const changes = yield* PubSub.unbounded<UserProfile>();
+      /** One save at a time in this server. */
+      const saving = yield* Semaphore.make(1);
+
+      /**
+       * The profile as its file has it now: another project's server, the desktop app's other
+       * windows, may have saved it since this one read it (ADR 0106).
+       */
+      const fresh = Effect.tap(read, (profile) => Ref.set(current, profile));
 
       const set = Effect.fn("ProfileService.set")(function* (
         profile: UserProfile
       ) {
         // A field the request leaves out keeps its value: the name is set apart from the rest,
-        // and each preference apart from the others.
-        const kept = yield* Ref.get(current);
+        // and each preference apart from the others; merged into the file as it is now, so a
+        // save from another server since is kept.
+        const kept: UserProfile = yield* fresh;
         const merged = { ...kept, ...profile };
         const name = merged.displayName?.trim();
         const preferences = { ...kept.preferences, ...profile.preferences };
@@ -93,11 +103,11 @@ export class ProfileService extends Context.Service<
         yield* Ref.set(current, next);
         yield* PubSub.publish(changes, next);
         return next;
-      });
+      }, saving.withPermits(1));
 
       return ProfileService.of({
         changes: Stream.fromPubSub(changes),
-        get: Ref.get(current),
+        get: fresh,
         set,
       });
     })
