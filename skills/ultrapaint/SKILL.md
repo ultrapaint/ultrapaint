@@ -295,6 +295,8 @@ says what the content already shows is noise: remove it, rather than shrinking o
 - An error sits under the field it belongs to. A submit stays enabled and says what is missing.
 - A field that saves on its own shows saving and saved beside it.
 - What can be undone acts and offers the undo; a confirmation names what is lost.
+- In a run of steps (a build, an import, a checkout), the steps that depend on a failed one did
+  not run: no tick, no time, marked as not run.
 - More: `references/states.md`, when you draw any state beyond the loaded one.
 
 ### Usability
