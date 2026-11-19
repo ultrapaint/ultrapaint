@@ -145,49 +145,72 @@ describe("the user's profile, unreadable from the start (ADR 0106)", () => {
       assert.strictEqual(yield* fs.readFileString(`${user}/${aside}`), broken);
     }).pipe(Effect.provide(NodeServices.layer))
   );
-});
 
-it.effect(
-  "refuses the save when the file it can't read can't be kept aside",
-  () =>
+  it.effect("never replaces an earlier one kept at the same time", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const user = yield* fs.makeTempDirectoryScoped();
-      const broken = '{"displayName": "Ada", ';
-      yield* fs.writeFileString(`${user}/profile.json`, broken);
-      const refused = yield* Effect.scoped(
+      // The test clock stands at 0: an earlier one was kept at that time too.
+      yield* fs.writeFileString(`${user}/profile.json.unreadable-0`, "earlier");
+      yield* fs.writeFileString(`${user}/profile.json`, '{"displayName": ');
+      yield* Effect.scoped(
         ProfileService.use((profile) =>
-          Effect.flip(profile.set({ preferences: { theme: "dark" } }))
-        ).pipe(
-          Effect.provide(
-            profileOf(user).pipe(
-              Layer.provide(
-                Layer.effect(
-                  FileSystem.FileSystem,
-                  Effect.map(FileSystem.FileSystem, (real) => ({
-                    ...real,
-                    rename: (from: string) =>
-                      Effect.fail(
-                        new PlatformError.PlatformError(
-                          new PlatformError.SystemError({
-                            _tag: "PermissionDenied",
-                            method: "rename",
-                            module: "FileSystem",
-                            pathOrDescriptor: from,
-                          })
-                        )
-                      ),
-                  }))
+          profile.set({ preferences: { theme: "dark" } })
+        ).pipe(Effect.provide(profileOf(user)))
+      );
+      assert.strictEqual(
+        yield* fs.readFileString(`${user}/profile.json.unreadable-0`),
+        "earlier"
+      );
+      assert.strictEqual(
+        yield* fs.readFileString(`${user}/profile.json.unreadable-0-1`),
+        '{"displayName": '
+      );
+    }).pipe(Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
+    "refuses the save when the file it can't read can't be kept aside",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const user = yield* fs.makeTempDirectoryScoped();
+        const broken = '{"displayName": "Ada", ';
+        yield* fs.writeFileString(`${user}/profile.json`, broken);
+        const refused = yield* Effect.scoped(
+          ProfileService.use((profile) =>
+            Effect.flip(profile.set({ preferences: { theme: "dark" } }))
+          ).pipe(
+            Effect.provide(
+              profileOf(user).pipe(
+                Layer.provide(
+                  Layer.effect(
+                    FileSystem.FileSystem,
+                    Effect.map(FileSystem.FileSystem, (real) => ({
+                      ...real,
+                      link: (from: string) =>
+                        Effect.fail(
+                          new PlatformError.PlatformError(
+                            new PlatformError.SystemError({
+                              _tag: "PermissionDenied",
+                              method: "link",
+                              module: "FileSystem",
+                              pathOrDescriptor: from,
+                            })
+                          )
+                        ),
+                    }))
+                  )
                 )
               )
             )
           )
-        )
-      );
-      assert.strictEqual(refused._tag, "BadRequest");
-      assert.strictEqual(
-        yield* fs.readFileString(`${user}/profile.json`),
-        broken
-      );
-    }).pipe(Effect.provide(NodeServices.layer))
-);
+        );
+        assert.strictEqual(refused._tag, "BadRequest");
+        assert.strictEqual(
+          yield* fs.readFileString(`${user}/profile.json`),
+          broken
+        );
+      }).pipe(Effect.provide(NodeServices.layer))
+  );
+});
