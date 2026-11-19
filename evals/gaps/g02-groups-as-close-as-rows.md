@@ -2,7 +2,7 @@
 id: g02
 title: Groups as close as their rows
 kind: missed
-status: done
+status: testing
 found: 2026-11-03
 source: editor redesign (branch redesign)
 skill: [SKILL.md, references/kinds/navigation.md]
@@ -50,4 +50,4 @@ each catches.
 - `propose`: 2026-11-11, the fix-or-leave call (Opus with the skill, the prompt of cf5bb6f8) leaves both of this gap's findings in rt-2, citing "the gap between groups is at least 2× the gap within one": it measures about 30px between groups against 8px rows. The lab's check measures 27px against 10px (2.7×) here, and the person corrected it all the same, so the rule's 2× passes what the person rejects (runs/rt-2/propose-gaps.md; gaps/sections/components-panel/checks.json)
 - `chk-1`: 2026-11-11, caught: shipped 0/3 (+2 partly), shipped+checks 3/3 (opus, effort high; runs/chk-1/report.md)
 - `rt-2-gpt`: 2026-11-16, caught: shipped 0/2, review-table 0/2, review-inventory 0/2 (reviewed by gpt-6.1-sol, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2-gpt/report.md)
-- `gaps-nov18`, decided (the person, 2026-11-19, `decisions/gaps-nov18`): closed as done by the checks. A review catches it 0 of 3 alone and 3 of 3 with the checks' measurements beside it, which the editor's review already shows its models (ADR 0061).
+- `gaps-nov18` (2026-11-19): the person approved closing it by the checks, on the deck's claim that the editor's review shows its models what the checks measured. That holds only for the checks on the page's document (ADR 0061); the check that catches this gap is the lab's rendered-page `measure`, not built into the editor, and at its default 2× it passes this gap's case (2.7×). Kept open until the editor runs the check at a ratio that flags it, or the person decides the ratio.

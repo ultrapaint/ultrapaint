@@ -2,7 +2,7 @@
 id: g37
 title: Rows with fills stacked with no gap
 kind: missing
-status: done
+status: testing
 found: 2026-11-04
 source: the Changes panel, editor redesign at f608871 (held-out finding changes-1, rated real)
 skill: [SKILL.md]
@@ -35,4 +35,4 @@ named: shipped skill 1/2, redesign-gaps 1/2. The person rated it real
 - `ep-1`: 2026-11-11, caught: review-table@opus+untold 0/2, review-table@opus+told 0/2, review-table@gpt-6.1-sol+untold 0/2, review-table@gpt-6.1-sol+told 0/2 (reviewed by opus, gpt-6.1-sol, judged by cursor:grok-4.7-high, effort high; runs/ep-1/report.md)
 - `chk-1`: 2026-11-11, caught: shipped 1/3, shipped+checks 3/3 (opus, effort high; runs/chk-1/report.md)
 - `rt-2-gpt`: 2026-11-16, caught: shipped 0/2, review-table 0/2, review-inventory 0/2 (reviewed by gpt-6.1-sol, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2-gpt/report.md)
-- `gaps-nov18`, decided (the person, 2026-11-19, `decisions/gaps-nov18`): closed as done by the checks. A review catches it 1 of 3 alone and 3 of 3 with the checks' measurements beside it, which the editor's review already shows its models (ADR 0061).
+- `gaps-nov18` (2026-11-19): the person approved closing it by the checks, on the deck's claim that the editor's review shows its models what the checks measured. That holds only for the checks on the page's document (ADR 0061); the touching-rows check that catches this gap is the lab's rendered-page `measure` (1 of 3 alone, 3 of 3 with it, `chk-1`), not built into the editor. Kept open until the editor runs it.
