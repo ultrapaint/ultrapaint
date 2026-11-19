@@ -24,5 +24,9 @@ control column; nothing says how wide the text of a row whose only control is a 
 **Proposed.** A row whose control is one action: its text takes the row's width up to the action,
 never the label column of the field rows around it.
 
-**Test.** The workspace brief, 2 runs, against the shipped skill: the width of each action row's
-text from the render. A fault seen in 1 of 6 runs; it may need more runs to tell.
+**Test.** A candidate with the proposed line against the shipped skill, on the workspace brief, 4
+runs each, Opus designing. From each render, for every row whose control is one action: the
+text's width against the space from the row's start to the action. A row fails when its text
+wraps while it has under three quarters of that space. The candidate passes with no failing row
+and no field row changed. The fault was seen in 1 of 6 runs, so 4 runs a side may show nothing
+either way; then it stays open.
