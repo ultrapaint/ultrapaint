@@ -269,6 +269,12 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     title: "DESIGN.md",
   },
   {
+    id: "ignored-problems",
+    section: "designSystem",
+    terms: "problems warnings ignore show again lint",
+    title: "Ignored problems",
+  },
+  {
     id: "stylesheets",
     section: "designSystem",
     terms: "css tailwind fonts tokens sync",

@@ -18,6 +18,7 @@ import {
   type ProjectRequirements,
 } from "./project.ts";
 import { CanvasFiles } from "./services/canvas-files.ts";
+import { CodeEditor } from "./services/code-editor.ts";
 import { CodeSide } from "./services/code-side.ts";
 import { CommentsService } from "./services/comments.ts";
 import { ComponentService } from "./services/components.ts";
@@ -82,12 +83,15 @@ type DesignFilesLayer = Layer.Layer<
  */
 export interface Adapters<Agents> {
   readonly agents: Layer.Layer<Agents, never, AgentRequirements>;
+  /** The person's code editor, which a file of the repository is opened in (ADR 0106). */
+  readonly codeEditor: Layer.Layer<CodeEditor>;
   readonly designFiles: DesignFilesLayer;
 }
 
 /** The server's adapters: the sandboxed agent process, and a watch of the designs. */
 export const ServerAdapters = {
   agents: AgentLauncher.layer.pipe(Layer.provideMerge(AgentSandbox.layer)),
+  codeEditor: CodeEditor.layer,
   designFiles: DesignFiles.layer,
 } satisfies Adapters<AgentLauncher | AgentSandbox>;
 
@@ -198,6 +202,7 @@ export const ApplicationLayer = <Agents>(adapters: Adapters<Agents>) =>
     Layer.provideMerge(DesignSystemSyncService.layer),
     Layer.provideMerge(DesignSystemSetupService.layer),
     Layer.provideMerge(adapters.agents),
+    Layer.provideMerge(adapters.codeEditor),
     Layer.provideMerge(
       ProjectManager.layer((settings) =>
         projectLayer(settings, adapters.designFiles)

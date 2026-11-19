@@ -757,6 +757,15 @@ const requestRpcs = [
 
   Rpc.make("git.status", { error: GitError, success: GitStatus }),
 
+  /**
+   * A file of the repository opened in the person's code editor (ADR 0106), at the line of `at`
+   * when given: a dotted path into its keys (`colors.primary`, `shadow.card`).
+   */
+  Rpc.make("files.open", {
+    error: Schema.Union([NotConfigured, BadRequest, ForbiddenPath, NotFound]),
+    payload: { at: Schema.optional(Schema.String), path: Schema.String },
+  }),
+
   Rpc.make("git.diff", {
     error: GitError,
     payload: { path: Schema.String },

@@ -28,7 +28,8 @@
     "@ultrapaint/style-tailwind-v4": "workspace:*",
     "@ultrapaint/system-components": "workspace:*",
     "effect": "catalog:",
-    "ignore": "^7.0.14"
+    "ignore": "^7.0.14",
+    "launch-editor": "2.14.2"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",

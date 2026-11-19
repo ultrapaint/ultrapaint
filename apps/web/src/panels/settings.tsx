@@ -29,12 +29,19 @@ import { OptionSelect } from "../components/option-select.tsx";
 import { useAutosave } from "../lib/autosave.ts";
 import { isTyping } from "../lib/keys.ts";
 import { placeDocument } from "../lib/place-document.ts";
+import type { Problem } from "../lib/problems.ts";
 import { detect, save, setUpDesigns } from "../lib/settings-actions.ts";
 import { startInit } from "../lib/start-thread.ts";
 import { platform } from "../platform.ts";
 import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { showLeftPanel } from "../state/panels.ts";
+import {
+  setIgnored,
+  useIgnoredProblems,
+  useProblemIds,
+  useProblems,
+} from "../state/problems.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { AboutSection } from "./settings-about.tsx";
 import {
@@ -75,9 +82,13 @@ const NEEDS_SAVED: ReadonlySet<SectionId> = new Set([
   "skills",
 ]);
 
-/** DESIGN.md in a line: where it is, and what the format's linter says of it. */
+/**
+ * DESIGN.md in a line: where it is, and what of the format's linter's findings is still to fix,
+ * the ones left as they are not counted (ADR 0106).
+ */
 const documentStatus = (
-  document: DesignDocument | null
+  document: DesignDocument | null,
+  problems: readonly Problem[]
 ): { line: string; status?: React.ReactNode } => {
   if (!document) {
     return {
@@ -89,10 +100,9 @@ const documentStatus = (
       line: "In the designs directory. At the root, agents outside the editor find it too.",
     };
   }
-  const errors = document.findings.filter((f) => f.severity === "error").length;
-  const warnings = document.findings.filter(
-    (f) => f.severity === "warning"
-  ).length;
+  const found = problems.filter((p) => p.source === "DESIGN.md");
+  const errors = found.filter((p) => p.severity === "error").length;
+  const warnings = found.filter((p) => p.severity === "warning").length;
   if (errors + warnings === 0) {
     return {
       line: "At the repository’s root, where every agent finds it.",
@@ -133,7 +143,7 @@ const DesignSystemSummary = () => {
     useProject.getState().openSettings(false);
     startInit();
   };
-  const doc = documentStatus(document);
+  const doc = documentStatus(document, useProblems());
   return (
     <>
       <div
@@ -184,7 +194,47 @@ const DesignSystemSummary = () => {
           </Row>
         </Group>
       ) : null}
+      <IgnoredProblems />
     </>
+  );
+};
+
+/**
+ * The problems left as they are (ADR 0106), each with whose choice it was and Show again; said
+ * to be none while there are none, so the place to look is found before it is needed.
+ */
+const IgnoredProblems = () => {
+  const ignored = useIgnoredProblems();
+  const present = useProblemIds();
+  return (
+    <Group
+      note="Warnings ignored from a problem’s menu. One that changes is listed again."
+      title="Ignored problems"
+    >
+      {ignored.length === 0 ? (
+        <Row setting="ignored-problems" title="Nothing ignored" />
+      ) : (
+        ignored.map(({ by, problem }) => (
+          <Row
+            description={
+              by === "project"
+                ? `${problem.source} · ignored for the project`
+                : `${problem.source} · ignored for you`
+            }
+            key={problem.id}
+            setting="ignored-problems"
+            title={problem.title.replaceAll("`", "")}
+          >
+            <Button
+              onClick={() => setIgnored(problem.id, by, false, present)}
+              variant="outline"
+            >
+              Show again
+            </Button>
+          </Row>
+        ))
+      )}
+    </Group>
   );
 };
 

@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   findingWords,
   fixPrompt,
+  ignorable,
   type ProblemsInput,
   problemsOf,
   worstOf,
@@ -70,6 +71,7 @@ const WAITING: SyncPlan = {
 
 const nothing: ProblemsInput = {
   designSystemRead: true,
+  designsDir: "docs/designs",
   document: null,
   notes: [],
   plan: null,
@@ -221,6 +223,38 @@ describe("Problems › the chat drafted to fix them", () => {
       `- DESIGN.md, \`colors\`: ${MISSING_PRIMARY.message}`,
       `- DESIGN.md, \`components.button-secondary\`: ${CONTRAST.message}`,
       "Ask me where a choice is mine.",
+    ]);
+  });
+});
+
+describe("Problems › where each is written, and which can be left (ADR 0106)", () => {
+  it("names the file and the place of its line, and none for a sync step", () => {
+    const problems = problemsOf({
+      ...nothing,
+      document: documentWith([CONTRAST, orphan("agent")]),
+      notes: [
+        "design.tokens.json: `shadow.card`: its value could not be read as CSS, so it is left out.",
+      ],
+      plan: WAITING,
+    });
+    expect(problems.map((p) => p.file)).toEqual([
+      null,
+      { at: "shadow.card", path: "docs/designs/design.tokens.json" },
+      { at: "components.button-secondary", path: "DESIGN.md" },
+      { at: "colors.agent", path: "DESIGN.md" },
+    ]);
+  });
+
+  it("lets a warning be left as it is, never an error or a sync step", () => {
+    const problems = problemsOf({
+      ...nothing,
+      document: documentWith([MISSING_PRIMARY, BROKEN]),
+      plan: WAITING,
+    });
+    expect(problems.map((p) => [p.source, p.severity, ignorable(p)])).toEqual([
+      ["Sync", "warning", false],
+      ["DESIGN.md", "warning", true],
+      ["DESIGN.md", "error", false],
     ]);
   });
 });

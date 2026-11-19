@@ -5,10 +5,12 @@ import {
   eventNames,
   UltrapaintRpcs,
 } from "@ultrapaint/contracts/rpc";
-import { Effect, type Stream } from "effect";
+import { Effect, FileSystem, type Stream } from "effect";
 import { AppLog } from "./app-log.ts";
 import { EventBus } from "./events.ts";
+import { lineOfKey } from "./line-of-key.ts";
 import { OpenProject, ProjectManager } from "./project.ts";
+import { CodeEditor } from "./services/code-editor.ts";
 import { CommentsService } from "./services/comments.ts";
 import { ComponentService } from "./services/components.ts";
 import { DesignMd } from "./services/design-md.ts";
@@ -25,6 +27,7 @@ import { ImplementationService } from "./services/implementation.ts";
 import { McpAccess } from "./services/mcp/access.ts";
 import { PagesService } from "./services/pages.ts";
 import { ProfileService } from "./services/profile.ts";
+import { RepoPaths } from "./services/repo-paths.ts";
 import { Screenshots } from "./services/screenshots.ts";
 import { SetupService } from "./services/setup.ts";
 import { SetupSteps } from "./services/setup-steps.ts";
@@ -86,6 +89,9 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const implementation = open.service(ImplementationService);
     const variations = open.service(VariationsService);
     const rounds = open.service(VariationRounds);
+    const repoPaths = open.service(RepoPaths);
+    const codeEditor = yield* CodeEditor;
+    const fs = yield* FileSystem.FileSystem;
 
     // Every event as the bus carries it, but a screenshot request: an editor listening for those
     // is one that can draw, which the screenshots count.
@@ -189,6 +195,24 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
 
       ...eventHandlers,
       "editor.select": ({ nodes }) => selection.set(nodes),
+      // A file of the repository in the person's code editor, at the line of a key (ADR 0106).
+      "files.open": ({ at, path }) =>
+        repoPaths((paths) =>
+          Effect.gen(function* () {
+            const file = yield* paths.resolve(path);
+            const text = yield* fs
+              .readFileString(file)
+              .pipe(
+                Effect.mapError(
+                  () => new NotFound({ message: `${path} can't be read` })
+                )
+              );
+            yield* codeEditor.open(
+              file,
+              at === undefined ? undefined : lineOfKey(text, at)
+            );
+          })
+        ),
       "git.commit": ({ message, paths }) =>
         git((g) => Effect.map(g.commit(message, paths), (sha) => ({ sha }))),
       "git.diff": ({ path }) => git((g) => g.diff(path)),

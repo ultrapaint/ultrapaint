@@ -4,6 +4,7 @@ import type {
   DesignDocument,
   DesignFinding,
 } from "@ultrapaint/contracts/design-system";
+import { defaultSettings } from "@ultrapaint/contracts/settings";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,7 +12,10 @@ import { startPrompt } from "../lib/start-thread.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import { showLeftPanel } from "../state/panels.ts";
+import { usePersonalIgnores } from "../state/problems.ts";
+import { useProject } from "../state/project.ts";
 import { useSync } from "../state/sync.ts";
+import { fakeApi } from "../testing/fake-api.ts";
 import { Problems } from "./problems.tsx";
 
 vi.mock(
@@ -51,6 +55,8 @@ const documentWith = (findings: readonly DesignFinding[]): DesignDocument => ({
 const initialDesignSystem = useDesignSystem.getState();
 const initialSync = useSync.getState();
 const initialSetup = useDesignSystemSetup.getState();
+const initialProject = useProject.getState();
+const initialIgnores = usePersonalIgnores.getState();
 
 let mounted: Root;
 let container: HTMLElement;
@@ -66,7 +72,10 @@ const button = (name: string) =>
   );
 
 beforeEach(() => {
+  fakeApi.reset();
+  useProject.setState({ settings: defaultSettings("/repo") });
   container = document.createElement("div");
+  document.body.append(container);
   mounted = createRoot(container);
 });
 
@@ -75,6 +84,9 @@ afterEach(() => {
   useDesignSystem.setState(initialDesignSystem, true);
   useSync.setState(initialSync, true);
   useDesignSystemSetup.setState(initialSetup, true);
+  useProject.setState(initialProject, true);
+  usePersonalIgnores.setState(initialIgnores, true);
+  container.remove();
   vi.clearAllMocks();
 });
 
@@ -140,5 +152,77 @@ describe("Problems (ADR 0106)", () => {
     act(() => useDesignSystem.setState({ document: documentWith([]) }));
     expect(container.textContent).toContain("No problems");
     expect(button("Fix with agent")).toEqual([]);
+  });
+});
+
+describe("Problems › a problem's menu (ADR 0106)", () => {
+  /** Opens the first row's menu and picks `item`. */
+  const pick = async (item: string) => {
+    const more = container.querySelector<HTMLButtonElement>(
+      "li button[aria-label='More']"
+    );
+    await act(async () => {
+      more?.click();
+      await Promise.resolve();
+    });
+    const entry = [...document.querySelectorAll("[role='menuitem']")].find(
+      (row) => row.textContent === item
+    ) as HTMLElement | undefined;
+    await act(async () => {
+      entry?.click();
+      await Promise.resolve();
+    });
+  };
+
+  const rows = () =>
+    [...container.querySelectorAll("li")].map((li) =>
+      li.getAttribute("aria-label")
+    );
+
+  it("shows a problem in its file, at the line of its place", async () => {
+    fakeApi.respond("files.open", () => undefined);
+    panelWith([MISSING_PRIMARY]);
+    await pick("Show in file");
+    expect(fakeApi.calls.find((c) => c.method === "files.open")?.input).toEqual(
+      { at: "colors", path: "DESIGN.md" }
+    );
+  });
+
+  it("leaves a warning as it is for the person, kept by project", async () => {
+    panelWith([MISSING_PRIMARY, BROKEN]);
+    await pick("Ignore for me");
+    expect(rows()).toEqual(["card points to a missing token"]);
+    expect(usePersonalIgnores.getState().byProject["/repo"]).toHaveLength(1);
+  });
+
+  it("leaves a warning as it is for the project, in its settings", async () => {
+    fakeApi.respond("settings.set", () => ({ ok: true, problems: [] }));
+    fakeApi.respond("project.info", () => ({
+      ...initialProject.info,
+      configured: true,
+    }));
+    panelWith([MISSING_PRIMARY]);
+    await pick("Ignore for the project");
+    const saved = fakeApi.calls.find((c) => c.method === "settings.set")
+      ?.input as { ignoredProblems?: readonly string[] } | undefined;
+    expect(saved?.ignoredProblems).toEqual([
+      `DESIGN.md:colors:${MISSING_PRIMARY.message}`,
+    ]);
+  });
+
+  it("offers no ignoring for an error, only where it is", async () => {
+    panelWith([BROKEN]);
+    const more = container.querySelector<HTMLButtonElement>(
+      "li button[aria-label='More']"
+    );
+    await act(async () => {
+      more?.click();
+      await Promise.resolve();
+    });
+    expect(
+      [...document.querySelectorAll("[role='menuitem']")].map(
+        (row) => row.textContent
+      )
+    ).toEqual(["Show in file"]);
   });
 });

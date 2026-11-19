@@ -12,6 +12,7 @@ import {
   Stream,
 } from "effect";
 import { TestClock } from "effect/testing";
+import { CodeEditor } from "./services/code-editor.ts";
 import { nextEvent, subscribed, TestEnv } from "./testing/harness.ts";
 import {
   inAProject,
@@ -1505,6 +1506,40 @@ describe("the editor's requests on a project", () => {
         (yield* client["pages.list"]()).canvases.map((c) => c.id),
         "wireframes"
       );
+    })
+  );
+});
+
+describe("a file in the person's code editor (ADR 0106)", () => {
+  inProject("opens a file of the repository at the line of its key", () =>
+    Effect.gen(function* () {
+      const { client, repo } = yield* TestEnv;
+      const fs = yield* FileSystem.FileSystem;
+      yield* fs.writeFileString(
+        path.join(repo, "DESIGN.md"),
+        "---\ncolors:\n  ink: '#111111'\n  primary: '#2255ee'\n---\n"
+      );
+      yield* client["files.open"]({ at: "colors.primary", path: "DESIGN.md" });
+      yield* client["files.open"]({ path: "DESIGN.md" });
+      const opened = yield* (yield* CodeEditor).opened;
+      assert.deepStrictEqual(
+        opened.map((o) => [path.basename(o.file), o.line]),
+        [
+          ["DESIGN.md", 4],
+          ["DESIGN.md", undefined],
+        ]
+      );
+    })
+  );
+
+  inProject("refuses a file outside the repository, and opens nothing", () =>
+    Effect.gen(function* () {
+      const { client } = yield* TestEnv;
+      const refused = yield* Effect.flip(
+        client["files.open"]({ path: "../outside.md" })
+      );
+      assert.strictEqual(refused._tag, "ForbiddenPath");
+      assert.deepStrictEqual(yield* (yield* CodeEditor).opened, []);
     })
   );
 });

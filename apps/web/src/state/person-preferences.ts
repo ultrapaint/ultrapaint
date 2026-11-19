@@ -19,6 +19,7 @@ import {
   preferencesOf,
   usePreferences,
 } from "./preferences.ts";
+import { personalIgnoresOf, usePersonalIgnores } from "./problems.ts";
 import { reportError } from "./project.ts";
 import { type SendKey, useSendKey } from "./send-key.ts";
 import { follow } from "./server-data.ts";
@@ -91,6 +92,13 @@ export const KEPT: Readonly<Record<string, Kept>> = {
         useCanvasGrid.getState().toggle();
       }
     },
+  },
+  // What the person left as it is in Problems, by project (ADR 0106).
+  ignoredProblems: {
+    current: () => usePersonalIgnores.getState().byProject,
+    subscribe: watching(usePersonalIgnores, (s) => s.byProject),
+    take: (value) =>
+      usePersonalIgnores.getState().setAll(personalIgnoresOf(value)),
   },
   keybindings: {
     current: () => useKeybindings.getState().overrides,

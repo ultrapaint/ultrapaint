@@ -31,6 +31,17 @@ put to another use.
   with agent**, a new chat drafted with the file's own words for it, which the person sends (ADR
   0074). **Fix all with agent** drafts one chat for all of them, offered when there is more than
   one.
+- **A problem's menu shows it in its file and can leave it as it is.** **Show in file** opens the
+  file in the person's code editor at the line of its place (`files.open`, the server's
+  `CodeEditor`: `launch-editor` guesses the editor from those running, else `LAUNCH_EDITOR`,
+  `VISUAL` or `EDITOR`, which it reads itself). A warning an agent would fix can be ignored: **for
+  me**, kept in the person's profile by project (`ignoredProblems`), or **for the project**, kept
+  in its settings (`ignoredProblems` in `ultrapaint.config.json`) so the whole team stops seeing
+  it. An error and a sync step can't be ignored. A problem is ignored by its id, which holds the
+  file's words, so one whose words change (a contrast that moved) is listed again; ids of problems
+  gone are dropped as the list is next written.
+- **Settings › Design system lists what is ignored**, whose choice it was, and **Show again**; it
+  says nothing is ignored while nothing is, so the place is found before it is needed.
 - **The place switch carries the sign**: Design system shows the warning icon while there are
   problems, its tooltip their count. The sync's pink dot is gone from the rail and the switch.
 
@@ -38,6 +49,7 @@ put to another use.
 
 - Foundations no longer lists findings, notes or the sync's waiting row; a file that does not read
   is still said over its list, as it explains what the list shows, and is also a problem.
-- A problem has no "ignore" and no "show in file" yet: the editor has no way to open a file, and an
-  ignored warning would need a place to be kept.
+- The editor is opened on the server's machine: over SSH it is the remote machine's, where no
+  editor may run, and the request says none was found. The editor is the person's and outlives the
+  request; the server neither waits for it nor stops it.
 - A new linter rule shows in the linter's words until `findingWords` learns it.

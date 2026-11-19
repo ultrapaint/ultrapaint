@@ -11,6 +11,11 @@ const common = {
    */
   codeTokens: Schema.optional(Schema.Literals(["manual", "auto"])),
   /**
+   * The problems the team chose to leave as they are (ADR 0106), by the editor's id for each: no
+   * longer listed in Problems for anyone on the project. A problem that changes is a new one.
+   */
+  ignoredProblems: Schema.optional(Schema.Array(Schema.String)),
+  /**
    * Writes a PNG of every page beside its file (`orders.page.png`), drawn again whenever the page,
    * its frame or the design system changes. Off when absent.
    */

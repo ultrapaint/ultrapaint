@@ -64,6 +64,7 @@ The agent's own slash commands are listed after these.
 | `hostCss` | The stylesheets that set up your design system, whose tokens Sync reads and writes |
 | `styleSystem` | What the tokens are written in: `tailwind-v4` (the default, and the only one today) |
 | `codeTokens` | `auto` to write a token changed in the design to the code at once; `manual` (the default) leaves it waiting in Sync for an export |
+| `ignoredProblems` | The warnings the team left as they are in **Problems**, by id; written by **Ignore for the project** and **Show again**, not by hand |
 | `pagePngs` | `true` to keep a PNG of every page beside its file (off by default) |
 | `review` | How designs are reviewed: `on`, `reviewModels` (each an `agentId`, a `model` and an optional `effort`, in the order they take turns), `eachRound` (`one`, `rotate` or `all`), `approval` (`all` or `one`) and a `goal`. Absent, Standard with the strongest model of each agent signed in |
 | `skills.disabled` | Design skills agents are not told: `ultrapaint` for the design skill, a project file's name for its own |
