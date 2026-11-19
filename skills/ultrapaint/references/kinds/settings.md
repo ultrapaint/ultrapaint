@@ -8,8 +8,10 @@ Open with it, before the first element: `references/components.md`, `references/
 
 ## Settings are rows
 
-- On a desktop the content column sits left-aligned beside the navigation, `720–1090px` wide,
-  never a narrow column centred on the page; on a phone it takes the full width.
+- On a desktop the content column keeps `720–1090px` and is centred in the space beside the
+  navigation, so what the window has to spare falls on both sides of it, not all on its right;
+  never a narrow column, never rows stretched across a wide window. On a phone it takes the full
+  width.
 - The page title is the page's name in one or two words ("Billing", "Members") at `20px`; section
   names at `16px`; rows at `14px`, their lines at `12–13px`. No subtitle under the title.
 - A section is one surface (or the bare page) holding a stack of rows split by hairlines; never
@@ -91,7 +93,7 @@ Open with it, before the first element: `references/components.md`, `references/
 
 | You see | Fix |
 | --- | --- |
-| A narrow settings column centred on the page | Left-aligned beside the navigation, `720–1090px` wide |
+| A settings column against the navigation with the spare width all on its right, or a narrow column | `720–1090px`, centred in the space beside the navigation |
 | A page title in a sentence, or a subtitle under it | The page's name in one or two words at `20px`, nothing under it |
 | A card around each settings row | One surface; rows split by hairlines |
 | A section surface with a shadow or a strong border | A faint `1px` border, no shadow |
