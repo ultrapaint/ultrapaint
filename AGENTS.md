@@ -20,8 +20,6 @@
   corrects a design made with the skill, add a gap there and leave `skills/ultrapaint/` as it is
   (`evals/gaps/README.md` says how). `DESIGN.md` takes only what this product chose (a value, a
   variant, one of two allowed ways); a correction that holds for any product is a gap (ADR 0065).
-- Several decisions to ask the person: write them as a deck and serve it with `pnpm evals decide`
-  (`evals/README.md`, "Decisions").
 - A link the editor copies (`…?canvas=redesign&route=/vibe&node=c_1`, `page=` for a page without
   a URL, `variant=bold` for the page's file `vibe@bold.page.json`) names node `c_1` of that page,
   in `docs/designs/<canvas>/`; the editor's MCP tools take it as they take `/vibe#c_1`.
