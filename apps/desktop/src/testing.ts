@@ -203,6 +203,30 @@ const versionOf = (recorded: Recorded, name: string) =>
     return Effect.succeed(name.includes("older") ? "0.9.0" : FAKE_VERSION);
   });
 
+/** The agents at work in a folder's server; one named `…lazyhealth…` takes 2 s to say. */
+const workingOf = (recorded: Recorded, name: string) =>
+  Effect.andThen(
+    name.includes("lazyhealth")
+      ? Effect.andThen(
+          Effect.sync(() => recordEvent(recorded, `health ${name}`)),
+          Effect.sleep("2 seconds")
+        )
+      : Effect.void,
+    Effect.sync(() => recorded.working[name] ?? 0)
+  );
+
+/** What a folder's server does as it stops: one named `lingering` takes 1 s. */
+const stopOf = (recorded: Recorded, name: string) =>
+  Effect.andThen(
+    name === "lingering"
+      ? Effect.andThen(
+          Effect.sync(() => recordEvent(recorded, "stopping lingering")),
+          Effect.sleep("1 second")
+        )
+      : Effect.void,
+    Effect.sync(() => recordEvent(recorded, `stop ${name}`))
+  );
+
 /**
  * A server per start, at `http://127.0.0.1/<folder name>`, whose stop is recorded; a folder
  * named `broken` does not start, one named `attached` has a server running already, one named
@@ -241,19 +265,7 @@ export const fakeServers = (recorded: Recorded) =>
           recorded.starts.push(options);
           recordEvent(recorded, `${attached ? "attach" : "start"} ${name}`);
           if (!attached) {
-            yield* Effect.addFinalizer(() =>
-              Effect.andThen(
-                name === "lingering"
-                  ? Effect.andThen(
-                      Effect.sync(() =>
-                        recordEvent(recorded, "stopping lingering")
-                      ),
-                      Effect.sleep("1 second")
-                    )
-                  : Effect.void,
-                Effect.sync(() => recordEvent(recorded, `stop ${name}`))
-              )
-            );
+            yield* Effect.addFinalizer(() => stopOf(recorded, name));
           }
           const process = { exited: false };
           recorded.processes[name] = process;
@@ -263,7 +275,7 @@ export const fakeServers = (recorded: Recorded) =>
             token: `token-${name}`,
             url: `http://127.0.0.1/${name}`,
             version: versionOf(recorded, name),
-            working: Effect.sync(() => recorded.working[name] ?? 0),
+            working: workingOf(recorded, name),
           };
         }),
     })

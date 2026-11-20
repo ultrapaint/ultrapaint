@@ -469,9 +469,10 @@ export class OpenProjects extends Context.Service<
          */
         const agreeToStop = Effect.fnUntraced(function* (
           action: StopAll,
-          targets: () => readonly Tab[]
+          targets: () => readonly Tab[],
+          /** The projects agreed to already, which this adds to. */
+          agreed: Set<string> = new Set<string>()
         ) {
-          const agreed = new Set<string>();
           for (;;) {
             const busy = yield* busyOf(targets());
             if (busy.every((b) => agreed.has(b.id))) {
@@ -828,8 +829,19 @@ export class OpenProjects extends Context.Service<
               )
             )
           );
-          // Stopped, what stopped it saw to the tab: its close, or the quit.
+          // Stopped, what stopped it saw to the tab: its close, or the quit. A quit the person
+          // then declined leaves the start to try again.
           if (launched._tag === "stopped") {
+            if (launched.reason === "quit" && !quitting) {
+              yield* changeOpening(tab, underway, (o, now) =>
+                failOpening(
+                  o,
+                  "Its start was stopped as the app began to quit",
+                  now
+                )
+              );
+              yield* tellTabs;
+            }
             return false;
           }
           // The shell's steps are done; the editor's begin as its view loads.
@@ -1128,13 +1140,33 @@ export class OpenProjects extends Context.Service<
           quitAsked = asked;
           return Effect.onExit(
             Effect.gen(function* () {
-              // Every project as it is once the answer is given: a start that ended meanwhile,
-              // busy now, is asked about too.
-              if (!(yield* agreeToStop("quit", () => tabs))) {
-                return false;
+              const agreed = new Set<string>();
+              for (;;) {
+                // Every project as it is once the answer is given: a start that ended
+                // meanwhile, busy now, is asked about too.
+                if (!(yield* agreeToStop("quit", () => tabs, agreed))) {
+                  return false;
+                }
+                // The starts under way end now (a quit waits for none, a machine that does not
+                // answer included); then, under the hold, no server starts between the last look
+                // and the stop.
+                yield* Effect.forEach(tabs, (tab) => stopLaunch(tab, "quit"), {
+                  discard: true,
+                });
+                const stopped = yield* ofAll(
+                  Effect.gen(function* () {
+                    const busy = yield* busyOf(tabs);
+                    if (!busy.every((b) => agreed.has(b.id))) {
+                      return false;
+                    }
+                    yield* stopAll;
+                    return true;
+                  })
+                );
+                if (stopped) {
+                  return true;
+                }
               }
-              yield* stopAll;
-              return true;
             }),
             (exit) => {
               quitAsked = null;

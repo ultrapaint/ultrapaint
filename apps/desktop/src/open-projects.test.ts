@@ -438,9 +438,12 @@ describe("OpenProjects", () => {
             yield* connected(recorded);
             assert.isTrue(yield* open.stop({ ask }));
             yield* Fiber.join(opening);
-            assert.deepStrictEqual(recorded.events, [
+            // Both gone, in either order: the start given up, the server stopped.
+            assert.deepStrictEqual(recorded.events.slice(0, 2), [
               "start here",
               "connect silent:srv",
+            ]);
+            assert.sameMembers(recorded.events.slice(2), [
               "stop here",
               "give up silent:srv",
             ]);
@@ -1735,6 +1738,48 @@ describe("OpenProjects", () => {
           assert.deepStrictEqual(recorded.details, [
             "An agent is working in docs. Quitting stops it.",
             "Agents are working in docs and slow. Quitting stops them.",
+          ]);
+          assert.isFalse(recorded.events.some((e) => e.startsWith("stop")));
+        })
+      )
+  );
+
+  it.effect(
+    "a quit asks about a project that started and became busy while a health check was slow",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProjects;
+          const quiet = yield* store.add("/work/lazyhealth");
+          const slow = yield* store.add("/work/slow");
+          yield* open.open(quiet.id);
+          const opening = yield* Effect.forkChild(open.open(slow.id), {
+            startImmediately: true,
+          });
+          yield* until(recorded, ({ events }) => events.includes("wait slow"));
+          recorded.working.slow = 1;
+          recorded.answers.push(false);
+          // Its health slow to answer: slow starts, an agent at work there, meanwhile.
+          const quitting = yield* Effect.forkChild(open.stop({ ask: true }), {
+            startImmediately: true,
+          });
+          yield* until(recorded, ({ events }) =>
+            events.includes("health lazyhealth")
+          );
+          // slow is up before that health answers.
+          yield* TestClock.adjust("1200 millis");
+          yield* Fiber.join(opening);
+          // Each health answers in its time, as often as the quit looks: until it is answered.
+          for (let step = 0; step < 20; step += 1) {
+            if (quitting.pollUnsafe() !== undefined) {
+              break;
+            }
+            yield* TestClock.adjust("2 seconds");
+          }
+          assert.isFalse(yield* Fiber.join(quitting));
+          assert.deepStrictEqual(recorded.details, [
+            "An agent is working in slow. Quitting stops it.",
           ]);
           assert.isFalse(recorded.events.some((e) => e.startsWith("stop")));
         })
