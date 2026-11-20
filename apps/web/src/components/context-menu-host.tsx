@@ -81,6 +81,7 @@ import {
   Ungroup,
   Unlink,
   Unplug,
+  X,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -175,6 +176,7 @@ const SUBMENU_ICONS: Partial<Record<SubmenuId, LucideIcon>> = {
 
 /** The commands' own, by their id in `commands.ts`: the menus' and the palette's. */
 export const COMMAND_ICONS: Record<string, LucideIcon> = {
+  closeProject: X,
   copy: Copy,
   cut: Scissors,
   grid: Grid3x3,

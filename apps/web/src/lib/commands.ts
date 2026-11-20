@@ -14,8 +14,8 @@ import type { Thread } from "@ultrapaint/contracts/threads";
 import { openCommandPalette } from "../components/command-palette.tsx";
 import { openShortcutSheet } from "../components/shortcut-sheet.tsx";
 import type { LayerItem } from "../panels/layer-tree.ts";
+import { platform } from "../platform.ts";
 import { useAgents } from "../state/agents.ts";
-
 import { setView, zoomToFit, zoomToSelection } from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useCanvasPicks } from "../state/canvas-picks.ts";
@@ -36,7 +36,7 @@ import {
   showRightPanel,
   usePanels,
 } from "../state/panels.ts";
-import { useProject } from "../state/project.ts";
+import { reportError, useProject } from "../state/project.ts";
 import { selectedPageNow } from "../state/selection.ts";
 import { surfaceNow } from "../state/surface.ts";
 import { variationsKey } from "../state/variations.ts";
@@ -528,6 +528,18 @@ const projectCommands = (): CommandSpec[] => [
     run: () => useProject.getState().openSettings(true),
     title: () =>
       useProject.getState().settings ? "Settings" : "Set up the project",
+  },
+  {
+    // The desktop app's: its tab closes, and its server stops, asked first when an agent is at
+    // work there (ADR 0107).
+    group: "Project",
+    id: "closeProject",
+    keywords: "tab stop",
+    offered: () => platform().projects?.close !== undefined,
+    run: () => {
+      platform().projects?.close(undefined).catch(reportError);
+    },
+    title: "Close project",
   },
   {
     group: "Project",
