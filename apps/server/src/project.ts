@@ -36,7 +36,6 @@ import type { ChildProcessSpawner } from "effect/process";
 import { AppLog } from "./app-log.ts";
 import { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
-import { makeProjectImages, projectName } from "./project-images.ts";
 import type { CodeSide } from "./services/code-side.ts";
 import type { CommentsService } from "./services/comments.ts";
 import type { ComponentService } from "./services/components.ts";
@@ -55,6 +54,7 @@ import type { PagePngs } from "./services/page-pngs.ts";
 import { PageVariants } from "./services/page-variants.ts";
 import type { PagesService } from "./services/pages.ts";
 import { ProfileService } from "./services/profile.ts";
+import { ProjectImages, projectName } from "./services/project-images.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import type { Screenshots } from "./services/screenshots.ts";
 import { SettingsService } from "./services/settings.ts";
@@ -85,6 +85,7 @@ export type ProjectServices =
   | History
   | ImplementationService
   | PagePngs
+  | ProjectImages
   | ProjectStyleSystem
   | RepoPaths
   | PagesService
@@ -249,7 +250,6 @@ export class ProjectManager extends Context.Service<
         const profile = yield* ProfileService;
         const config = yield* ServerConfig;
         const { userDir } = config;
-        const images = makeProjectImages(fs, path);
         const managerScope = yield* Effect.scope;
         // open and close never interleave.
         const lifecycle = yield* Semaphore.make(1);
@@ -308,6 +308,7 @@ export class ProjectManager extends Context.Service<
           saved: Settings | null
         ) {
           const paths = yield* RepoPaths;
+          const images = yield* ProjectImages;
           const shownWith = saved ?? paths.settings;
           const name = projectName(shownWith, paths.root);
           const git = yield* GitService;
@@ -427,7 +428,15 @@ export class ProjectManager extends Context.Service<
           settings: Settings,
           why: string
         ) {
-          if (!(current && sameSettings(current.settings, settings))) {
+          if (current && sameSettings(current.settings, settings)) {
+            // Opened, the project looked for its images; left open, it looks again, so a favicon
+            // added since is the default icon once the settings are saved (nothing watches the
+            // code's folders).
+            yield* use(Effect.flatMap(ProjectImages, (i) => i.refresh)).pipe(
+              // Closed meanwhile: there is no project to look in.
+              Effect.catchTag("NotConfigured", () => Effect.void)
+            );
+          } else {
             yield* log.log(
               "server",
               "info",

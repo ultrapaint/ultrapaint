@@ -7,10 +7,10 @@
  */
 import path from "node:path";
 import { PROJECT_IMAGE_ROUTE } from "@ultrapaint/contracts/project";
-import { Effect, FileSystem, Path } from "effect";
+import { Effect, FileSystem } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 import { OpenProject } from "./project.ts";
-import { imageType, makeProjectImages } from "./project-images.ts";
+import { imageType, ProjectImages } from "./services/project-images.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 
 export const ASSET_ROUTE = "/api/asset";
@@ -69,7 +69,10 @@ export const AssetRoute = HttpRouter.use(
         return yield* HttpServerResponse.file(found, {
           contentType: type,
           headers: { "cache-control": "no-cache" },
-        }).pipe(Effect.orElseSucceed(() => notFound));
+        }).pipe(
+          // Gone or unreadable between the look and the read: not found, as it now is.
+          Effect.orElseSucceed(() => notFound)
+        );
       })
     );
   })
@@ -82,9 +85,7 @@ export const AssetRoute = HttpRouter.use(
  */
 export const ProjectImageRoute = HttpRouter.use(
   Effect.fnUntraced(function* (router) {
-    const project = yield* OpenProject;
-    const fs = yield* FileSystem.FileSystem;
-    const images = makeProjectImages(fs, yield* Path.Path);
+    const images = (yield* OpenProject).service(ProjectImages);
     yield* router.add(
       "GET",
       PROJECT_IMAGE_ROUTE,
@@ -93,8 +94,7 @@ export const ProjectImageRoute = HttpRouter.use(
         const rel =
           new URL(request.url, "http://localhost").searchParams.get("path") ??
           "";
-        const found = yield* project
-          .use(images.file(rel))
+        const found = yield* images((i) => i.file(rel))
           // No project open: there is no image to find.
           .pipe(Effect.catchTag("NotConfigured", () => Effect.succeed(null)));
         const type = imageType(rel);
@@ -104,7 +104,10 @@ export const ProjectImageRoute = HttpRouter.use(
         return yield* HttpServerResponse.file(found, {
           contentType: type,
           headers: { "cache-control": "no-cache" },
-        }).pipe(Effect.orElseSucceed(() => notFound));
+        }).pipe(
+          // Gone or unreadable between the look and the read: not found, as it now is.
+          Effect.orElseSucceed(() => notFound)
+        );
       })
     );
   })

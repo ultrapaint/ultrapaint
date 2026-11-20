@@ -41,6 +41,7 @@ import { PagePngs } from "./services/page-pngs.ts";
 import { PageVariants } from "./services/page-variants.ts";
 import { PagesService } from "./services/pages.ts";
 import { ProfileService } from "./services/profile.ts";
+import { ProjectImages } from "./services/project-images.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import { ReviewLoop } from "./services/review/review-loop.ts";
 import { Screenshots } from "./services/screenshots.ts";
@@ -148,6 +149,8 @@ export const projectLayer = (
     // The designs' changes, the journal's own and everyone else's, heard of once.
     Layer.provideMerge(designFiles),
     Layer.provideMerge(ProjectStyleSystem.layer),
+    // The project's images, its icon's among them (ADR 0107).
+    Layer.provideMerge(ProjectImages.layer),
     Layer.provideMerge(RepoPaths.layer(settings))
   );
 
