@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/cn";
+import { CutPath } from "../components/cut-path.tsx";
 import {
   PROJECT_ICON_HEX,
   ProjectIcon,
@@ -90,9 +91,10 @@ const Preview = ({
     <ProjectIcon icon={icon} name={project.name} size={40} />
     <div className="flex min-w-0 flex-col">
       <span className="truncate font-body-medium">{project.name}</span>
-      <span className="truncate font-body-small text-muted-foreground">
-        {project.path}
-      </span>
+      <CutPath
+        className="font-body-small text-muted-foreground"
+        path={project.path}
+      />
     </div>
   </div>
 );
@@ -334,7 +336,7 @@ const ImageRow = ({
         width={20}
       />
     </span>
-    <span className="min-w-0 flex-1 truncate font-body">{path}</span>
+    <CutPath className="min-w-0 flex-1 font-body" path={path} />
     <span className="shrink-0 font-body-small text-muted-foreground">
       {readLabel(read)}
     </span>

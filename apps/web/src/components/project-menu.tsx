@@ -19,6 +19,7 @@ import {
 import { isMac } from "../lib/keys.ts";
 import { platform } from "../platform.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { CutPath } from "./cut-path.tsx";
 import { ProjectIcon } from "./project-icon.tsx";
 
 /** What the system's file manager is called where the editor runs. */
@@ -64,9 +65,10 @@ export const ProjectMenu = () => {
           <ProjectIcon icon={icon} name={name} size={24} />
           <div className="flex min-w-0 flex-col">
             <span className="truncate font-body-medium">{name}</span>
-            <span className="truncate font-body-small text-muted-foreground">
-              {repoPath}
-            </span>
+            <CutPath
+              className="font-body-small text-muted-foreground"
+              path={repoPath}
+            />
           </div>
         </div>
         <DropdownMenuSeparator />
