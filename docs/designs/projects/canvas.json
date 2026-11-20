@@ -9,60 +9,60 @@
   "routes": {},
   "frames": {
     "1-tabs.page.json": {
-      "x": 0,
-      "y": 0,
-      "width": 1440,
       "height": 320,
-      "preset": "custom"
+      "preset": "custom",
+      "width": 1440,
+      "x": 0,
+      "y": 0
     },
     "2a-new-tab.page.json": {
-      "x": 0,
-      "y": 480,
-      "width": 1440,
       "height": 440,
-      "preset": "custom"
+      "preset": "custom",
+      "width": 1440,
+      "x": 0,
+      "y": 480
     },
     "2b-project-menu.page.json": {
-      "x": 0,
-      "y": 1080,
-      "width": 1440,
       "height": 420,
-      "preset": "custom"
+      "preset": "custom",
+      "width": 1440,
+      "x": 0,
+      "y": 1080
     },
     "3a-choose-icon.page.json": {
-      "x": 0,
-      "y": 1660,
-      "width": 1440,
       "height": 560,
-      "preset": "custom"
+      "preset": "custom",
+      "width": 1440,
+      "x": 0,
+      "y": 1660
     },
     "3b-choose-file.page.json": {
-      "x": 0,
-      "y": 2380,
-      "width": 1440,
       "height": 480,
-      "preset": "custom"
+      "preset": "custom",
+      "width": 1440,
+      "x": 0,
+      "y": 2380
     },
     "4-notice.page.json": {
-      "x": 0,
-      "y": 3020,
-      "width": 1440,
       "height": 200,
-      "preset": "custom"
+      "preset": "custom",
+      "width": 1440,
+      "x": 0,
+      "y": 3020
     },
     "5-close.page.json": {
-      "x": 0,
-      "y": 3380,
-      "width": 1440,
       "height": 300,
-      "preset": "custom"
+      "preset": "custom",
+      "width": 1440,
+      "x": 0,
+      "y": 3380
     },
     "6-quit.page.json": {
-      "x": 0,
-      "y": 3840,
-      "width": 1440,
       "height": 300,
-      "preset": "custom"
+      "preset": "custom",
+      "width": 1440,
+      "x": 0,
+      "y": 3840
     }
   },
   "version": 1
