@@ -144,6 +144,7 @@ describe("agentsOf", () => {
           response.setHeader("content-type", "application/json");
           response.end(
             JSON.stringify({
+              failed: 1,
               ok: true,
               token: "run-1",
               version: "1.2.3",
@@ -170,7 +171,7 @@ describe("agentsOf", () => {
         const url = `http://127.0.0.1:${port}`;
         assert.deepStrictEqual(
           yield* agentsOf(url, "run-1"),
-          Option.some({ waiting: 1, working: 2 })
+          Option.some({ failed: 1, waiting: 1, working: 2 })
         );
         // Another server on the port is not the one the app started.
         assert.isTrue(Option.isNone(yield* agentsOf(url, "run-2")));

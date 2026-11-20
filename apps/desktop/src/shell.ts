@@ -6,6 +6,7 @@
  * (the start page) and the tab strip over them; one of Home and the project views is on screen.
  */
 import type { Opening } from "@ultrapaint/contracts/opening";
+import type { Notifications } from "@ultrapaint/contracts/settings";
 import type {
   ProjectNotice,
   ShellStatus,
@@ -44,9 +45,9 @@ export type View =
  */
 export interface Alert {
   readonly body: string;
-  readonly notification: boolean;
+  /** How the person chose to be told; never Off, which tells nothing. */
+  readonly preference: Exclude<Notifications, "off">;
   readonly project: string;
-  readonly sound: boolean;
   readonly title: string;
 }
 

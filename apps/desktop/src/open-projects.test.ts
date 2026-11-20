@@ -1814,7 +1814,7 @@ describe("OpenProjects' news of the agents (ADR 0107)", () => {
     until(recorded, (r) => tabsTold(r).join() === tabs.join());
 
   /** The person's Notifications preference, kept in their profile as the editor keeps it. */
-  const prefer = (dir: string, notifications: string) =>
+  const keepInProfile = (dir: string, notifications: string) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const folder = path.join(dir, ".ultrapaint");
@@ -1922,7 +1922,7 @@ describe("OpenProjects' news of the agents (ADR 0107)", () => {
           yield* polled;
           yield* told(recorded, ["a waiting", "*b idle"]);
           assert.deepStrictEqual(recorded.alerts, []);
-          yield* prefer(dir, "both");
+          yield* keepInProfile(dir, "both");
           recorded.waiting.a = 0;
           recorded.working.a = 0;
           yield* polled;
@@ -1930,22 +1930,20 @@ describe("OpenProjects' news of the agents (ADR 0107)", () => {
           assert.deepStrictEqual(recorded.alerts, [
             {
               body: "An agent finished.",
-              notification: true,
+              preference: "both",
               project: a.id,
-              sound: true,
               title: "a",
             },
           ]);
-          yield* prefer(dir, "sound");
+          yield* keepInProfile(dir, "sound");
           recorded.waiting.a = 1;
           yield* polled;
           yield* told(recorded, ["a waiting", "*b idle"]);
           assert.deepInclude(recorded.alerts.at(-1) ?? {}, {
             body: "An agent asks you something.",
-            notification: false,
-            sound: true,
+            preference: "sound",
           });
-          yield* prefer(dir, "off");
+          yield* keepInProfile(dir, "off");
           recorded.waiting.a = 2;
           // And b at work, for the strip to be told once the poll is done.
           recorded.working.b = 1;
@@ -1953,6 +1951,109 @@ describe("OpenProjects' news of the agents (ADR 0107)", () => {
           yield* told(recorded, ["a waiting", "*b working"]);
           assert.strictEqual(recorded.alerts.length, 2);
           assert.deepStrictEqual(recorded.notices, []);
+          // An editor tells the preference it holds (a remote project's, kept on its machine):
+          // it holds from then on, over this machine's profile.
+          yield* (yield* OpenProjects).prefer("notification");
+          recorded.waiting.a = 3;
+          yield* polled;
+          assert.deepInclude(recorded.alerts.at(-1) ?? {}, {
+            preference: "notification",
+          });
+        })
+      )
+  );
+
+  it.effect(
+    "an agent that stops on an error is told as stopped, and a server that does not answer is no news",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const { a } = yield* twoOpen;
+          recorded.working.a = 2;
+          yield* polled;
+          recorded.working.a = 1;
+          recorded.failed.a = 1;
+          yield* polled;
+          assert.deepInclude(recorded.notices.at(-1) ?? {}, {
+            news: "stopped",
+            project: a.id,
+            title: "a: an agent stopped before it finished",
+          });
+          const noticed = recorded.notices.length;
+          recorded.silent.push("a");
+          recorded.working.a = 0;
+          yield* polled;
+          assert.strictEqual(recorded.notices.length, noticed);
+        })
+      )
+  );
+
+  it.effect(
+    "a server reached again over SSH is a new run: what it says first is no news",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProjects;
+          const site = yield* store.addRemote({
+            host: "devbox",
+            path: "~/site",
+          });
+          yield* open.open(site.id);
+          yield* open.openingDone(site.id, {});
+          const b = yield* store.add("/work/b");
+          yield* open.open(b.id);
+          recorded.working["devbox:site"] = 2;
+          yield* polled;
+          // Reconnected: a new run, its agents gone with the old one.
+          recorded.tokens["devbox:site"] = "token-again";
+          recorded.working["devbox:site"] = 0;
+          yield* polled;
+          assert.deepStrictEqual(recorded.notices, []);
+        })
+      )
+  );
+
+  it.effect(
+    "a tab on screen at any moment since the last poll tells its own news, from its editor",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const { a, b, open } = yield* twoOpen;
+          recorded.working.a = 1;
+          yield* polled;
+          // a on screen when its agent finished, then b again before the next poll.
+          yield* open.show(a.id);
+          recorded.working.a = 0;
+          yield* open.show(b.id);
+          yield* polled;
+          assert.deepStrictEqual(recorded.notices, []);
+          // Not on screen for a whole poll since: the app's again.
+          recorded.waiting.a = 1;
+          yield* polled;
+          assert.strictEqual(recorded.notices.at(-1)?.news, "asks");
+        })
+      )
+  );
+
+  it.effect(
+    "a notice dismissed in a view is taken away from every view, and only that one",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const { open } = yield* twoOpen;
+          recorded.working.a = 1;
+          yield* polled;
+          recorded.working.a = 0;
+          yield* polled;
+          const first = recorded.notices.at(-1)?.id ?? "";
+          recorded.waiting.a = 1;
+          yield* polled;
+          // The first's toast closing later takes nothing away: another took its place.
+          yield* open.dismissNotice(first);
+          assert.strictEqual(recorded.notices.at(-1)?.news, "asks");
+          yield* open.dismissNotice(recorded.notices.at(-1)?.id ?? "");
+          assert.strictEqual(recorded.notices.at(-1), null);
         })
       )
   );

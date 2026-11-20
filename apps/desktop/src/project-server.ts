@@ -74,17 +74,26 @@ export interface RunningServer {
   readonly version: Effect.Effect<string | undefined>;
 }
 
-/** The agents of a server: at work, and waiting on the person (a question, a permission). */
+/**
+ * The agents of a server: at work, waiting on the person (a question, a permission), and those
+ * whose last turn stopped on an error.
+ */
 export interface AgentCounts {
+  readonly failed: number;
   readonly waiting: number;
   readonly working: number;
 }
 
 /** What a server that does not say is taken to have: no agents at all. */
-export const NO_AGENTS: AgentCounts = { waiting: 0, working: 0 };
+export const NO_AGENTS: AgentCounts = { failed: 0, waiting: 0, working: 0 };
+
+/** What a server said of its agents, or none when it did not answer. */
+export const countsOr = (said: Option.Option<AgentCounts>): AgentCounts =>
+  Option.getOrElse(said, () => NO_AGENTS);
 
 const Health = Schema.fromJsonString(
   Schema.Struct({
+    failed: Schema.optional(Schema.Number),
     token: Schema.optional(Schema.String),
     version: Schema.optional(Schema.String),
     waiting: Schema.optional(Schema.Number),
@@ -124,6 +133,7 @@ export const agentsOf = (url: string, token: string) =>
     Option.flatMap(health, (h) =>
       h.token === token
         ? Option.some<AgentCounts>({
+            failed: h.failed ?? 0,
             waiting: h.waiting ?? 0,
             working: h.working ?? 0,
           })

@@ -251,6 +251,8 @@ export const bridgeHandlers = (
   "newDesign.folderFor": (name) => NewDesigns.use((n) => n.folderFor(name)),
   "node.status": () => Notices.use((n) => n.node),
   notices: () => Notices.use((n) => n.list),
+  "notifications.prefer": (preference) =>
+    OpenProjects.use((o) => o.prefer(preference)),
   pickFolder: (picker) =>
     Effect.map(
       Shell.use((s) =>
@@ -295,6 +297,8 @@ export const bridgeHandlers = (
       (own) => OpenProjects.use((o) => o.describe(own, look)),
       undefined
     ),
+  "projects.dismissNotice": (id) =>
+    OpenProjects.use((o) => o.dismissNotice(id)),
   "projects.inspect": (folder) => inspectFolder(folder),
   "projects.list": () =>
     Effect.gen(function* () {

@@ -473,10 +473,14 @@ const bringForward = () => {
  * when clicked, and the system's own sound with it or alone.
  */
 const alertPerson = (alert: Alert) => {
-  if (alert.notification && Notification.isSupported()) {
+  /** Shows the notification; false where the system has none. */
+  const showNotification = (silent: boolean) => {
+    if (!Notification.isSupported()) {
+      return false;
+    }
     const shown = new Notification({
       body: alert.body,
-      silent: !alert.sound,
+      silent,
       title: alert.title,
     });
     shown.on("click", () => {
@@ -487,10 +491,23 @@ const alertPerson = (alert: Alert) => {
         .catch(() => undefined);
     });
     shown.show();
-    return;
-  }
-  if (alert.sound) {
-    shell.beep();
+    return true;
+  };
+  switch (alert.preference) {
+    case "notification":
+      showNotification(true);
+      return;
+    case "both":
+      // Without notifications, the sound alone.
+      if (!showNotification(false)) {
+        shell.beep();
+      }
+      return;
+    case "sound":
+      shell.beep();
+      return;
+    default:
+      return;
   }
 };
 
