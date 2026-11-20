@@ -6,7 +6,6 @@
  */
 
 import {
-  GitBranch,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
@@ -27,20 +26,23 @@ import { useProject } from "../state/project.ts";
 import { useWindowChrome } from "../state/window-controls.ts";
 import { openCommandPalette } from "./command-palette.tsx";
 import { Logo } from "./logo.tsx";
-import { hasProjectSwitcher, ProjectSwitcher } from "./project-switcher.tsx";
+import { ProjectMenu } from "./project-menu.tsx";
 import { CommandKeys } from "./shortcut-sheet.tsx";
 
 /** Where the cards sit: this far from the window's edges, and this tall. */
 export const EDGE = 8;
 const TITLE_HEIGHT = 48;
 
-/** The open project's name and branch on one line, or the way to set one up. */
+/**
+ * The open project's button, which opens its menu (ADR 0107), or the way to set one up when
+ * none is.
+ */
 const ProjectName = () => {
-  const info = useProject((s) => s.info);
-  if (!info.configured) {
+  const configured = useProject((s) => s.info.configured);
+  if (!configured) {
     return (
       <button
-        className="window-no-drag min-w-0 truncate text-left font-body-medium text-muted-foreground outline-none hover:text-foreground focus-visible:underline"
+        className="window-no-drag min-w-0 truncate px-2 text-left font-body-medium text-muted-foreground outline-none hover:text-foreground focus-visible:underline"
         onClick={chooseFolder}
         type="button"
       >
@@ -49,20 +51,9 @@ const ProjectName = () => {
     );
   }
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={<div className="flex min-w-0 flex-col justify-center" />}
-      >
-        <span className="truncate font-heading-xsmall">{info.name}</span>
-        {info.branch ? (
-          <span className="flex min-w-0 items-center gap-1 font-body-small text-muted-foreground">
-            <GitBranch className="size-3 shrink-0" />
-            <span className="truncate">{info.branch}</span>
-          </span>
-        ) : null}
-      </TooltipTrigger>
-      <TooltipContent side="bottom">{info.repoPath}</TooltipContent>
-    </Tooltip>
+    <div className="window-no-drag min-w-0">
+      <ProjectMenu />
+    </div>
   );
 };
 
@@ -137,9 +128,10 @@ const toggleLeft = () => usePanels.getState().toggleLeft();
 const toggleRight = () => usePanels.getState().toggleRight();
 
 /**
- * The project, the top row of the left card: the mark, its name over its branch, or the desktop
- * app's switcher between its projects, then search (every command, ⌘K) and the left panel's
- * toggle. On a Mac desktop window the window's buttons sit at its start.
+ * The project, the top row of the left card, the same in the desktop app and in a browser (ADR
+ * 0107): the mark, which opens nothing, a slash, then the project's icon and name opening its
+ * menu; then search (every command, ⌘K) and the left panel's toggle. On a Mac desktop window the
+ * window's buttons sit at its start.
  */
 export const TitleRow = () => {
   const chrome = useWindowChrome();
@@ -158,16 +150,25 @@ export const TitleRow = () => {
       )}
       style={style}
     >
-      <Logo />
+      <span className="flex size-8 shrink-0 items-center justify-center">
+        <Logo className="size-5.5" />
+      </span>
+      {/* The slash between the mark and the project: a hairline, drawn, as the mark is. */}
+      <svg
+        aria-hidden
+        className="h-5 w-2 shrink-0 text-muted-foreground"
+        viewBox="0 0 8 20"
+      >
+        <path
+          d="M7 1 1 19"
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeWidth={1.25}
+        />
+      </svg>
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        {/* A shell with a list of projects puts its switcher where the name is (Platform). */}
-        {hasProjectSwitcher() ? (
-          <div className="window-no-drag min-w-0 max-w-64">
-            <ProjectSwitcher />
-          </div>
-        ) : (
-          <ProjectName />
-        )}
+        <ProjectName />
         <Unsaved />
       </div>
       <div className="flex shrink-0 items-center gap-0.5">
