@@ -17,8 +17,6 @@ export interface Recorded {
   answers: (boolean | Effect.Effect<boolean>)[];
   /** What runs as a project view is let go, before it is (to look at the app then). */
   beforeDrop: Effect.Effect<void> | null;
-  /** Folders whose server's process exited once it was ready. */
-  dead: string[];
   /** What declining each question was called, in order. */
   declines: string[];
   /** What each question said at more length, in order. */
@@ -32,6 +30,11 @@ export interface Recorded {
   pickers: string[];
   /** Paths the next pickers return; cancelled when there are none left. */
   picks: string[];
+  /**
+   * Each folder's latest server process, which a test makes exit (`exit`): the one it was then,
+   * not the one a later start makes.
+   */
+  processes: Partial<Record<string, { exited: boolean }>>;
   questions: string[];
   /** Folders (or hosts) whose health check says nothing, too slow or with no version. */
   quiet: string[];
@@ -61,7 +64,6 @@ export interface Recorded {
 export const makeRecorded = (): Recorded => ({
   answers: [],
   beforeDrop: null,
-  dead: [],
   declines: [],
   details: [],
   drops: [],
@@ -69,6 +71,7 @@ export const makeRecorded = (): Recorded => ({
   openings: [],
   pickers: [],
   picks: [],
+  processes: {},
   questions: [],
   quiet: [],
   shown: [],
@@ -91,6 +94,14 @@ const tellWatchers = (recorded: Recorded) => {
 const recordEvent = (recorded: Recorded, event: string) => {
   recorded.events.push(event);
   tellWatchers(recorded);
+};
+
+/** The latest server process of a folder exits: the one running now, not one started later. */
+export const exitProcess = (recorded: Recorded, name: string) => {
+  const process = recorded.processes[name];
+  if (process) {
+    process.exited = true;
+  }
 };
 
 /**
@@ -177,7 +188,10 @@ export const fakeShell = (recorded: Recorded) =>
 export const FAKE_VERSION = "1.0.0";
 const versionOf = (recorded: Recorded, name: string) =>
   Effect.suspend((): Effect.Effect<string | undefined> => {
-    if (recorded.dead.includes(name) || recorded.quiet.includes(name)) {
+    if (
+      recorded.processes[name]?.exited === true ||
+      recorded.quiet.includes(name)
+    ) {
       return Effect.succeed(undefined);
     }
     if (name.includes("lagging")) {
@@ -241,11 +255,11 @@ export const fakeServers = (recorded: Recorded) =>
               )
             );
           }
+          const process = { exited: false };
+          recorded.processes[name] = process;
           return {
             attached,
-            exited: Effect.sync(
-              () => !attached && recorded.dead.includes(name)
-            ),
+            exited: Effect.sync(() => !attached && process.exited),
             token: `token-${name}`,
             url: `http://127.0.0.1/${name}`,
             version: versionOf(recorded, name),

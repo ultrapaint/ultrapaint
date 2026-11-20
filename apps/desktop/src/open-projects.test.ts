@@ -19,6 +19,7 @@ import { LoginShell } from "./login-shell.ts";
 import { MAX_VIEWS, OpenProjects } from "./open-projects.ts";
 import { PROJECTS_FILE, ProjectStore } from "./projects.ts";
 import {
+  exitProcess,
   FAKE_VERSION,
   fakeRemoteProjects,
   fakeServers,
@@ -1548,13 +1549,23 @@ describe("OpenProjects", () => {
           yield* open.open(shop.id);
           yield* open.openingDone(shop.id, {});
           yield* open.loadFailed(shop.id, "connection refused");
-          recorded.dead.push("shop");
+          // The process that started exits; the one a start makes later does not.
+          exitProcess(recorded, "shop");
           yield* open.retryOpening(shop.id);
           assert.deepStrictEqual(recorded.events, [
             "start shop",
             "stop shop",
             "start shop",
           ]);
+          assert.deepStrictEqual(recorded.views.at(-1), {
+            _tag: "Editor",
+            url: "http://127.0.0.1/shop",
+          });
+          // The new process runs: its editor failing again is loaded again, nothing started.
+          yield* open.openingDone(shop.id, {});
+          yield* open.loadFailed(shop.id, "connection refused");
+          yield* open.retryOpening(shop.id);
+          assert.strictEqual(recorded.events.length, 3);
           assert.deepStrictEqual(recorded.views.at(-1), {
             _tag: "Editor",
             url: "http://127.0.0.1/shop",
@@ -1653,6 +1664,79 @@ describe("OpenProjects", () => {
             url: "http://127.0.0.1/shop",
           });
           assert.deepStrictEqual(recorded.questions, []);
+        })
+      )
+  );
+
+  it.effect(
+    "a restart starts nothing for a tab closed while its server stopped",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProjects;
+          const lingering = yield* store.add("/work/lingering");
+          yield* open.open(lingering.id);
+          yield* open.openingDone(lingering.id, {});
+          const restarting = yield* Effect.forkChild(open.restart, {
+            startImmediately: true,
+          });
+          yield* until(recorded, ({ events }) =>
+            events.includes("stopping lingering")
+          );
+          // Closed while its server stops for the restart.
+          const closing = yield* Effect.forkChild(open.close(lingering.id), {
+            startImmediately: true,
+          });
+          yield* until(
+            recorded,
+            ({ tabs }) => (tabs.at(-1) ?? []).length === 0
+          );
+          yield* TestClock.adjust("1 second");
+          yield* Fiber.join(restarting);
+          yield* Fiber.join(closing);
+          assert.deepStrictEqual(recorded.events, [
+            "start lingering",
+            "stopping lingering",
+            "stop lingering",
+          ]);
+        })
+      )
+  );
+
+  it.effect(
+    "a quit asks again, naming it, about a project that became busy while the person answered",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProjects;
+          const docs = yield* store.add("/work/docs");
+          const slow = yield* store.add("/work/slow");
+          yield* open.open(docs.id);
+          recorded.working.docs = 1;
+          const opening = yield* Effect.forkChild(open.open(slow.id), {
+            startImmediately: true,
+          });
+          yield* until(recorded, ({ events }) => events.includes("wait slow"));
+          const answer = yield* Deferred.make<boolean>();
+          recorded.answers.push(Deferred.await(answer));
+          const quitting = yield* Effect.forkChild(open.stop({ ask: true }), {
+            startImmediately: true,
+          });
+          yield* asked(recorded);
+          // slow is up while the question is on screen, an agent at work there.
+          yield* TestClock.adjust("1200 millis");
+          yield* Fiber.join(opening);
+          recorded.working.slow = 1;
+          recorded.answers.push(false);
+          yield* Deferred.succeed(answer, true);
+          assert.isFalse(yield* Fiber.join(quitting));
+          assert.deepStrictEqual(recorded.details, [
+            "An agent is working in docs. Quitting stops it.",
+            "Agents are working in docs and slow. Quitting stops them.",
+          ]);
+          assert.isFalse(recorded.events.some((e) => e.startsWith("stop")));
         })
       )
   );
