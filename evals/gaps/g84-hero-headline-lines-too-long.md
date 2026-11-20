@@ -2,7 +2,7 @@
 id: g84
 title: A hero headline set in lines too long for its size
 kind: missing
-status: open
+status: testing
 found: 2026-11-20
 source: the person, on held-videoask run 1 of fx-opus-dw2 (decisions/lab-nov20c)
 skill: [references/pages/landing.md]
@@ -32,3 +32,10 @@ headline passes under about 30 characters, as the line allows, and fails over it
 characters fall from 8 of 11 (language-app run 1 did not render) to 2 or fewer, with no headline broken into more than 4 lines.
 
 **Result.**
+- `fx-opus-hm`: 2026-11-20, the six landing briefs of `fx-opus-hf`, 2 runs each, Opus in Claude
+  Code designing with `candidates/headline-measure`, read in Chrome at 1440px: heroes with a line
+  over 20 characters 2 of 12 (analytics-pricing run 1, 24; invoicing-api run 1, 23), against 8 of
+  11 in `fx-opus-hf`; none over 4 lines, no one-line headline. It passes the test. Longest lines,
+  candidate: 13–18 in the ten others, five of them in 3 lines. The pairs are asked in
+  `decisions/lab-nov20d`.
+
