@@ -6,10 +6,12 @@ the copy shape of each kind of page.
 ## The headline
 
 About `5` words: about `6` for a technical product, `4` for an expressive site, where the name
-alone often stands. A claim, not a label; short stacked sentences with full stops work in every
-character ("Send it. Win it.", "Real food. Honest guides. No fluff."), and section titles may
-take the full stop too ("How we compare."). A two-tone headline, the claim then its continuation
-in muted at the same size, often replaces the subhead.
+alone often stands. A claim, not a label, in the form its words need: one plain sentence
+("Baked from 3:30 every morning"), short stacked sentences ("Send it. Win it."), or a two-tone
+line, the claim then its continuation in muted at the same size, in place of the subhead. No form
+is the default, and a page's headings don't repeat a cadence: two claims stacked, or one set
+against what the thing is not ("weeks, not years"), comes once on a page at most. Section titles
+may take the full stop too ("How we compare.").
 
 ## The subhead
 
@@ -47,7 +49,7 @@ to bag – €66"), a sale price beside its struck-through original. A date sits
 
 ## Copy by kind of page
 
-- **Technical hero**: a news chip when there is news, a 6-word two-tone headline, a 19-word subhead saying what
+- **Technical hero**: a news chip when there is news, a 6-word headline, a 19-word subhead saying what
   it does for whom (product nouns inline can stand for a feature list), the verb primary and a
   quiet secondary, one reassurance line, the logos. Exact, sometimes dry, never vague.
 - **Pricing**: a headline of about `7` words and no subhead; the billing toggle with its saving
@@ -76,6 +78,7 @@ to bag – €66"), a sale price beside its struck-through original. A date sits
 | You see | Fix |
 | --- | --- |
 | A subhead that restates the headline | Delete it |
+| The hero and the section headings in one cadence (stacked claims, "X, not Y") | Each in the form its words need; a cadence once on a page |
 | A label above a section heading | Delete it; keep only news, proof, a step or a story's category |
 | Two actions of equal weight | One filled with a verb; the other outline, grey or a link |
 | Proof stated twice (a bar and an eyebrow; stars, laurels and logos) | The strongest one, under the actions |
