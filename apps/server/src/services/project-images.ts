@@ -143,7 +143,8 @@ export class ProjectImages extends Context.Service<
       /**
        * Whether the file opened is inside the project. Where the system names an open file
        * (`/proc/self/fd` on Linux), that name; elsewhere the name it was opened by, not
-       * followed, must still be that very file (its device and inode).
+       * followed, must still be that very file (its device and inode), every folder on the way
+       * a folder and no link.
        */
       const insideProject = Effect.fnUntraced(function* (
         fd: number,
@@ -165,7 +166,29 @@ export class ProjectImages extends Context.Service<
           catch: unreadable,
           try: () => nodeFs.lstat(opened),
         });
-        return leaf.isFile() && leaf.dev === info.dev && leaf.ino === info.ino;
+        if (
+          !(leaf.isFile() && leaf.dev === info.dev && leaf.ino === info.ino)
+        ) {
+          return false;
+        }
+        // The name is canonical up to its leaf (`RepoPaths.resolve`): none of the folders on the
+        // way may be a link now, as one swapped in for a folder would have led the open outside.
+        // Without a handle-relative open, a swap there and back between the open and this look
+        // is the gap left, on a system that cannot name an open file.
+        const folders: string[] = [];
+        for (let dir = path.dirname(opened); ; dir = path.dirname(dir)) {
+          folders.push(dir);
+          if (path.dirname(dir) === dir) {
+            break;
+          }
+        }
+        const links = yield* Effect.forEach(folders, (dir) =>
+          Effect.tryPromise({
+            catch: unreadable,
+            try: () => nodeFs.lstat(dir),
+          }).pipe(Effect.map((stat) => !stat.isDirectory()))
+        );
+        return !links.some(Boolean);
       });
 
       const file = Effect.fnUntraced(function* (rel: string) {
