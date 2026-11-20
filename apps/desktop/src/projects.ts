@@ -8,6 +8,7 @@
 
 import { OpeningTimes } from "@ultrapaint/contracts/opening";
 import { ShownProjectIcon } from "@ultrapaint/contracts/project";
+import type { ProjectLook } from "@ultrapaint/contracts/shell-bridge";
 import {
   Clock,
   Context,
@@ -21,6 +22,7 @@ import {
   Semaphore,
 } from "effect";
 import { writeAtomic } from "./atomic-write.ts";
+import { sameValue } from "./changes.ts";
 import { StoreError, UnknownProject } from "./errors.ts";
 import { parseHostInput } from "./ssh-hosts.ts";
 
@@ -99,7 +101,19 @@ export const remoteInputOf = (fields: {
   return { input: { ...host, command: fields.command, path } };
 };
 
-/** Where a project is, for the switcher: its folder, or `host:path`. */
+/**
+ * A project as its server shows it (ADR 0107): its name, and its icon, or none for the default.
+ */
+export const withLook = (project: Project, look: ProjectLook): Project => {
+  const { icon: _was, ...rest } = project;
+  return {
+    ...rest,
+    ...(look.icon === undefined ? {} : { icon: look.icon }),
+    name: look.name,
+  };
+};
+
+/** Where a project is, for the lists: its folder, or `host:path`. */
 export const projectDetail = (project: Project) =>
   project.kind === "local"
     ? project.path
@@ -191,10 +205,7 @@ export class ProjectStore extends Context.Service<
      */
     readonly describe: (
       id: string,
-      look: {
-        readonly icon?: ShownProjectIcon | undefined;
-        readonly name: string;
-      }
+      look: ProjectLook
     ) => Effect.Effect<void, StoreError>;
     /**
      * The tabs open when the app last ran, those still in the list: a file of before the tabs
@@ -365,32 +376,18 @@ export class ProjectStore extends Context.Service<
 
         const describe = Effect.fn("ProjectStore.describe")(function* (
           id: string,
-          look: {
-            readonly icon?: ShownProjectIcon | undefined;
-            readonly name: string;
-          }
+          look: ProjectLook
         ) {
           const projects = yield* read;
           const known = projects.find((p) => p.id === id);
           if (
             !known ||
-            (known.name === look.name &&
-              JSON.stringify(known.icon) === JSON.stringify(look.icon))
+            (known.name === look.name && sameValue(known.icon, look.icon))
           ) {
             return;
           }
           yield* write(
-            projects.map((p) => {
-              if (p.id !== id) {
-                return p;
-              }
-              const { icon: _was, ...rest } = p;
-              return {
-                ...rest,
-                ...(look.icon === undefined ? {} : { icon: look.icon }),
-                name: look.name,
-              };
-            })
+            projects.map((p) => (p.id === id ? withLook(p, look) : p))
           );
         }, lock.withPermits(1));
 

@@ -2,7 +2,7 @@
  * The desktop app (ADR 0031): a window around the same server and the same web build the
  * `ultrapaint` command serves. The app keeps a list of projects, starts the server of each one
  * open in a tab (ADR 0107), loads their editors, and fills the editor's `Platform` with what a
- * browser cannot do. The window holds the tab strip over a page per open project and Home.
+ * browser cannot do. The window holds the tab strip over a project view per open project and Home.
  * Nothing of the editor lives here; what the app decides lives in its services, and this file
  * connects them to Electron.
  */
@@ -91,48 +91,51 @@ let window: BrowserWindow | null = null;
  * strip's left end, centred on its height. Elsewhere the system draws the frame over the strip.
  */
 const ownTitleBar = process.platform === "darwin";
-/** The tab strip's height, in CSS pixels: the pages below begin there. */
+/** The tab strip's height, in CSS pixels: the views below begin there. */
 const STRIP_HEIGHT = 44;
 const TRAFFIC_LIGHTS = { x: 14, y: 16 };
 /** Where the strip's tabs may begin past the buttons: their width (52px) and a gap. */
 const CONTROLS_INSET = TRAFFIC_LIGHTS.x + 52 + 16;
 
-/** A page of the window: the tab strip, Home, or an open project's. */
-type Page =
+/** A view of the window: the tab strip, Home, or an open project's. */
+type AppView =
   | { readonly kind: "strip" }
   | { readonly kind: "home" }
   | { readonly kind: "project"; readonly id: string };
 
-/** The views over the window's own: the strip on top, Home and the projects' pages below it. */
+/** The views over the window's own: the strip on top, Home and the project views below it. */
 let strip: WebContentsView | null = null;
 let home: WebContentsView | null = null;
-const pages = new Map<string, WebContentsView>();
-/** The project whose page is on screen; null for Home. */
+const projectViews = new Map<string, WebContentsView>();
+/** The project whose view is on screen; null for Home. */
 let onScreen: string | null = null;
 /** Whether the strip covers the window, for a menu or a dialog of its own. */
 let covered = false;
 
-/** What every page is told as it changes: an update of the app, and the open tabs. */
+/** What every view is told as it changes: an update of the app, and the open tabs. */
 const shared: BridgeStates = { tabs: [], update: null };
-/** What a page of no project is told of one: nothing. */
+/** What a view of no project is told of one: nothing. */
 const NO_PROJECT: BridgeStates = {
   editorServer: null,
   opening: null,
+  projectId: null,
   shellStatus: null,
 };
-/** What each project's page is told of its own: its server, its opening, its status. */
+/** What each project view is told of its own: its id, its server, its opening, its status. */
 const projectStates = new Map<string, BridgeStates>();
 /** The window's buttons, which the strip leaves room for: on a Mac only. */
 let windowControls = ownTitleBar
   ? { fullScreen: false, inset: CONTROLS_INSET }
   : undefined;
 
-/** The states a page reads as it loads. */
-const statesOf = (page: Page): BridgeStates => ({
+/** The states a view's page reads as it loads. */
+const statesOf = (from: AppView): BridgeStates => ({
   ...shared,
   ...NO_PROJECT,
-  ...(page.kind === "project" ? projectStates.get(page.id) : {}),
-  ...(page.kind === "strip" && windowControls ? { windowControls } : {}),
+  ...(from.kind === "project"
+    ? { ...projectStates.get(from.id), projectId: from.id }
+    : {}),
+  ...(from.kind === "strip" && windowControls ? { windowControls } : {}),
 });
 
 const sendTo = <K extends StateName>(
@@ -146,15 +149,15 @@ const sendTo = <K extends StateName>(
   }
 };
 
-/** Tells every page a state they share. */
+/** Tells every view a state they share. */
 const tellAll = <K extends StateName>(name: K, value: StateValue<K>) => {
   shared[name] = value;
-  for (const view of [strip, home, ...pages.values()]) {
+  for (const view of [strip, home, ...projectViews.values()]) {
     sendTo(view, name, value);
   }
 };
 
-/** Tells a project's page a state of its own, kept for its page loading later. */
+/** Tells a project view a state of its own, kept for it loading later. */
 const tellProject = <K extends StateName>(
   id: string,
   name: K,
@@ -163,18 +166,18 @@ const tellProject = <K extends StateName>(
   const states = projectStates.get(id) ?? {};
   states[name] = value;
   projectStates.set(id, states);
-  sendTo(pages.get(id), name, value);
+  sendTo(projectViews.get(id), name, value);
 };
 
-/** The page a message comes from: only the app's own pages may call the main process. */
-const pageOf = (sender: WebContents): Page | undefined => {
+/** The view a message comes from: only the app's own views may call the main process. */
+const viewOf = (sender: WebContents): AppView | undefined => {
   if (strip?.webContents === sender) {
     return { kind: "strip" };
   }
   if (home?.webContents === sender) {
     return { kind: "home" };
   }
-  for (const [id, view] of pages) {
+  for (const [id, view] of projectViews) {
     if (view.webContents === sender) {
       return { id, kind: "project" };
     }
@@ -182,12 +185,12 @@ const pageOf = (sender: WebContents): Page | undefined => {
   return undefined;
 };
 
-/** Who calls, as the handlers ask: a project's page, or one of none. */
-const callerOf = (page: Page) =>
-  Caller.layer(page.kind === "project" ? page.id : null);
+/** Who calls, as the handlers ask: a project view, or one of none. */
+const callerOf = (from: AppView) =>
+  Caller.layer(from.kind === "project" ? from.id : null);
 
 /**
- * The editor's build, served to the window under the app's own scheme for the pages that have no
+ * The editor's build, served to the window under the app's own scheme for the projectViews that have no
  * server behind them: the welcome page. Its absolute paths (`/assets/…`) resolve as they do
  * when a server serves it.
  */
@@ -200,7 +203,7 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 /**
- * What the app's own pages may connect to: themselves and a server on this machine, which a
+ * What the app's own projectViews may connect to: themselves and a server on this machine, which a
  * project over SSH is forwarded to; nothing else (ADR 0100). The start page sets a stricter one
  * of its own.
  */
@@ -238,7 +241,7 @@ const serveWeb = async (request: Request) => {
   return new Response(response.body, { headers, status: response.status });
 };
 
-/** Lays the views out: the strip over the top (or the whole window, covered), the pages below. */
+/** Lays the views out: the strip over the top (or the whole window, covered), the views below. */
 const layout = () => {
   if (!window) {
     return;
@@ -251,7 +254,7 @@ const layout = () => {
     y: STRIP_HEIGHT,
   };
   home?.setBounds(below);
-  for (const view of pages.values()) {
+  for (const view of projectViews.values()) {
     view.setBounds(below);
   }
   strip?.setBounds({
@@ -262,15 +265,15 @@ const layout = () => {
   });
 };
 
-/** Puts a project's page on screen, or Home with `null`, and gives it the keys. */
+/** Puts a project view on screen, or Home with `null`, and gives it the keys. */
 const showOnScreen = (id: string | null) => {
   onScreen = id;
   home?.setVisible(id === null);
-  for (const [pageId, view] of pages) {
-    view.setVisible(pageId === id);
+  for (const [viewId, view] of projectViews) {
+    view.setVisible(viewId === id);
   }
   if (!covered) {
-    (id === null ? home : pages.get(id))?.webContents.focus();
+    (id === null ? home : projectViews.get(id))?.webContents.focus();
   }
 };
 
@@ -279,7 +282,7 @@ const canvasColor = () =>
   nativeTheme.shouldUseDarkColors ? "#121110" : "#ecebe8";
 
 /**
- * Keeps a page on the app's own pages and its servers: a link elsewhere opens in the user's
+ * Keeps a view on the app's own pages and its servers: a link elsewhere opens in the user's
  * browser. ⌘1–9 show a tab, wherever the focus is.
  */
 const guard = (contents: WebContents) => {
@@ -301,12 +304,13 @@ const guard = (contents: WebContents) => {
       event.preventDefault();
       runtime
         .runPromise(OpenProjects.use((o) => o.showAt(n)))
+        // Showing a tab fails only once the runtime is let go, as the app quits.
         .catch(() => undefined);
     }
   });
 };
 
-/** A view of one of the app's pages, with the bridge, over the window. */
+/** A view of one of the app's projectViews, with the bridge, over the window. */
 const makeView = (background = canvasColor()) => {
   const view = new WebContentsView({
     webPreferences: {
@@ -328,33 +332,33 @@ const loadIn = (view: WebContentsView, url: string) => {
   view.webContents.loadURL(url).catch(() => undefined);
 };
 
-/** Loads a view in a project's page, making the page, below the strip, when it has none. */
-const loadPage = (id: string, view: View) => {
+/** Loads a project view, making it, below the strip, when it has none. */
+const loadProjectView = (id: string, view: View) => {
   if (!window) {
     return;
   }
-  let page = pages.get(id);
-  if (!page) {
-    page = makeView();
-    pages.set(id, page);
-    window.contentView.addChildView(page);
-    page.setVisible(onScreen === id);
-    // The strip stays over every page.
+  let target = projectViews.get(id);
+  if (!target) {
+    target = makeView();
+    projectViews.set(id, target);
+    window.contentView.addChildView(target);
+    target.setVisible(onScreen === id);
+    // The strip stays over every project view.
     if (strip) {
       window.contentView.addChildView(strip);
     }
     layout();
   }
   if (view._tag === "Opening") {
-    // The app's own page, under the splash of the project opening: drawn from its `opening`.
-    loadIn(page, appPage("welcome.html"));
+    // The app's own target, under the splash of the project opening: drawn from its `opening`.
+    loadIn(target, appPage("welcome.html"));
     return;
   }
-  // Told before the page loads: the app's own editor reads it as it starts (ADR 0100).
+  // Told before the view loads: the app's own editor reads it as it starts (ADR 0100).
   tellProject(id, "editorServer", view.server ?? null);
   const next = new URL(view.url);
-  const was = page.webContents.getURL();
-  // The page it was on, in either editor: the server's (http) or the app's own.
+  const was = target.webContents.getURL();
+  // The address it was at, in either editor: the server's (http) or the app's own.
   if (
     view.keepLocation &&
     (was.startsWith("http") || was.startsWith(APP_EDITOR_URL))
@@ -364,18 +368,18 @@ const loadPage = (id: string, view: View) => {
     next.search = current.search;
     next.hash = current.hash;
   }
-  loadIn(page, next.href);
+  loadIn(target, next.href);
 };
 
-/** Lets go of a project's page; what it was told is kept for its next load. */
-const dropPage = (id: string) => {
-  const page = pages.get(id);
-  if (!page) {
+/** Lets go of a project view; what it was told is kept for its next load. */
+const dropProjectView = (id: string) => {
+  const target = projectViews.get(id);
+  if (!target) {
     return;
   }
-  pages.delete(id);
-  window?.contentView.removeChildView(page);
-  page.webContents.close();
+  projectViews.delete(id);
+  window?.contentView.removeChildView(target);
+  target.webContents.close();
 };
 
 /** The strip covers the window while a menu or a dialog of its own is open, and goes back. */
@@ -420,8 +424,8 @@ const ElectronShell = Layer.succeed(
           : await dialog.showMessageBox(options);
         return answer.response === 0;
       }),
-    drop: (id) => Effect.sync(() => dropPage(id)),
-    load: (id, view) => Effect.sync(() => loadPage(id, view)),
+    drop: (id) => Effect.sync(() => dropProjectView(id)),
+    load: (id, view) => Effect.sync(() => loadProjectView(id, view)),
     opening: (id, opening) =>
       Effect.sync(() => tellProject(id, "opening", opening)),
     // Electron answers with why it couldn't, or nothing.
@@ -610,16 +614,16 @@ const runtime = ManagedRuntime.make(
 
 /** What the preload script asks before the page loads: synchronous for the page. */
 ipcMain.on(INFO_CHANNEL, (event) => {
-  const page = pageOf(event.sender);
-  if (!page) {
+  const from = viewOf(event.sender);
+  if (!from) {
     event.returnValue = { shown: [] } satisfies BridgeInfo;
     return;
   }
   runtime
-    .runPromise(callerRemote.pipe(Effect.provide(callerOf(page))))
+    .runPromise(callerRemote.pipe(Effect.provide(callerOf(from))))
     .catch(() => false)
     .then((remote) => {
-      event.returnValue = bridgeInfo(remote, statesOf(page));
+      event.returnValue = bridgeInfo(remote, statesOf(from));
     });
 });
 
@@ -631,10 +635,10 @@ serveBridge({
     sshConfig: sshConfig ?? path.join(app.getPath("home"), ".ssh", "config"),
   }),
   ipc: ipcMain,
-  pageOf,
   remote: callerRemote,
-  run: (effect, page) =>
-    runtime.runPromise(effect.pipe(Effect.provide(callerOf(page)))),
+  run: (effect, from) =>
+    runtime.runPromise(effect.pipe(Effect.provide(callerOf(from)))),
+  viewOf,
 });
 
 /** A folder named on the command line, after the app's own path in development. */
@@ -642,7 +646,7 @@ const folderArgument = (argv: readonly string[]) =>
   argv.slice(app.isPackaged ? 1 : 2).find((arg) => !arg.startsWith("-"));
 
 /**
- * The window, its own page left empty: the strip, Home and the projects' pages are views over it,
+ * The window, its own page left empty: the strip, Home and the projects' projectViews are views over it,
  * so that a switch between tabs loads nothing (ADR 0107).
  */
 const makeWindow = () => {

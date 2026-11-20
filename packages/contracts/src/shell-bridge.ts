@@ -138,23 +138,24 @@ export type TabState = typeof TabState.Type;
 
 /** An open project, as its tab over the window shows it (ADR 0107). */
 export const ShellTab = Schema.Struct({
-  /** Its icon as its page last said (`projects.describe`); absent before, the name's initial. */
+  /** Its icon as its project view last said (`projects.describe`); absent before, the name's initial. */
   icon: Schema.optional(ShownProjectIcon),
   id: Schema.String,
   name: Schema.String,
   /** The address of its server while it runs, which an image icon is drawn from. */
   server: Schema.optional(Schema.String),
-  /** Whether its page is the one on screen; none is while Home is. */
+  /** Whether its project view is the one on screen; none is while Home is. */
   shown: Schema.Boolean,
   state: TabState,
 });
 export type ShellTab = typeof ShellTab.Type;
 
-/** How an open project's page says what it is called and looks like: its server's info. */
-const ProjectLook = Schema.Struct({
+/** How an open project's view says what it is called and looks like: its server's info. */
+export const ProjectLook = Schema.Struct({
   icon: Schema.optional(ShownProjectIcon),
   name: Schema.String,
 });
+export type ProjectLook = typeof ProjectLook.Type;
 
 /** A folder on another machine, reached over SSH, as the dialog asks for it. */
 const RemoteProjectRequest = Schema.Struct({
@@ -494,6 +495,11 @@ export const SHELL_BRIDGE = {
     ],
     Schema.NullOr(Schema.String)
   ),
+  /**
+   * The shell's id of the page's project (ADR 0107): what the editor keeps in the origin's
+   * storage is kept under it, every project view sharing the origin. Null for a view of none.
+   */
+  projectId: state(Schema.NullOr(Schema.String)),
   /** Adds a project, through the shell's own dialog, and opens it in a new tab. */
   "projects.add": invoke([], Schema.Void),
   /**
@@ -505,7 +511,7 @@ export const SHELL_BRIDGE = {
     Schema.Struct({ problem: Schema.optional(Schema.String) })
   ),
   /**
-   * Closes an open project's tab, the calling page's own when no id is given: its server stops,
+   * Closes an open project's tab, the calling view's own when no id is given: its server stops,
    * once the person agreed when an agent is at work there (ADR 0107). Nothing when they would
    * rather it went on.
    */
@@ -518,7 +524,7 @@ export const SHELL_BRIDGE = {
   /** The id of the project whose tab is shown; null while Home is. */
   "projects.current": invoke([], Schema.NullOr(Schema.String)),
   /**
-   * The calling page's project, as its server shows it: the name and icon its tab and the list
+   * The calling view's project, as its server shows it: the name and icon its tab and the list
    * show from then on (ADR 0107).
    */
   "projects.describe": invoke([ProjectLook], Schema.Void),
@@ -539,7 +545,7 @@ export const SHELL_BRIDGE = {
     Schema.Void
   ),
   /**
-   * The editor's own steps of the calling page's open are done (`opening`), with the time each
+   * The editor's own steps of the calling view's open are done (`opening`), with the time each
    * took: the shell keeps them for the next open's estimate, and the open is over.
    */
   "projects.openingDone": invoke([OpeningTimes], Schema.Void),
@@ -548,7 +554,7 @@ export const SHELL_BRIDGE = {
    * left as it is. An open project stays, and the call fails saying so.
    */
   "projects.remove": invoke([Schema.String], Schema.Void),
-  /** Runs the calling page's open that failed (`opening`'s `problem`) again. */
+  /** Runs the calling view's open that failed (`opening`'s `problem`) again. */
   "projects.retryOpening": invoke([], Schema.Void),
   /**
    * Shows an open project's tab, starting its server the first time it is shown since the app
@@ -558,12 +564,12 @@ export const SHELL_BRIDGE = {
   /** The host aliases of the user's SSH configuration, suggested as a host is typed. */
   "projects.sshHosts": invoke([], Schema.Array(Schema.String)),
   /**
-   * Stops the calling page's project opening (its machine not answering, say), or gives up one
+   * Stops the calling view's project opening (its machine not answering, say), or gives up one
    * that failed: its tab closes, and the tab shown before it shows again.
    */
   "projects.stopOpening": invoke([], Schema.Void),
   /**
-   * The start screen's prompt for the calling page's project, given once: the editor sends it in
+   * The start screen's prompt for the calling view's project, given once: the editor sends it in
    * its first chat as it loads. Null when there is none, or it was taken.
    */
   "projects.takeFirstPrompt": invoke([], Schema.NullOr(FirstPrompt)),

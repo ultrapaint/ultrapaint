@@ -1,5 +1,5 @@
 /**
- * Which page a call of the shell bridge comes from (ADR 0107): a project's page, answered for its
+ * Which view a call of the shell bridge comes from (ADR 0107): a project view, answered for its
  * own project, or the tab strip and Home, which belong to none. The main process gives it to each
  * call from the page that made it.
  */
