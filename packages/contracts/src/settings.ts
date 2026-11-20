@@ -198,6 +198,23 @@ export const SavedOnChange = Schema.Struct({
 });
 export type SavedOnChange = typeof SavedOnChange.Type;
 
+/** The file in the person's folder (`~/.ultrapaint`) their profile is kept in. */
+export const PROFILE_FILE = "profile.json";
+
+/**
+ * How the editor tells the person of an agent that finished, stopped or asks while they are not
+ * looking (Settings › General › Notifications): nothing, a notification, a sound, or both. Kept
+ * in the profile's preferences, under `appearance.notifications`; the desktop app reads it to
+ * tell of the projects not on screen (ADR 0107).
+ */
+export const Notifications = Schema.Literals([
+  "off",
+  "notification",
+  "sound",
+  "both",
+]);
+export type Notifications = typeof Notifications.Type;
+
 /**
  * Who the user is to the tool, wherever they work: kept in the user's own directory, never in a
  * project's configuration, which a team shares.

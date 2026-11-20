@@ -4,6 +4,7 @@
  * attributes the stylesheet reads. They colour and size the editor's chrome only; the designs on
  * the canvas keep their own look.
  */
+import { Notifications as NotificationsChoice } from "@ultrapaint/contracts/settings";
 import { create } from "zustand";
 
 /** The editor's accent: what is acted on, a checked control, the focus ring (DESIGN.md). */
@@ -13,7 +14,7 @@ export type Motion = "system" | "reduced" | "full";
 /** What a plain mouse wheel does over the canvas; pinch and ⌘/Ctrl+wheel always zoom. */
 export type ScrollWheel = "pan" | "zoom";
 /** How the editor tells of an agent that finished or asks, while the window is away. */
-export type Notifications = "off" | "notification" | "sound" | "both";
+export type Notifications = typeof NotificationsChoice.Type;
 
 export interface Preferences {
   accent: Accent;
@@ -54,7 +55,7 @@ const CHOICES: { [K in keyof Preferences]: readonly Preferences[K][] } = {
   contrast: [false, true],
   everyStep: [false, true],
   motion: ["system", "reduced", "full"],
-  notifications: ["off", "notification", "sound", "both"],
+  notifications: NotificationsChoice.literals,
   scrollWheel: ["pan", "zoom"],
   textSize: ["small", "default", "large"],
 };
