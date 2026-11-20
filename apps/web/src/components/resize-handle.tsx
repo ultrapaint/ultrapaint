@@ -6,6 +6,11 @@ import {
   useState,
 } from "react";
 import { cn } from "@/lib/cn";
+import {
+  readProjectItem,
+  useProjectKey,
+  writeProjectItem,
+} from "../state/project-storage.ts";
 
 interface Bounds {
   defaultWidth: number;
@@ -17,16 +22,24 @@ const clamp = (w: number, { min, max }: Bounds) =>
   Math.min(max, Math.max(min, Math.round(w)));
 
 /**
- * Width of a side panel, clamped to its bounds and remembered across reloads. When the bounds
+ * Width of a side panel, clamped to its bounds and remembered across reloads, for each project. When the bounds
  * tighten (a panel allowed to be wide gives way to one that is not), the width shrinks to fit and
  * stays shrunk.
  */
 export const usePanelWidth = (key: string, bounds: Bounds) => {
-  const storageKey = `ultrapaint:panel-width:${key}`;
-  const [stored, setStored] = useState(() => {
-    const saved = Number(localStorage.getItem(storageKey));
+  const base = `ultrapaint:panel-width:${key}`;
+  // The project's own (ADR 0107): known once the project is read, and read again then.
+  const storageKey = useProjectKey(base);
+  const read = () => {
+    const saved = Number(readProjectItem(base, storageKey ?? base));
     return saved ? clamp(saved, bounds) : bounds.defaultWidth;
-  });
+  };
+  const [stored, setStored] = useState(read);
+  const [readFrom, setReadFrom] = useState(storageKey);
+  if (readFrom !== storageKey) {
+    setReadFrom(storageKey);
+    setStored(read());
+  }
   const [max, setMax] = useState(bounds.max);
   if (bounds.max !== max) {
     setMax(bounds.max);
@@ -34,8 +47,10 @@ export const usePanelWidth = (key: string, bounds: Bounds) => {
   }
   const width = Math.min(stored, bounds.max);
   useEffect(() => {
-    localStorage.setItem(storageKey, String(width));
-  }, [storageKey, width]);
+    if (storageKey) {
+      writeProjectItem(base, String(width), storageKey);
+    }
+  }, [base, storageKey, width]);
   const setWidth = (w: number) => setStored(clamp(w, bounds));
   return [width, setWidth] as const;
 };
