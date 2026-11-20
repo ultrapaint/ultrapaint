@@ -5,12 +5,11 @@ import {
   eventNames,
   UltrapaintRpcs,
 } from "@ultrapaint/contracts/rpc";
-import { Effect, FileSystem, Path, type Stream } from "effect";
+import { Effect, FileSystem, type Stream } from "effect";
 import { AppLog } from "./app-log.ts";
 import { EventBus } from "./events.ts";
 import { lineOfKey } from "./line-of-key.ts";
 import { OpenProject, ProjectManager } from "./project.ts";
-import { makeProjectImages } from "./project-images.ts";
 import { CodeEditor } from "./services/code-editor.ts";
 import { CommentsService } from "./services/comments.ts";
 import { ComponentService } from "./services/components.ts";
@@ -28,6 +27,7 @@ import { ImplementationService } from "./services/implementation.ts";
 import { McpAccess } from "./services/mcp/access.ts";
 import { PagesService } from "./services/pages.ts";
 import { ProfileService } from "./services/profile.ts";
+import { ProjectImages } from "./services/project-images.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import { Screenshots } from "./services/screenshots.ts";
 import { SetupService } from "./services/setup.ts";
@@ -93,7 +93,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const repoPaths = open.service(RepoPaths);
     const codeEditor = yield* CodeEditor;
     const fs = yield* FileSystem.FileSystem;
-    const images = makeProjectImages(fs, yield* Path.Path);
+    const images = open.service(ProjectImages);
 
     // Every event as the bus carries it, but a screenshot request: an editor listening for those
     // is one that can draw, which the screenshots count.
@@ -258,7 +258,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "profile.get": () => profile.get,
       "profile.set": (input) => profile.set(input),
 
-      "project.images": () => open.use(images.found),
+      "project.images": () => images((i) => i.found),
       "project.info": () => project.info,
 
       "screenshots.deliver": (result) => screenshots.deliver(result),

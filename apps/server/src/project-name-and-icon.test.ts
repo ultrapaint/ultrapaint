@@ -42,9 +42,7 @@ const info = Effect.flatMap(TestEnv, ({ client }) =>
 
 /** The project's images served as the editor asks for them: each answer's status and type. */
 const served = Effect.gen(function* () {
-  const context = yield* Effect.context<
-    OpenProject | FileSystem.FileSystem | Path.Path
-  >();
+  const context = yield* Effect.context<OpenProject>();
   const { dispose, handler } = HttpRouter.toWebHandler(
     ProjectImageRoute.pipe(
       Layer.provide(Layer.succeedContext(context)),
@@ -150,6 +148,24 @@ describe("the project's icon (ADR 0107)", () => {
         });
       }),
     { files: { "app/icon.png": "png", "public/favicon.svg": SVG } }
+  );
+
+  inProject(
+    "takes a favicon added since the project opened once the settings are saved again",
+    () =>
+      Effect.gen(function* () {
+        const { repo } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        yield* saveWith({ name: "shop" });
+        assert.strictEqual((yield* info).icon?.kind, "initial");
+        yield* fs.makeDirectory(`${repo}/public`, { recursive: true });
+        yield* fs.writeFileString(`${repo}/public/favicon.svg`, SVG);
+        yield* saveWith({ name: "Shop" });
+        assert.deepStrictEqual((yield* info).icon, {
+          kind: "file",
+          path: "public/favicon.svg",
+        });
+      })
   );
 
   inProject(
