@@ -34,6 +34,10 @@ const useRemoteProject = create<{ shown: boolean }>(() => ({ shown: false }));
 export const openRemoteProject = () =>
   useRemoteProject.setState({ shown: true });
 
+/** Closes the dialog, as its Cancel does. */
+export const closeRemoteProject = () =>
+  useRemoteProject.setState({ shown: false });
+
 /** Whether the dialog is open: the tab strip covers the window while it is. */
 export const useRemoteProjectShown = () => useRemoteProject((s) => s.shown);
 
@@ -168,7 +172,7 @@ const Form = ({ projects }: { projects: ShellProjects }) => {
       <DialogFooter>
         <Button
           disabled={busy}
-          onClick={() => useRemoteProject.setState({ shown: false })}
+          onClick={closeRemoteProject}
           type="button"
           variant="outline"
         >
