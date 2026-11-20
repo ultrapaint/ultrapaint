@@ -11,6 +11,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Search,
+  Slash,
 } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -153,20 +154,10 @@ export const TitleRow = () => {
       <span className="flex size-8 shrink-0 items-center justify-center">
         <Logo className="size-5.5" />
       </span>
-      {/* The slash between the mark and the project: a hairline, drawn, as the mark is. */}
-      <svg
-        aria-hidden
-        className="h-5 w-2 shrink-0 text-muted-foreground"
-        viewBox="0 0 8 20"
-      >
-        <path
-          d="M7 1 1 19"
-          fill="none"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeWidth={1.25}
-        />
-      </svg>
+      <Slash
+        className="size-5 shrink-0 text-muted-foreground"
+        strokeWidth={1.25}
+      />
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <ProjectName />
         <Unsaved />

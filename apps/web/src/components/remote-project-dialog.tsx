@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { type ProjectSwitcher, platform } from "../platform.ts";
+import { platform, type ShellProjects } from "../platform.ts";
 
 const useRemoteProject = create<{ shown: boolean }>(() => ({ shown: false }));
 
@@ -40,7 +40,7 @@ export const canAddRemoteProjects = () => platform().projects !== undefined;
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
-const Form = ({ projects }: { projects: ProjectSwitcher }) => {
+const Form = ({ projects }: { projects: ShellProjects }) => {
   const [host, setHost] = useState("");
   const [path, setPath] = useState("");
   const [command, setCommand] = useState("");
