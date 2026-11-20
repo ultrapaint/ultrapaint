@@ -2,8 +2,8 @@
  * Tells the person, while the editor's window is away (hidden or not focused), that an agent
  * finished, stopped or asks something, as Settings › General › Notifications chose: a system
  * notification, a short sound, both, or nothing. Nothing is said for what happens in sight. In
- * the desktop app a page tells only while its project's tab is on screen: the app tells of the
- * projects not on screen (`project-notices.ts`, ADR 0107), so one event is told once.
+ * the desktop app a project view's editor tells only while its tab is on screen: the app tells of
+ * the projects not on screen (`project-notices.ts`, ADR 0107), so one event is told once.
  */
 import type { Thread } from "@ultrapaint/contracts/threads";
 import { useAgents } from "../state/agents.ts";

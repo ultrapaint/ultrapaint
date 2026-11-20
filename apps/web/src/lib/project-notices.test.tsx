@@ -10,7 +10,13 @@ import { toast } from "sonner";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Toaster } from "@/components/ui/sonner";
 import { type Platform, setPlatform } from "../platform.ts";
-import { anotherTabShown, followProjectNotices } from "./project-notices.ts";
+import { usePreferences } from "../state/preferences.ts";
+import { WelcomePage } from "../welcome.tsx";
+import {
+  anotherTabShown,
+  followNotificationsPreference,
+  followProjectNotices,
+} from "./project-notices.ts";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -34,16 +40,23 @@ let mounted: Root | null = null;
 let stop: (() => void) | null = null;
 
 /**
- * The page of project `own` in the desktop app, its toasts drawn: what it asks of the shell is
- * recorded, and `tell` gives it the app's notice as the app would.
+ * The editor of project `own` in the desktop app, its toasts drawn, or Home's start page with
+ * `null`: what it asks of the shell is recorded, and `tell` gives it the app's notice as the app
+ * would.
  */
-const page = async (own: string) => {
+const page = async (own: string | null) => {
   // fake clock: the toaster draws a toast on the timer after it is asked for one.
   vi.useFakeTimers();
   const asked: string[] = [];
   let current: ProjectNotice | null = null;
   const listeners = new Set<(value: ProjectNotice | null) => void>();
   setPlatform({
+    notifications: {
+      prefer: (preference: string) => {
+        asked.push(`prefer ${preference}`);
+        return Promise.resolve();
+      },
+    },
     projectId: { current: () => own, subscribe: () => () => undefined },
     projectNotice: {
       current: () => current,
@@ -53,6 +66,12 @@ const page = async (own: string) => {
       },
     },
     projects: {
+      current: () => Promise.resolve(null),
+      dismissNotice: (id: string) => {
+        asked.push(`dismiss ${id}`);
+        return Promise.resolve();
+      },
+      list: () => Promise.resolve([]),
       show: (id: string) => {
         asked.push(`show ${id}`);
         return Promise.resolve();
@@ -64,10 +83,11 @@ const page = async (own: string) => {
   const root = createRoot(document.getElementById("root") as HTMLElement);
   mounted = root;
   await act(async () => {
-    root.render(<Toaster />);
+    root.render(own === null ? <WelcomePage /> : <Toaster />);
     await Promise.resolve();
   });
-  stop = followProjectNotices();
+  // The editor follows them from its app (`app.tsx`); Home's page on its own.
+  stop = own === null ? null : followProjectNotices();
   return {
     asked,
     tell: (next: ProjectNotice | null) =>
@@ -109,7 +129,26 @@ describe("the notice of another project's agent (ADR 0107)", () => {
     expect(asked).toEqual(["show docs"]);
   });
 
-  it("is not shown on the page of the project it is about", async () => {
+  it("shows on Home's start page too", async () => {
+    const { asked, tell } = await page(null);
+    await tell(ASKS);
+    expect(document.body.textContent).toContain(
+      "docs-site: an agent asks you something"
+    );
+    await act(async () => goToIt()?.click());
+    expect(asked).toContain("show docs");
+  });
+
+  it("is over in every view once its toast times out", async () => {
+    const { asked, tell } = await page("shop");
+    await tell(ASKS);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(11_000);
+    });
+    expect(asked).toContain("dismiss 1");
+  });
+
+  it("is not shown in the project view of the project it is about", async () => {
     const { tell } = await page("docs");
     await tell({ ...ASKS, id: "2", title: "docs: an agent finished" });
     expect(document.body.textContent).not.toContain("docs: an agent finished");
@@ -117,7 +156,21 @@ describe("the notice of another project's agent (ADR 0107)", () => {
   });
 });
 
-describe("who tells a page's own agents' news (ADR 0107)", () => {
+describe("the person's Notifications preference (ADR 0107)", () => {
+  it("is told the desktop app as the editor loads, and at each change", async () => {
+    const { asked } = await page("shop");
+    const stopTelling = followNotificationsPreference();
+    usePreferences.getState().set("notifications", "both");
+    stopTelling();
+    usePreferences.getState().reset("notifications");
+    expect(asked.filter((a) => a.startsWith("prefer"))).toEqual([
+      "prefer off",
+      "prefer both",
+    ]);
+  });
+});
+
+describe("who tells a project view's own agents' news (ADR 0107)", () => {
   const shell = (own: string | null, tabs?: readonly ShellTab[]) =>
     ({
       ...(own === null
