@@ -15,12 +15,12 @@
     "design-system.page.json": "/design-system",
     "general-narrow.page.json": "/general-narrow",
     "general.page.json": "/general",
+    "name-and-icon.page.json": "/name-and-icon",
     "repository.page.json": "/repository",
     "review.page.json": "/review",
     "shortcuts.page.json": "/shortcuts",
     "skills.page.json": "/skills",
-    "states.page.json": "/states",
-    "name-and-icon.page.json": "/name-and-icon"
+    "states.page.json": "/states"
   },
   "frames": {
     "about.page.json": {
@@ -79,6 +79,13 @@
       "x": 1520,
       "y": 0
     },
+    "name-and-icon.page.json": {
+      "height": 860,
+      "preset": "custom",
+      "width": 1440,
+      "x": 18920,
+      "y": 0
+    },
     "repository.page.json": {
       "height": 860,
       "preset": "custom",
@@ -112,13 +119,6 @@
       "preset": "custom",
       "width": 1700,
       "x": 17400,
-      "y": 0
-    },
-    "name-and-icon.page.json": {
-      "height": 860,
-      "preset": "custom",
-      "width": 1440,
-      "x": 18920,
       "y": 0
     }
   },
