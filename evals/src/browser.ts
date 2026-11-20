@@ -42,9 +42,15 @@ import {
 } from "./in-page.ts";
 import type { Viewport } from "./reference.ts";
 
-/** Resolves once every face the page asked for has loaded or failed; runs in the page. */
+/**
+ * Resolves once every face the page asked for has loaded or failed, or after ten seconds, so a
+ * face that never settles cannot hold the picture; runs in the page.
+ */
 const fontsLoadedInBrowser = async (): Promise<void> => {
-  await document.fonts.ready;
+  await Promise.race([
+    document.fonts.ready,
+    new Promise((resolve) => setTimeout(resolve, 10_000)),
+  ]);
 };
 
 const BROWSERS = [
