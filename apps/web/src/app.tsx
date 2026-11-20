@@ -49,6 +49,7 @@ import { sendFirstPrompt } from "./lib/first-prompt.ts";
 import { useKeymap } from "./lib/keymap.ts";
 import { openLookPage, startLookPage } from "./lib/look-page.ts";
 import { useOpenNodeLink } from "./lib/open-node-link.ts";
+import { followProjectNotices } from "./lib/project-notices.ts";
 import { CanvasPicker } from "./panels/canvases.tsx";
 import { CodePanel } from "./panels/code.tsx";
 import { Inspector } from "./panels/inspector.tsx";
@@ -730,6 +731,7 @@ export const App = () => {
   useEffect(() => startCanvasPicks(), []);
   useEffect(() => startIsolation(), []);
   useEffect(() => startLookPage(), []);
+  useEffect(() => followProjectNotices(), []);
 
   // Errors surface as toasts; the store slot is only a hand-off from non-React code.
   useEffect(() => {

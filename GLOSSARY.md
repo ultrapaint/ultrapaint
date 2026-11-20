@@ -592,11 +592,20 @@ refactor and the board view left.
   for its own project (`Caller`), and what its editor keeps in the browser is keyed by the
   project's id (`projectId`). _Avoid_: page (a design document), workspace, window (there is one).
 - **Tab strip**: the tabs over the desktop app's window (ADR 0107): Home, the start page, then a
-  tab per open project with its icon and name, a spinner while an agent works there and the shown
-  one's ×, then the **+**, whose menu opens what is chosen in a new tab (Recent, Open folder…,
+  tab per open project with its icon and name, a dot while an agent there waits on the person (a
+  question, a permission), else a spinner while one works there, and the shown one's ×, then the
+  **+**, whose menu opens what is chosen in a new tab (Recent, Open folder…,
   Open over SSH…, New project…) and never a project by itself. The web app's own page
   (`tabs.html`, `tab-strip.tsx`), in a view over the project views, fed by the bridge's `tabs`;
   the window's title bar on a Mac. _Avoid_: tab bar, project switcher (gone).
+- **Project notice**: the desktop app's news of an agent in an open project not on screen that
+  asks the person something or finished (ADR 0107; `ProjectNotice`, the bridge's
+  `projectNotice`): learnt from each server's health (`working`, `waiting`), so a project whose
+  view was let go still tells it. A toast over the editor on screen with Go to it, which shows
+  that project's tab, while the window is in front; the system's notification, its sound or both
+  under the person's Notifications preference while it is behind. The project on screen tells its
+  own agents' news from its page (`agent-notifications.ts`), so one event is told once. _Avoid_:
+  notice (what the app found missing on the machine), alert.
 - **Project's name and icon**: how a project is shown on its tab and in the title row, kept in
   its configuration (`name`, `icon`) so the team sees the same (ADR 0107): an icon of the set in
   one of nine colours, or an image file of the project. Without them, the folder's name, and the
