@@ -31,7 +31,7 @@ import { AgentDownloads } from "./agent-downloads.ts";
 import { releasesFor } from "./agent-releases.ts";
 import { AgentSettings } from "./agent-settings.ts";
 import { Agents } from "./agents.ts";
-import { APP_EDITOR_URL, APP_SCHEME } from "./app-editor.ts";
+import { APP_EDITOR_URL, APP_SCHEME, isAppPage } from "./app-editor.ts";
 import { type BridgeInfo, INFO_CHANNEL } from "./bridge.ts";
 import {
   type BridgeStates,
@@ -185,12 +185,19 @@ const viewOf = (sender: WebContents): AppView | undefined => {
   return undefined;
 };
 
+/**
+ * The view a message comes from, while what it shows is one of the app's own pages or its
+ * servers' (a redirect elsewhere that slipped through calls nothing).
+ */
+const trustedViewOf = (sender: WebContents): AppView | undefined =>
+  isAppPage(sender.getURL()) ? viewOf(sender) : undefined;
+
 /** Who calls, as the handlers ask: a project view, or one of none. */
 const callerOf = (from: AppView) =>
   Caller.layer(from.kind === "project" ? from.id : null);
 
 /**
- * The editor's build, served to the window under the app's own scheme for the projectViews that have no
+ * The editor's build, served to the window under the app's own scheme for the pages that have no
  * server behind them: the welcome page. Its absolute paths (`/assets/…`) resolve as they do
  * when a server serves it.
  */
@@ -292,12 +299,14 @@ const guard = (contents: WebContents) => {
     }
     return { action: "deny" };
   });
-  contents.on("will-navigate", (event, url) => {
-    const current = contents.getURL();
-    if (current && new URL(url).origin !== new URL(current).origin) {
+  // Nowhere but the app's pages and its servers, whether a page goes or a server redirects it.
+  const stayHome = (event: { preventDefault: () => void }, url: string) => {
+    if (!isAppPage(url)) {
       event.preventDefault();
     }
-  });
+  };
+  contents.on("will-navigate", stayHome);
+  contents.on("will-redirect", stayHome);
   contents.on("before-input-event", (event, input) => {
     const n = tabKey(input, process.platform === "darwin");
     if (n !== null) {
@@ -327,9 +336,38 @@ const makeView = (background = canvasColor()) => {
 /** The app's own page at `file`, under its scheme. */
 const appPage = (file: string) => `${APP_SCHEME}://app/${file}`;
 
-/** A page that did not finish loading (another load began meanwhile) is not an error. */
-const loadIn = (view: WebContentsView, url: string) => {
-  view.webContents.loadURL(url).catch(() => undefined);
+/** Each view's latest load: one that fails once another began was superseded. */
+const latestLoad = new WeakMap<WebContentsView, number>();
+
+/**
+ * Loads a page in a view. A load superseded by another, or of a view let go, is no failure; one
+ * of a project view that fails (its server stopped answering) says why on the project's splash,
+ * with Try again.
+ */
+const loadIn = (view: WebContentsView, url: string, project?: string) => {
+  const load = (latestLoad.get(view) ?? 0) + 1;
+  latestLoad.set(view, load);
+  view.webContents
+    .loadURL(url)
+    .catch((error: unknown) => {
+      const superseded =
+        latestLoad.get(view) !== load ||
+        view.webContents.isDestroyed() ||
+        (project !== undefined && projectViews.get(project) !== view) ||
+        (error as { code?: string }).code === "ERR_ABORTED";
+      return superseded || project === undefined
+        ? undefined
+        : runtime.runPromise(
+            OpenProjects.use((o) =>
+              o.loadFailed(
+                project,
+                `The editor at ${url} did not load: ${error instanceof Error ? error.message : String(error)}`
+              )
+            )
+          );
+    })
+    // Saying so fails only once the runtime is let go, as the app quits.
+    .catch(() => undefined);
 };
 
 /** Loads a project view, making it, below the strip, when it has none. */
@@ -350,7 +388,7 @@ const loadProjectView = (id: string, view: View) => {
     layout();
   }
   if (view._tag === "Opening") {
-    // The app's own target, under the splash of the project opening: drawn from its `opening`.
+    // The app's own page, under the splash of the project opening: drawn from its `opening`.
     loadIn(target, appPage("welcome.html"));
     return;
   }
@@ -368,7 +406,7 @@ const loadProjectView = (id: string, view: View) => {
     next.search = current.search;
     next.hash = current.hash;
   }
-  loadIn(target, next.href);
+  loadIn(target, next.href, id);
 };
 
 /** Lets go of a project view; what it was told is kept for its next load. */
@@ -614,7 +652,9 @@ const runtime = ManagedRuntime.make(
 
 /** What the preload script asks before the page loads: synchronous for the page. */
 ipcMain.on(INFO_CHANNEL, (event) => {
-  const from = viewOf(event.sender);
+  // The page loading, as its frame says: the address it is committing to.
+  const address = event.senderFrame?.url ?? event.sender.getURL();
+  const from = isAppPage(address) ? viewOf(event.sender) : undefined;
   if (!from) {
     event.returnValue = { shown: [] } satisfies BridgeInfo;
     return;
@@ -638,7 +678,7 @@ serveBridge({
   remote: callerRemote,
   run: (effect, from) =>
     runtime.runPromise(effect.pipe(Effect.provide(callerOf(from)))),
-  viewOf,
+  viewOf: trustedViewOf,
 });
 
 /** A folder named on the command line, after the app's own path in development. */

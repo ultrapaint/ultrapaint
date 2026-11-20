@@ -15,11 +15,13 @@ export interface Recorded {
    * answer given later: `Effect.never` leaves the question on screen.
    */
   answers: (boolean | Effect.Effect<boolean>)[];
+  /** What runs as a project view is let go, before it is (to look at the app then). */
+  beforeDrop: Effect.Effect<void> | null;
   /** What declining each question was called, in order. */
   declines: string[];
   /** What each question said at more length, in order. */
   details: string[];
-  /** The projects whose page was let go, in order. */
+  /** The projects whose view was let go, in order. */
   drops: string[];
   events: string[];
   /** What each project view was told of its opening, in order: `null` once none is. */
@@ -54,6 +56,7 @@ export interface Recorded {
 
 export const makeRecorded = (): Recorded => ({
   answers: [],
+  beforeDrop: null,
   declines: [],
   details: [],
   drops: [],
@@ -120,7 +123,11 @@ export const fakeShell = (recorded: Recorded) =>
           const answer = recorded.answers.shift() ?? true;
           return typeof answer === "boolean" ? Effect.succeed(answer) : answer;
         }),
-      drop: (project) => Effect.sync(() => recorded.drops.push(project)),
+      drop: (project) =>
+        Effect.andThen(
+          recorded.beforeDrop ?? Effect.void,
+          Effect.sync(() => recorded.drops.push(project))
+        ),
       load: (project, view) =>
         Effect.sync(() => {
           recorded.views.push(view);
@@ -157,16 +164,25 @@ export const fakeShell = (recorded: Recorded) =>
     })
   );
 
-/** The version every fake server runs, but one in a folder (or on a host) named `older`. */
+/**
+ * The version every fake server runs, but one in a folder (or on a host) named `older`; one named
+ * `lagging` takes 1 s (of the test clock) to say it.
+ */
 export const FAKE_VERSION = "1.0.0";
-const versionOf = (name: string) =>
-  Effect.succeed(name.includes("older") ? "0.9.0" : FAKE_VERSION);
+const versionOf = (recorded: Recorded, name: string) =>
+  name.includes("lagging")
+    ? Effect.andThen(
+        Effect.sync(() => recordEvent(recorded, `version ${name}`)),
+        Effect.as(Effect.sleep("1 second"), FAKE_VERSION)
+      )
+    : Effect.succeed(name.includes("older") ? "0.9.0" : FAKE_VERSION);
 
 /**
  * A server per start, at `http://127.0.0.1/<folder name>`, whose stop is recorded; a folder
  * named `broken` does not start, one named `attached` has a server running already, one named
- * `chatty` prints a line as it starts, one named `slow` takes 1.2 s (of the test clock) to, and
- * one in `stalled` never says where it listens, once.
+ * `chatty` prints a line as it starts, one named `…slow…` takes 1.2 s (of the test clock) to, one
+ * named `…attached…` was running already, one named `lingering` takes 1 s to stop, and one in
+ * `stalled` never says where it listens, once.
  */
 export const fakeServers = (recorded: Recorded) =>
   Layer.succeed(
@@ -188,26 +204,36 @@ export const fakeServers = (recorded: Recorded) =>
             recordEvent(recorded, `connect ${name}`);
             return yield* Effect.never;
           }
-          if (name === "slow") {
+          if (name.includes("slow")) {
             recordEvent(recorded, "wait slow");
             yield* Effect.sleep("1200 millis");
           }
           if (name === "chatty") {
             yield* (yield* OpeningReport).line("pnpm install · 214 packages");
           }
-          const attached = name === "attached";
+          const attached = name.includes("attached");
           recorded.starts.push(options);
           recordEvent(recorded, `${attached ? "attach" : "start"} ${name}`);
           if (!attached) {
             yield* Effect.addFinalizer(() =>
-              Effect.sync(() => recordEvent(recorded, `stop ${name}`))
+              Effect.andThen(
+                name === "lingering"
+                  ? Effect.andThen(
+                      Effect.sync(() =>
+                        recordEvent(recorded, "stopping lingering")
+                      ),
+                      Effect.sleep("1 second")
+                    )
+                  : Effect.void,
+                Effect.sync(() => recordEvent(recorded, `stop ${name}`))
+              )
             );
           }
           return {
             attached,
             token: `token-${name}`,
             url: `http://127.0.0.1/${name}`,
-            version: versionOf(name),
+            version: versionOf(recorded, name),
             working: Effect.sync(() => recorded.working[name] ?? 0),
           };
         }),
@@ -233,7 +259,7 @@ export const fakeRemoteProjects = (recorded: Recorded) =>
             recordEvent(recorded, `connect ${name}`);
             return yield* Effect.never;
           }
-          if (project.host === "down") {
+          if (project.host === "down" || project.command === "broken") {
             return yield* new ServerStartError({
               message: "down could not be reached",
             });
@@ -249,7 +275,7 @@ export const fakeRemoteProjects = (recorded: Recorded) =>
             attached: false,
             token: `token-${name}`,
             url: `http://127.0.0.1/${project.host}/${project.path.split("/").at(-1) ?? ""}`,
-            version: versionOf(project.host),
+            version: versionOf(recorded, project.host),
             working: Effect.sync(() => recorded.working[name] ?? 0),
           };
         }),
