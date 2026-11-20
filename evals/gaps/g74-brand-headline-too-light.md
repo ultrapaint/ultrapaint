@@ -32,4 +32,13 @@ sections: []
   VideoAsk `500`, `500` → `700`, `600`, against a brand set at about `400`. The three brands the
   person flagged move toward their brand; the control moves away from it. The pairs are asked in
   `decisions/lab-nov20b`.
+- `lab-nov20b`, decided (the person, 2026-11-20): candidate run 1 is closer to the brand on Bloom,
+  Atlas and AlignUI; on VideoAsk, "in terms of just the font, the shipped one, but the candidate
+  run 2 is a bit better looking even tho the font is a bit too boldy". Ship it with a clause for
+  the light brand. Shipped in `SKILL.md`, Type: "A display headline ranks by size, at its
+  character's weight: technical `600`, humanistic `500`, expressive `800`; a brand set light and
+  friendly keeps `400–500`; a thin face only for a literary or luxury brand", with the same in
+  `references/typography.md` and the review's T7 row turned to flag a headline lighter than its
+  character. The clause has its own 2 runs on `held-videoask` (`fx-opus-dw2`) before g74 is set
+  done.
 
