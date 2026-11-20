@@ -21,7 +21,7 @@ describe("threadView", () => {
     ["idle", undefined, false, false, false, null, null],
     ["idle", true, false, true, false, "Your turn", "attention"],
     ["running", undefined, true, false, false, "Working", "working"],
-    ["running", true, true, true, false, "Working", "working"],
+    ["running", true, true, true, false, "Your turn", "attention"],
     ["cancelling", undefined, true, false, false, "Working", "working"],
     ["reviewing", undefined, true, false, false, "Reviewing", "working"],
     ["error", undefined, false, false, true, "Stopped", "failed"],

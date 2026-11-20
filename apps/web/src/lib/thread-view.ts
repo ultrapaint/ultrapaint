@@ -27,9 +27,9 @@ const IDLE: ThreadView = {
 };
 
 /**
- * A thread as the editor shows it; one not there (a step's thread not read yet) is idle. Working
- * goes before a question, which goes before a failure: a turn under way is what the thread is
- * doing now.
+ * A thread as the editor shows it; one not there (a step's thread not read yet) is idle. A
+ * question goes before working, which goes before a failure: what needs the person first, then
+ * what the thread is doing now.
  */
 export const threadView = (
   thread: Pick<Thread, "status" | "summary"> | undefined
@@ -40,13 +40,15 @@ export const threadView = (
   const busy = isBusy(thread.status);
   const waiting = isWaiting(thread);
   const failed = thread.status === "error";
+  // A question or a permission undecided needs the person, its turn under way or not: the tab
+  // over the window shows the same, its dot before the spinner (ADR 0107).
+  if (waiting) {
+    return { busy, failed, label: "Your turn", tone: "attention", waiting };
+  }
   if (busy) {
     // Its review models look at what it made (ADR 0063): still working, in other words.
     const label = thread.status === "reviewing" ? "Reviewing" : "Working";
     return { busy, failed, label, tone: "working", waiting };
-  }
-  if (waiting) {
-    return { busy, failed, label: "Your turn", tone: "attention", waiting };
   }
   if (failed) {
     return { busy, failed, label: "Stopped", tone: "failed", waiting };
