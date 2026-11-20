@@ -1,8 +1,11 @@
 import { cn } from "@/lib/cn";
 import { CutText } from "./cut-text.tsx";
 
-/** A remote project's `host:` or `host:port:` before its folder (`projectDetail`). */
-const HOST_RE = /^[^/\\~:]+:(?:\d+:)?(?=[/~])/;
+/**
+ * A remote project's `host:` or `host:port:` before its folder (`projectDetail`), to the last
+ * colon before the folder's `/` or `~`, so an IPv6 host (`me@::1:2200:`) stays whole too.
+ */
+const HOST_RE = /^[^/\\~]*:(?=[/~])/;
 
 /**
  * A path, a folder or a file on one line, cut at its start when it does not fit, so its last
