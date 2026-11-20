@@ -1,6 +1,12 @@
 import { assert, describe, expect, it } from "vitest";
-import { dividerFindings, hoverFindings, spacingFindings } from "./findings.ts";
-import type { InkLine, LaidBlock } from "./in-page.ts";
+import {
+  borderShadowFindings,
+  dividerFindings,
+  hoverFindings,
+  shadowLayers,
+  spacingFindings,
+} from "./findings.ts";
+import type { InkLine, LaidBlock, ShadowedBox } from "./in-page.ts";
 
 /** Lines of 18px from `top`, `gap` apart. */
 const lines = (top: number, count: number, gap: number): InkLine[] =>
@@ -148,5 +154,108 @@ describe("the hover pass", () => {
       rest: { controls: [], findings: [] },
     });
     expect(found?.box).toEqual(box);
+  });
+});
+
+describe("a hairline border and a wide soft shadow", () => {
+  const box = { height: 320, width: 480, x: 120, y: 900 };
+  /** A card as Chrome computes it: a 1px border on every side unless told otherwise. */
+  const card = (
+    shadow: string,
+    more: Partial<ShadowedBox> = {}
+  ): ShadowedBox => ({
+    border: [1, 1, 1, 1],
+    box,
+    label: "Restore in minutes",
+    overlay: false,
+    shadow,
+    ...more,
+  });
+
+  it("flags a card with a 1px border and a shadow blurred 24px or more at low alpha, with where it is and the shadow", () => {
+    assert.deepStrictEqual(
+      borderShadowFindings([
+        card("rgba(15, 23, 42, 0.08) 0px 24px 48px -12px"),
+      ]),
+      [
+        {
+          box,
+          check: "border-shadow",
+          detail:
+            "a 1px border and a soft shadow (0px 24px 48px -12px at alpha 0.08, blurred 24px or more under 0.5): two edges for one surface",
+          label: "Restore in minutes",
+          value: 48,
+        },
+      ]
+    );
+  });
+
+  it("takes a 1px ring drawn as a shadow's spread for the border", () => {
+    // Tailwind's ring-1 with shadow-xl, as Chrome writes them, on a box with no border.
+    const [found] = borderShadowFindings([
+      card(
+        "rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklch(0.92 0.004 286.32) 0px 0px 0px 1px, rgba(0, 0, 0, 0.1) 0px 20px 25px -5px, rgba(0, 0, 0, 0.1) 0px 8px 10px -6px",
+        { border: [0, 0, 0, 0] }
+      ),
+    ]);
+    expect(
+      found?.detail.startsWith(
+        "a 1px ring and a soft shadow (0px 20px 25px -5px at alpha 0.1,"
+      )
+    ).toBe(true);
+  });
+
+  it("reads the alpha of every way Chrome writes a colour", () => {
+    expect(
+      shadowLayers(
+        "rgb(0 0 0 / 0.12) 0px 30px 60px 0px, oklch(0.2 0.01 260 / 6%) 0px 32px 64px 0px, color(srgb 0 0 0 / 0.05) 0px 24px 24px 0px, #0000001a 0px 24px 40px 0px, rgb(0, 0, 0) 0px 30px 60px 0px, transparent 0px 30px 60px 0px"
+      ).map((l) => l.alpha)
+    ).toEqual([0.12, 0.06, 0.05, 26 / 255, 1, 0]);
+  });
+
+  it("leaves a card with a shadow under 24px of blur, a strong shadow, or only an inset one", () => {
+    assert.deepStrictEqual(
+      borderShadowFindings([
+        card(
+          "rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.1) 0px 4px 6px -4px"
+        ),
+        card("rgba(0, 0, 0, 0.6) 0px 24px 48px 0px"),
+        card("rgba(0, 0, 0, 0.06) 0px 2px 32px 0px inset"),
+      ]),
+      []
+    );
+  });
+
+  it("leaves a wide soft shadow with no hairline edge: no border, a thicker one, or one on a side", () => {
+    const wide = "rgba(0, 0, 0, 0.08) 0px 24px 48px 0px";
+    assert.deepStrictEqual(
+      borderShadowFindings([
+        card(wide, { border: [0, 0, 0, 0] }),
+        card(wide, { border: [2, 2, 2, 2] }),
+        card(wide, { border: [0, 0, 1, 0] }),
+      ]),
+      []
+    );
+  });
+
+  it("leaves out what floats over the page: a menu, a popover, a dialog, a toast", () => {
+    assert.deepStrictEqual(
+      borderShadowFindings([
+        card("rgba(0, 0, 0, 0.12) 0px 16px 48px 0px", { overlay: true }),
+      ]),
+      []
+    );
+  });
+
+  it("counts a border-and-shadow card among the findings at rest", () => {
+    expect(
+      hoverFindings({
+        rest: {
+          controls: [],
+          findings: [],
+          shadowed: [card("rgba(0, 0, 0, 0.08) 0px 24px 48px 0px")],
+        },
+      }).map((f) => [f.check, f.label, f.on])
+    ).toEqual([["border-shadow", "Restore in minutes", "rest"]]);
   });
 });

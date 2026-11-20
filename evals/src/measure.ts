@@ -21,8 +21,8 @@ import { type Measurement, recordSectionChecks } from "./section-checks.ts";
 export interface MeasureOptions {
   /**
    * The general design checks too (contrast, control edges and fills, surface tones, touching
-   * rows, clipped text, names that can't truncate, targets, controls shown only on hover); none
-   * without it.
+   * rows, clipped text, names that can't truncate, targets, controls shown only on hover, a
+   * hairline border under a wide soft shadow); none without it.
    */
   readonly checks?:
     | {

@@ -5,7 +5,8 @@
  *
  * `layoutInBrowser` reads the layout the spacing and divider findings are made from
  * (`findings.ts`); `auditInBrowser` runs the general checks (ADR 0061), each with a threshold
- * from the skill or the design system.
+ * from the skill or the design system, and reads the boxes with a shadow that `findings.ts` checks
+ * for a hairline border under a wide soft shadow.
  */
 
 /**
@@ -189,7 +190,8 @@ export interface AuditFinding {
     | "clipped-text"
     | "cant-truncate"
     | "hover-only"
-    | "target-size";
+    | "target-size"
+    | "border-shadow";
   /** What it says, with the threshold. */
   readonly detail: string;
   /** The element's first words, or its tag and role: to find it. */
@@ -216,6 +218,25 @@ export interface AuditOptions {
   readonly stress: boolean;
 }
 
+/**
+ * A box with a shadow, as `auditInBrowser` reads it for the border-and-shadow check
+ * (`borderShadowFindings`), which parses the shadow.
+ */
+export interface ShadowedBox {
+  /** Its border's widths: top, right, bottom, left; a side drawn in no colour or style is 0. */
+  readonly border: readonly [number, number, number, number];
+  /** Where it is, from the root's top left corner. */
+  readonly box: Box;
+  readonly label: string;
+  /**
+   * Whether it floats over the page: absolutely positioned, fixed or inside something fixed (a
+   * toast, a cookie banner), or a dialog, popover, menu, listbox or tooltip or inside one.
+   */
+  readonly overlay: boolean;
+  /** Its computed `box-shadow`. */
+  readonly shadow: string;
+}
+
 /** What `auditInBrowser` gives back: its findings, and the controls a person can see. */
 export interface Audited {
   /** Where each of those controls is, by its name, from the root's top left corner. */
@@ -223,6 +244,8 @@ export interface Audited {
   /** The visible controls by their names: compared at rest and on hover, it finds hover-only ones. */
   readonly controls: readonly string[];
   readonly findings: readonly AuditFinding[];
+  /** The boxes with a shadow, for `borderShadowFindings`; read when its check runs. */
+  readonly shadowed?: readonly ShadowedBox[];
 }
 
 /**
@@ -299,7 +322,8 @@ export const markHoverableInBrowser = (mark: string) => {
  * skill or the design system: text contrast (4.5:1, large 3:1), a control's edge against what it
  * sits on (3:1), nested surfaces a tone step apart and a dialog not below the page it covers,
  * spacing on the scale, rounded or filled rows not touching, text not clipped, names that
- * truncate, targets at least 24px. Plain DOM code, since Playwright sends its source to the page.
+ * truncate, targets at least 24px; and the boxes with a shadow, for the border-and-shadow check
+ * `findings.ts` makes. Plain DOM code, since Playwright sends its source to the page.
  */
 export const auditInBrowser = (options: AuditOptions): Audited => {
   const rootEl = document.querySelector(options.root) ?? document.body;
@@ -946,6 +970,76 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
     }
   };
 
+  // Boxes with a shadow, for a hairline border under a wide soft shadow (`borderShadowFindings`):
+  // the whole root, not only the window, since a page's cards sit below its first screen; but not
+  // what is off the page's sides or above its top (a carousel's other slides), never seen.
+  const shadowed: ShadowedBox[] = [];
+  const fixedWithin = (el: Element) => {
+    for (let at: Element | null = el; at; at = at.parentElement) {
+      if (getComputedStyle(at).position === "fixed") {
+        return true;
+      }
+    }
+    return false;
+  };
+  const overlayOf = (el: Element) =>
+    getComputedStyle(el).position === "absolute" ||
+    fixedWithin(el) ||
+    el.closest(
+      "dialog, [popover], [role=dialog], [role=alertdialog], [role=menu], [role=listbox], [role=tooltip]"
+    ) !== null;
+  const readShadows = () => {
+    for (const el of [rootEl, ...rootEl.querySelectorAll("*")]) {
+      const style = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      if (
+        style.boxShadow === "none" ||
+        style.display === "none" ||
+        style.visibility === "hidden" ||
+        r.width === 0 ||
+        r.height === 0 ||
+        r.right <= 0 ||
+        r.left >= innerWidth ||
+        r.bottom + scrollY <= 0 ||
+        el.closest("svg")
+      ) {
+        continue;
+      }
+      const side = (width: string, line: string, colour: string) =>
+        line === "none" || line === "hidden" || rgba(colour)[3] === 0
+          ? 0
+          : px(width);
+      shadowed.push({
+        border: [
+          side(
+            style.borderTopWidth,
+            style.borderTopStyle,
+            style.borderTopColor
+          ),
+          side(
+            style.borderRightWidth,
+            style.borderRightStyle,
+            style.borderRightColor
+          ),
+          side(
+            style.borderBottomWidth,
+            style.borderBottomStyle,
+            style.borderBottomColor
+          ),
+          side(
+            style.borderLeftWidth,
+            style.borderLeftStyle,
+            style.borderLeftColor
+          ),
+        ],
+        box: boxOf(el),
+        label: labelOf(el),
+        overlay: overlayOf(el),
+        shadow: style.boxShadow,
+      });
+    }
+  };
+
   const checks: readonly (readonly [AuditFinding["check"], () => void])[] = [
     ["contrast", textContrast],
     ["control-edge", controlEdges],
@@ -957,6 +1051,7 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
     ["clipped-text", clippedText],
     ["target-size", targetSizes],
     ["cant-truncate", namesTruncate],
+    ["border-shadow", readShadows],
   ];
   for (const [name, run] of checks) {
     if (!options.only || options.only.includes(name)) {
@@ -974,5 +1069,6 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
     controlBoxes,
     controls: [...new Set(controlEls.map(labelOf))],
     findings,
+    shadowed,
   };
 };

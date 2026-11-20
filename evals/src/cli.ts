@@ -985,7 +985,7 @@ const measureCommand = Command.make(
     ),
     checks: Flag.Boolean("checks").pipe(
       Flag.withDescription(
-        "Run the general design checks too: contrast, control edges, surface tones, the spacing scale, touching rows, clipped text, names that can't truncate, targets"
+        "Run the general design checks too: contrast, control edges, surface tones, the spacing scale, touching rows, clipped text, names that can't truncate, targets, a hairline border under a wide soft shadow"
       ),
       Flag.withDefault(false)
     ),
