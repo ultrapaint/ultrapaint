@@ -219,9 +219,9 @@ describe("serveBridge", () => {
         "projects.current": () => Effect.succeed("p1"),
       }),
       ipc: { handle: (channel, listener) => listeners.set(channel, listener) },
-      pageOf: (s) => (s === own ? "own" : undefined),
       remote: Effect.succeed(false),
       run: (effect) => Effect.runPromise(effect),
+      viewOf: (s) => (s === own ? "own" : undefined),
     });
     return listeners;
   };

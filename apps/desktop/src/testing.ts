@@ -22,14 +22,14 @@ export interface Recorded {
   /** The projects whose page was let go, in order. */
   drops: string[];
   events: string[];
-  /** What each project's page was told of its opening, in order: `null` once none is. */
+  /** What each project view was told of its opening, in order: `null` once none is. */
   openings: (Opening | null)[];
   /** The titles of the pickers opened, in order. */
   pickers: string[];
   /** Paths the next pickers return; cancelled when there are none left. */
   picks: string[];
   questions: string[];
-  /** What the window put on screen, in order: a project's page by its id, or Home (`null`). */
+  /** What the window put on screen, in order: a project view by its id, or Home (`null`). */
   shown: (string | null)[];
   /**
    * Folders whose server, at its next start, never says where it listens: the start is
@@ -44,7 +44,7 @@ export interface Recorded {
   tabs: (readonly ShellTab[])[];
   /** What was loaded in the projects' pages, in order: the last is the latest. */
   views: View[];
-  /** Which project's page each of `views` was loaded in. */
+  /** Which project view each of `views` was loaded in. */
   viewsIn: string[];
   /** Told when an event or a question is recorded: what `until` waits on. */
   readonly watchers: Set<() => void>;

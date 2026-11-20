@@ -579,21 +579,23 @@ refactor and the board view left.
 - **Opening**: a project from the click until its editor is ready, and what the splash shows of
   it: the steps with their times, the estimate from the project's last open, the log, and why it
   failed (`Opening` in `@ultrapaint/contracts/opening`, ADR 0099). The desktop app's `OpenProjects`
-  holds one per project opening (the bridge's `opening`, told that project's page), the editor
+  holds one per project opening (the bridge's `opening`, told that project view), the editor
   finishes it with its own steps; drawn by `OpeningSplash`. _Avoid_: loading screen.
 - **Open projects**: the projects open in the desktop app, one **tab** each in the order they
   were opened (ADR 0107; `OpenProjects`, `open-projects.ts`). Each keeps its server, started the
   first time its tab is shown and stopped when the tab closes or the app quits, so a **switch**
-  between tabs stops nothing; each has its **page**, its editor in a view of its own, at most five
-  kept loaded, the one seen least recently let go past them, its server running. The tabs, and the
-  one shown, are kept in `projects.json` and come back at the next start, only the shown one
-  started. A page's bridge calls are answered for its own project (`Caller`). _Avoid_: workspace,
-  window (there is one).
+  between tabs stops nothing; one change to a tab's server at a time, and a restart of every
+  server (or the person's folder moving) waits for those under way. Each has its **project view**,
+  its editor in a view of its own, at most five kept loaded, the one seen least recently let go
+  past them, its server running. The tabs, and the one shown, are kept in `projects.json` and come
+  back at the next start, only the shown one started. A project view's bridge calls are answered
+  for its own project (`Caller`), and what its editor keeps in the browser is keyed by the
+  project's id (`projectId`). _Avoid_: page (a design document), workspace, window (there is one).
 - **Tab strip**: the tabs over the desktop app's window (ADR 0107): Home, the start page, then a
   tab per open project with its icon and name, a spinner while an agent works there and the shown
   one's ×, then the **+**, whose menu opens what is chosen in a new tab (Recent, Open folder…,
   Open over SSH…, New project…) and never a project by itself. The web app's own page
-  (`tabs.html`, `tab-strip.tsx`), in a view over the projects' pages, fed by the bridge's `tabs`;
+  (`tabs.html`, `tab-strip.tsx`), in a view over the project views, fed by the bridge's `tabs`;
   the window's title bar on a Mac. _Avoid_: tab bar, project switcher (gone).
 - **Project's name and icon**: how a project is shown on its tab and in the title row, kept in
   its configuration (`name`, `icon`) so the team sees the same (ADR 0107): an icon of the set in

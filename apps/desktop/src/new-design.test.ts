@@ -32,7 +32,7 @@ const withApp = <A, E>(
   }) => Effect.Effect<
     A,
     E,
-    Folders | NewDesigns | ProjectStore | FileSystem.FileSystem
+    Folders | NewDesigns | OpenProjects | ProjectStore | FileSystem.FileSystem
   >
 ) =>
   Effect.gen(function* () {
@@ -180,6 +180,37 @@ describe("a new design", () => {
             _tag: "Editor",
             url: "http://127.0.0.1/acme",
           });
+        })
+      ),
+    30_000
+  );
+
+  it.effect(
+    "opens in a tab of its own beside the projects open, which keep running (ADR 0107)",
+    () =>
+      withApp(({ home, recorded }) =>
+        Effect.gen(function* () {
+          const designs = yield* NewDesigns;
+          yield* (yield* OpenProjects).openFolder("/work/shop");
+          const outcome = yield* designs.create(
+            {
+              code: "root",
+              folder: path.join(home, DESIGNS_HOME, "acme"),
+              git: false,
+              name: "Acme",
+              template: "blank",
+            },
+            () => Effect.void
+          );
+          assert.deepStrictEqual(outcome, {});
+          assert.deepStrictEqual(recorded.events, ["start shop", "start acme"]);
+          assert.deepStrictEqual(
+            (recorded.tabs.at(-1) ?? []).map((t) => [t.name, t.shown]),
+            [
+              ["shop", false],
+              ["Acme", true],
+            ]
+          );
         })
       ),
     30_000

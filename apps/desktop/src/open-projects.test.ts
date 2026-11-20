@@ -7,7 +7,7 @@ import { Agents, makeRuntime } from "./agents.ts";
 import { APP_EDITOR_URL, type AppEditor } from "./app-editor.ts";
 import { Folders } from "./folders.ts";
 import { LoginShell } from "./login-shell.ts";
-import { MAX_PAGES, OpenProjects } from "./open-projects.ts";
+import { MAX_VIEWS, OpenProjects } from "./open-projects.ts";
 import { PROJECTS_FILE, ProjectStore } from "./projects.ts";
 import {
   FAKE_VERSION,
@@ -185,7 +185,7 @@ describe("OpenProjects", () => {
   );
 
   it.effect(
-    "switching tabs stops nothing and loads nothing for a page kept",
+    "switching tabs stops nothing and loads nothing for a project view kept",
     () =>
       withApp((recorded) =>
         Effect.gen(function* () {
@@ -237,7 +237,7 @@ describe("OpenProjects", () => {
   );
 
   it.effect(
-    "lets the page seen least recently go past five, its server running, and loads it again when shown",
+    "lets the project view seen least recently go past five, its server running, and loads it again when shown",
     () =>
       withApp((recorded) =>
         Effect.gen(function* () {
@@ -249,8 +249,8 @@ describe("OpenProjects", () => {
             ids.push(project.id);
             yield* open.open(project.id);
           }
-          assert.strictEqual(MAX_PAGES, 5);
-          // p1 was seen least recently: its page goes, not its server.
+          assert.strictEqual(MAX_VIEWS, 5);
+          // p1 was seen least recently: its view goes, not its server.
           assert.deepStrictEqual(recorded.drops, [ids[0]]);
           assert.isFalse(recorded.events.some((e) => e.startsWith("stop")));
           const loaded = recorded.views.length;
@@ -555,7 +555,7 @@ describe("OpenProjects", () => {
   );
 
   it.effect(
-    "a tab shows its name and icon as its page says, kept in the list",
+    "a tab shows its name and icon as its project view says, kept in the list",
     () =>
       withApp((recorded) =>
         Effect.gen(function* () {
@@ -749,7 +749,7 @@ describe("OpenProjects", () => {
             startImmediately: true,
           });
           yield* connected(recorded);
-          // The page already says what it is waiting for.
+          // The view already says what it is waiting for.
           assert.deepStrictEqual(recorded.views, [{ _tag: "Opening" }]);
           assert.strictEqual(recorded.openings.at(-1)?.where, "silent:/srv");
           yield* open.stopOpening(off.id);
@@ -933,6 +933,237 @@ describe("OpenProjects", () => {
             "{}"
           );
           assert.isFalse(yield* open.unsaved(shop));
+        })
+      )
+  );
+  it.effect(
+    "adds a picked folder and opens it in a tab; a cancelled picker adds nothing",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProjects;
+          assert.isTrue(Option.isNone(yield* open.add));
+          assert.deepStrictEqual(yield* store.list, []);
+          recorded.picks.push("/work/shop");
+          const added = yield* open.add;
+          assert.strictEqual(Option.getOrThrow(added).name, "shop");
+          assert.deepStrictEqual(recorded.events, ["start shop"]);
+          assert.deepStrictEqual(tabsTold(recorded), ["*shop opening"]);
+        })
+      )
+  );
+
+  it.effect("Try again does nothing when no open failed", () =>
+    withApp((recorded) =>
+      Effect.gen(function* () {
+        const store = yield* ProjectStore;
+        const open = yield* OpenProjects;
+        const shop = yield* store.add("/work/shop");
+        yield* open.retryOpening(shop.id);
+        yield* open.open(shop.id);
+        const told = recorded.openings.length;
+        yield* open.retryOpening(shop.id);
+        assert.strictEqual(recorded.openings.length, told);
+        assert.deepStrictEqual(recorded.events, ["start shop"]);
+      })
+    )
+  );
+
+  it.effect("says why a remote project could not be opened", () =>
+    withApp((recorded) =>
+      Effect.gen(function* () {
+        const open = yield* OpenProjects;
+        const failed = yield* Effect.flip(
+          open.addRemote({ host: "down", path: "/srv" })
+        );
+        assert.strictEqual(failed._tag, "ServerStartError");
+        assert.deepStrictEqual(recorded.views, [{ _tag: "Opening" }]);
+        assert.deepStrictEqual(recorded.openings.at(-1)?.problem, {
+          reason: "down could not be reached.",
+        });
+      })
+    )
+  );
+
+  it.effect(
+    "keeps the one opening on the list too when asked to remove it",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const open = yield* OpenProjects;
+          const opening = yield* Effect.forkChild(
+            open.addRemote({ host: "silent", path: "/srv" }),
+            { startImmediately: true }
+          );
+          yield* connected(recorded);
+          const off = Option.getOrThrow(yield* open.current);
+          const refused = yield* Effect.flip(open.remove(off.id));
+          assert.strictEqual(refused._tag, "ProjectOpen");
+          yield* open.stopOpening(off.id);
+          yield* Fiber.join(opening);
+          yield* open.remove(off.id);
+          assert.deepStrictEqual(yield* (yield* ProjectStore).list, []);
+        })
+      )
+  );
+
+  for (const [what, ask] of [
+    [
+      "a close's",
+      (open: OpenProjects["Service"], id: string) =>
+        Effect.map(open.close(id), (closed) => !closed),
+    ],
+    [
+      "a restart's",
+      (open: OpenProjects["Service"]) => Effect.as(open.restart, true),
+    ],
+  ] as const) {
+    it.effect(
+      `a signal cuts ${what} question short: answered no, and every server stops`,
+      () =>
+        withApp((recorded) =>
+          Effect.gen(function* () {
+            const store = yield* ProjectStore;
+            const open = yield* OpenProjects;
+            const busy = yield* store.add("/work/busy");
+            yield* open.open(busy.id);
+            recorded.working.busy = 1;
+            recorded.answers.push(Effect.never);
+            const asking = yield* Effect.forkChild(ask(open, busy.id), {
+              startImmediately: true,
+            });
+            yield* asked(recorded);
+            assert.isTrue(yield* open.stop({ ask: false }));
+            assert.isTrue(yield* Fiber.join(asking));
+            assert.deepStrictEqual(recorded.events, [
+              "start busy",
+              "stop busy",
+            ]);
+          })
+        )
+    );
+  }
+
+  it.effect("shows a restored tab twice at once and starts one server", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const dir = yield* fs.makeTempDirectoryScoped();
+      const slow = yield* startedAgain(dir, () =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProjects;
+          const a = yield* store.add("/work/a");
+          const slowProject = yield* store.add("/work/slow");
+          yield* open.open(a.id);
+          yield* store.setTabs({ open: [a.id, slowProject.id], shown: a.id });
+          yield* open.stop({ ask: false });
+          return slowProject.id;
+        })
+      );
+      yield* startedAgain(dir, (recorded) =>
+        Effect.gen(function* () {
+          const open = yield* OpenProjects;
+          yield* open.start();
+          const first = yield* Effect.forkChild(open.show(slow), {
+            startImmediately: true,
+          });
+          const second = yield* Effect.forkChild(open.showAt(2), {
+            startImmediately: true,
+          });
+          yield* until(recorded, ({ events }) => events.includes("wait slow"));
+          yield* TestClock.adjust("1200 millis");
+          yield* Fiber.join(first);
+          yield* Fiber.join(second);
+          assert.deepStrictEqual(recorded.events, [
+            "start a",
+            "wait slow",
+            "start slow",
+          ]);
+        })
+      );
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
+    "a tab shown while the person's folder moves starts once the servers are back, and only once",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProjects;
+          const a = yield* store.add("/work/a");
+          const b = yield* store.add("/work/b");
+          yield* open.open(a.id);
+          yield* open.openingDone(a.id, {});
+          yield* open.open(b.id);
+          yield* open.openingDone(b.id, {});
+          let showing: Fiber.Fiber<void> | undefined;
+          yield* open.whileStopped(
+            Effect.gen(function* () {
+              recorded.events.push("copy");
+              // a is shown mid-move: its server is stopped, and a show would start it.
+              showing = yield* Effect.forkDetach(open.show(a.id), {
+                startImmediately: true,
+              });
+              yield* until(recorded, ({ shown }) => shown.at(-1) === a.id);
+              // The copy takes a while: the show has had every chance to start a server.
+              yield* Effect.repeat(Effect.yieldNow, { times: 20 });
+              recorded.events.push("copied");
+            })
+          );
+          if (showing) {
+            yield* Fiber.join(showing);
+          }
+          const during = recorded.events.slice(
+            recorded.events.indexOf("copy"),
+            recorded.events.indexOf("copied")
+          );
+          assert.isFalse(during.some((e) => e.startsWith("start")));
+          const after = recorded.events.slice(
+            recorded.events.indexOf("copied") + 1
+          );
+          // Each started again once, nothing started twice and stopped.
+          assert.deepStrictEqual([...after].sort(), ["start a", "start b"]);
+        })
+      )
+  );
+
+  it.effect(
+    "a restart waits for a project still starting, then starts it again too; a show meanwhile starts nothing more",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProjects;
+          const slow = yield* store.add("/work/slow");
+          const opening = yield* Effect.forkChild(open.open(slow.id), {
+            startImmediately: true,
+          });
+          yield* until(recorded, ({ events }) => events.includes("wait slow"));
+          const restarting = yield* Effect.forkChild(open.restart, {
+            startImmediately: true,
+          });
+          const showing = yield* Effect.forkChild(open.show(slow.id), {
+            startImmediately: true,
+          });
+          yield* TestClock.adjust("1200 millis");
+          yield* Fiber.join(opening);
+          // Started on the old setup: started again.
+          yield* until(
+            recorded,
+            ({ events }) => events.filter((e) => e === "wait slow").length === 2
+          );
+          yield* TestClock.adjust("1200 millis");
+          yield* Fiber.join(restarting);
+          yield* Fiber.join(showing);
+          assert.deepStrictEqual(recorded.events, [
+            "wait slow",
+            "start slow",
+            "stop slow",
+            "wait slow",
+            "start slow",
+          ]);
         })
       )
   );

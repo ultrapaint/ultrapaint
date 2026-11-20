@@ -150,7 +150,7 @@ const inspectFolder = (folder: string) =>
   });
 
 /**
- * Whether the calling page's project runs on another machine: its page is shown none of this
+ * Whether the calling view's project runs on another machine: its view is shown none of this
  * machine's own (ADR 0107). The tab strip and Home are this machine's.
  */
 export const callerRemote = Effect.gen(function* () {
@@ -160,7 +160,7 @@ export const callerRemote = Effect.gen(function* () {
     : yield* OpenProjects.use((o) => o.isRemote(project));
 });
 
-/** The calling page's project, for a call that is about it; nothing from a page of none. */
+/** The calling view's project, for a call that is about it; nothing from a page of none. */
 const ownProject = <A, R>(
   run: (id: string) => Effect.Effect<A, never, R>,
   none: A

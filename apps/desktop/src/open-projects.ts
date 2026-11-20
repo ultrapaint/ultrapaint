@@ -6,12 +6,13 @@
  * rather than started (D5), is left running and never asked about. A signal (SIGINT, SIGTERM)
  * asks nobody: it answers a question on screen no and stops the servers at once.
  *
- * Each open project has a page, its editor; at most `MAX_PAGES` are kept loaded, and past them the
- * page shown least recently is let go, its server still running, to load again when its tab is
- * next shown. The tabs, and the one shown, are kept in `projects.json` for the next start, which
+ * Each open project has a project view, its editor; at most `MAX_VIEWS` are kept loaded, and past
+ * them the view shown least recently is let go, its server still running, to load again when its
+ * tab is next shown. A tab's server changes one change at a time (its lock), and a change to every
+ * server waits for those under way and holds the others back (the hold). The tabs, and the one shown, are kept in `projects.json` for the next start, which
  * brings every tab back and starts only the shown one's server.
  *
- * While a project opens its page says so on a splash, from the first moment until its editor is
+ * While a project opens its view says so on a splash, from the first moment until its editor is
  * ready (ADR 0099): each step with its time, the estimate from the project's last open, the last
  * line the start printed. Cancel closes its tab; a step that fails stays on the splash with why,
  * and Try again opens it again.
@@ -27,10 +28,10 @@ import {
   reachStep,
   stepTimes,
 } from "@ultrapaint/contracts/opening";
-import type { ShownProjectIcon } from "@ultrapaint/contracts/project";
 import { CONFIG_FILE_NAMES } from "@ultrapaint/contracts/settings";
 import type {
   FirstPrompt,
+  ProjectLook,
   ShellTab,
   TabState,
 } from "@ultrapaint/contracts/shell-bridge";
@@ -46,9 +47,11 @@ import {
   Path,
   Schedule,
   Scope,
+  Semaphore,
 } from "effect";
 import { Agents } from "./agents.ts";
 import type { AppEditor } from "./app-editor.ts";
+import { changes } from "./changes.ts";
 import {
   ProjectOpen,
   ServerNotOurs,
@@ -69,12 +72,19 @@ import {
   ProjectStore,
   projectDetail,
   type RemoteProjectInput,
+  withLook,
 } from "./projects.ts";
 import { RemoteProjects } from "./remote-project.ts";
 import { Shell, type View } from "./shell.ts";
 
-/** How many projects' pages are kept loaded; past them the one seen least recently goes. */
-export const MAX_PAGES = 5;
+/** How many project views are kept loaded; past them the one seen least recently goes. */
+export const MAX_VIEWS = 5;
+
+/**
+ * The hold's permits: a change to one tab's server takes one, a change to every server (a
+ * restart, the person's folder moving) takes them all, so neither runs through the other.
+ */
+const HOLD = 1_000_000;
 
 /** How often each running server is asked how many agents are at work in it, for its tab. */
 const POLL_EVERY = "2 seconds";
@@ -135,13 +145,19 @@ const closeQuestion = (name: string, working: number) => ({
   message: `Close ${name}?`,
 });
 
-/** Why a launch under way is stopped: its tab closed, or the app quits. */
-type StopReason = "close" | "quit";
+/**
+ * Why a launch is stopped: its tab closed, the app quits, or another start of the tab is under
+ * way already (which the tab's lock rules out; refused rather than run twice).
+ */
+type StopReason = "close" | "quit" | "taken";
 
 /** How a launch that can be stopped ended: what it gave, or why it was stopped. */
 type Launched<A> =
   | { readonly _tag: "done"; readonly value: A }
   | { readonly _tag: "stopped"; readonly reason: StopReason };
+
+/** How a start again ended: as a launch does, or failed, its splash saying why. */
+type StartedAgain<A> = Launched<A> | { readonly _tag: "failed" };
 
 /** A project's server running, in its scope: closing it stops the server. */
 interface Running {
@@ -149,7 +165,7 @@ interface Running {
   readonly server: RunningServer;
 }
 
-/** A project opening on its splash, and the state its page is told. */
+/** A project opening on its splash, and the state its view is told. */
 interface ShownOpening {
   state: Opening;
 }
@@ -164,11 +180,13 @@ interface Tab {
   readonly id: string;
   /** The start under way and how to stop it. */
   launch: { readonly stop: Deferred.Deferred<StopReason> } | null;
+  /** One change to its server at a time: a start, a stop, a start again. */
+  readonly lock: Semaphore.Semaphore;
   /** The address its editor is at, when the server moved since it started (a reconnection). */
   movedTo: string | null;
   /** Its splash, from the click until its editor is ready; kept after a failure for Try again. */
   opening: ShownOpening | null;
-  /** As the list has it, its name and icon as its page last said (`describe`). */
+  /** As the list has it, its name and icon as its view last said (`describe`). */
   project: Project;
   /** Its server, once started and until it stops; none for a tab not shown since the start. */
   running: Running | null;
@@ -203,17 +221,11 @@ export class OpenProjects extends Context.Service<
     /** The project whose tab is shown; none while Home is. */
     readonly current: Effect.Effect<Option.Option<Project>>;
     /**
-     * What an open project's page says it is called and looks like, its server's info: its tab
+     * What an open project's view says it is called and looks like, its server's info: its tab
      * and the list show it from then on (ADR 0107).
      */
-    readonly describe: (
-      id: string,
-      look: {
-        readonly icon?: ShownProjectIcon | undefined;
-        readonly name: string;
-      }
-    ) => Effect.Effect<void>;
-    /** Whether an open project is on another machine: its page is shown none of this one's. */
+    readonly describe: (id: string, look: ProjectLook) => Effect.Effect<void>;
+    /** Whether an open project is on another machine: its view is shown none of this one's. */
     readonly isRemote: (id: string) => Effect.Effect<boolean>;
     /**
      * Opens a project in a new tab, after the others, and shows it; an open one's tab is shown.
@@ -345,8 +357,8 @@ export class OpenProjects extends Context.Service<
         let tabs: Tab[] = [];
         /** The project whose tab is shown; null while Home is. */
         let shown: string | null = null;
-        /** The projects whose page is loaded, the one shown most recently first. */
-        let pages: string[] = [];
+        /** The projects whose view is loaded, the one shown most recently first. */
+        let views: string[] = [];
         /** The projects shown since the app started, the one shown most recently first. */
         let seen: string[] = [];
         /** Once the app quits: no launch begins, and one that ends lets its server go. */
@@ -355,6 +367,17 @@ export class OpenProjects extends Context.Service<
         const signalled = yield* Deferred.make<void>();
         // The quit being asked, whose answer a second close or Cmd-Q meanwhile waits for.
         let quitAsked: Deferred.Deferred<boolean> | null = null;
+        // Each server's scope is forked from the app's: none outlives it.
+        const appScope = yield* Effect.scope;
+        const hold = yield* Semaphore.make(HOLD);
+
+        /** Runs a change to one tab's server: one at a time for it, none while all change. */
+        const ofTab =
+          (tab: Tab) =>
+          <A, E, R>(change: Effect.Effect<A, E, R>) =>
+            hold.withPermits(1)(tab.lock.withPermits(1)(change));
+        /** Runs a change to every server, once those under way are done. */
+        const ofAll = hold.withPermits(HOLD);
 
         const find = (id: string) => tabs.find((t) => t.id === id);
         const isOpen = (tab: Tab) => tabs.includes(tab);
@@ -426,29 +449,21 @@ export class OpenProjects extends Context.Service<
             state: stateOf(tab),
           }));
 
-        /** What the strip was last told, so that it is told only a change. */
-        let toldTabs: string | null = null;
+        /** The strip is told only a change. */
+        const tabsChanged = changes();
         const tellTabs = Effect.suspend(() => {
           const next = tabsNow();
-          const text = JSON.stringify(next);
-          if (text === toldTabs) {
-            return Effect.void;
-          }
-          toldTabs = text;
-          return shell.tabs(next);
+          return tabsChanged(next) ? shell.tabs(next) : Effect.void;
         });
 
-        /** What was last kept for the next start. */
-        let keptTabs: string | null = null;
+        /** Kept for the next start only when they changed. */
+        const keptChanged = changes();
         const keepTabs = Effect.suspend(() => {
           const next = { open: tabs.map((t) => t.id), shown };
-          const text = JSON.stringify(next);
-          if (text === keptTabs) {
-            return Effect.void;
-          }
-          keptTabs = text;
           // A list that cannot be written loses the tabs for the next start, never what is open.
-          return Effect.ignore(store.setTabs(next));
+          return keptChanged(next)
+            ? Effect.ignore(store.setTabs(next))
+            : Effect.void;
         });
 
         /** The tabs changed: the strip is told, and they are kept for the next start. */
@@ -488,22 +503,22 @@ export class OpenProjects extends Context.Service<
             attached: running.server.attached,
           });
 
-        /** Lets go of the pages past the ones kept, the ones seen least recently. */
-        const trimPages = Effect.suspend(() => {
-          const past = pages.slice(MAX_PAGES);
-          pages = pages.slice(0, MAX_PAGES);
+        /** Lets go of the views past the ones kept, the ones seen least recently. */
+        const trimViews = Effect.suspend(() => {
+          const past = views.slice(MAX_VIEWS);
+          views = views.slice(0, MAX_VIEWS);
           return Effect.forEach(past, (id) => shell.drop(id), {
             discard: true,
           });
         });
 
-        /** Tells a tab's page its splash as it stands. */
+        /** Tells a tab's view its splash as it stands. */
         const tellOpening = (tab: Tab) =>
           Effect.suspend(() =>
             shell.opening(tab.id, tab.opening?.state ?? null)
           );
 
-        /** Changes `underway`'s state and tells the page; nothing once another took its place. */
+        /** Changes `underway`'s state and tells the view; nothing once another took its place. */
         const changeOpening = (
           tab: Tab,
           underway: ShownOpening,
@@ -532,7 +547,7 @@ export class OpenProjects extends Context.Service<
             ),
         });
 
-        /** The splash of a tab's open, begun now and told its page. */
+        /** The splash of a tab's open, begun now and told its view. */
         const beginOpening = Effect.fnUntraced(function* (tab: Tab) {
           const { project } = tab;
           const now = yield* Clock.currentTimeMillis;
@@ -561,17 +576,21 @@ export class OpenProjects extends Context.Service<
           return underway;
         });
 
+        /** Stops a server, by closing its scope: the one way any does. */
+        const stopServer = (scope: Scope.Closeable) =>
+          Scope.close(scope, Exit.void);
+
         /** Starts a tab's server, in a scope of its own; nothing is shown. */
         const startServer = Effect.fn("OpenProjects.startServer")(function* (
           tab: Tab
         ) {
           const { project } = tab;
-          const scope = yield* Scope.make();
+          const scope = yield* Scope.fork(appScope);
           const server = yield* (
             project.kind === "ssh"
               ? // There, the server runs the remote machine's own agents: the app's are not.
                 remote.start(project, {
-                  // The editor at another port, or another server's: its page loads it there
+                  // The editor at another port, or another server's: its view loads it there
                   // again, when it is loaded.
                   moved: (movedTo) =>
                     Effect.gen(function* () {
@@ -581,7 +600,7 @@ export class OpenProjects extends Context.Service<
                         return;
                       }
                       tab.movedTo = movedTo;
-                      if (pages.includes(tab.id)) {
+                      if (views.includes(tab.id)) {
                         yield* shell.load(
                           tab.id,
                           yield* editorAt(movedTo, Effect.succeed(version), {
@@ -611,7 +630,7 @@ export class OpenProjects extends Context.Service<
                 })
           ).pipe(
             Scope.provide(scope),
-            Effect.onError(() => Scope.close(scope, Exit.void))
+            Effect.onError(() => stopServer(scope))
           );
           return { scope, server } satisfies Running;
         });
@@ -627,6 +646,9 @@ export class OpenProjects extends Context.Service<
         ) {
           if (quitting) {
             return { _tag: "stopped", reason: "quit" } as Launched<A>;
+          }
+          if (tab.launch) {
+            return { _tag: "stopped", reason: "taken" } as Launched<A>;
           }
           const stop = yield* Deferred.make<StopReason>();
           tab.launch = { stop };
@@ -658,10 +680,22 @@ export class OpenProjects extends Context.Service<
               : Effect.void
           );
 
-        /** A server started for a tab no longer open, or as the app quits, goes at once. */
+        /** Lets go of a tab's server, if it has one: it stops, unless the app only attached. */
+        const release = (tab: Tab) =>
+          Effect.suspend(() => {
+            const was = tab.running;
+            tab.running = null;
+            tab.working = 0;
+            return was ? stopServer(was.scope) : Effect.void;
+          });
+
+        /**
+         * A server started for a tab no longer open, or one that has a server already, or as the
+         * app quits, goes at once: a tab never holds two.
+         */
         const keep = Effect.fnUntraced(function* (tab: Tab, next: Running) {
-          if (quitting || !isOpen(tab)) {
-            yield* Scope.close(next.scope, Exit.void);
+          if (quitting || !isOpen(tab) || tab.running) {
+            yield* stopServer(next.scope);
             return false;
           }
           tab.running = next;
@@ -671,7 +705,7 @@ export class OpenProjects extends Context.Service<
 
         /**
          * Starts a tab's server on its splash, begun already: once it is ready its editor loads in
-         * the tab's page, when the page is loaded. False when it was stopped; fails with why it
+         * the tab's view, when the view is loaded. False when it was stopped; fails with why it
          * could not be started, which the splash says.
          */
         const launch = Effect.fnUntraced(function* (
@@ -697,7 +731,7 @@ export class OpenProjects extends Context.Service<
           if (launched._tag === "stopped") {
             return false;
           }
-          // The shell's steps are done; the editor's begin as its page loads.
+          // The shell's steps are done; the editor's begin as its view loads.
           yield* changeOpening(tab, underway, (o, now) =>
             reachStep(
               o,
@@ -712,17 +746,36 @@ export class OpenProjects extends Context.Service<
             return false;
           }
           yield* store.opened(tab.id);
-          if (pages.includes(tab.id)) {
+          if (views.includes(tab.id)) {
             yield* shell.load(tab.id, yield* editorOf(launched.value));
           }
           yield* changed;
           return true;
         });
 
+        /** Whether a tab has no server, none starting and no splash: one never started. */
+        const unstarted = (tab: Tab) =>
+          !(tab.running || tab.launch || tab.opening);
+
         /**
-         * Shows a tab: its page loads when it is not loaded (its editor, or its splash), and its
-         * server starts when it never did since the app started, or its open was stopped. Fails
-         * as that start does.
+         * Starts a tab's server on its splash when it never did since the app started (or its
+         * open was stopped); nothing when it did meanwhile, or a start is under way. Fails as the
+         * start does.
+         */
+        const ensureStarted = (tab: Tab) =>
+          ofTab(tab)(
+            Effect.suspend(() =>
+              isOpen(tab) && unstarted(tab) && !quitting
+                ? Effect.flatMap(beginOpening(tab), (underway) =>
+                    Effect.andThen(tellTabs, launch(tab, underway))
+                  )
+                : Effect.succeed(false)
+            )
+          );
+
+        /**
+         * Shows a tab: its view loads when it is not loaded (its editor, or its splash), and its
+         * server starts when it never did. Fails as that start does.
          */
         const showTab = Effect.fnUntraced(function* (id: string | null) {
           const tab = id === null ? undefined : find(id);
@@ -734,20 +787,18 @@ export class OpenProjects extends Context.Service<
           }
           shown = tab.id;
           seen = [tab.id, ...seen.filter((s) => s !== tab.id)];
-          const starts = !(tab.running || tab.launch || tab.opening);
-          const underway = starts ? yield* beginOpening(tab) : null;
-          if (!pages.includes(tab.id)) {
+          if (!views.includes(tab.id)) {
             yield* shell.load(
               tab.id,
               tab.running ? yield* editorOf(tab.running) : { _tag: "Opening" }
             );
           }
-          pages = [tab.id, ...pages.filter((p) => p !== tab.id)];
-          yield* trimPages;
+          views = [tab.id, ...views.filter((v) => v !== tab.id)];
+          yield* trimViews;
           yield* shell.show(tab.id);
           yield* changed;
-          if (underway) {
-            yield* launch(tab, underway);
+          if (unstarted(tab)) {
+            yield* ensureStarted(tab);
           }
         });
 
@@ -756,6 +807,7 @@ export class OpenProjects extends Context.Service<
           firstPrompt: null,
           id: project.id,
           launch: null,
+          lock: Semaphore.makeUnsafe(1),
           movedTo: null,
           opening: null,
           project,
@@ -779,7 +831,7 @@ export class OpenProjects extends Context.Service<
           }
           if (!known) {
             tabs = [...tabs, tab];
-          } else if (start && tab.running && pages.includes(tab.id)) {
+          } else if (start && tab.running && views.includes(tab.id)) {
             yield* shell.load(tab.id, yield* editorOf(tab.running));
           }
           yield* showTab(tab.id);
@@ -819,29 +871,26 @@ export class OpenProjects extends Context.Service<
           if (!(yield* agreeToClose(tab))) {
             return false;
           }
-          const { running } = tab;
           // Closed meanwhile, by another close.
           if (!isOpen(tab)) {
             return true;
           }
           tabs = tabs.filter((t) => t !== tab);
           seen = seen.filter((s) => s !== id);
-          const hadPage = pages.includes(id);
-          pages = pages.filter((p) => p !== id);
+          const hadView = views.includes(id);
+          views = views.filter((v) => v !== id);
+          // A start under way ends now, and lets its tab's lock go.
           yield* stopLaunch(tab, "close");
           tab.opening = null;
-          tab.running = null;
           if (shown === id) {
             // The one seen before it was started already: showing it starts nothing.
             yield* Effect.ignore(showTab(seen[0] ?? null));
           }
-          if (hadPage) {
+          if (hadView) {
             yield* shell.drop(id);
           }
           yield* changed;
-          if (running) {
-            yield* Scope.close(running.scope, Exit.void);
-          }
+          yield* ofTab(tab)(release(tab));
           return true;
         });
 
@@ -850,27 +899,27 @@ export class OpenProjects extends Context.Service<
          * that does not start says why on its splash, with Try again.
          */
         const startAgain = Effect.fnUntraced(function* (tab: Tab) {
-          const launched = yield* stoppable(tab, startServer(tab)).pipe(
+          const launched: StartedAgain<Running> = yield* stoppable(
+            tab,
+            startServer(tab)
+          ).pipe(
             Effect.catch((error) =>
               Effect.gen(function* () {
                 const underway = yield* beginOpening(tab);
                 yield* changeOpening(tab, underway, (o, now) =>
                   failOpening(o, error.message, now)
                 );
-                if (pages.includes(tab.id)) {
+                if (views.includes(tab.id)) {
                   yield* shell.load(tab.id, { _tag: "Opening" });
                 }
-                return {
-                  _tag: "stopped",
-                  reason: "close",
-                } as Launched<Running>;
+                return { _tag: "failed" } as const;
               })
             )
           );
           if (
             launched._tag === "done" &&
             (yield* keep(tab, launched.value)) &&
-            pages.includes(tab.id)
+            views.includes(tab.id)
           ) {
             yield* shell.load(
               tab.id,
@@ -882,12 +931,7 @@ export class OpenProjects extends Context.Service<
 
         /** Stops a tab's server, for it to start again. */
         const stopForAgain = Effect.fnUntraced(function* (tab: Tab) {
-          const was = tab.running;
-          tab.running = null;
-          tab.working = 0;
-          if (was) {
-            yield* Scope.close(was.scope, Exit.void);
-          }
+          yield* release(tab);
           // Whatever it was saying (reconnecting) is no longer so.
           yield* shell.status(tab.id, null);
         });
@@ -899,14 +943,8 @@ export class OpenProjects extends Context.Service<
           return Effect.forEach(
             all,
             (tab) =>
-              Effect.andThen(
-                stopLaunch(tab, "quit"),
-                Effect.suspend(() => {
-                  const was = tab.running;
-                  tab.running = null;
-                  return was ? Scope.close(was.scope, Exit.void) : Effect.void;
-                })
-              ),
+              // Not under the tab's lock: a quit waits for no start.
+              Effect.andThen(stopLaunch(tab, "quit"), release(tab)),
             { concurrency: "unbounded", discard: true }
           );
         });
@@ -969,8 +1007,6 @@ export class OpenProjects extends Context.Service<
           Effect.repeat(Schedule.spaced(POLL_EVERY)),
           Effect.forkScoped
         );
-        // The app's runtime let go: no server of its outlives it.
-        yield* Effect.addFinalizer(() => stopAll);
 
         /** What a directory holds: nothing when it is not there, or cannot be read. */
         const entries = (dir: string) =>
@@ -1043,21 +1079,13 @@ export class OpenProjects extends Context.Service<
           ),
           describe: Effect.fn("OpenProjects.describe")(function* (
             id: string,
-            look: {
-              readonly icon?: ShownProjectIcon | undefined;
-              readonly name: string;
-            }
+            look: ProjectLook
           ) {
             const tab = find(id);
             if (!tab) {
               return;
             }
-            const { icon: _was, ...rest } = tab.project;
-            tab.project = {
-              ...rest,
-              ...(look.icon === undefined ? {} : { icon: look.icon }),
-              name: look.name,
-            };
+            tab.project = withLook(tab.project, look);
             // The list follows when it can be written; the tab shows it either way.
             yield* Effect.ignore(store.describe(id, look));
             yield* tellTabs;
@@ -1088,31 +1116,43 @@ export class OpenProjects extends Context.Service<
           }),
           remove,
           restart: Effect.gen(function* () {
-            const targets = tabs.filter(
-              (t) => t.running && !t.running.server.attached
-            );
-            if (
-              targets.length === 0 ||
-              !(yield* agreeToStop("restart", targets))
-            ) {
+            const ours = (t: Tab) =>
+              (t.running !== null && !t.running.server.attached) ||
+              t.launch !== null;
+            const asked = tabs.filter(ours);
+            if (asked.length === 0 || !(yield* agreeToStop("restart", asked))) {
               return;
             }
-            yield* Effect.forEach(
-              targets.filter(isOpen),
-              (tab) => Effect.andThen(stopForAgain(tab), startAgain(tab)),
-              { concurrency: "unbounded", discard: true }
+            // Once the starts under way are done, so that one that read the old setup starts
+            // again too.
+            yield* ofAll(
+              Effect.suspend(() =>
+                Effect.forEach(
+                  tabs.filter(
+                    (t) => t.running !== null && !t.running.server.attached
+                  ),
+                  (tab) => Effect.andThen(stopForAgain(tab), startAgain(tab)),
+                  { concurrency: "unbounded", discard: true }
+                )
+              )
             );
           }),
           retryOpening: (id) =>
             Effect.suspend(() => {
               const tab = find(id);
-              if (!tab?.opening?.state.problem || tab.launch) {
+              if (!tab?.opening?.state.problem) {
                 return Effect.void;
               }
               // Failed again, the splash says why: the caller has nothing to add.
               return Effect.ignore(
-                Effect.flatMap(beginOpening(tab), (underway) =>
-                  Effect.andThen(tellTabs, launch(tab, underway))
+                ofTab(tab)(
+                  Effect.suspend(() =>
+                    tab.opening?.state.problem && !tab.running && !tab.launch
+                      ? Effect.flatMap(beginOpening(tab), (underway) =>
+                          Effect.andThen(tellTabs, launch(tab, underway))
+                        )
+                      : Effect.void
+                  )
                 )
               );
             }),
@@ -1131,7 +1171,7 @@ export class OpenProjects extends Context.Service<
               const project = projects.find((p) => p.id === id);
               return project ? [tabOf(project)] : [];
             });
-            keptTabs = JSON.stringify({ open: kept.open, shown: kept.shown });
+            keptChanged({ open: kept.open, shown: kept.shown });
             if (folder !== undefined) {
               // A project that cannot start leaves its splash saying why, with Try again.
               yield* Effect.ignore(openFolder(folder));
@@ -1167,25 +1207,33 @@ export class OpenProjects extends Context.Service<
                   message: `${theirs.project.name} runs on a server started outside the app, which uses your folder where it is. Stop it, close its tab, then try again.`,
                 });
               }
-              const targets = tabs.filter(
-                (t) => t.running && t.project.kind === "local"
-              );
-              if (targets.length === 0) {
+              const here = (t: Tab) =>
+                t.project.kind === "local" &&
+                (t.running !== null || t.launch !== null);
+              if (!tabs.some(here)) {
                 return Option.some(yield* change);
               }
-              if (!(yield* agreeToStop("move", targets))) {
+              if (!(yield* agreeToStop("move", tabs.filter(here)))) {
                 return Option.none<A>();
               }
-              yield* Effect.forEach(targets, stopForAgain, {
-                concurrency: "unbounded",
-                discard: true,
-              });
-              const done = yield* Effect.exit(change);
-              yield* Effect.forEach(targets.filter(isOpen), startAgain, {
-                concurrency: "unbounded",
-                discard: true,
-              });
-              return Option.some(yield* done);
+              // Once the starts under way are done; none begins until the servers are back.
+              return yield* ofAll(
+                Effect.gen(function* () {
+                  const targets = tabs.filter(
+                    (t) => t.project.kind === "local" && t.running !== null
+                  );
+                  yield* Effect.forEach(targets, stopForAgain, {
+                    concurrency: "unbounded",
+                    discard: true,
+                  });
+                  const done = yield* Effect.exit(change);
+                  yield* Effect.forEach(targets.filter(isOpen), startAgain, {
+                    concurrency: "unbounded",
+                    discard: true,
+                  });
+                  return Option.some(yield* done);
+                })
+              );
             }),
         });
       })
