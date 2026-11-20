@@ -1,6 +1,6 @@
 /**
  * Where a server's start tells the open under way how it goes (ADR 0099): the lines it printed,
- * and, over SSH, the step it reached. `OpenProject` gives one for the length of a launch; a start
+ * and, over SSH, the step it reached. `OpenProjects` gives one for the length of a launch; a start
  * outside one (a restart, a reconnection) tells nobody.
  */
 import type { OpeningStepId } from "@ultrapaint/contracts/opening";

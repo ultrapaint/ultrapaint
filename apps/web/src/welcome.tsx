@@ -1,14 +1,13 @@
 /**
- * The desktop app's start screen (`welcome.html`, ADR 0062): shown while no project is open, at
- * the first start, when a project could not start, with why, while a project opens, until its
- * editor loads, and from the project switcher, the open project kept behind it. It starts a new
+ * The desktop app's start screen (`welcome.html`, ADR 0062): the Home tab's page (ADR 0107), and
+ * a project's page under its splash while it opens, until its editor loads. It starts a new
  * project from a prompt: where it goes, who picks the look and the model, as the chat composer
- * offers them. Everything already on disk opens with one button, the recent projects under it.
- * There is no server behind it: all of it goes through `Platform`.
+ * offers them. Everything already on disk opens with one button, the recent projects under it;
+ * each opens in a tab of its own, or shows its tab when it is open. There is no server behind it:
+ * all of it goes through `Platform`.
  */
 import type { FirstPrompt } from "@ultrapaint/contracts/shell-bridge";
 import {
-  ArrowLeft,
   ArrowUp,
   ChevronDown,
   CircleAlert,
@@ -68,6 +67,7 @@ import {
 } from "./platform.ts";
 import { useOpening } from "./state/opening.ts";
 import { isSendKey, useSendKey } from "./state/send-key.ts";
+import { useShellTabs } from "./state/shell-tabs.ts";
 import { useWindowChrome } from "./state/window-controls.ts";
 
 const messageOf = (error: unknown) =>
@@ -322,11 +322,15 @@ const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
       );
       if (outcome.failed) {
         setFailed(outcome.failed.message);
+        return;
       }
+      // Opened in a tab of its own: the page is ready for the next one.
+      setText("");
+      setFiles([]);
+      setWhere({ kind: "new" });
     } catch (error) {
       onProblem(messageOf(error));
     } finally {
-      // Opened, the window shows the project's editor in place of this page.
       setDoing(null);
     }
   };
@@ -542,7 +546,7 @@ const OpenProject = ({ onProblem }: { onProblem: (m: string) => void }) => {
 
 /**
  * A project of the list: the row opens it, and its menu takes it off the list, asking first
- * when its unsaved designs would go with it. The one open behind this page stays on it.
+ * when its unsaved designs would go with it. One open in a tab stays on it.
  */
 const ProjectRow = ({
   isOpen,
@@ -596,32 +600,24 @@ const ProjectRow = ({
 const Welcome = () => {
   const { projects } = platform();
   const [list, setList] = useState<readonly PlatformProject[]>([]);
-  // The project open behind this page, which stays on the list.
-  const [current, setCurrent] = useState<string | null>(null);
-  const query = new URLSearchParams(window.location.search);
-  // What could not be done: at first, why the last project could not be opened, as the app
-  // says it.
-  const [problem, setProblem] = useState(() => {
-    const message = query.get("problem");
-    return message ? problemOf(message) : null;
-  });
+  // The projects open in tabs, which stay on the list.
+  const tabs = useShellTabs();
+  // What could not be done.
+  const [problem, setProblem] = useState<Problem | null>(null);
   const say = (error: unknown) => setProblem(problemOf(error));
-  // The project the app is opening, drawn on the splash until its editor takes the window's
-  // place (ADR 0099).
+  // The project the app is opening, drawn on the splash until its editor takes the page's place
+  // (ADR 0099): on a project's page only.
   const opening = useOpening();
-  // The project left open behind this page, to go back to.
-  const [back] = useState(() => query.get("back"));
+  // Read again as the tabs change: a project opened since is on the list, its name as it shows.
+  const opened = tabs.map((t) => `${t.id}\u0000${t.name}`).join("\u0001");
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the tabs' key stands for them.
   useEffect(() => {
     projects
       ?.list()
       .then(setList)
       .catch((error: unknown) => setProblem(problemOf(error)));
-    projects
-      ?.current()
-      .then(setCurrent)
-      .catch((error: unknown) => setProblem(problemOf(error)));
-  }, [projects]);
+  }, [projects, opened]);
 
   const remove = (project: PlatformProject) => {
     if (!projects) {
@@ -638,12 +634,6 @@ const Welcome = () => {
       );
   };
 
-  const goBack = () =>
-    projects
-      ?.current()
-      .then((id) => (id ? projects.open(id) : undefined))
-      .catch(say);
-
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-12 px-6 py-16">
       {/* Over the page, which stays as it was under it (the prompt being written, say): why an
@@ -655,18 +645,7 @@ const Welcome = () => {
           opening={opening}
         />
       ) : null}
-      {back ? (
-        <Button
-          className="fixed top-12 left-4 text-muted-foreground"
-          onClick={goBack}
-          size="sm"
-          variant="ghost"
-        >
-          <ArrowLeft />
-          Back to {back}
-        </Button>
-      ) : null}
-      <UpdateButton className="fixed top-12 right-4 text-muted-foreground" />
+      <UpdateButton className="fixed top-4 right-4 text-muted-foreground" />
       <section className="flex flex-col gap-6">
         <header className="flex flex-col gap-4">
           <Lockup className="h-7 self-start" />
@@ -699,7 +678,7 @@ const Welcome = () => {
           <ul className="flex flex-col divide-y overflow-hidden rounded-lg border bg-card">
             {list.map((project) => (
               <ProjectRow
-                isOpen={project.id === current}
+                isOpen={tabs.some((t) => t.id === project.id)}
                 key={project.id}
                 // A project that could not be opened says why on the splash; what failed before
                 // one began (gone from the list, say) is said here.

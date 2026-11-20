@@ -28,7 +28,7 @@ export class ProjectOpen extends Schema.TaggedError<ProjectOpen>()(
   { name: Schema.String }
 ) {
   override get message() {
-    return `${this.name} is open. Open another project, then remove it from the list.`;
+    return `${this.name} is open. Close its tab, then remove it from the list.`;
   }
 }
 

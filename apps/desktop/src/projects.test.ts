@@ -131,6 +131,67 @@ describe("ProjectStore", () => {
       )
   );
 
+  it.effect(
+    "keeps the open tabs and the one shown across a restart, without a project gone from the list",
+    () =>
+      inTemp((dir) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const a = yield* store.add("/work/a");
+          const b = yield* store.add("/work/b");
+          const c = yield* store.add("/work/c");
+          yield* store.setTabs({ open: [c.id, a.id, b.id], shown: a.id });
+          // Taken off the list, its tab goes too, and Home is shown in its place.
+          yield* store.remove(a.id);
+          const reread = yield* Effect.provide(
+            ProjectStore.use((s) => s.tabs),
+            ProjectStore.layer(dir)
+          );
+          assert.deepStrictEqual(reread, { open: [c.id, b.id], shown: null });
+          // Projects added since leave the tabs as they were.
+          yield* store.add("/work/d");
+          assert.deepStrictEqual((yield* store.tabs).open, [c.id, b.id]);
+        })
+      )
+  );
+
+  it.effect(
+    "reads a list of before the tabs as its project opened last in the one tab, shown",
+    () =>
+      inTemp(() =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          assert.deepStrictEqual(yield* store.tabs, { open: [], shown: null });
+          const a = yield* store.add("/work/a");
+          yield* store.add("/work/b");
+          yield* store.opened(a.id);
+          assert.deepStrictEqual(yield* store.tabs, {
+            open: [a.id],
+            shown: a.id,
+          });
+        })
+      )
+  );
+
+  it.effect(
+    "keeps the name and icon a project's server shows, as the list then has them",
+    () =>
+      inTemp(() =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const shop = yield* store.add("/work/shop");
+          const icon = { color: "teal", kind: "icon", name: "server" } as const;
+          yield* store.describe(shop.id, { icon, name: "Shop admin" });
+          const kept = yield* store.get(shop.id);
+          assert.strictEqual(kept.name, "Shop admin");
+          assert.deepStrictEqual(kept.icon, icon);
+          // Back to the default: no icon of its own.
+          yield* store.describe(shop.id, { name: "shop" });
+          assert.isUndefined((yield* store.get(shop.id)).icon);
+        })
+      )
+  );
+
   it.effect("does not replace a list it cannot read with an empty one", () =>
     inTemp((dir) =>
       Effect.gen(function* () {

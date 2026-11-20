@@ -169,9 +169,10 @@ export const buildAdapters = async () => {
 };
 
 /**
- * Whether the editor was built into the app already, with the welcome page the window shows
- * while no project is open (`apps/web/welcome.html`).
+ * Whether the editor was built into the app already, with the start page the window shows as
+ * Home (`apps/web/welcome.html`) and the tabs over it (`apps/web/tabs.html`, ADR 0107).
  */
 export const hasWeb = () =>
-  existsSync(path.join(appDir, "web", "index.html")) &&
-  existsSync(path.join(appDir, "web", "welcome.html"));
+  ["index.html", "welcome.html", "tabs.html"].every((page) =>
+    existsSync(path.join(appDir, "web", page))
+  );

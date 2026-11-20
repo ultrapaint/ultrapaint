@@ -32,9 +32,16 @@ export const PROJECT_ICON_HEX: Record<ProjectIconColor, string> = {
 export const tintOf = (color: ProjectIconColor) =>
   `${PROJECT_ICON_HEX[color]}24`;
 
-/** Where the editor draws an image of the project from: its server. */
-export const projectImageUrl = (path: string) =>
-  serverAddress(`${PROJECT_IMAGE_ROUTE}?path=${encodeURIComponent(path)}`);
+/**
+ * Where an image of the project is drawn from: the editor's server, or the one given (a tab's,
+ * which may be any open project's).
+ */
+export const projectImageUrl = (path: string, server?: string) => {
+  const route = `${PROJECT_IMAGE_ROUTE}?path=${encodeURIComponent(path)}`;
+  return server === undefined
+    ? serverAddress(route)
+    : new URL(route, server).href;
+};
 
 /** The tile's sizes, in pixels: its side, its corner and the glyph in it. */
 const SIZES = {
@@ -48,10 +55,16 @@ const SIZES = {
 export const ProjectIcon = ({
   className,
   icon,
+  imageFrom,
   name,
   size,
 }: {
   className?: string;
+  /**
+   * The server an image icon is drawn from, when not the editor's own: a tab's project's, or
+   * `null` where none runs, which draws the initial in its place.
+   */
+  imageFrom?: string | null;
   /** The icon as the server shows it; absent from an older server, the name's initial in grey. */
   icon: ShownProjectIcon | undefined;
   /** The project's name, whose initial stands in for an image that does not load. */
@@ -69,7 +82,7 @@ export const ProjectIcon = ({
     "flex shrink-0 items-center justify-center overflow-hidden",
     className
   );
-  if (icon?.kind === "file" && broken !== icon.path) {
+  if (icon?.kind === "file" && broken !== icon.path && imageFrom !== null) {
     const { path } = icon;
     return (
       <span aria-hidden className={classes} style={tile}>
@@ -80,7 +93,7 @@ export const ProjectIcon = ({
           draggable={false}
           height={size}
           onError={() => setBroken(path)}
-          src={projectImageUrl(path)}
+          src={projectImageUrl(path, imageFrom)}
           width={size}
         />
       </span>
@@ -97,6 +110,8 @@ export const ProjectIcon = ({
           color={PROJECT_ICON_HEX[icon.color]}
           name={icon.name as IconName}
           size={glyph}
+          // Its own size wherever it sits: a menu item sizes the icons in it otherwise.
+          style={{ height: glyph, width: glyph }}
         />
       </span>
     );

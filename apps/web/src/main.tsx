@@ -5,6 +5,7 @@ import { followAgentNotifications } from "./lib/agent-notifications.ts";
 import { openCanvas } from "./lib/canvas-actions.ts";
 import { openLookPage } from "./lib/look-page.ts";
 import { pageById, zoomToPage } from "./lib/page-actions.ts";
+import { followShellTab } from "./lib/shell-tab.ts";
 import { useAgents } from "./state/agents.ts";
 import { useAttachments } from "./state/attachments.ts";
 import { leaveBoard, openBoard, useBoard } from "./state/board.ts";
@@ -63,5 +64,6 @@ followTheme();
 followPreferences();
 followAgentNotifications();
 followPersonPreferences();
+followShellTab();
 
 createRoot(document.getElementById("root") as HTMLElement).render(<App />);

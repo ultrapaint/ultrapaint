@@ -1,0 +1,23 @@
+<!doctype html>
+<!--
+  The desktop app's tabs over the window (ADR 0107): Home, a tab per open project and the +, in a
+  view of their own over the projects' pages. It talks to no server but for a project's image,
+  drawn from that project's server on this machine.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: http://127.0.0.1:* http://localhost:*; font-src 'self' data:"
+      http-equiv="Content-Security-Policy"
+    >
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <title>Ultrapaint</title>
+    <!-- biome-ignore lint/performance/noSyncScripts: it runs before the page is first drawn, so the page is never drawn in the other theme. -->
+    <script src="/theme.js"></script>
+  </head>
+  <body class="tabs-page">
+    <div id="root"></div>
+    <script src="/src/tabs-main.tsx" type="module"></script>
+  </body>
+</html>

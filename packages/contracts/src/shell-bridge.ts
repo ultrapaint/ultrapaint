@@ -22,6 +22,7 @@
 import { Schema } from "effect";
 import { CodeLocation, NewDesignStep } from "./new-design.ts";
 import { Opening, OpeningTimes } from "./opening.ts";
+import { ShownProjectIcon } from "./project.ts";
 import { ScaffoldTemplate } from "./setup.ts";
 import {
   BuiltInAgentId,
@@ -112,10 +113,12 @@ export const PlatformAgent = Schema.Struct({
 });
 export type PlatformAgent = typeof PlatformAgent.Type;
 
-/** A project the shell keeps, as its switcher lists it. */
+/** A project the shell keeps, as the start page and the tabs' + list it. */
 export const PlatformProject = Schema.Struct({
   /** Where it is, for the list: a folder, or a host and a path on it. */
   detail: Schema.optional(Schema.String),
+  /** Its icon as its server last showed it (ADR 0107); absent until it was opened once. */
+  icon: Schema.optional(ShownProjectIcon),
   id: Schema.String,
   name: Schema.String,
   /**
@@ -125,6 +128,33 @@ export const PlatformProject = Schema.Struct({
   unsaved: Schema.Boolean,
 });
 export type PlatformProject = typeof PlatformProject.Type;
+
+/**
+ * What an open project's tab shows (ADR 0107): `opening` from the click until its editor is ready,
+ * `working` while an agent works there, `idle` otherwise.
+ */
+export const TabState = Schema.Literals(["opening", "working", "idle"]);
+export type TabState = typeof TabState.Type;
+
+/** An open project, as its tab over the window shows it (ADR 0107). */
+export const ShellTab = Schema.Struct({
+  /** Its icon as its page last said (`projects.describe`); absent before, the name's initial. */
+  icon: Schema.optional(ShownProjectIcon),
+  id: Schema.String,
+  name: Schema.String,
+  /** The address of its server while it runs, which an image icon is drawn from. */
+  server: Schema.optional(Schema.String),
+  /** Whether its page is the one on screen; none is while Home is. */
+  shown: Schema.Boolean,
+  state: TabState,
+});
+export type ShellTab = typeof ShellTab.Type;
+
+/** How an open project's page says what it is called and looks like: its server's info. */
+const ProjectLook = Schema.Struct({
+  icon: Schema.optional(ShownProjectIcon),
+  name: Schema.String,
+});
 
 /** A folder on another machine, reached over SSH, as the dialog asks for it. */
 const RemoteProjectRequest = Schema.Struct({
@@ -409,8 +439,8 @@ export const SHELL_BRIDGE = {
   "folders.current": invoke([], ShellFolders, LOCAL),
   /**
    * Moves the person's folder into a folder picked with the shell's own dialog: its contents
-   * copied, then the old one removed; the open project's server starts again on it, once agents
-   * at work are stopped with the person's agreement. Refused into itself, or onto a folder that
+   * copied, then the old one removed; every open project's server on this machine starts again
+   * on it, once agents at work are stopped with the person's agreement. Refused into itself, or onto a folder that
    * holds a `.ultrapaint` already.
    */
   "folders.moveUser": invoke([], FolderMove, LOCAL),
@@ -427,9 +457,8 @@ export const SHELL_BRIDGE = {
    */
   installUpdate: invoke([], Schema.Void),
   /**
-   * Writes a new design, telling the listener how each step goes, then opens it in place of the
-   * open project, which the shell stops (asking first when an agent is working). Answers with the
-   * step that failed, when one does: what the steps before it did stays.
+   * Writes a new design, telling the listener how each step goes, then opens it in a new tab.
+   * Answers with the step that failed, when one does: what the steps before it did stays.
    */
   "newDesign.create": reporting(
     [NewDesignInput],
@@ -449,8 +478,8 @@ export const SHELL_BRIDGE = {
   /** What the shell found missing on this machine. */
   notices: invoke([], Schema.Array(ShellNotice), LOCAL),
   /**
-   * The project opening, from the click until its editor is ready, or why it failed; null when
-   * none is (ADR 0099). The splash draws it, over whatever page the window shows.
+   * The page's project opening, from the click until its editor is ready, or why it failed; null
+   * when none is (ADR 0099). The splash draws it, over whatever the page shows.
    */
   opening: state(Schema.NullOr(Opening)),
   /** A native folder picker; null when it is cancelled. */
@@ -465,26 +494,40 @@ export const SHELL_BRIDGE = {
     ],
     Schema.NullOr(Schema.String)
   ),
-  /** Adds a project, through the shell's own dialog, and opens it. */
+  /** Adds a project, through the shell's own dialog, and opens it in a new tab. */
   "projects.add": invoke([], Schema.Void),
   /**
-   * Adds a folder on another machine and opens it in place of the open project. What is wrong
-   * with the input comes back as `problem`; a project that could not be opened is the shell's to
-   * show, as for `open`.
+   * Adds a folder on another machine and opens it in a new tab. What is wrong with the input
+   * comes back as `problem`; a project that could not be opened says why on its splash.
    */
   "projects.addRemote": invoke(
     [RemoteProjectRequest],
     Schema.Struct({ problem: Schema.optional(Schema.String) })
   ),
-  /** The open project's id. */
+  /**
+   * Closes an open project's tab, the calling page's own when no id is given: its server stops,
+   * once the person agreed when an agent is at work there (ADR 0107). Nothing when they would
+   * rather it went on.
+   */
+  "projects.close": invoke([Schema.optional(Schema.String)], Schema.Void),
+  /**
+   * The tab strip covers the window while a menu or a dialog of its own is open, so that they
+   * draw over the page below it, and goes back to its strip after.
+   */
+  "projects.coverWindow": invoke([Schema.Boolean], Schema.Void),
+  /** The id of the project whose tab is shown; null while Home is. */
   "projects.current": invoke([], Schema.NullOr(Schema.String)),
+  /**
+   * The calling page's project, as its server shows it: the name and icon its tab and the list
+   * show from then on (ADR 0107).
+   */
+  "projects.describe": invoke([ProjectLook], Schema.Void),
   /** What a folder holds: an Ultrapaint project, nothing, or anything else. */
   "projects.inspect": invoke([Schema.String], FolderKind),
   "projects.list": invoke([], Schema.Array(PlatformProject)),
   /**
-   * Opens another project. The shell starts the next one's server beside the open one's, which
-   * it stops once the next is ready (asking first when an agent is working), and loads the next
-   * one's editor in place of this one (ADR 0099).
+   * Opens a project in a new tab, starting its server, or shows its tab when it is open
+   * already; the projects open stay as they are (ADR 0107).
    */
   "projects.open": invoke([Schema.String], Schema.Void),
   /**
@@ -496,36 +539,38 @@ export const SHELL_BRIDGE = {
     Schema.Void
   ),
   /**
-   * The editor's own steps of the open are done (`opening`), with the time each took: the shell
-   * keeps them for the next open's estimate, and the open is over.
+   * The editor's own steps of the calling page's open are done (`opening`), with the time each
+   * took: the shell keeps them for the next open's estimate, and the open is over.
    */
   "projects.openingDone": invoke([OpeningTimes], Schema.Void),
   /**
    * Takes a project off the list, with the unsaved session the shell kept for it; its folder is
-   * left as it is. The open project stays, and the call fails saying so.
+   * left as it is. An open project stays, and the call fails saying so.
    */
   "projects.remove": invoke([Schema.String], Schema.Void),
-  /** Runs the open that failed (`opening`'s `problem`) again. */
+  /** Runs the calling page's open that failed (`opening`'s `problem`) again. */
   "projects.retryOpening": invoke([], Schema.Void),
   /**
-   * Shows the start screen in place of the open project's editor, which stays open behind it:
-   * `open` with its id goes back to it.
+   * Shows an open project's tab, starting its server the first time it is shown since the app
+   * started; Home with null.
    */
-  "projects.showStart": invoke([], Schema.Void),
+  "projects.show": invoke([Schema.NullOr(Schema.String)], Schema.Void),
   /** The host aliases of the user's SSH configuration, suggested as a host is typed. */
   "projects.sshHosts": invoke([], Schema.Array(Schema.String)),
   /**
-   * Stops the project opening (its machine not answering, say), or gives up one that failed: the
-   * project open before, when there was one, shows again; the start screen otherwise.
+   * Stops the calling page's project opening (its machine not answering, say), or gives up one
+   * that failed: its tab closes, and the tab shown before it shows again.
    */
   "projects.stopOpening": invoke([], Schema.Void),
   /**
-   * The start screen's prompt for the open project, given once: the editor sends it in its first
-   * chat as it loads. Null when there is none, or it was taken.
+   * The start screen's prompt for the calling page's project, given once: the editor sends it in
+   * its first chat as it loads. Null when there is none, or it was taken.
    */
   "projects.takeFirstPrompt": invoke([], Schema.NullOr(FirstPrompt)),
-  /** What the shell is doing for the open project; null when nothing. */
+  /** What the shell is doing for the page's project; null when nothing. */
   shellStatus: state(Schema.NullOr(ShellStatus)),
+  /** The open projects, one tab each in the order they were opened (ADR 0107). */
+  tabs: state(Schema.Array(ShellTab)),
   /** A newer release of the app, when there is something to do about it; null otherwise. */
   update: state(Schema.NullOr(AppUpdate)),
   /** The window's buttons over the page; not shown where the system draws the frame. */

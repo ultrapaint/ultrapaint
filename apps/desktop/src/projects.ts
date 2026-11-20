@@ -2,10 +2,12 @@
  * The app's projects (PLAN-desktop D2): `projects.json` in the app's data directory. A project is
  * a name and either a local folder (`local`) or a folder on another machine reached over SSH
  * (`ssh`): a host as `ssh` takes it, a path there, and the command that runs the server there.
- * The list is the app's own: nothing is written in the projects' folders.
+ * The file keeps the open tabs too, in their order, and the one shown (ADR 0107). The list is the
+ * app's own: nothing is written in the projects' folders.
  */
 
 import { OpeningTimes } from "@ultrapaint/contracts/opening";
+import { ShownProjectIcon } from "@ultrapaint/contracts/project";
 import {
   Clock,
   Context,
@@ -23,6 +25,8 @@ import { StoreError, UnknownProject } from "./errors.ts";
 import { parseHostInput } from "./ssh-hosts.ts";
 
 const LocalProject = Schema.Struct({
+  /** Its icon as its server last showed it (ADR 0107): the list draws it until it opens again. */
+  icon: Schema.optional(ShownProjectIcon),
   id: Schema.String,
   kind: Schema.Literal("local"),
   /** When it was last opened, in milliseconds since the epoch; never, when absent. */
@@ -45,6 +49,7 @@ export const SshProject = Schema.Struct({
   command: Schema.optional(Schema.String),
   /** A `Host` alias of the SSH configuration, a host name, or `user@host`. */
   host: Schema.String,
+  icon: Schema.optional(ShownProjectIcon),
   id: Schema.String,
   kind: Schema.Literal("ssh"),
   lastOpened: Schema.optional(Schema.Number),
@@ -112,12 +117,24 @@ const lastSegment = (path: string) =>
     .filter((part) => part !== "" && part !== "~")
     .at(-1);
 
+/** The tabs open over the window (ADR 0107), as the next start brings them back. */
+export interface OpenTabs {
+  /** The open projects' ids, in the order their tabs were opened. */
+  readonly open: readonly string[];
+  /** The one shown; null for Home. */
+  readonly shown: string | null;
+}
+
 const ProjectsFile = Schema.fromJsonString(
   Schema.Struct({
+    /** Absent from a file of before the tabs: its `last` project is the one tab (ADR 0107). */
+    open: Schema.optional(Schema.Array(Schema.String)),
     projects: Schema.Array(Project),
+    shown: Schema.optional(Schema.NullOr(Schema.String)),
     version: Schema.Literal(1),
   })
 );
+type ProjectsFile = typeof ProjectsFile.Type;
 const decodeFile = Schema.decodeUnknownEffect(ProjectsFile);
 const encodeFile = Schema.encodeEffect(ProjectsFile);
 
@@ -165,9 +182,27 @@ export class ProjectStore extends Context.Service<
     ) => Effect.Effect<void, StoreError>;
     /**
      * Takes the project off the list; nothing when it is not there. The list alone: what the
-     * app keeps for the project besides is `OpenProject.remove`'s, and its folder no one's.
+     * app keeps for the project besides is `OpenProjects.remove`'s, and its folder no one's.
      */
     readonly remove: (id: string) => Effect.Effect<void, StoreError>;
+    /**
+     * Keeps the name and icon the project's server shows (ADR 0107), which the list and its tab
+     * show from then on; nothing when it is not in the list.
+     */
+    readonly describe: (
+      id: string,
+      look: {
+        readonly icon?: ShownProjectIcon | undefined;
+        readonly name: string;
+      }
+    ) => Effect.Effect<void, StoreError>;
+    /**
+     * The tabs open when the app last ran, those still in the list: a file of before the tabs
+     * opens its last project as the one tab, shown (ADR 0107).
+     */
+    readonly tabs: Effect.Effect<OpenTabs, StoreError>;
+    /** Keeps the tabs open and the one shown, for the next start. */
+    readonly setTabs: (tabs: OpenTabs) => Effect.Effect<void, StoreError>;
   }
 >()("ultrapaint/desktop/ProjectStore") {
   /** The list in `dir`, the app's data directory. */
@@ -185,19 +220,21 @@ export class ProjectStore extends Context.Service<
             message: `${what} ${file}: ${error.message}`,
           });
 
-        const read = Effect.gen(function* () {
+        const readFile = Effect.gen(function* () {
           if (!(yield* fs.exists(file))) {
-            return [] as readonly Project[];
+            return { projects: [], version: 1 } as ProjectsFile;
           }
           const text = yield* fs.readFileString(file);
-          return (yield* decodeFile(text)).projects;
+          return yield* decodeFile(text);
         }).pipe(
           // An unreadable list is not replaced by an empty one: it may only need mending.
           Effect.mapError(storeError("the project list could not be read from"))
         );
+        const read = Effect.map(readFile, (kept) => kept.projects);
 
-        const write = (projects: readonly Project[]) =>
-          encodeFile({ projects, version: 1 }).pipe(
+        /** Writes the file, its tabs as they are unless given. */
+        const writeFile = (next: ProjectsFile) =>
+          encodeFile(next).pipe(
             Effect.flatMap((text) => writeAtomic(file, `${text}\n`)),
             Effect.mapError(
               storeError("the project list could not be written to")
@@ -205,6 +242,21 @@ export class ProjectStore extends Context.Service<
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path)
           );
+
+        /** Writes the projects, the tabs kept as they are, but for a project gone from the list. */
+        const write = (projects: readonly Project[]) =>
+          Effect.flatMap(readFile, (kept) => {
+            const ids = new Set(projects.map((p) => p.id));
+            return writeFile({
+              ...kept,
+              ...(kept.open === undefined
+                ? {}
+                : { open: kept.open.filter((id) => ids.has(id)) }),
+              ...(kept.shown && !ids.has(kept.shown) ? { shown: null } : {}),
+              projects,
+              version: 1,
+            });
+          });
 
         const newId = Effect.map(Random.nextIntBetween(0, 2 ** 48), (n) =>
           n.toString(36)
@@ -306,20 +358,82 @@ export class ProjectStore extends Context.Service<
           }
         }, lock.withPermits(1));
 
+        const lastOf = (projects: readonly Project[]) =>
+          Option.fromNullishOr(
+            byLastOpened(projects).find((p) => p.lastOpened !== undefined)
+          );
+
+        const describe = Effect.fn("ProjectStore.describe")(function* (
+          id: string,
+          look: {
+            readonly icon?: ShownProjectIcon | undefined;
+            readonly name: string;
+          }
+        ) {
+          const projects = yield* read;
+          const known = projects.find((p) => p.id === id);
+          if (
+            !known ||
+            (known.name === look.name &&
+              JSON.stringify(known.icon) === JSON.stringify(look.icon))
+          ) {
+            return;
+          }
+          yield* write(
+            projects.map((p) => {
+              if (p.id !== id) {
+                return p;
+              }
+              const { icon: _was, ...rest } = p;
+              return {
+                ...rest,
+                ...(look.icon === undefined ? {} : { icon: look.icon }),
+                name: look.name,
+              };
+            })
+          );
+        }, lock.withPermits(1));
+
+        const tabs = Effect.map(readFile, (kept): OpenTabs => {
+          const ids = new Set(kept.projects.map((p) => p.id));
+          if (kept.open === undefined) {
+            const last = Option.getOrUndefined(lastOf(kept.projects));
+            return last
+              ? { open: [last.id], shown: last.id }
+              : { open: [], shown: null };
+          }
+          const open = kept.open.filter((id) => ids.has(id));
+          const shown = kept.shown ?? null;
+          return {
+            open,
+            shown: shown !== null && open.includes(shown) ? shown : null,
+          };
+        });
+
+        const setTabs = Effect.fn("ProjectStore.setTabs")(function* (
+          next: OpenTabs
+        ) {
+          const kept = yield* readFile;
+          yield* writeFile({
+            ...kept,
+            open: [...next.open],
+            shown: next.shown,
+          });
+        }, lock.withPermits(1));
+
         return ProjectStore.of({
           add,
           addRemote,
+          describe,
           get,
-          last: Effect.map(read, (projects) =>
-            Option.fromNullishOr(
-              byLastOpened(projects).find((p) => p.lastOpened !== undefined)
-            )
-          ),
+          last: Effect.map(read, lastOf),
           list: Effect.map(read, (projects) =>
             [...projects].sort((a, b) => a.name.localeCompare(b.name))
           ),
           opened,
           remove,
+          setTabs,
+          tabs,
           timed,
         });
       })

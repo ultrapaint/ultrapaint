@@ -213,15 +213,15 @@ describe("serveBridge", () => {
       (event: { sender: BridgeSender }, ...args: unknown[]) => Promise<unknown>
     >();
     serveBridge({
-      fromWindow: (s) => s === own,
       handlers: handlersWith([], {
         "newDesign.create": (_input, report) =>
           Effect.as(report({ state: "active", step: "write" }), {}),
         "projects.current": () => Effect.succeed("p1"),
       }),
       ipc: { handle: (channel, listener) => listeners.set(channel, listener) },
+      pageOf: (s) => (s === own ? "own" : undefined),
       remote: Effect.succeed(false),
-      run: Effect.runPromise,
+      run: (effect) => Effect.runPromise(effect),
     });
     return listeners;
   };
@@ -233,7 +233,7 @@ describe("serveBridge", () => {
     assert.isFalse(listeners.has(channelOf("windowControls")));
   });
 
-  it("answers only the app's own window, and sends the steps to the caller", async () => {
+  it("answers only the app's own pages, and sends the steps to the caller", async () => {
     const sent: unknown[][] = [];
     const own = sender(sent);
     const listeners = served(own);
