@@ -46,7 +46,7 @@ or a pressed button. What moves on its own has a pause control.
 ## Hero
 
 An announcement pill only with news; the headline, one line under about 30 characters, else 2–4
-lines, broken right before a set-apart phrase by a forced break, never by `text-wrap: balance` or a
+lines of about `12–20` characters each, broken right before a set-apart phrase by a forced break, never by `text-wrap: balance` or a
 width cap; a muted `18–20px` subhead `16–24px` below, two sentences broken between them; the
 actions `24–40px` lower; at most one muted reassurance line; the visual or the logos.
 
@@ -167,6 +167,7 @@ actions `24–40px` lower; at most one muted reassurance line; the visual or the
 
 | You see | Fix |
 | --- | --- |
+| A hero headline in lines over about 20 characters | Broken by hand into lines of `12–20` |
 | A technical hero without the product, or in a bezel on white | The real UI, staged, cropped or faded |
 | A plan marked by a tab, a border and a colour | One mark |
 | Images of one set in mixed crops or treatments | One ratio, corner and treatment |
