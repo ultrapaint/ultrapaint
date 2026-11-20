@@ -1,5 +1,28 @@
 import { Schema } from "effect";
-import { Settings, StorageInfo } from "./settings.ts";
+import {
+  ProjectIcon,
+  ProjectIconColor,
+  Settings,
+  StorageInfo,
+} from "./settings.ts";
+
+/**
+ * The project's icon as every client draws it (ADR 0107): the one it was given, or the default,
+ * an image of the project found where a favicon is kept, else its name's initial in a colour taken
+ * from the name. A file is drawn from the server (`PROJECT_IMAGE_ROUTE`).
+ */
+export const ShownProjectIcon = Schema.Union([
+  ProjectIcon,
+  Schema.Struct({
+    color: ProjectIconColor,
+    initial: Schema.String,
+    kind: Schema.Literal("initial"),
+  }),
+]);
+export type ShownProjectIcon = typeof ShownProjectIcon.Type;
+
+/** An image of the project, by `?path=` from its folder: its icon, or one offered for it. */
+export const PROJECT_IMAGE_ROUTE = "/api/project-image";
 
 /** Who git says the user is in the repository: not an account, only its configuration. */
 const GitUser = Schema.Struct({
@@ -37,6 +60,9 @@ export const ProjectInfo = Schema.Struct({
   gitRepository: Schema.optional(Schema.Boolean),
   /** `user.name` and `user.email` from the repository's git configuration, when set. */
   gitUser: Schema.optional(GitUser),
+  /** The project's icon as it is shown, its default included (ADR 0107). */
+  icon: Schema.optional(ShownProjectIcon),
+  /** The name the project was given in its settings, else its folder's (ADR 0107). */
   name: Schema.optional(Schema.String),
   repoPath: Schema.optional(Schema.String),
   /**

@@ -1,8 +1,40 @@
 import { Schema } from "effect";
-import { RepoRelativePath } from "./base.ts";
+import { NonEmptyString, RepoRelativePath } from "./base.ts";
 import { ReviewSettings } from "./review.ts";
 import { SkillsConfig } from "./skills.ts";
 import { StyleSystemId } from "./tokens.ts";
+
+/**
+ * The colours a project's icon is drawn in (ADR 0107), by name: the editor gives each its value,
+ * the same in every client.
+ */
+export const PROJECT_ICON_COLORS = [
+  "blue",
+  "teal",
+  "green",
+  "yellow",
+  "orange",
+  "red",
+  "pink",
+  "violet",
+  "grey",
+] as const;
+export const ProjectIconColor = Schema.Literals(PROJECT_ICON_COLORS);
+export type ProjectIconColor = typeof ProjectIconColor.Type;
+
+/**
+ * The icon a project is given (ADR 0107): an icon of the set (Lucide's, by its name) in one of the
+ * colours, or an image file of the project, by its path from the project's folder.
+ */
+export const ProjectIcon = Schema.Union([
+  Schema.Struct({
+    color: ProjectIconColor,
+    kind: Schema.Literal("icon"),
+    name: NonEmptyString,
+  }),
+  Schema.Struct({ kind: Schema.Literal("file"), path: RepoRelativePath }),
+]);
+export type ProjectIcon = typeof ProjectIcon.Type;
 
 const common = {
   /**
@@ -11,10 +43,17 @@ const common = {
    */
   codeTokens: Schema.optional(Schema.Literals(["manual", "auto"])),
   /**
+   * The project's icon on its tab and in the sidebar (ADR 0107); the default when absent: the
+   * project's favicon, else its name's initial in a colour.
+   */
+  icon: Schema.optional(ProjectIcon),
+  /**
    * The problems the team chose to leave as they are (ADR 0106), by the editor's id for each: no
    * longer listed in Problems for anyone on the project. A problem that changes is a new one.
    */
   ignoredProblems: Schema.optional(Schema.Array(Schema.String)),
+  /** The project's name on its tab and in the sidebar (ADR 0107); its folder's when absent. */
+  name: Schema.optional(Schema.String),
   /**
    * Writes a PNG of every page beside its file (`orders.page.png`), drawn again whenever the page,
    * its frame or the design system changes. Off when absent.

@@ -2,26 +2,18 @@
  * The images a canvas's pages show (ADR 0040): a design names a file inside the canvas
  * (`assets/hero.png`), and a canvas may keep its own `assets/`, whose files take the place of the
  * shared ones of the same name at the root of the designs directory (ADR 0019). The editor draws
- * the frames itself, so it asks here: `GET /api/asset?canvas=&src=`.
+ * the frames itself, so it asks here: `GET /api/asset?canvas=&src=`. The project's own images,
+ * its icon among them, are at `GET /api/project-image?path=` (ADR 0107).
  */
 import path from "node:path";
-import { Effect, FileSystem } from "effect";
+import { PROJECT_IMAGE_ROUTE } from "@ultrapaint/contracts/project";
+import { Effect, FileSystem, Path } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 import { OpenProject } from "./project.ts";
+import { imageType, makeProjectImages } from "./project-images.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 
 export const ASSET_ROUTE = "/api/asset";
-
-const CONTENT_TYPES: Readonly<Record<string, string>> = {
-  ".avif": "image/avif",
-  ".gif": "image/gif",
-  ".ico": "image/x-icon",
-  ".jpeg": "image/jpeg",
-  ".jpg": "image/jpeg",
-  ".png": "image/png",
-  ".svg": "image/svg+xml",
-  ".webp": "image/webp",
-};
 
 /**
  * Where the file `src` names for a canvas may be, in order: the canvas's own, then the shared one;
@@ -51,7 +43,7 @@ export const AssetRoute = HttpRouter.use(
         const url = new URL(request.url, "http://localhost");
         const src = url.searchParams.get("src") ?? "";
         const canvas = url.searchParams.get("canvas") ?? "";
-        const type = CONTENT_TYPES[path.extname(src).toLowerCase()];
+        const type = imageType(src);
         if (!(src && type)) {
           return notFound;
         }
@@ -72,6 +64,41 @@ export const AssetRoute = HttpRouter.use(
           // No project open: there is no canvas to find an image in.
           .pipe(Effect.catchTag("NotConfigured", () => Effect.succeed(null)));
         if (!found) {
+          return notFound;
+        }
+        return yield* HttpServerResponse.file(found, {
+          contentType: type,
+          headers: { "cache-control": "no-cache" },
+        }).pipe(Effect.orElseSucceed(() => notFound));
+      })
+    );
+  })
+);
+
+/**
+ * An image of the open project (ADR 0107), its icon or one offered for it: `GET
+ * /api/project-image?path=`, by its path from the project's folder; none outside it, nor a file
+ * that is not an image.
+ */
+export const ProjectImageRoute = HttpRouter.use(
+  Effect.fnUntraced(function* (router) {
+    const project = yield* OpenProject;
+    const fs = yield* FileSystem.FileSystem;
+    const images = makeProjectImages(fs, yield* Path.Path);
+    yield* router.add(
+      "GET",
+      PROJECT_IMAGE_ROUTE,
+      Effect.gen(function* () {
+        const request = yield* HttpServerRequest.HttpServerRequest;
+        const rel =
+          new URL(request.url, "http://localhost").searchParams.get("path") ??
+          "";
+        const found = yield* project
+          .use(images.file(rel))
+          // No project open: there is no image to find.
+          .pipe(Effect.catchTag("NotConfigured", () => Effect.succeed(null)));
+        const type = imageType(rel);
+        if (!(found && type)) {
           return notFound;
         }
         return yield* HttpServerResponse.file(found, {

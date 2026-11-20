@@ -207,6 +207,14 @@ const requestRpcs = [
   }),
 
   Rpc.make("project.info", { success: ProjectInfo }),
+  /**
+   * The images of the project offered as its icon (ADR 0107): its favicons and app icons where
+   * they are kept, each by its path from the project's folder.
+   */
+  Rpc.make("project.images", {
+    error: NotConfigured,
+    success: Schema.Array(Schema.String),
+  }),
   Rpc.make("logs.recent", { success: Schema.Array(LogLine) }),
 
   Rpc.make("pages.list", { error: NotConfigured, success: PageList }),
