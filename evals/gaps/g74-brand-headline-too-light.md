@@ -41,4 +41,10 @@ sections: []
   `references/typography.md` and the review's T7 row turned to flag a headline lighter than its
   character. The clause has its own 2 runs on `held-videoask` (`fx-opus-dw2`) before g74 is set
   done.
+- `fx-opus-dw2`: 2026-11-20, `held-videoask`, 2 runs, Opus in Claude Code designing with the skill
+  as shipped here (the weight by character and the light-brand clause): the hero at `600` in both
+  (Figtree, Inter), read in Chrome at 1440px, against a brand at about `400`. Both read the
+  product as technical: the facts brief gives none of the brand's type, so the clause had nothing
+  to act on. `600` is the weight of the first candidate's run 2, which the person found "a bit
+  better looking". Asked in `decisions/lab-nov20c`.
 
