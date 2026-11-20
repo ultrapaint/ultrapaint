@@ -36,6 +36,7 @@ import type { ChildProcessSpawner } from "effect/process";
 import { AppLog } from "./app-log.ts";
 import { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
+import { makeProjectImages, projectName } from "./project-images.ts";
 import type { CodeSide } from "./services/code-side.ts";
 import type { CommentsService } from "./services/comments.ts";
 import type { ComponentService } from "./services/components.ts";
@@ -130,9 +131,19 @@ const withoutUnset = (settings: Settings) =>
     Object.entries(settings).filter(([, value]) => value !== undefined)
   ) as Settings;
 
-/** Whether two settings run the same project: equal field by field, whatever their keys' order. */
+/**
+ * What the project runs on: every setting but its name and icon, which only say how it is shown
+ * (ADR 0107), so a project renamed keeps running, its agents and undo history with it.
+ */
+const runsOn = ({ icon: _icon, name: _name, ...rest }: Settings): Settings =>
+  withoutUnset(rest);
+
+/**
+ * Whether two settings run the same project: equal field by field, whatever their keys' order,
+ * their name and icon aside.
+ */
 const sameSettings = (a: Settings, b: Settings) =>
-  equivalentSettings(withoutUnset(a), withoutUnset(b));
+  equivalentSettings(runsOn(a), runsOn(b));
 
 /**
  * The project open now, for whatever works against it: its services, and its scope for work that
@@ -238,6 +249,7 @@ export class ProjectManager extends Context.Service<
         const profile = yield* ProfileService;
         const config = yield* ServerConfig;
         const { userDir } = config;
+        const images = makeProjectImages(fs, path);
         const managerScope = yield* Effect.scope;
         // open and close never interleave.
         const lifecycle = yield* Semaphore.make(1);
@@ -287,9 +299,17 @@ export class ProjectManager extends Context.Service<
                 : Effect.fail(notConfigured())
           );
 
-        /** What the open project is, read from its services: none when none is open. */
-        const projectFacts = Effect.gen(function* () {
+        /**
+         * What the open project is, read from its services: none when none is open. Its name and
+         * icon are the saved settings' (`saved`), which a rename puts in force without opening the
+         * project again.
+         */
+        const projectFacts = Effect.fnUntraced(function* (
+          saved: Settings | null
+        ) {
           const paths = yield* RepoPaths;
+          const shownWith = saved ?? paths.settings;
+          const name = projectName(shownWith, paths.root);
           const git = yield* GitService;
           const gitRepository = yield* git.repository;
           return {
@@ -301,7 +321,8 @@ export class ProjectManager extends Context.Service<
             designsDir: paths.settings.designsDir,
             gitRepository,
             gitUser: yield* git.user,
-            name: path.basename(paths.root),
+            icon: yield* images.shown(shownWith, name),
+            name,
             repoPath: paths.root,
             setup: (yield* settingsService.detected)
               ? ("detected" as const)
@@ -320,10 +341,11 @@ export class ProjectManager extends Context.Service<
             // First: waited for, the rest is read as the opening left it (its settings in force).
             // An opening under way is waited for even while a project is open (the one it
             // replaces): the answer is the project being opened (ADR 0099).
+            const read = Effect.flatMap(settingsService.get, (saved) =>
+              use(projectFacts(saved))
+            );
             const facts = yield* (
-              waiting
-                ? Effect.andThen(settled, use(projectFacts))
-                : use(projectFacts)
+              waiting ? Effect.andThen(settled, read) : read
             ).pipe(Effect.orElseSucceed(() => ({ configured: false })));
             const { displayName } = yield* profile.get;
             const settings = yield* settingsService.get;
