@@ -17,6 +17,7 @@ import { dropChips } from "./attachments.ts";
 import { api } from "./connection.ts";
 import { dropDraft } from "./drafts.ts";
 import { reportError } from "./project.ts";
+import { readProjectItem, writeProjectItem } from "./project-storage.ts";
 import { follow } from "./server-data.ts";
 
 interface AgentsStore {
@@ -70,11 +71,12 @@ export interface AgentWork {
 const DONE_FOR_MS = 4000;
 const doneTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
+/** When each thread was last looked at: the project's own (`project-storage.ts`). */
 const SEEN_KEY = "ultrapaint:threads-seen";
 
 const readSeen = (): Record<string, number> => {
   try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(SEEN_KEY) ?? "{}");
+    const parsed: unknown = JSON.parse(readProjectItem(SEEN_KEY) ?? "{}");
     return parsed && typeof parsed === "object"
       ? (parsed as Record<string, number>)
       : {};
@@ -85,7 +87,7 @@ const readSeen = (): Record<string, number> => {
 };
 
 const writeSeen = (seen: Record<string, number>) => {
-  localStorage.setItem(SEEN_KEY, JSON.stringify(seen));
+  writeProjectItem(SEEN_KEY, JSON.stringify(seen));
 };
 
 /** Whether a thread changed since it was last looked at. */
@@ -398,8 +400,13 @@ interface AgentsRead {
 
 /** The agents and the threads, and what the agents say they work on, change and run. */
 const agentsData = follow({
+  // Read with the threads, the project known by then: what this project's pages saw.
   apply: ({ agents, threads }: AgentsRead) =>
-    useAgents.setState({ agents, threads }),
+    useAgents.setState((s) => ({
+      agents,
+      seen: { ...readSeen(), ...s.seen },
+      threads,
+    })),
   on: {
     "agent.edited": (ev) =>
       useAgents.setState((s) => ({
