@@ -7,6 +7,8 @@
  *   permission  asks for permission, then reports the chosen option as text
  *   elicit      asks the user a form (a choice and a number) and reports the answer as text;
  *               `elicit link` asks them to follow a link instead
+ *   withdraw    asks the same form, then withdraws it (`$/cancel_request`) as Claude Code does
+ *               when it stops waiting, and says `withdraw:withdrawn` without the host's answer
  *   write       writes `designs/agent.tsx`, or the path given after it, through
  *               `fs/write_text_file`, and says `refused: …` when the host refuses
  *   terminal    runs `echo hi` through `terminal/*` and reports the output
@@ -77,6 +79,28 @@ const configOptions = (sessionId) => [
   },
 ];
 
+/** The form `elicit` and `withdraw` ask. */
+const planForm = (sessionId) => ({
+  message: "Pick a plan",
+  mode: "form",
+  requestedSchema: {
+    properties: {
+      plan: {
+        oneOf: [
+          { const: "free", title: "Free" },
+          { const: "pro", title: "Pro" },
+        ],
+        title: "Which plan?",
+        type: "string",
+      },
+      seats: { title: "How many seats?", type: "integer" },
+    },
+    required: ["plan"],
+    type: "object",
+  },
+  sessionId,
+});
+
 const scenarios = {
   /** Repeats the project briefing, for a test that asks what the agent was told. */
   async briefing(cx, sessionId, _cwd, _rest, prompt) {
@@ -96,26 +120,7 @@ const scenarios = {
             sessionId,
             url: "https://example.com/sign-in",
           }
-        : {
-            message: "Pick a plan",
-            mode: "form",
-            requestedSchema: {
-              properties: {
-                plan: {
-                  oneOf: [
-                    { const: "free", title: "Free" },
-                    { const: "pro", title: "Pro" },
-                  ],
-                  title: "Which plan?",
-                  type: "string",
-                },
-                seats: { title: "How many seats?", type: "integer" },
-              },
-              required: ["plan"],
-              type: "object",
-            },
-            sessionId,
-          }
+        : planForm(sessionId)
     );
     await text(
       cx,
@@ -227,6 +232,28 @@ const scenarios = {
     await text(cx, sessionId, "waiting");
     await new Promise((resolve) => cancels.set(sessionId, resolve));
     return "cancelled";
+  },
+  async withdraw(cx, sessionId) {
+    const withdrawal = new AbortController();
+    const asked = cx.request(
+      methods.client.elicitation.create,
+      planForm(sessionId),
+      { cancellationSignal: withdrawal.signal }
+    );
+    // Not waiting for the host's reply, as Claude Code does not once it has withdrawn.
+    const withdrawn = new Promise((resolve) =>
+      withdrawal.signal.addEventListener("abort", () => resolve("withdrawn"))
+    );
+    // Once the host has the request: aborted before it is sent, it never would be.
+    setTimeout(() => withdrawal.abort(), 100);
+    const outcome = await Promise.race([
+      asked.then(
+        (response) => response.action,
+        () => "rejected"
+      ),
+      withdrawn,
+    ]);
+    await text(cx, sessionId, `withdraw:${outcome}`);
   },
   async write(cx, sessionId, cwd, rest) {
     try {
