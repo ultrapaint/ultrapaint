@@ -54,6 +54,12 @@ export interface RunningServer {
    * it is attached to, and not the app's to stop.
    */
   readonly attached: boolean;
+  /**
+   * Whether the process the app started for it has exited: the one sign it is gone, as a slow
+   * or silent health check is not. Never for a server attached to, nor over SSH, which
+   * reconnects by itself.
+   */
+  readonly exited: Effect.Effect<boolean>;
   readonly token: string;
   readonly url: string;
   /**
@@ -245,8 +251,16 @@ export class ProjectServer extends Context.Service<
               )
             )
           );
+          const attached = ready.attached === true;
           return {
-            attached: ready.attached === true,
+            attached,
+            exited: attached
+              ? Effect.succeed(false)
+              : handle.isRunning.pipe(
+                  Effect.map((running) => !running),
+                  // Unknown is not gone: the editor is loaded again rather than the server stopped.
+                  Effect.orElseSucceed(() => false)
+                ),
             token: ready.token,
             url: ready.url,
             version: serverVersion(ready.url),

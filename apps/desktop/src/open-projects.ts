@@ -530,6 +530,9 @@ export class OpenProjects extends Context.Service<
           } satisfies View;
         });
 
+        /** Where a tab's editor is now: its server's address, or where it moved to over SSH. */
+        const endpointOf = (tab: Tab) => tab.movedTo ?? tab.running?.server.url;
+
         /** The editor of a tab's running server, where it is now (moved, over SSH). */
         const editorOf = (
           tab: Tab,
@@ -559,12 +562,15 @@ export class OpenProjects extends Context.Service<
           const own = () =>
             isOpen(tab) && tab.running === running && views.includes(tab.id);
           // A view not loaded loads its editor when shown (`loadView`): nothing to look for.
-          if (!own()) {
-            return;
-          }
-          const view = yield* editorOf(tab, running, options);
-          if (own()) {
-            yield* shell.load(tab.id, view);
+          // Reconnected elsewhere (SSH, the same server) while the version was asked: asked
+          // again of where it is now.
+          while (own()) {
+            const at = endpointOf(tab);
+            const view = yield* editorOf(tab, running, options);
+            if (own() && endpointOf(tab) === at) {
+              yield* shell.load(tab.id, view);
+              return;
+            }
           }
         });
 
@@ -849,13 +855,14 @@ export class OpenProjects extends Context.Service<
          * stays on it until Try again. Not `current` when the tab's server changed meanwhile.
          */
         const viewFor = Effect.fnUntraced(function* (tab: Tab) {
-          const { movedTo, running } = tab;
+          const { running } = tab;
+          const at = endpointOf(tab);
           const view: View =
             running && !tab.opening?.state.problem
               ? yield* editorOf(tab, running)
               : { _tag: "Opening" };
           return {
-            current: tab.running === running && tab.movedTo === movedTo,
+            current: tab.running === running && endpointOf(tab) === at,
             view,
           };
         });
@@ -1315,16 +1322,24 @@ export class OpenProjects extends Context.Service<
                 ofTab(tab)(
                   Effect.suspend(() => {
                     const { running } = tab;
-                    if (!tab.opening?.state.problem || tab.launch) {
+                    // Closed, or started, while it waited for the tab's lock: nothing to do.
+                    if (
+                      !(isOpen(tab) && tab.opening?.state.problem) ||
+                      tab.launch
+                    ) {
                       return Effect.void;
                     }
-                    // Its server runs, and its editor would not load: loaded again, once the
-                    // server still answers. One that stopped since (exited once ready) is let go
-                    // and started again.
+                    // Its server runs, and its editor would not load: loaded again.
                     if (running) {
                       return Effect.gen(function* () {
-                        if ((yield* running.server.version) === undefined) {
+                        // Its process gone (exited once ready), it is let go and started again; a
+                        // slow or silent health check is no sign of that, and only reloads.
+                        if (yield* running.server.exited) {
                           yield* release(tab);
+                          // Closed while it was looked at: nothing starts for it.
+                          if (!isOpen(tab)) {
+                            return;
+                          }
                           const again = yield* beginOpening(tab);
                           yield* tellTabs;
                           yield* launch(tab, again);

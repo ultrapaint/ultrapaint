@@ -1631,4 +1631,29 @@ describe("OpenProjects", () => {
         })
       )
   );
+
+  it.effect(
+    "Try again keeps a server whose health check is slow or says no version, and loads its editor again",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProjects;
+          const shop = yield* store.add("/work/shop");
+          yield* open.open(shop.id);
+          yield* open.openingDone(shop.id, {});
+          recorded.working.shop = 1;
+          yield* open.loadFailed(shop.id, "connection refused");
+          // Its health says nothing: no sign its process is gone, and an agent works there.
+          recorded.quiet.push("shop");
+          yield* open.retryOpening(shop.id);
+          assert.deepStrictEqual(recorded.events, ["start shop"]);
+          assert.deepStrictEqual(recorded.views.at(-1), {
+            _tag: "Editor",
+            url: "http://127.0.0.1/shop",
+          });
+          assert.deepStrictEqual(recorded.questions, []);
+        })
+      )
+  );
 });
