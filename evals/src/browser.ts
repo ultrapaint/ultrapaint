@@ -332,19 +332,22 @@ export class Browser extends Context.Service<
             // height) gets back the window it had, as a taller one would only add blank rows.
             const first = { height: viewport.height, width: viewport.width };
             let hidden = await page.evaluate(innerOverflowInBrowser, first);
-            for (let pass = 0; pass < MAX_TILES && hidden > 0; pass += 1) {
+            for (let pass = 0; pass < MAX_TILES && hidden.most > 0; pass += 1) {
               const size = page.viewportSize();
               if (size === null || size.height >= MAX_TILES * TILE_HEIGHT) {
                 break;
               }
               // biome-ignore lint/performance/noAwaitInLoops: each height follows the reflow
               await page.setViewportSize({
-                height: Math.min(size.height + hidden, MAX_TILES * TILE_HEIGHT),
+                height: Math.min(
+                  size.height + hidden.most,
+                  MAX_TILES * TILE_HEIGHT
+                ),
                 width: size.width,
               });
               await page.waitForTimeout(500);
               const left = await page.evaluate(innerOverflowInBrowser, first);
-              if (left >= hidden) {
+              if (left.total >= hidden.total) {
                 await page.setViewportSize(size);
                 await page.waitForTimeout(500);
                 break;
