@@ -112,8 +112,11 @@ export class ProjectImages extends Context.Service<
   {
     /**
      * What the file `rel` names holds, when it is an image inside the project; null otherwise.
-     * Read through one handle, and checked once it is open: a link swapped in along the way
-     * reads nothing from outside the project.
+     * Read through one handle, opened without following a link as its last name. On Linux the
+     * file opened is itself checked to be inside the project (`/proc/self/fd`), so no link
+     * swapped in along the way reads anything from outside. Elsewhere the name, not followed,
+     * must be that file and no folder on its way a link once it is open: a folder swapped for a
+     * link and back between the open and that look is the gap accepted there.
      */
     readonly file: (rel: string) => Effect.Effect<Uint8Array | null>;
     /**
