@@ -1167,4 +1167,320 @@ describe("OpenProjects", () => {
         })
       )
   );
+  it.effect(
+    "a show overtaken while it looks for the editor's version shows nothing late",
+    () =>
+      withApp(
+        (recorded) =>
+          Effect.gen(function* () {
+            const store = yield* ProjectStore;
+            const open = yield* OpenProjects;
+            const lag = yield* store.add("/work/lagging");
+            const versions = () =>
+              recorded.events.filter((e) => e === "version lagging").length;
+            const opening = yield* Effect.forkChild(open.open(lag.id), {
+              startImmediately: true,
+            });
+            yield* until(recorded, () => versions() === 1);
+            yield* TestClock.adjust("1 second");
+            yield* Fiber.join(opening);
+            for (const name of ["p1", "p2", "p3", "p4", "p5"]) {
+              yield* open.open((yield* store.add(`/work/${name}`)).id);
+            }
+            assert.include(recorded.drops, lag.id);
+            const loaded = recorded.views.length;
+            const showing = yield* Effect.forkChild(open.show(lag.id), {
+              startImmediately: true,
+            });
+            // Home chosen while the editor's version is asked.
+            yield* until(recorded, () => versions() === 2);
+            yield* open.show(null);
+            yield* TestClock.adjust("1 second");
+            yield* Fiber.join(showing);
+            assert.isNull(recorded.shown.at(-1));
+            assert.strictEqual(recorded.views.length, loaded);
+            assert.isFalse((recorded.tabs.at(-1) ?? []).some((t) => t.shown));
+          }),
+        // The app's own editor: the version decides it, asked each time.
+        { url: APP_EDITOR_URL, version: FAKE_VERSION }
+      )
+  );
+
+  it.effect(
+    "a project over SSH added again with another command starts with it on Try again",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const open = yield* OpenProjects;
+          const site = { host: "devbox", path: "~/site" };
+          const failed = yield* Effect.flip(
+            open.addRemote({ ...site, command: "broken" })
+          );
+          assert.strictEqual(failed._tag, "ServerStartError");
+          const { project } = yield* open.addRemote({
+            ...site,
+            command: "ultrapaint",
+          });
+          yield* open.retryOpening(project.id);
+          assert.deepStrictEqual(recorded.events, ["start devbox:site"]);
+        })
+      )
+  );
+
+  it.effect(
+    "a project opened again while its close lets its server go starts once that one stopped",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProjects;
+          const lingering = yield* store.add("/work/lingering");
+          yield* open.open(lingering.id);
+          yield* open.openingDone(lingering.id, {});
+          const closing = yield* Effect.forkChild(open.close(lingering.id), {
+            startImmediately: true,
+          });
+          const reopening = yield* Effect.forkChild(open.open(lingering.id), {
+            startImmediately: true,
+          });
+          yield* until(recorded, ({ events }) =>
+            events.includes("stopping lingering")
+          );
+          yield* TestClock.adjust("1 second");
+          yield* Fiber.join(closing);
+
+          yield* Fiber.join(reopening);
+          assert.deepStrictEqual(recorded.events, [
+            "start lingering",
+            "stopping lingering",
+            "stop lingering",
+            "start lingering",
+          ]);
+          assert.deepStrictEqual(tabsTold(recorded), ["*lingering opening"]);
+          // Closed again before the test ends, its stop's second on the test clock.
+          const last = yield* Effect.forkChild(open.close(lingering.id), {
+            startImmediately: true,
+          });
+          yield* until(
+            recorded,
+            ({ events }) =>
+              events.filter((e) => e === "stopping lingering").length === 2
+          );
+          yield* TestClock.adjust("1 second");
+          yield* Fiber.join(last);
+        })
+      )
+  );
+
+  it.effect(
+    "a project opened while it is taken off the list is either open and kept, or gone",
+    () =>
+      withApp((recorded, dir) =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const store = yield* ProjectStore;
+          const open = yield* OpenProjects;
+          for (const name of ["a", "b", "c", "d"]) {
+            const project = yield* store.add(`/work/${name}`);
+            const session = path.join(dir, "sessions", project.id);
+            yield* fs.makeDirectory(session, { recursive: true });
+            yield* fs.writeFileString(path.join(session, "state.json"), "{}");
+            const removing = yield* Effect.forkChild(
+              Effect.exit(open.remove(project.id)),
+              { startImmediately: true }
+            );
+            const opening = yield* Effect.forkChild(
+              Effect.exit(open.open(project.id)),
+              { startImmediately: true }
+            );
+            yield* Fiber.join(removing);
+            yield* Fiber.join(opening);
+            const listed = (yield* store.list).some((p) => p.id === project.id);
+            const tabbed = (recorded.tabs.at(-1) ?? []).some(
+              (t) => t.id === project.id
+            );
+            assert.strictEqual(tabbed, listed, name);
+            assert.strictEqual(yield* fs.exists(session), listed, name);
+          }
+        })
+      )
+  );
+
+  it.effect(
+    "a closing project over SSH counts as remote until its view is let go",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const open = yield* OpenProjects;
+          const { project: site } = yield* open.addRemote({
+            host: "devbox",
+            path: "~/site",
+          });
+          let asDropped: boolean | null = null;
+          recorded.beforeDrop = Effect.map(open.isRemote(site.id), (remote) => {
+            asDropped = remote;
+          });
+          yield* open.close(site.id);
+          assert.isTrue(asDropped);
+          assert.isFalse(yield* open.isRemote(site.id));
+        })
+      )
+  );
+
+  it.effect(
+    "a restart asks about a project still starting once it is up, an agent at work there",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProjects;
+          const slow = yield* store.add("/work/slow");
+          recorded.working.slow = 1;
+          recorded.answers.push(false);
+          const opening = yield* Effect.forkChild(open.open(slow.id), {
+            startImmediately: true,
+          });
+          yield* until(recorded, ({ events }) => events.includes("wait slow"));
+          const restarting = yield* Effect.forkChild(open.restart, {
+            startImmediately: true,
+          });
+          yield* TestClock.adjust("1200 millis");
+          yield* Fiber.join(opening);
+          yield* Fiber.join(restarting);
+          assert.deepStrictEqual(recorded.questions, ["Apply the change?"]);
+          assert.deepStrictEqual(recorded.events, ["wait slow", "start slow"]);
+        })
+      )
+  );
+
+  it.effect(
+    "a tab never started, shown while the person's folder moves, starts once it has moved",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const dir = yield* fs.makeTempDirectoryScoped();
+        const idle = yield* startedAgain(dir, () =>
+          Effect.gen(function* () {
+            const store = yield* ProjectStore;
+            const b = yield* store.add("/work/b");
+            yield* store.setTabs({ open: [b.id], shown: null });
+            return b.id;
+          })
+        );
+        yield* startedAgain(dir, (recorded) =>
+          Effect.gen(function* () {
+            const open = yield* OpenProjects;
+            yield* open.start();
+            let showing: Fiber.Fiber<void> | undefined;
+            yield* open.whileStopped(
+              Effect.gen(function* () {
+                recorded.events.push("copy");
+                showing = yield* Effect.forkDetach(open.show(idle), {
+                  startImmediately: true,
+                });
+                yield* until(recorded, ({ shown }) => shown.at(-1) === idle);
+                yield* Effect.repeat(Effect.yieldNow, { times: 20 });
+                recorded.events.push("copied");
+              })
+            );
+            if (showing) {
+              yield* Fiber.join(showing);
+            }
+            assert.deepStrictEqual(recorded.events, [
+              "copy",
+              "copied",
+              "start b",
+            ]);
+          })
+        );
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
+    "refuses to move the person's folder when a project still starting attached to a server started outside the app",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProjects;
+          const theirs = yield* store.add("/work/slow-attached");
+          const opening = yield* Effect.forkChild(open.open(theirs.id), {
+            startImmediately: true,
+          });
+          yield* until(recorded, ({ events }) => events.includes("wait slow"));
+          const moving = yield* Effect.forkChild(
+            Effect.flip(
+              open.whileStopped(Effect.sync(() => recorded.events.push("copy")))
+            ),
+            { startImmediately: true }
+          );
+          yield* TestClock.adjust("1200 millis");
+          yield* Fiber.join(opening);
+          const refused = yield* Fiber.join(moving);
+          assert.strictEqual(refused._tag, "ServerNotOurs");
+          assert.notInclude(recorded.events, "copy");
+        })
+      )
+  );
+
+  it.effect(
+    "a folder opened while the tabs come back at start opens beside them",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const dir = yield* fs.makeTempDirectoryScoped();
+        yield* startedAgain(dir, () =>
+          Effect.flatMap(OpenProjects, (open) =>
+            Effect.andThen(
+              open.openFolder("/work/a"),
+              open.stop({ ask: false })
+            )
+          )
+        );
+        yield* startedAgain(dir, (recorded) =>
+          Effect.gen(function* () {
+            const open = yield* OpenProjects;
+            const starting = yield* Effect.forkChild(open.start(), {
+              startImmediately: true,
+            });
+            const second = yield* Effect.forkChild(open.openFolder("/work/b"), {
+              startImmediately: true,
+            });
+            yield* Fiber.join(starting);
+            yield* Fiber.join(second);
+            assert.deepStrictEqual(
+              (recorded.tabs.at(-1) ?? []).map((t) => t.name),
+              ["a", "b"]
+            );
+          })
+        );
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
+    "an editor that does not load says why on its splash, and Try again loads it again",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProjects;
+          const shop = yield* store.add("/work/shop");
+          yield* open.open(shop.id);
+          yield* open.openingDone(shop.id, {});
+          yield* open.loadFailed(shop.id, "connection refused");
+          assert.include(
+            recorded.openings.at(-1)?.problem?.reason ?? "",
+            "connection refused"
+          );
+          assert.deepStrictEqual(recorded.views.at(-1), { _tag: "Opening" });
+          yield* open.retryOpening(shop.id);
+          assert.deepStrictEqual(recorded.views.at(-1), {
+            _tag: "Editor",
+            url: "http://127.0.0.1/shop",
+          });
+          assert.isUndefined(recorded.openings.at(-1)?.problem);
+          assert.deepStrictEqual(recorded.events, ["start shop"]);
+        })
+      )
+  );
 });

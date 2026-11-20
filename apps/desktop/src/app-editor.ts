@@ -19,3 +19,24 @@ export interface AppEditor {
   /** The version of `ultrapaint` a server must run to be shown in it: the app's own. */
   readonly version: string;
 }
+
+/** The hosts of this machine the app's servers listen on, or are forwarded to over SSH. */
+const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost"]);
+
+/**
+ * Whether an address is one of the app's own pages, or a page of a server on this machine (an
+ * editor a server serves itself, a project over SSH forwarded here): the only ones a view may
+ * show, and call the bridge from.
+ */
+export const isAppPage = (address: string) => {
+  try {
+    const url = new URL(address);
+    return (
+      (url.protocol === `${APP_SCHEME}:` && url.host === "app") ||
+      (url.protocol === "http:" && LOCAL_HOSTS.has(url.hostname))
+    );
+  } catch {
+    // Not an address at all: none of the app's.
+    return false;
+  }
+};
