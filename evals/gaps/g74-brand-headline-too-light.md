@@ -2,7 +2,7 @@
 id: g74
 title: A brand page's headline set lighter than the brand asks
 kind: missing
-status: open
+status: done
 found: 2026-11-11
 source: the outside landing rounds `out-land` and `out-land-none` (Opus in Claude Code, plain React app, 2026-11-11), judged per run and blind pairwise; kept by the person in `decisions/skill-plan-nov11`
 skill: [SKILL.md, references/typography.md]
