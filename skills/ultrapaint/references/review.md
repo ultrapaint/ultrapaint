@@ -107,7 +107,7 @@ each gap. A row that matches is a finding: report where it is, the row's id and 
 | T4 | On a product screen, four sizes without a display figure, or five or more | Merge to the nearest of three |
 | T5 | A level 3 heading larger than its level 2 | A smaller style for the lower level |
 | T6 | A `28px` bold title in a top bar or over a small form | Body size, one weight up |
-| T7 | A bold display headline with no brand reason | Regular or medium |
+| T7 | A display headline lighter than its character (a thin face for a playful brand, `400` for a technical product) | Technical `600`, humanistic `500`, expressive `800` |
 | T8 | Control text in bold, or navigation all in the foreground colour | Medium, muted; the current one in the foreground |
 | T9 | A field label at the same weight as its description, or muted | Semibold, the foreground |
 | T10 | Field labels of fields, checkboxes, groups and table rows in different styles | One field-label style for all |

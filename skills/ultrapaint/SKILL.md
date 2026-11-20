@@ -190,7 +190,9 @@ says what the content already shows is noise: remove it, rather than shrinking o
   weight step, `400` to `500`, not a size.
 - A title is large only on a page about one thing. A top bar's or panel's title is body size, one
   weight up; a dialog's or small form's is about `18–20px` semibold, by the character. A display
-  headline ranks by size: regular or medium, bold only when the brand calls for it.
+  headline ranks by size, at its character's weight: technical `600`, humanistic `500`,
+  expressive `800`; a brand set light and friendly keeps `400–500`; a thin face only for a
+  literary or luxury brand.
 - Control text (navigation, tabs, buttons, menu items) is one style, medium, never bold.
   Navigation is muted; the current item takes the foreground and its row's fill.
 - A field label is semibold, `600`, in the foreground, one style wherever a label sits (a field,
