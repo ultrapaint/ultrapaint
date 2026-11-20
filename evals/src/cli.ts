@@ -63,7 +63,7 @@ import { learn } from "./learn.ts";
 import { measure } from "./measure.ts";
 import { Models } from "./models.ts";
 import { offSystem } from "./off-system.ts";
-import { generateOutside, outsideHostOf } from "./outside.ts";
+import { generateOutside, outsideHostOf, reshootOutside } from "./outside.ts";
 import { pairwise } from "./pairwise.ts";
 import { panel } from "./panel.ts";
 import { annotate, book, CORPUS_NAMES } from "./patterns.ts";
@@ -384,6 +384,19 @@ const generateCommand = Command.make(
 ).pipe(
   Command.withDescription(
     "Have an agent design each reference from its brief, in Ultrapaint"
+  ),
+  Command.provide(Browser.layer)
+);
+
+const reshootCommand = Command.make(
+  "reshoot",
+  { name, refs },
+  Effect.fn(function* (input) {
+    yield* reshootOutside(yield* loadReferences(input.refs), input.name);
+  })
+).pipe(
+  Command.withDescription(
+    "Picture a finished outside round's runs again from their apps, as `generate` would"
   ),
   Command.provide(Browser.layer)
 );
@@ -1494,6 +1507,7 @@ Command.make("design-evals").pipe(
     setupHostCommand,
     roundCommand,
     generateCommand,
+    reshootCommand,
     judgeCommand,
     reportCommand,
     galleryCommand,

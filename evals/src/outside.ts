@@ -413,6 +413,41 @@ const runAgent = Effect.fn("runAgent")(function* (
   return { lines, problem, seconds: Math.round((ended - started) / 1000) };
 });
 
+const OWN_VITE_CONFIGS = [
+  "vite.config.ts",
+  "vite.config.mts",
+  "vite.config.js",
+  "vite.config.mjs",
+];
+const LAB_VITE_CONFIG = ".lab-vite.config.mjs";
+
+/**
+ * The app's own Vite config with its files served from anywhere. The app's `node_modules` is a
+ * link to the host's, outside the app, and Vite refuses those files to the page (403): a face
+ * loaded from an installed package (`@fontsource-variable/inter`) drew in the fallback face.
+ */
+const labViteConfig = Effect.fn("labViteConfig")(function* (app: string) {
+  const fs = yield* FileSystem.FileSystem;
+  let own: string | undefined;
+  for (const name of OWN_VITE_CONFIGS) {
+    if (own === undefined && (yield* fs.exists(path.join(app, name)))) {
+      own = name;
+    }
+  }
+  const base =
+    own === undefined ? "const own = {};" : `import own from "./${own}";`;
+  yield* fs.writeFileString(
+    path.join(app, LAB_VITE_CONFIG),
+    `import { mergeConfig } from "vite";
+${base}
+const lab = { server: { fs: { strict: false } } };
+export default async (env) =>
+  mergeConfig(typeof own === "function" ? await own(env) : own, lab);
+`
+  );
+  return LAB_VITE_CONFIG;
+});
+
 /** The app's pictures at each viewport, from its own dev server; what went wrong, if anything. */
 const photograph = Effect.fn("photograph")(function* (
   app: string,
@@ -422,11 +457,12 @@ const photograph = Effect.fn("photograph")(function* (
   const browser = yield* Browser;
   const fs = yield* FileSystem.FileSystem;
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const config = yield* labViteConfig(app);
   const child = yield* spawner
     .spawn(
       ChildProcess.make(
         path.join(app, "node_modules", ".bin", "vite"),
-        ["--host", "127.0.0.1"],
+        ["--config", config, "--host", "127.0.0.1"],
         {
           cwd: app,
           // Colour codes would sit inside the address it prints.
@@ -639,6 +675,52 @@ const startRound = Effect.fn("startRound")(function* (
 });
 
 /** `generate` for a host outside the editor: every pending run, one after another. */
+/**
+ * A finished round's pictures taken again, from each run's app as the agent left it, for runs
+ * pictured before the capture waited for the page's faces. A run's counts of marks go with its
+ * old pictures; `tells` reads the new ones.
+ */
+export const reshootOutside = Effect.fn("reshootOutside")(function* (
+  references: readonly LoadedReference[],
+  round: string
+) {
+  const { data } = yield* EvalsConfig;
+  const fs = yield* FileSystem.FileSystem;
+  let shot = 0;
+  for (const reference of references) {
+    const runs = path.join(data.runs, round, reference.id);
+    if (!(yield* fs.exists(runs))) {
+      continue;
+    }
+    for (const run of yield* fs.readDirectory(runs)) {
+      const dir = path.join(runs, run);
+      const app = path.join(data.work, "outside", round, reference.id, run);
+      const finished =
+        RUN_DIR_RE.test(run) &&
+        (yield* fs.exists(path.join(dir, "run.json"))) &&
+        (yield* fs.exists(app));
+      if (!finished) {
+        continue;
+      }
+      yield* fs.remove(path.join(dir, "shots"), {
+        force: true,
+        recursive: true,
+      });
+      for (const file of yield* fs.readDirectory(dir)) {
+        if (file.startsWith("tells@")) {
+          yield* fs.remove(path.join(dir, file));
+        }
+      }
+      yield* Effect.scoped(photograph(app, reference, path.join(dir, "shots")));
+      shot += 1;
+      yield* Effect.log(`${reference.id} ${run}: pictured again`);
+    }
+  }
+  yield* Effect.log(`${shot} runs of ${round} pictured again`);
+});
+
+const RUN_DIR_RE = /^run-\d+$/;
+
 export const generateOutside = Effect.fn("generateOutside")(function* (
   references: readonly LoadedReference[],
   host: OutsideHost,

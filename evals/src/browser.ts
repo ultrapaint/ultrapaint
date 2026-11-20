@@ -42,6 +42,11 @@ import {
 } from "./in-page.ts";
 import type { Viewport } from "./reference.ts";
 
+/** Resolves once every face the page asked for has loaded or failed; runs in the page. */
+const fontsLoadedInBrowser = async (): Promise<void> => {
+  await document.fonts.ready;
+};
+
 const BROWSERS = [
   "/usr/bin/google-chrome",
   "/usr/bin/google-chrome-stable",
@@ -304,6 +309,9 @@ export class Browser extends Context.Service<
               .goto(url, { timeout: 45_000, waitUntil: "networkidle" })
               .catch(() => page.waitForLoadState("load"));
             await page.waitForTimeout(options.waitMs);
+            // A dev server slow on its first request leaves the network quiet before the page's
+            // faces arrive: the picture waits for them, or it shows the fallback face.
+            await page.evaluate(fontsLoadedInBrowser);
             if (options.hide.length > 0) {
               await page.addStyleTag({
                 content: `${options.hide.join(", ")} { display: none !important; }`,
@@ -311,6 +319,7 @@ export class Browser extends Context.Service<
             }
             const fold = await page.screenshot({ type: "png" });
             await page.evaluate(scrollThroughInBrowser);
+            await page.evaluate(fontsLoadedInBrowser);
             const full = await page.screenshot({ fullPage: true, type: "png" });
             const outline = phone
               ? undefined
