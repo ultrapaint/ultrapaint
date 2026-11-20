@@ -20,8 +20,8 @@ sections: []
 **Result.**
 
 - `held-ship`, `held-pp`: 2026-11-11, six `held-*` pages from facts briefs, 2 runs each, Opus designs and judges. The per-run judge raised a display weight lighter than the brand: shipped 2 ("Thin literary serif where the brand asks for bold type", held-bloom), candidate 3 ("Display weight not read from the brand", held-videoask ×2, held-workos-atlas). Still no rule: the person's reading of the in-sample AlignUI headlines comes first.
-- `lab-nov20`, answered (the person, 2026-11-20): of four held-out brand pages beside a shipped
-  run, Bloom, AlignUI and Atlas set the headline lighter than the brand asks; VideoAsk does not.
+- `lab-nov20`, answered (the person, 2026-11-20): of four brand pages beside a shipped run (three
+  held out, AlignUI in-sample), Bloom, AlignUI and Atlas set the headline lighter than the brand asks; VideoAsk does not.
 - `fx-opus-dw`: 2026-11-20, `held-bloom`, `held-workos-atlas`, `alignui-waitlist` and `held-videoask`
   (the control, whose brand is regular), 2 runs each, Opus in Claude Code designing with
   `candidates/display-weight` (the display weight by character, technical `600`, humanistic `500`,
