@@ -144,6 +144,18 @@ describe("the tab strip", () => {
     ).toBeNull();
   });
 
+  it("shows the dot where an agent waits on the person, in the spinner's place", async () => {
+    const { tell } = await draw();
+    await tell([SHOP, { ...DOCS, state: "waiting" }]);
+    const docs = tabNamed("docs-site");
+    expect(
+      docs?.querySelector('[aria-label="An agent waits on you"]')
+    ).not.toBeNull();
+    expect(
+      docs?.querySelector('[aria-label="An agent is working"]')
+    ).toBeNull();
+  });
+
   it("follows the tabs as the shell tells them: Home shown, a tab gone", async () => {
     const { tell } = await draw();
     await tell([{ ...DOCS, state: "idle" }]);

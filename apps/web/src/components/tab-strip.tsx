@@ -1,8 +1,8 @@
 /**
  * The desktop app's tabs over the window (ADR 0107, `docs/designs/projects/1-tabs`): Home first
  * (the start page), then one per open project in the order opened, with its icon and name, a
- * spinner while an agent works there, the shown one's × and the others' under the pointer, and a
- * + at the end. The + opens a menu and never a project by itself: Recent (the projects not open,
+ * spinner while an agent works there and a dot while one waits on the person, the shown one's ×
+ * and the others' under the pointer, and a + at the end. The + opens a menu and never a project by itself: Recent (the projects not open,
  * each with a × that takes it off the list), Open folder…, Open over SSH…, New project…; what is
  * chosen opens in a new tab. The strip is the window's title bar on a Mac, the room for its
  * buttons left at its start. It is a page of its own (`tabs.html`), in a view over the projects'
@@ -45,10 +45,24 @@ const quietly = (call: Promise<unknown> | undefined) => {
 const TAB =
   "window-no-drag group/tab flex h-8 shrink-0 items-center gap-2 rounded-lg px-2.5 font-body-medium outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring/25";
 
-/** What a tab says past its name: the spinner while it opens or an agent works, else nothing. */
+/**
+ * What a tab says past its name: the dot while an agent there waits on the person, the spinner
+ * while it opens or an agent works, else nothing.
+ */
 const TabMark = ({ tab }: { tab: ShellTab }) => {
   if (tab.state === "idle") {
     return null;
+  }
+  if (tab.state === "waiting") {
+    return (
+      <span
+        aria-label="An agent waits on you"
+        className="flex size-3.5 shrink-0 items-center justify-center"
+        role="img"
+      >
+        <span className="size-2 rounded-full bg-warning" />
+      </span>
+    );
   }
   return (
     <LoaderCircle

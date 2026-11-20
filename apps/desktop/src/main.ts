@@ -18,6 +18,7 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  Notification,
   nativeTheme,
   net,
   protocol,
@@ -58,7 +59,7 @@ import { ProjectServer } from "./project-server.ts";
 import { ProjectStore } from "./projects.ts";
 import { RemoteProjects } from "./remote-project.ts";
 import { SecretError, Secrets } from "./secrets.ts";
-import { Shell, type View } from "./shell.ts";
+import { type Alert, Shell, type View } from "./shell.ts";
 import { RemoteServers } from "./ssh-server.ts";
 import { tabKey } from "./tab-keys.ts";
 import { type InstallMode, Updater } from "./updater.ts";
@@ -117,8 +118,11 @@ let onScreen: string | null = null;
 /** Whether the strip covers the window, for a menu or a dialog of its own. */
 let covered = false;
 
-/** What every view is told as it changes: an update of the app, and the open tabs. */
-const shared: BridgeStates = { tabs: [], update: null };
+/**
+ * What every view is told as it changes: an update of the app, the open tabs, and the notice of
+ * another project's agent.
+ */
+const shared: BridgeStates = { projectNotice: null, tabs: [], update: null };
 /** What a view of no project is told of one: nothing. */
 const NO_PROJECT: BridgeStates = {
   editorServer: null,
@@ -455,9 +459,45 @@ const pickPath = (options: Electron.OpenDialogOptions) =>
     );
   });
 
+/** Brings the window forward, as a click on one of the system's notifications does. */
+const bringForward = () => {
+  if (window?.isMinimized()) {
+    window.restore();
+  }
+  window?.show();
+  window?.focus();
+};
+
+/**
+ * The system's word of another project's agent: its notification, which shows that project's tab
+ * when clicked, and the system's own sound with it or alone.
+ */
+const alertPerson = (alert: Alert) => {
+  if (alert.notification && Notification.isSupported()) {
+    const shown = new Notification({
+      body: alert.body,
+      silent: !alert.sound,
+      title: alert.title,
+    });
+    shown.on("click", () => {
+      bringForward();
+      runtime
+        .runPromise(OpenProjects.use((o) => o.show(alert.project)))
+        // Showing a tab fails only once the runtime is let go, as the app quits.
+        .catch(() => undefined);
+    });
+    shown.show();
+    return;
+  }
+  if (alert.sound) {
+    shell.beep();
+  }
+};
+
 const ElectronShell = Layer.succeed(
   Shell,
   Shell.of({
+    alert: (alert) => Effect.sync(() => alertPerson(alert)),
     confirm: ({ action, cancel, detail, message }) =>
       // Interrupted (a signal answered it), the box closes as if cancelled.
       Effect.promise(async (signal) => {
@@ -476,7 +516,9 @@ const ElectronShell = Layer.succeed(
         return answer.response === 0;
       }),
     drop: (id) => Effect.sync(() => dropProjectView(id)),
+    focused: Effect.sync(() => window?.isFocused() === true),
     load: (id, view) => Effect.sync(() => loadProjectView(id, view)),
+    notice: (notice) => Effect.sync(() => tellAll("projectNotice", notice)),
     opening: (id, opening) =>
       Effect.sync(() => tellProject(id, "opening", opening)),
     // Electron answers with why it couldn't, or nothing.

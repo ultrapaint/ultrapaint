@@ -17,7 +17,7 @@ import { Context, Duration, Effect, Exit, Layer, Result, Scope } from "effect";
 import { ServerStartError } from "./errors.ts";
 import { OpeningReport } from "./opening-report.ts";
 import {
-  agentsWorking,
+  agentsOf,
   type RunningServer,
   serverVersion,
 } from "./project-server.ts";
@@ -209,6 +209,9 @@ export class RemoteProjects extends Context.Service<
           );
 
           return {
+            agents: Effect.suspend(() =>
+              agentsOf(live.server.url, live.server.ready.token)
+            ),
             get attached() {
               return !owned;
             },
@@ -221,9 +224,6 @@ export class RemoteProjects extends Context.Service<
               return live.server.url;
             },
             version: Effect.suspend(() => serverVersion(live.server.url)),
-            working: Effect.suspend(() =>
-              agentsWorking(live.server.url, live.server.ready.token)
-            ),
           } satisfies RunningServer;
         },
         Effect.mapError(

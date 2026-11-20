@@ -1,15 +1,21 @@
 /** Fakes of what the app's services ask of Electron and of the server, for tests. */
 import type { Opening } from "@ultrapaint/contracts/opening";
-import type { ShellStatus, ShellTab } from "@ultrapaint/contracts/shell-bridge";
+import type {
+  ProjectNotice,
+  ShellStatus,
+  ShellTab,
+} from "@ultrapaint/contracts/shell-bridge";
 import { Effect, Layer, Option } from "effect";
 import { ServerStartError } from "./errors.ts";
 import { OpeningReport } from "./opening-report.ts";
 import { ProjectServer, type ServerOptions } from "./project-server.ts";
 import { RemoteProjects } from "./remote-project.ts";
-import { Shell, type View } from "./shell.ts";
+import { type Alert, Shell, type View } from "./shell.ts";
 
 /** What the fakes saw, in order. */
 export interface Recorded {
+  /** What the system was asked to tell the person, in order. */
+  alerts: Alert[];
   /**
    * Answers the next `confirm` questions get; true when there are none left. An effect is an
    * answer given later: `Effect.never` leaves the question on screen.
@@ -24,6 +30,10 @@ export interface Recorded {
   /** The projects whose view was let go, in order. */
   drops: string[];
   events: string[];
+  /** Whether the window is in front; it is unless a test says otherwise. */
+  focused: boolean;
+  /** What the views were told of other projects' agents, in order: `null` once none is. */
+  notices: (ProjectNotice | null)[];
   /** What each project view was told of its opening, in order: `null` once none is. */
   openings: (Opening | null)[];
   /** The titles of the pickers opened, in order. */
@@ -55,6 +65,8 @@ export interface Recorded {
   views: View[];
   /** Which project view each of `views` was loaded in. */
   viewsIn: string[];
+  /** How many agents each folder's server says wait on the person. */
+  waiting: Record<string, number>;
   /** Told when an event or a question is recorded: what `until` waits on. */
   readonly watchers: Set<() => void>;
   /** How many agents each folder's server says are at work. */
@@ -62,12 +74,15 @@ export interface Recorded {
 }
 
 export const makeRecorded = (): Recorded => ({
+  alerts: [],
   answers: [],
   beforeDrop: null,
   declines: [],
   details: [],
   drops: [],
   events: [],
+  focused: true,
+  notices: [],
   openings: [],
   pickers: [],
   picks: [],
@@ -81,6 +96,7 @@ export const makeRecorded = (): Recorded => ({
   tabs: [],
   views: [],
   viewsIn: [],
+  waiting: {},
   watchers: new Set(),
   working: {},
 });
@@ -131,6 +147,11 @@ export const fakeShell = (recorded: Recorded) =>
   Layer.succeed(
     Shell,
     Shell.of({
+      alert: (alert) =>
+        Effect.sync(() => {
+          recorded.alerts.push(alert);
+          tellWatchers(recorded);
+        }),
       confirm: ({ cancel, detail, message }) =>
         Effect.suspend(() => {
           recorded.questions.push(message);
@@ -145,10 +166,16 @@ export const fakeShell = (recorded: Recorded) =>
           recorded.beforeDrop ?? Effect.void,
           Effect.sync(() => recorded.drops.push(project))
         ),
+      focused: Effect.sync(() => recorded.focused),
       load: (project, view) =>
         Effect.sync(() => {
           recorded.views.push(view);
           recorded.viewsIn.push(project);
+        }),
+      notice: (notice) =>
+        Effect.sync(() => {
+          recorded.notices.push(notice);
+          tellWatchers(recorded);
         }),
       opening: (_project, opening) =>
         Effect.sync(() => {
@@ -203,8 +230,11 @@ const versionOf = (recorded: Recorded, name: string) =>
     return Effect.succeed(name.includes("older") ? "0.9.0" : FAKE_VERSION);
   });
 
-/** The agents at work in a folder's server; one named `…lazyhealth…` takes 2 s to say. */
-const workingOf = (recorded: Recorded, name: string) =>
+/**
+ * The agents the fake server of `name` says it has, as the test set them; one named
+ * `…lazyhealth…` takes 2 s to say.
+ */
+const agentsIn = (recorded: Recorded, name: string) =>
   Effect.andThen(
     name.includes("lazyhealth")
       ? Effect.andThen(
@@ -212,7 +242,12 @@ const workingOf = (recorded: Recorded, name: string) =>
           Effect.sleep("2 seconds")
         )
       : Effect.void,
-    Effect.sync(() => recorded.working[name] ?? 0)
+    Effect.sync(() =>
+      Option.some({
+        waiting: recorded.waiting[name] ?? 0,
+        working: recorded.working[name] ?? 0,
+      })
+    )
   );
 
 /** What a folder's server does as it stops: one named `lingering` takes 1 s. */
@@ -270,12 +305,12 @@ export const fakeServers = (recorded: Recorded) =>
           const process = { exited: false };
           recorded.processes[name] = process;
           return {
+            agents: agentsIn(recorded, name),
             attached,
             exited: Effect.sync(() => !attached && process.exited),
             token: `token-${name}`,
             url: `http://127.0.0.1/${name}`,
             version: versionOf(recorded, name),
-            working: workingOf(recorded, name),
           };
         }),
     })
@@ -313,12 +348,12 @@ export const fakeRemoteProjects = (recorded: Recorded) =>
             Effect.sync(() => recordEvent(recorded, `stop ${name}`))
           );
           return {
+            agents: agentsIn(recorded, name),
             attached: false,
             exited: Effect.succeed(false),
             token: `token-${name}`,
             url: `http://127.0.0.1/${project.host}/${project.path.split("/").at(-1) ?? ""}`,
             version: versionOf(recorded, project.host),
-            working: Effect.sync(() => recorded.working[name] ?? 0),
           };
         }),
     })

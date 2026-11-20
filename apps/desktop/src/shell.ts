@@ -6,7 +6,11 @@
  * (the start page) and the tab strip over them; one of Home and the project views is on screen.
  */
 import type { Opening } from "@ultrapaint/contracts/opening";
-import type { ShellStatus, ShellTab } from "@ultrapaint/contracts/shell-bridge";
+import type {
+  ProjectNotice,
+  ShellStatus,
+  ShellTab,
+} from "@ultrapaint/contracts/shell-bridge";
 import { Context, type Effect, type Option } from "effect";
 
 /**
@@ -33,9 +37,24 @@ export type View =
       readonly _tag: "Opening";
     };
 
+/**
+ * The system's own word of another project's agent, while the window is behind (ADR 0107), as the
+ * person's Notifications preference has it: a notification, a sound, or both. Clicking the
+ * notification brings the window forward with `project`'s tab shown.
+ */
+export interface Alert {
+  readonly body: string;
+  readonly notification: boolean;
+  readonly project: string;
+  readonly sound: boolean;
+  readonly title: string;
+}
+
 export class Shell extends Context.Service<
   Shell,
   {
+    /** Tells the person, through the system, of another project's agent. */
+    readonly alert: (alert: Alert) => Effect.Effect<void>;
     /** Asks a yes-or-no question; true for the action named, false when the user declines. */
     readonly confirm: (question: {
       readonly action: string;
@@ -44,6 +63,8 @@ export class Shell extends Context.Service<
       readonly detail: string;
       readonly message: string;
     }) => Effect.Effect<boolean>;
+    /** Whether the window is in front, the person's keys going to it. */
+    readonly focused: Effect.Effect<boolean>;
     /** Lets go of a project view, which loads again when it is next shown; nothing without. */
     readonly drop: (project: string) => Effect.Effect<void>;
     /** Loads a view in a project view, making it when it has none. */
@@ -60,6 +81,11 @@ export class Shell extends Context.Service<
       readonly defaultPath?: string | undefined;
       readonly title: string;
     }) => Effect.Effect<Option.Option<string>>;
+    /**
+     * Tells every view the notice of another project's agent (`projectNotice`), which the one on
+     * screen shows over its editor; `null` takes it away.
+     */
+    readonly notice: (notice: ProjectNotice | null) => Effect.Effect<void>;
     /**
      * Tells a project view the project opening, as it goes (`opening`, which the page reads as
      * it loads too); `null` once none is. The page draws its splash over itself.
