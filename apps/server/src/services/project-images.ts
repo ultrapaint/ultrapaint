@@ -4,13 +4,15 @@
  * draws from `GET /api/project-image?path=` (`ProjectImageRoute`) so a browser and the desktop
  * app's tabs need no file access of their own. With them, the project's icon as it is shown.
  */
+
+import { constants, promises as nodeFs } from "node:fs";
 import type { ShownProjectIcon } from "@ultrapaint/contracts/project";
 import {
   PROJECT_ICON_COLORS,
   type Settings,
 } from "@ultrapaint/contracts/settings";
 import { folderName, initialsOf } from "@ultrapaint/shared/project-name";
-import { Context, Effect, FileSystem, Layer, Option, Path, Ref } from "effect";
+import { Context, Effect, Layer, Option, Path, Ref, Schema } from "effect";
 import { toPosix } from "../hash.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
@@ -58,6 +60,41 @@ const colorOf = (name: string) => {
   return PROJECT_ICON_COLORS[hash % PROJECT_ICON_COLORS.length] ?? "grey";
 };
 
+/** An image of the project that could not be opened or read: none is served. */
+class ImageUnreadable extends Schema.TaggedError<ImageUnreadable>()(
+  "ImageUnreadable",
+  { message: Schema.String }
+) {}
+
+const unreadable = (error: unknown) =>
+  new ImageUnreadable({
+    message: error instanceof Error ? error.message : String(error),
+  });
+
+/**
+ * Opens an image read-only, refusing a link as its last name and never waiting (a pipe in its
+ * place opens at once, and is no regular file); closed with the scope.
+ */
+const openImage = (file: string) =>
+  Effect.acquireRelease(
+    Effect.tryPromise({
+      catch: unreadable,
+      try: () =>
+        nodeFs.open(
+          file,
+          // biome-ignore lint/suspicious/noBitwiseOperators: open(2)'s flags are bits, combined so.
+          constants.O_RDONLY |
+            (constants.O_NOFOLLOW ?? 0) |
+            (constants.O_NONBLOCK ?? 0)
+        ),
+    }),
+    (handle) =>
+      Effect.tryPromise({ catch: unreadable, try: () => handle.close() }).pipe(
+        // A handle that does not close leaks nothing the request still needs.
+        Effect.ignore
+      )
+  );
+
 /** The name's initials in a colour taken from the name: the icon when no image is found. */
 const initialIcon = (name: string): ShownProjectIcon => ({
   color: colorOf(name),
@@ -100,9 +137,36 @@ export class ProjectImages extends Context.Service<
   static readonly layer = Layer.effect(
     ProjectImages,
     Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const paths = yield* RepoPaths;
+
+      /**
+       * Whether the file opened is inside the project. Where the system names an open file
+       * (`/proc/self/fd` on Linux), that name; elsewhere the name it was opened by, not
+       * followed, must still be that very file (its device and inode).
+       */
+      const insideProject = Effect.fnUntraced(function* (
+        fd: number,
+        opened: string,
+        info: { readonly dev: number; readonly ino: number }
+      ) {
+        const named = yield* Effect.option(
+          Effect.tryPromise({
+            catch: unreadable,
+            try: () => nodeFs.readlink(`/proc/self/fd/${fd}`),
+          })
+        );
+        if (Option.isSome(named)) {
+          return Option.isSome(
+            yield* Effect.option(paths.resolve(named.value))
+          );
+        }
+        const leaf = yield* Effect.tryPromise({
+          catch: unreadable,
+          try: () => nodeFs.lstat(opened),
+        });
+        return leaf.isFile() && leaf.dev === info.dev && leaf.ino === info.ino;
+      });
 
       const file = Effect.fnUntraced(function* (rel: string) {
         if (!(rel && imageType(rel))) {
@@ -113,23 +177,27 @@ export class ProjectImages extends Context.Service<
         if (abs._tag === "None") {
           return null;
         }
+        // Everything after is asked of the file opened, never of its name again.
         return yield* Effect.scoped(
           Effect.gen(function* () {
-            const handle = yield* fs.open(abs.value, { flag: "r" });
-            const opened = yield* handle.stat;
-            if (opened.type !== "File") {
+            const handle = yield* openImage(abs.value);
+            const opened = yield* Effect.tryPromise({
+              catch: unreadable,
+              try: () => handle.stat(),
+            });
+            if (!opened.isFile()) {
               return null;
             }
-            const bytes = yield* handle.readAlloc(Number(opened.size));
-            // Once open, the path still leads inside the project, to the very file read: a
-            // link swapped in before the open, and back after, names another file.
-            const now = yield* fs.stat(yield* paths.resolve(rel));
-            const same =
-              now.dev === opened.dev &&
-              Option.getOrUndefined(now.ino) ===
-                Option.getOrUndefined(opened.ino);
-            return same
-              ? Option.getOrElse(bytes, () => new Uint8Array())
+            const bytes = yield* Effect.tryPromise({
+              catch: unreadable,
+              try: () => handle.readFile(),
+            });
+            // Changed while it was read: not the image it was.
+            if (bytes.byteLength !== opened.size) {
+              return null;
+            }
+            return (yield* insideProject(handle.fd, abs.value, opened))
+              ? new Uint8Array(bytes)
               : null;
           })
         ).pipe(

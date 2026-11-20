@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { NodeHttpServer } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import { PROJECT_IMAGE_ROUTE } from "@ultrapaint/contracts/project";
@@ -39,6 +40,10 @@ const saveWith = (changes: Partial<Settings>) =>
 const info = Effect.flatMap(TestEnv, ({ client }) =>
   client["project.info"](undefined)
 );
+
+const SPACES = /\s+/;
+/** A directive that would allow scripts, frames, workers, plugins or requests of their own. */
+const ALLOWS_SOMETHING = /^(script|frame|child|worker|object|connect)-src/;
 
 /** The project's images served as the editor asks for them: each answer's status and type. */
 const served = Effect.gen(function* () {
@@ -295,9 +300,36 @@ describe("an image of the project, as the editor draws it (ADR 0107)", () => {
         const get = yield* servedHeaders;
         const answer = yield* get("brand/mark.svg");
         assert.strictEqual(answer.body, SVG);
-        assert.include(answer.policy ?? "", "sandbox");
-        assert.include(answer.policy ?? "", "default-src 'none'");
+        // Each directive by its name: a sandbox with no exception, nothing allowed by default,
+        // and no script or frame directive in place of the default.
+        const directives = new Map(
+          (answer.policy ?? "")
+            .split(";")
+            .map((d) => d.trim().split(SPACES))
+            .filter(([name]) => name)
+            .map(([name, ...values]) => [name, values] as const)
+        );
+        assert.deepStrictEqual(directives.get("sandbox"), []);
+        assert.deepStrictEqual(directives.get("default-src"), ["'none'"]);
+        for (const name of directives.keys()) {
+          assert.notMatch(name, ALLOWS_SOMETHING);
+        }
         assert.strictEqual(answer.sniff, "nosniff");
+      }),
+    { files: { "brand/mark.svg": SVG } }
+  );
+
+  inProject(
+    "is never a pipe in an image's place, which is answered at once with nothing",
+    () =>
+      Effect.gen(function* () {
+        const { repo } = yield* TestEnv;
+        const path = yield* Path.Path;
+        // A pipe no one writes to: opening it to read would wait for a writer.
+        execFileSync("mkfifo", [path.join(repo, "brand", "pipe.svg")]);
+        const get = yield* served;
+        assert.strictEqual((yield* get("brand/pipe.svg")).status, 404);
+        assert.strictEqual((yield* get("brand/mark.svg")).status, 200);
       }),
     { files: { "brand/mark.svg": SVG } }
   );
