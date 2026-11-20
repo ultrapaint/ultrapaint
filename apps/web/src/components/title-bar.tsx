@@ -156,7 +156,7 @@ export const TitleRow = () => {
       {/* The slash between the mark and the project is the character itself, at its own angle. */}
       <span
         aria-hidden
-        className="shrink-0 select-none font-light text-muted-foreground text-xl leading-none"
+        className="shrink-0 select-none font-body-large text-muted-foreground"
       >
         /
       </span>
