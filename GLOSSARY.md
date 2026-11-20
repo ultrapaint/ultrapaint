@@ -530,7 +530,8 @@ refactor and the board view left.
   the browser, which draws them before the server answers.
 - **Settings sections**: the dialog's pages under whose they are (ADR 0093;
   `panels/settings-sections.ts`): **You** (General, Appearance, Chats, Shortcuts), **Project**
-  (Repository, Design system, Review, Skills), **This computer** (Agents, Connections, About).
+  (Name and icon, Repository, Design system, Review, Skills), **This computer** (Agents,
+  Connections, About).
   The **settings search** finds a setting by its name or the words it is looked for by
   (`SETTINGS_INDEX`) and outlines its row.
 - **Library**: the components as the rail's **Components** place lists them (ADR 0045, 0053;
@@ -580,6 +581,18 @@ refactor and the board view left.
   failed (`Opening` in `@ultrapaint/contracts/opening`, ADR 0099). The desktop app's `OpenProject`
   holds it (the bridge's `opening`), the editor finishes it with its own steps; drawn by
   `OpeningSplash`. _Avoid_: loading screen.
+- **Project's name and icon**: how a project is shown on its tab and in the title row, kept in
+  its configuration (`name`, `icon`) so the team sees the same (ADR 0107): an icon of the set in
+  one of nine colours, or an image file of the project. Without them, the folder's name, and the
+  **default icon**: the first favicon or app icon found in the project, else the name's initial in
+  a colour taken from the name. The server resolves both into the project info (`name`, `icon`,
+  `project-images.ts`) and serves the project's images (`/api/project-image`); the editor draws the
+  icon with one component (`ProjectIcon`) and edits both in Settings › Name and icon. A rename
+  leaves the project open: they say how it is shown, not what it runs.
+- **Title row**: the top of the left card, the same in the desktop app and in a browser (ADR
+  0107): the mark, which opens nothing, a slash, and the project's icon and name opening the
+  **project menu** (Project settings, Show in Finder where the folder is on this machine, Copy
+  path), which opens no project and closes none (`title-bar.tsx`, `project-menu.tsx`).
 - **Shell bridge**: the desktop shell's capabilities, one table the web's `Platform` is typed
   from (ADR 0031).
 - **Failed load**: a panel whose content could not be read, said where the content would be in
