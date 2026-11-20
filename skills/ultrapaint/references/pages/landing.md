@@ -167,7 +167,7 @@ actions `24–40px` lower; at most one muted reassurance line; the visual or the
 
 | You see | Fix |
 | --- | --- |
-| A hero headline in lines over about 20 characters | Broken by hand into lines of `12–20` |
+| A hero headline of 2–4 lines with a line over about 20 characters | Broken by hand into lines of `12–20`; one line only under about 30 |
 | A technical hero without the product, or in a bezel on white | The real UI, staged, cropped or faded |
 | A plan marked by a tab, a border and a colour | One mark |
 | Images of one set in mixed crops or treatments | One ratio, corner and treatment |
