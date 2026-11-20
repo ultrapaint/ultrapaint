@@ -173,6 +173,8 @@ const NewTab = ({
   const { projects } = platform();
   const tabs = useShellTabs();
   const [listed, setListed] = useState<readonly PlatformProject[]>([]);
+  // Why a project stayed on the list, until the menu opens again.
+  const [problem, setProblem] = useState<string | null>(null);
   useEffect(() => {
     if (!open) {
       return;
@@ -195,11 +197,20 @@ const NewTab = ({
           setListed((now) => now.filter((p) => p.id !== project.id));
         }
       })
-      // Kept on the list, it stays in Recent.
-      .catch(() => undefined);
+      .catch((error: unknown) =>
+        setProblem(error instanceof Error ? error.message : String(error))
+      );
   };
   return (
-    <DropdownMenu onOpenChange={onOpenChange} open={open}>
+    <DropdownMenu
+      onOpenChange={(next) => {
+        if (next) {
+          setProblem(null);
+        }
+        onOpenChange(next);
+      }}
+      open={open}
+    >
       <DropdownMenuTrigger
         aria-label="Open a project"
         className="window-no-drag flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25 data-popup-open:bg-accent data-popup-open:text-foreground"
@@ -218,6 +229,14 @@ const NewTab = ({
                   project={project}
                 />
               ))}
+              {problem ? (
+                <p
+                  className="max-w-full px-2 py-1 font-body-small text-destructive"
+                  role="alert"
+                >
+                  {problem}
+                </p>
+              ) : null}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
           </>

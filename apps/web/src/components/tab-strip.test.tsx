@@ -32,6 +32,7 @@ const DOCS: ShellTab = {
 };
 
 const LISTED: PlatformProject[] = [
+  { detail: "/work/stuck", id: "stuck", name: "stuck", unsaved: false },
   { detail: "~/Code/bike-shop", id: "bike", name: "bike-shop", unsaved: false },
   { detail: "/work/docs", id: "docs", name: "docs-site", unsaved: false },
   { detail: "/work/shop", id: "shop", name: "shop-admin", unsaved: false },
@@ -58,7 +59,14 @@ const draw = async (open: readonly ShellTab[] = [SHOP, DOCS]) => {
       coverWindow: call("cover"),
       list: () => Promise.resolve(LISTED),
       open: call("open"),
-      remove: call("remove"),
+      remove: (id: string) =>
+        id === "stuck"
+          ? Promise.reject(
+              new Error(
+                "stuck is open. Close its tab, then remove it from the list."
+              )
+            )
+          : call("remove")(id),
       show: call("show"),
       sshHosts: () => Promise.resolve([]),
     },
@@ -169,6 +177,7 @@ describe("the tab strip", () => {
     // Recent lists only the projects not open.
     expect(items()).toEqual([
       // Its initials, its name and where it is.
+      "Sstuck/work/stuck",
       "BSbike-shop~/Code/bike-shop",
       "Open folder…",
       "Open over SSH…",
@@ -207,6 +216,18 @@ describe("the tab strip", () => {
     expect(asked.at(-1)).toBe("cover true");
   });
 
+  it("says why a recent project stayed on the list", async () => {
+    const { press, settled } = await draw();
+    press(byLabel("Open a project"));
+    await settled();
+    press(byLabel("Remove stuck from the list"));
+    await settled();
+    expect(document.body.querySelector("[role=alert]")?.textContent).toBe(
+      "stuck is open. Close its tab, then remove it from the list."
+    );
+    expect(items()[0]).toContain("stuck");
+  });
+
   it("takes a recent project off the list with its ×", async () => {
     const { asked, press, settled } = await draw();
     press(byLabel("Open a project"));
@@ -214,6 +235,11 @@ describe("the tab strip", () => {
     press(byLabel("Remove bike-shop from the list"));
     await settled();
     expect(asked).toContain("remove bike");
-    expect(items()).toEqual(["Open folder…", "Open over SSH…", "New project…"]);
+    expect(items()).toEqual([
+      "Sstuck/work/stuck",
+      "Open folder…",
+      "Open over SSH…",
+      "New project…",
+    ]);
   });
 });
