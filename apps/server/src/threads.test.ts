@@ -306,6 +306,38 @@ eachTest(Opened, {
   );
 
   it.effect(
+    "counts in its health the agents waiting on the person, beside those at work (ADR 0107)",
+    () =>
+      Effect.gen(function* () {
+        const { client, port } = yield* TestEnv;
+        const health = Effect.promise(() =>
+          fetch(`http://127.0.0.1:${port}/api/health`).then(
+            (r) =>
+              r.json() as Promise<{
+                readonly waiting?: number;
+                readonly working?: number;
+              }>
+          )
+        );
+        const threadId = yield* startThread;
+        assert.strictEqual((yield* health).waiting, 0);
+        yield* prompt(threadId, "permission");
+        yield* waitForThread(threadId, (_, items) =>
+          items.some((i) => i.kind === "permission" && i.decision === null)
+        );
+        // Its turn waits on the person's answer: at work, and waiting on them.
+        assert.deepStrictEqual(yield* health, {
+          ...(yield* health),
+          waiting: 1,
+          working: 1,
+        });
+        yield* client["threads.cancel"]({ threadId });
+        yield* waitForThread(threadId, turnEnded);
+        assert.strictEqual((yield* health).waiting, 0);
+      })
+  );
+
+  it.effect(
     "finishes starting a session and its turn when the request goes away",
     () =>
       Effect.gen(function* () {

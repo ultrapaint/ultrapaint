@@ -7,7 +7,7 @@ import {
   CONFIG_FILE_NAME,
   LEGACY_CONFIG_FILE_NAME,
 } from "@ultrapaint/contracts/settings";
-import { isBusy } from "@ultrapaint/contracts/threads";
+import { isBusy, isWaiting } from "@ultrapaint/contracts/threads";
 import { Deferred, Effect, Layer, Option, Stream } from "effect";
 import {
   HttpRouter,
@@ -254,7 +254,8 @@ const HealthRoute = HttpRouter.use(
     const threads = yield* ThreadStore;
     // The token says which run answers: whoever read a run file checks it against this one.
     // `working` counts the agents at work, for whoever is about to stop the server (the desktop
-    // app asks before it does).
+    // app asks before it does); `waiting` those that wait on the person, a question asked or a
+    // permission undecided, for the desktop app's tabs and notices (ADR 0107).
     yield* router.add(
       "GET",
       "/api/health",
@@ -263,6 +264,7 @@ const HealthRoute = HttpRouter.use(
           ok: true,
           token,
           version,
+          waiting: all.filter(isWaiting).length,
           working: all.filter((t) => isBusy(t.status)).length,
         })
       )
