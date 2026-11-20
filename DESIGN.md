@@ -162,7 +162,8 @@ The editor has two themes on one set of roles, light (warm paper) and dark (warm
 Atlassian's semantic type tokens: seven headings and three bodies, each carrying the face, size,
 line height, weight and tracking, and the only way the editor sets type. Headings are Cal Sans,
 bodies Figtree, values, tokens and code Geist Mono; a path, URL, route or file name is words,
-in Figtree, and a path cut to one line is cut at its start, so its file name stays.
+in Figtree; a path alone on its line is cut at its start, so its file name stays (a route, a
+list of files and a sentence keep the end cut).
 Cal Sans has one weight, its 400, never made bold, and is spaced for display sizes, so the
 headings to 20px open it.
 

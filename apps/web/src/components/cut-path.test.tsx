@@ -65,6 +65,16 @@ describe("a path cut short (ADR 0108)", () => {
     expect(tooltip()).toBe(remote);
   });
 
+  it("keeps an IPv6 host and its port whole", () => {
+    act(() => mounted.render(<CutPath path="me@::1:2200:/srv/site" />));
+    expect(cutBox().textContent).toBe("/srv/site");
+  });
+
+  it("takes a local path's colon for part of the path", () => {
+    act(() => mounted.render(<CutPath path="src/pages/home.tsx:12" />));
+    expect(cutBox().textContent).toBe("src/pages/home.tsx:12");
+  });
+
   it("opens no tooltip of its own inside a row whose tooltip says more", () => {
     act(() => mounted.render(<CutPath path={PATH} tooltip={false} />));
     expect(tooltip()).toBeNull();
