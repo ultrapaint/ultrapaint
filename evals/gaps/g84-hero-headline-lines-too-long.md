@@ -28,7 +28,7 @@ mostly two-line technical heroes at `64px`.
 **Test.** `candidates/headline-measure` (the skill on main with the line, and a Check row) on the
 six landing briefs of `fx-opus-hf`, 2 runs each, Opus designing, against `fx-opus-hf`: the longest
 line of each hero set in 2 or more lines, in characters, read in Chrome at 1440px; a one-line
-headline under about 30 characters passes, as the line allows. It passes when the runs over 20
+headline passes under about 30 characters, as the line allows, and fails over it. It passes when the runs over 20
 characters fall from 8 of 11 (language-app run 1 did not render) to 2 or fewer, with no headline broken into more than 4 lines.
 
 **Result.**
