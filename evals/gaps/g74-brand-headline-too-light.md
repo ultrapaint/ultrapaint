@@ -47,4 +47,7 @@ sections: []
   product as technical: the facts brief gives none of the brand's type, so the clause had nothing
   to act on. `600` is the weight of the first candidate's run 2, which the person found "a bit
   better looking". Asked in `decisions/lab-nov20c`.
+- `lab-nov20c`, decided (the person, 2026-11-20): "with the clause it's okay". g74 is done. The
+  person's two other findings on the same runs are gaps of their own: the headline's line length
+  (g84) and the description's size and colour (g85).
 
