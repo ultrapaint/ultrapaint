@@ -141,6 +141,32 @@ describe("AcpAgent", () => {
   );
 
   agentTest(
+    "stops waiting on the person when the agent withdraws its question",
+    () =>
+      Effect.gen(function* () {
+        // Claude Code withdraws a question it no longer waits on (`$/cancel_request`): the
+        // handler that waits for the person is stopped, so its card does not wait for nothing.
+        const withdrawn = yield* Deferred.make<void>();
+        const { agent, seen } = yield* open({
+          onElicitation: () =>
+            Effect.never.pipe(
+              Effect.onInterrupt(() => Deferred.succeed(withdrawn, undefined))
+            ),
+        });
+        const { sessionId } = yield* agent.newSession(process.cwd());
+        yield* agent.prompt(sessionId, [{ text: "withdraw", type: "text" }]);
+        assert.deepStrictEqual(seen, ["withdraw:withdrawn"]);
+        yield* Deferred.await(withdrawn).pipe(
+          Effect.timeoutOrElse({
+            duration: "2 seconds",
+            orElse: () =>
+              Effect.die(new Error("the handler still waits on the person")),
+          })
+        );
+      })
+  );
+
+  agentTest(
     "reopens a session by loading it, its replay kept from the host",
     () =>
       Effect.gen(function* () {

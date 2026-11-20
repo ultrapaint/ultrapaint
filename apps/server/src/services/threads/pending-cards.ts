@@ -3,7 +3,8 @@
  * for, a form an MCP server puts to the user through it within its turn, and the questions of an
  * agent that cannot wait, which the next prompt answers. A card is opened and awaited by the
  * agent's request, resolved by its item id, and every card the agent waits on is let go at once
- * when its turn is stopped or its session ends.
+ * when its turn is stopped or its session ends. A card the agent withdraws itself reads
+ * `cancelled` alike.
  *
  * One per thread, made with its session: the cards count the thread's whole life, across its
  * agent's sessions. Nothing is answered from memory: an agent that offers "always" remembers the
@@ -132,8 +133,15 @@ export const makePendingCards = (
       ...(detail ? { detail } : {}),
       ...(toolCall.toolCallId ? { toolCallId: toolCall.toolCallId } : {}),
     });
-    const response = yield* Deferred.await(decision);
-    permissions.delete(requestId);
+    const response = yield* Deferred.await(decision).pipe(
+      // Withdrawn by the agent: answered in the person's place, or no longer asked.
+      Effect.onInterrupt(() =>
+        store.patchItem(threadId, requestId, (i) =>
+          i.kind === "permission" ? { ...i, decision: "cancelled" } : i
+        )
+      ),
+      Effect.ensuring(Effect.sync(() => permissions.delete(requestId)))
+    );
     const picked =
       response.outcome.outcome === "selected"
         ? response.outcome.optionId
@@ -187,6 +195,15 @@ export const makePendingCards = (
       questions,
     });
     return yield* Deferred.await(reply).pipe(
+      // Withdrawn by the agent (Claude Code's `$/cancel_request`), which no longer listens for
+      // the answers: the card says so, as it does when the turn is stopped.
+      Effect.onInterrupt(() =>
+        store.patchItem(threadId, itemId, (item) =>
+          item.kind === "question" && item.answers === null
+            ? { ...item, outcome: "cancelled" as const }
+            : item
+        )
+      ),
       Effect.ensuring(Effect.sync(() => forms.delete(itemId)))
     );
   });

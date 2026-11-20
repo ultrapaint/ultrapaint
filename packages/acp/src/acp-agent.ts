@@ -386,11 +386,16 @@ export const spawnAcpAgent = (
      * Runs a handler for the SDK; a typed failure becomes the rejection the agent sees, with its
      * reason: a plain error reaches the agent as "Internal error" and nothing else, and a write
      * refused outside the designs directory has to say why for the agent to do otherwise.
+     *
+     * Given the request's `signal`, the handler is interrupted when the agent withdraws the
+     * request (`$/cancel_request`): Claude Code withdraws a permission or a question it no longer
+     * waits on, and stops listening for the reply.
      */
     const serve = async <A>(
-      effect: Effect.Effect<A, AcpHostError | ResourceNotFound>
+      effect: Effect.Effect<A, AcpHostError | ResourceNotFound>,
+      signal?: AbortSignal
     ): Promise<A> => {
-      const result = await run(Effect.result(effect));
+      const result = await run(Effect.result(effect), { signal });
       if (Result.isSuccess(result)) {
         return result.success;
       }
@@ -407,10 +412,10 @@ export const spawnAcpAgent = (
         updates.receive(ctx.params);
       })
       .onRequest("session/request_permission", (ctx) =>
-        serve(handlers.onPermission(ctx.params))
+        serve(handlers.onPermission(ctx.params), ctx.signal)
       )
       .onRequest("elicitation/create", (ctx) =>
-        serve(handlers.onElicitation(ctx.params))
+        serve(handlers.onElicitation(ctx.params), ctx.signal)
       )
       .onRequest("fs/read_text_file", (ctx) =>
         serve(handlers.readTextFile(ctx.params))

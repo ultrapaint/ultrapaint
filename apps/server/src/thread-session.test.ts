@@ -1527,6 +1527,27 @@ describe("a permission request", () => {
       );
     }));
 
+  test("withdrawn by the agent, reads cancelled and is no longer pending", () =>
+    Effect.gen(function* () {
+      const { threadId, turn } = yield* started();
+      const asking = yield* Effect.forkChild(turn.requestPermission(EDIT_HOME));
+      const { items } = yield* threadWhen(threadId, has("permission"));
+      const card = items.find((i) => i.kind === "permission");
+      // Claude Code withdraws a permission a hook answered in the person's place.
+      yield* Fiber.interrupt(asking);
+      yield* turn.end();
+      const ended = yield* threadWhen(threadId, turnEnded);
+      const left = ended.items.find((i) => i.kind === "permission");
+      assert.strictEqual(
+        left?.kind === "permission" && left.decision,
+        "cancelled"
+      );
+      const late = yield* Effect.flip(
+        onThread(threadId, (s) => s.cards.choose(card?.id ?? "", "allow"))
+      );
+      assert.strictEqual(late._tag, "NotFound");
+    }));
+
   test("that is not pending cannot be answered", () =>
     Effect.gen(function* () {
       const { threadId } = yield* started();
@@ -1540,13 +1561,14 @@ describe("a permission request", () => {
 describe("a question the agent waits on", () => {
   /** The card of the form the turn asks, once it is in the thread, and the fiber waiting on it. */
   const asked = Effect.fnUntraced(function* () {
-    const { threadId, turn } = yield* started();
+    const { agent, threadId, turn } = yield* started();
     const reply = yield* Effect.forkChild(
       turn.elicit(planForm(turn.sessionId))
     );
     const { items } = yield* threadWhen(threadId, has("question"));
     const card = items.find((i) => i.kind === "question");
     return {
+      agent,
       card: card?.kind === "question" ? card : undefined,
       reply,
       threadId,
@@ -1630,6 +1652,29 @@ describe("a question the agent waits on", () => {
         onThread(threadId, (s) => s.answer(card?.id ?? "", { plan: "free" }))
       );
       assert.include(late.message, "already answered");
+    }));
+
+  test("withdrawn by the agent, is no longer asked and cannot be answered", () =>
+    Effect.gen(function* () {
+      const { agent, card, reply, threadId, turn } = yield* asked();
+      // The agent stops waiting on its own (Claude Code's `$/cancel_request`), and ends its turn.
+      yield* Fiber.interrupt(reply);
+      yield* turn.end();
+      const { items } = yield* threadWhen(threadId, turnEnded);
+      const left = items.find((i) => i.kind === "question");
+      assert.strictEqual(
+        left?.kind === "question" && left.outcome,
+        "cancelled"
+      );
+      const late = yield* Effect.flip(
+        onThread(threadId, (s) => s.answer(card?.id ?? "", { plan: "pro" }))
+      );
+      assert.strictEqual(late._tag, "Conflict");
+      // No prompt of its own: the person says what they want in the chat.
+      assert.lengthOf(
+        (yield* agent.calls).filter((c) => c.method === "session/prompt"),
+        1
+      );
     }));
 
   test("that cannot be drawn is declined, without a card", () =>
