@@ -238,6 +238,37 @@ export const scrollThroughInBrowser = async () => {
 };
 
 /**
+ * Runs in the page: how much taller the window must be for a screen that scrolls inside a panel
+ * (an app shell the window's height, its main column scrolling) to show that panel whole. Zero
+ * when the page itself scrolls, which a full-page picture already takes.
+ */
+export const innerOverflowInBrowser = () => {
+  const root = document.scrollingElement ?? document.documentElement;
+  if (root.scrollHeight > window.innerHeight + 1) {
+    return 0;
+  }
+  let extra = 0;
+  for (const element of document.querySelectorAll("body *")) {
+    // In the page, so no module-level constant: a plain comparison, not a regex.
+    const overflow = getComputedStyle(element).overflowY;
+    if (overflow !== "auto" && overflow !== "scroll") {
+      continue;
+    }
+    const hidden = element.scrollHeight - element.clientHeight;
+    const box = element.getBoundingClientRect();
+    // A panel that holds the screen's content, not a menu or a code block that scrolls.
+    if (
+      hidden > 1 &&
+      box.width >= window.innerWidth / 3 &&
+      box.height >= window.innerHeight / 2
+    ) {
+      extra = Math.max(extra, hidden);
+    }
+  }
+  return extra;
+};
+
+/**
  * Runs in the page: whether a picture ends on blank rows (the content ended above the frame's
  * bottom), and whether its top matches another picture's (the content stays put as the frame
  * grows, rather than stretching with it).

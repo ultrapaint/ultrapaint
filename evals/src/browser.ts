@@ -33,6 +33,7 @@ import {
   compareInBrowser,
   cropInBrowser,
   cutInBrowser,
+  innerOverflowInBrowser,
   locateInBrowser,
   outlineInBrowser,
   scrollThroughInBrowser,
@@ -325,6 +326,26 @@ export class Browser extends Context.Service<
             }
             const fold = await page.screenshot({ type: "png" });
             await page.evaluate(scrollThroughInBrowser);
+            // A screen that scrolls inside a panel shows only its fold in a full-page picture:
+            // the window grows until the panel holds all it scrolls, a few times at most, as
+            // the content can reflow at the new height.
+            for (let grown = 0; grown < 3; grown += 1) {
+              // biome-ignore lint/performance/noAwaitInLoops: each height follows the reflow
+              const extra = await page.evaluate(innerOverflowInBrowser);
+              const size = page.viewportSize();
+              if (
+                extra === 0 ||
+                size === null ||
+                size.height >= MAX_TILES * TILE_HEIGHT
+              ) {
+                break;
+              }
+              await page.setViewportSize({
+                height: Math.min(size.height + extra, MAX_TILES * TILE_HEIGHT),
+                width: size.width,
+              });
+              await page.waitForTimeout(500);
+            }
             await page.evaluate(fontsLoadedInBrowser);
             const full = await page.screenshot({ fullPage: true, type: "png" });
             const outline = phone

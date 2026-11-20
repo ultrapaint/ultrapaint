@@ -359,7 +359,9 @@ with their process group, at `--minutes` too. Run a bulk round as a long job (ab
 The dev server runs with the app's own Vite config merged into one that serves files from outside
 the app, since the app's `node_modules` is the host's: without it Vite refused a face loaded from
 an installed package, and the pictures showed the fallback face. Each picture waits for the page's
-faces. Rounds pictured before 20 November are taken again from their apps, which stay in
+faces. A screen that scrolls inside a panel (an app shell the window's height) is pictured with
+the window grown until the panel shows all it scrolls, or its pictures would stop at the fold.
+Rounds pictured before 20 November are taken again from their apps, which stay in
 `.work/outside/`, with no agent run; each run's counted marks and pairwise verdicts go with its old pictures, which
 stay until the new ones are all taken:
 
