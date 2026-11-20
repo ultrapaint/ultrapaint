@@ -37,7 +37,7 @@ export type AgentSetup = ShellPlatform["agents"];
  */
 export type FolderSetup = ShellPlatform["folders"];
 
-/** The shell's list of projects, for the switcher in the header. One project is open at a time. */
+/** The shell's list of projects, which its start page opens. One project is open at a time. */
 export type ProjectSwitcher = ShellPlatform["projects"];
 
 /** The shell's status, as it changes. */
