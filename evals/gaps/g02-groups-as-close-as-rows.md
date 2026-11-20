@@ -2,7 +2,7 @@
 id: g02
 title: Groups as close as their rows
 kind: missed
-status: testing
+status: done
 found: 2026-11-03
 source: editor redesign (branch redesign)
 skill: [SKILL.md, references/kinds/navigation.md]
@@ -51,3 +51,8 @@ each catches.
 - `chk-1`: 2026-11-11, caught: shipped 0/3 (+2 partly), shipped+checks 3/3 (opus, effort high; runs/chk-1/report.md)
 - `rt-2-gpt`: 2026-11-16, caught: shipped 0/2, review-table 0/2, review-inventory 0/2 (reviewed by gpt-6.1-sol, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2-gpt/report.md)
 - `gaps-nov18` (2026-11-19): the person approved closing it by the checks, on the deck's claim that the editor's review shows its models what the checks measured. That holds only for the checks on the page's document (ADR 0061); the check that catches this gap is the lab's rendered-page `measure`, not built into the editor, and at its default 2× it passes this gap's case (2.7×). Kept open until the editor runs the check at a ratio that flags it, or the person decides the ratio.
+- `lab-nov20`, decided (the person, 2026-11-20): ship 3× for panels and sidebars. Shipped in
+  `SKILL.md`, Spacing: "stacked groups of rows in a panel or a sidebar (a list under its label,
+  then the next) take 3×, or they read as one list", with the review's G2 row; the core's 2×
+  stays everywhere else. `pnpm evals measure --ratio 3` is its lab check. The person also asked
+  for a story to run the rendered-page checks in the editor's review, which g37 waits on. Done.

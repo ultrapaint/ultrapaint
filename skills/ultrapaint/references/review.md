@@ -160,7 +160,7 @@ each gap. A row that matches is a finding: report where it is, the row's id and 
 | Id | You see | Fix |
 | --- | --- | --- |
 | G1 | A raw pixel value in a gap or a padding where a spacing token exists | The nearest step of the scale |
-| G2 | A gap between groups under twice the gap within them, measured between the text | Widen it to twice or more |
+| G2 | A gap between groups under twice the gap within them, measured between the text; under three times between stacked groups of rows in a panel or a sidebar | Widen it to twice or more; three times in a panel or a sidebar |
 | G3 | A divider between the groups of a form | Drop it; space separates them |
 | G4 | Two jobs split only by a bold heading and a divider | A quiet surface for each |
 | G5 | A card or dividers around a short list of toggles | Bare rows |

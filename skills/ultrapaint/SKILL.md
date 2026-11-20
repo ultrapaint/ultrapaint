@@ -161,7 +161,8 @@ says what the content already shows is noise: remove it, rather than shrinking o
   related elements, between groups, between sections) and reuse them; a `13` or an `18` is a step
   not picked. One relationship is always one distance.
 - Proximity groups: the gap between groups is at least 2× the gap within one, measured between
-  the text. A label sits nearer its field than the field above it; a heading nearer what it
+  the text; stacked groups of rows in a panel or a sidebar (a list under its label, then the
+  next) take 3×, or they read as one list. A label sits nearer its field than the field above it; a heading nearer what it
   introduces than what came before. A title and its one-line description: `2–4px`.
 - Group with space alone in a form or on a page. Where a screen or dialog does several jobs (a link
   to copy, people to invite, a plan to choose), each job sits on its own quiet surface (a faint fill
