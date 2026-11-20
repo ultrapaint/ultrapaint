@@ -1,5 +1,5 @@
 import { BadRequest } from "@ultrapaint/contracts/errors";
-import { UserProfile } from "@ultrapaint/contracts/settings";
+import { PROFILE_FILE, UserProfile } from "@ultrapaint/contracts/settings";
 import {
   Clock,
   Context,
@@ -23,9 +23,6 @@ const encodeProfile = Schema.encodeEffect(ProfileJson);
 
 /** How many names an unreadable profile is tried under before the save gives up. */
 const ASIDE_TRIES = 100;
-
-/** File in the user's directory (`~/.ultrapaint`) the profile is kept in. */
-const PROFILE_FILE = "profile.json";
 
 /**
  * Who the user is to the tool: a display name for comments and the avatar when git gives none.
