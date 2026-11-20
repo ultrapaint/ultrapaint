@@ -67,3 +67,5 @@ problems.
 - `g76-rl`: 2026-11-17, its sections' gaps caught: shipped 10/18 (+3 partly), row-lines 13/18 (+3 partly) (reviewed by opus, judged by opus, cursor:grok-4.7-high, effort high; runs/g76-rl/report.md)
 - `placement-1`: 2026-11-17, its sections' gaps caught: shipped 9/16, placement 11/16 (+1 partly) (reviewed by opus, judged by opus, cursor:grok-4.7-high, effort high; runs/placement-1/report.md)
 - `placement-2`: 2026-11-17, its sections' gaps caught: shipped 10/16, placement-2 8/16 (reviewed by opus, judged by opus, cursor:grok-4.7-high, effort high; runs/placement-2/report.md)
+- `recall-main19`: 2026-11-19, its sections' gaps caught: shipped 13/18 (+2 partly) (opus, effort high; runs/recall-main19/report.md)
+- `recall-main19b`: 2026-11-19, its sections' gaps caught: shipped 26/36 (+5 partly) (opus, effort high; runs/recall-main19b/report.md)
