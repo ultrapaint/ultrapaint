@@ -201,6 +201,51 @@ describe("Settings › Name and icon (ADR 0107)", () => {
     });
   });
 
+  it("says an icon is missing when Choose icon is saved with none, and saves nothing", () => {
+    open();
+    press(button("Choose icon"));
+    press(button("Save"));
+    expect(document.body.querySelector("[role=alert]")?.textContent).toBe(
+      "Choose an icon first."
+    );
+    expect(sets()).toEqual([]);
+  });
+
+  it("says a typed path is no image of the project, and saves nothing", async () => {
+    open();
+    press(button("Choose file"));
+    await act(async () => {
+      await fakeApi.requested("project.images");
+    });
+    press(button("Choose another file…"));
+    const field = document.body.querySelector<HTMLInputElement>(
+      "input[aria-label='Path in the project']"
+    );
+    type(field, "../elsewhere/logo.svg");
+    act(() =>
+      field?.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Enter" })
+      )
+    );
+    // The project's server refuses it, so its thumbnail does not load.
+    const thumbnail = option("../elsewhere/logo.svg")?.querySelector("img");
+    act(() => thumbnail?.dispatchEvent(new Event("error")));
+    press(button("Save"));
+    expect(document.body.querySelector("[role=alert]")?.textContent).toBe(
+      "No image at that path in the project."
+    );
+    expect(sets()).toEqual([]);
+  });
+
+  it("draws the default the server shows when the file given is gone", () => {
+    open({ icon: { kind: "file", path: "brand/gone.svg" } });
+    const row = container.querySelector("[data-setting=project-icon]");
+    expect(row?.querySelector("img")).toBeNull();
+    // The server's initials in their colour, not the editor's own stand-in.
+    expect(row?.textContent).toContain("S");
+    expect(row?.textContent).not.toContain("SA");
+  });
+
   it("goes back to the default icon with the arrow, shown only while one is set", async () => {
     open();
     expect(button("Use the default")).toBeUndefined();

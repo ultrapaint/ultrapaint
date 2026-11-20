@@ -1,14 +1,15 @@
 /**
  * A project's icon (ADR 0107), one drawing wherever it shows: the title row, the project menu,
  * Settings › Name and icon and its dialogs, and the desktop app's tabs. An icon of the set on a
- * tint of its colour, an image of the project as the server serves it, or the name's initial on a
- * tint of its colour; an image that does not load gives way to the initial.
+ * tint of its colour, an image of the project as the server serves it, or the name's initials on a
+ * tint of its colour; an image that does not load gives way to the initials.
  */
 import {
   PROJECT_IMAGE_ROUTE,
   type ShownProjectIcon,
 } from "@ultrapaint/contracts/project";
 import type { ProjectIconColor } from "@ultrapaint/contracts/settings";
+import { initialsOf } from "@ultrapaint/shared/project-name";
 import { DynamicIcon, type IconName } from "lucide-react/dynamic";
 import { type CSSProperties, useState } from "react";
 import { cn } from "@/lib/cn";
@@ -43,12 +44,6 @@ const SIZES = {
   32: { glyph: 22, radius: 6, text: 17 },
   40: { glyph: 28, radius: 10, text: 22 },
 } as const;
-
-const LETTER_RE = /[\p{L}\p{N}]/u;
-
-/** The initial a name is drawn by when there is no other icon. */
-const initialOf = (name: string) =>
-  (name.match(LETTER_RE)?.[0] ?? name.trim()[0] ?? "?").toLocaleUpperCase();
 
 export const ProjectIcon = ({
   className,
@@ -120,7 +115,7 @@ export const ProjectIcon = ({
         lineHeight: 1,
       }}
     >
-      {icon?.kind === "initial" ? icon.initial : initialOf(name)}
+      {icon?.kind === "initial" ? icon.initial : initialsOf(name)}
     </span>
   );
 };
