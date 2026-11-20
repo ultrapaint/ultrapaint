@@ -255,20 +255,22 @@ const HealthRoute = HttpRouter.use(
     // The token says which run answers: whoever read a run file checks it against this one.
     // `working` counts the agents at work, for whoever is about to stop the server (the desktop
     // app asks before it does); `waiting` those that wait on the person, a question asked or a
-    // permission undecided, and `failed` those whose last turn stopped on an error, for the
-    // desktop app's tabs and notices: an agent no longer at work finished, or stopped (ADR 0107).
+    // permission undecided; `finished`, `failed` and `cancelled` the turns that ended so since
+    // the server started, so that the desktop app tells of each, and of no cancel (ADR 0107).
     yield* router.add(
       "GET",
       "/api/health",
-      Effect.flatMap(threads.list, (all) =>
-        HttpServerResponse.json({
-          failed: all.filter((t) => t.status === "error").length,
-          ok: true,
-          token,
-          version,
-          waiting: all.filter(isWaiting).length,
-          working: all.filter((t) => isBusy(t.status)).length,
-        })
+      Effect.flatMap(
+        Effect.all([threads.list, threads.turnsEnded]),
+        ([all, ended]) =>
+          HttpServerResponse.json({
+            ...ended,
+            ok: true,
+            token,
+            version,
+            waiting: all.filter(isWaiting).length,
+            working: all.filter((t) => isBusy(t.status)).length,
+          })
       )
     );
   })

@@ -1,4 +1,10 @@
-import { summarise, Thread, ThreadItem } from "@ultrapaint/contracts/threads";
+import {
+  isBusy,
+  summarise,
+  Thread,
+  ThreadItem,
+  type ThreadStatus,
+} from "@ultrapaint/contracts/threads";
 import {
   Clock,
   Context,
@@ -53,6 +59,32 @@ interface Entry {
   thread: Thread;
 }
 
+/** The turns ended since the server started, by how each ended (ADR 0107). */
+export interface TurnsEnded {
+  /** Stopped by the person (a cancel), which is no one's news. */
+  readonly cancelled: number;
+  /** Stopped on an error. */
+  readonly failed: number;
+  readonly finished: number;
+}
+
+/**
+ * How a turn ended when a thread's status goes from `before` to `after`: none while it is still
+ * under way, or was not. A turn stopped while it was being cancelled was cancelled.
+ */
+export const turnEnd = (
+  before: ThreadStatus,
+  after: ThreadStatus
+): keyof TurnsEnded | null => {
+  if (!isBusy(before) || isBusy(after)) {
+    return null;
+  }
+  if (after === "error") {
+    return "failed";
+  }
+  return before === "cancelling" ? "cancelled" : "finished";
+};
+
 /**
  * Threads and their transcripts: in memory, persisted as one JSON file per thread, and every
  * change published as an `agent` event. Knows nothing about agents or sessions.
@@ -83,6 +115,11 @@ export class ThreadStore extends Context.Service<
       text: string
     ) => Effect.Effect<void>;
     readonly remove: (id: string) => Effect.Effect<void>;
+    /**
+     * How many turns ended since the server started, by how they ended: for the desktop app,
+     * which tells the person of a turn that finished or failed in a project not on screen.
+     */
+    readonly turnsEnded: Effect.Effect<TurnsEnded>;
     readonly update: (
       id: string,
       patch: Partial<Thread>
@@ -107,6 +144,7 @@ export class ThreadStore extends Context.Service<
         );
       const dir = path.join(yield* storage.stateDir, THREADS_DIR);
       const threads = new Map<string, Entry>();
+      let turnsEnded: TurnsEnded = { cancelled: 0, failed: 0, finished: 0 };
       // Streaming chunks persist the same file many times a second; keep the writes in order.
       const writes = makeKeyedLock();
 
@@ -204,6 +242,13 @@ export class ThreadStore extends Context.Service<
         const entry = threads.get(id);
         if (!entry) {
           return;
+        }
+        const ended =
+          patch.status === undefined
+            ? null
+            : turnEnd(entry.thread.status, patch.status);
+        if (ended) {
+          turnsEnded = { ...turnsEnded, [ended]: turnsEnded[ended] + 1 };
         }
         entry.thread = {
           ...entry.thread,
@@ -311,6 +356,7 @@ export class ThreadStore extends Context.Service<
           );
           yield* events.publish("agent", { threadId: id, type: "removed" });
         }),
+        turnsEnded: Effect.sync(() => turnsEnded),
         update,
       });
     })
