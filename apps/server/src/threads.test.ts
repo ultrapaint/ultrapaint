@@ -306,7 +306,7 @@ eachTest(Opened, {
   );
 
   it.effect(
-    "counts in its health the agents waiting on the person and those whose turn failed, beside those at work (ADR 0107)",
+    "counts in its health the agents waiting on the person and the turns ended by how, beside those at work (ADR 0107)",
     () =>
       Effect.gen(function* () {
         const { client, port } = yield* TestEnv;
@@ -314,7 +314,9 @@ eachTest(Opened, {
           fetch(`http://127.0.0.1:${port}/api/health`).then(
             (r) =>
               r.json() as Promise<{
+                readonly cancelled?: number;
                 readonly failed?: number;
+                readonly finished?: number;
                 readonly waiting?: number;
                 readonly working?: number;
               }>
@@ -335,12 +337,23 @@ eachTest(Opened, {
         yield* client["threads.cancel"]({ threadId });
         yield* waitForThread(threadId, turnEnded);
         assert.strictEqual((yield* health).waiting, 0);
-        // And those whose turn stopped on an error: no longer at work, but not finished.
-        assert.strictEqual((yield* health).failed, 0);
+        // The turns ended since it started, by how: a cancel apart from a finish.
+        assert.deepInclude(yield* health, {
+          cancelled: 1,
+          failed: 0,
+          finished: 0,
+        });
         const failing = yield* startThread;
         yield* prompt(failing, "fail");
         yield* waitForThread(failing, (t) => t.status === "error");
-        assert.strictEqual((yield* health).failed, 1);
+        const replying = yield* startThread;
+        yield* prompt(replying, "reply");
+        yield* waitForThread(replying, turnEnded);
+        assert.deepInclude(yield* health, {
+          cancelled: 1,
+          failed: 1,
+          finished: 1,
+        });
       })
   );
 
