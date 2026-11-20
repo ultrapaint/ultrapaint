@@ -30,8 +30,10 @@ export interface Recorded {
   /** The projects whose view was let go, in order. */
   drops: string[];
   events: string[];
-  /** How many agents each folder's server says stopped on an error. */
+  /** How many turns each folder's server says stopped on an error since it started. */
   failed: Record<string, number>;
+  /** How many turns each folder's server says finished since it started. */
+  finished: Record<string, number>;
   /** Whether the window is in front; it is unless a test says otherwise. */
   focused: boolean;
   /** What the views were told of other projects' agents, in order: `null` once none is. */
@@ -75,6 +77,13 @@ export interface Recorded {
   waiting: Record<string, number>;
   /** Told when an event or a question is recorded: what `until` waits on. */
   readonly watchers: Set<() => void>;
+  /**
+   * What happens as the app asks whether the window is in front, one per ask in order: what the
+   * person does meanwhile, while the app decides on a news.
+   */
+  whileFocusAsked: Effect.Effect<void>[];
+  /** What happens, once, while a server's health answer is on its way, by its name. */
+  whileHealthAnswers: Record<string, Effect.Effect<void>>;
   /** How many agents each folder's server says are at work. */
   working: Record<string, number>;
 }
@@ -88,6 +97,7 @@ export const makeRecorded = (): Recorded => ({
   drops: [],
   events: [],
   failed: {},
+  finished: {},
   focused: true,
   notices: [],
   openings: [],
@@ -107,6 +117,8 @@ export const makeRecorded = (): Recorded => ({
   viewsIn: [],
   waiting: {},
   watchers: new Set(),
+  whileFocusAsked: [],
+  whileHealthAnswers: {},
   working: {},
 });
 
@@ -175,7 +187,12 @@ export const fakeShell = (recorded: Recorded) =>
           recorded.beforeDrop ?? Effect.void,
           Effect.sync(() => recorded.drops.push(project))
         ),
-      focused: Effect.sync(() => recorded.focused),
+      focused: Effect.suspend(() =>
+        Effect.andThen(
+          recorded.whileFocusAsked.shift() ?? Effect.void,
+          Effect.sync(() => recorded.focused)
+        )
+      ),
       load: (project, view) =>
         Effect.sync(() => {
           recorded.views.push(view);
@@ -251,15 +268,20 @@ const agentsIn = (recorded: Recorded, name: string) =>
           Effect.sleep("2 seconds")
         )
       : Effect.void,
-    Effect.sync(() =>
-      recorded.silent.includes(name)
+    Effect.suspend(() => {
+      // The answer says what was so when it was asked, whatever happens before it arrives.
+      const said = recorded.silent.includes(name)
         ? Option.none()
         : Option.some({
             failed: recorded.failed[name] ?? 0,
+            finished: recorded.finished[name] ?? 0,
             waiting: recorded.waiting[name] ?? 0,
             working: recorded.working[name] ?? 0,
-          })
-    )
+          });
+      const meanwhile = recorded.whileHealthAnswers[name] ?? Effect.void;
+      delete recorded.whileHealthAnswers[name];
+      return Effect.as(meanwhile, said);
+    })
   );
 
 /** What a folder's server does as it stops: one named `lingering` takes 1 s. */
