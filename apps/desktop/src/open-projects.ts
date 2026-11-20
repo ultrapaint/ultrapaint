@@ -363,6 +363,11 @@ export class OpenProjects extends Context.Service<
 
         /** The open projects, in the order their tabs were opened. */
         let tabs: Tab[] = [];
+        /**
+         * Tabs closed whose server is not stopped yet: a folder move counts their servers until
+         * they are, so none uses the folder while it moves.
+         */
+        let closing: Tab[] = [];
         /** The project whose tab is shown; null while Home is. */
         let shown: string | null = null;
         /** The projects whose view is loaded, the one shown most recently first. */
@@ -551,12 +556,14 @@ export class OpenProjects extends Context.Service<
           running: Running,
           options: { readonly keepLocation?: boolean } = {}
         ) {
+          const own = () =>
+            isOpen(tab) && tab.running === running && views.includes(tab.id);
+          // A view not loaded loads its editor when shown (`loadView`): nothing to look for.
+          if (!own()) {
+            return;
+          }
           const view = yield* editorOf(tab, running, options);
-          if (
-            isOpen(tab) &&
-            tab.running === running &&
-            views.includes(tab.id)
-          ) {
+          if (own()) {
             yield* shell.load(tab.id, view);
           }
         });
@@ -838,6 +845,22 @@ export class OpenProjects extends Context.Service<
           );
 
         /**
+         * What a tab's view shows: its editor, or its splash while it has no server or a failure
+         * stays on it until Try again. Not `current` when the tab's server changed meanwhile.
+         */
+        const viewFor = Effect.fnUntraced(function* (tab: Tab) {
+          const { movedTo, running } = tab;
+          const view: View =
+            running && !tab.opening?.state.problem
+              ? yield* editorOf(tab, running)
+              : { _tag: "Opening" };
+          return {
+            current: tab.running === running && tab.movedTo === movedTo,
+            view,
+          };
+        });
+
+        /**
          * Loads a tab's view when it is not loaded: its editor, or its splash. False when another
          * tab, or Home, was shown while the editor was looked for, or this one closed: the show
          * goes no further.
@@ -846,14 +869,17 @@ export class OpenProjects extends Context.Service<
           if (views.includes(tab.id)) {
             return true;
           }
-          const view: View = tab.running
-            ? yield* editorOf(tab, tab.running)
-            : { _tag: "Opening" };
+          // Its editor, at the server it has once the editor is known: started again or moved
+          // while the version was asked, it is asked again of the one it has now.
+          let view = yield* viewFor(tab);
+          while (!(view.current || shown !== tab.id || !isOpen(tab))) {
+            view = yield* viewFor(tab);
+          }
           if (shown !== tab.id || !isOpen(tab)) {
             return false;
           }
           if (!views.includes(tab.id)) {
-            yield* shell.load(tab.id, view);
+            yield* shell.load(tab.id, view.view);
           }
           return true;
         });
@@ -878,7 +904,10 @@ export class OpenProjects extends Context.Service<
           views = [tab.id, ...views.filter((v) => v !== tab.id)];
           yield* trimViews;
           yield* shell.show(tab.id);
-          yield* changed;
+          yield* keepTabs;
+          // The strip told last, then the start asked for at once: what the strip shows is what
+          // was asked.
+          yield* tellTabs;
           if (unstarted(tab)) {
             yield* ensureStarted(tab);
           }
@@ -982,6 +1011,7 @@ export class OpenProjects extends Context.Service<
           if (!isOpen(tab)) {
             return true;
           }
+          closing = [...closing, tab];
           tabs = tabs.filter((t) => t !== tab);
           seen = seen.filter((s) => s !== id);
           const hadView = views.includes(id);
@@ -999,7 +1029,13 @@ export class OpenProjects extends Context.Service<
           // Its view let go, nothing of it calls the bridge any more.
           remoteIds.delete(id);
           yield* changed;
-          yield* ofTab(tab)(release(tab));
+          yield* ofTab(tab)(release(tab)).pipe(
+            Effect.ensuring(
+              Effect.sync(() => {
+                closing = closing.filter((t) => t !== tab);
+              })
+            )
+          );
           return true;
         });
 
@@ -1282,9 +1318,18 @@ export class OpenProjects extends Context.Service<
                     if (!tab.opening?.state.problem || tab.launch) {
                       return Effect.void;
                     }
-                    // Its server runs, and its editor would not load: loaded again.
+                    // Its server runs, and its editor would not load: loaded again, once the
+                    // server still answers. One that stopped since (exited once ready) is let go
+                    // and started again.
                     if (running) {
                       return Effect.gen(function* () {
+                        if ((yield* running.server.version) === undefined) {
+                          yield* release(tab);
+                          const again = yield* beginOpening(tab);
+                          yield* tellTabs;
+                          yield* launch(tab, again);
+                          return;
+                        }
                         const underway = yield* beginOpening(tab);
                         yield* changeOpening(tab, underway, (o, now) =>
                           reachStep(
@@ -1369,7 +1414,9 @@ export class OpenProjects extends Context.Service<
           whileStopped: <A, E>(change: Effect.Effect<A, E>) =>
             ofAll(
               Effect.gen(function* () {
-                const theirs = tabs.find(
+                // The tabs closing too: their servers run until they are stopped.
+                const all = [...tabs, ...closing];
+                const theirs = all.find(
                   (t) =>
                     t.running?.server.attached && t.project.kind === "local"
                 );
@@ -1378,7 +1425,7 @@ export class OpenProjects extends Context.Service<
                     message: `${theirs.project.name} runs on a server started outside the app, which uses your folder where it is. Stop it, close its tab, then try again.`,
                   });
                 }
-                const targets = tabs.filter(
+                const targets = all.filter(
                   (t) => t.project.kind === "local" && t.running !== null
                 );
                 if (
