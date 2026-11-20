@@ -45,6 +45,7 @@ import { IconButton } from "./components/icon-button.tsx";
 import { ImageThumb } from "./components/image-thumb.tsx";
 import { Lockup } from "./components/logo.tsx";
 import { OpeningSplash } from "./components/opening-splash.tsx";
+import { ProjectNoticeToasts } from "./components/project-notice-toasts.tsx";
 import { QuietSelect } from "./components/quiet-select.tsx";
 import {
   canAddRemoteProjects,
@@ -717,5 +718,6 @@ export const WelcomePage = () => (
     <WindowTop />
     <Welcome />
     <DialogHost />
+    <ProjectNoticeToasts />
   </TooltipProvider>
 );

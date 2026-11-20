@@ -5,6 +5,7 @@ import { followAgentNotifications } from "./lib/agent-notifications.ts";
 import { openCanvas } from "./lib/canvas-actions.ts";
 import { openLookPage } from "./lib/look-page.ts";
 import { pageById, zoomToPage } from "./lib/page-actions.ts";
+import { followNotificationsPreference } from "./lib/project-notices.ts";
 import { followShellTab } from "./lib/shell-tab.ts";
 import { useAgents } from "./state/agents.ts";
 import { useAttachments } from "./state/attachments.ts";
@@ -63,6 +64,7 @@ if (import.meta.env.DEV) {
 followTheme();
 followPreferences();
 followAgentNotifications();
+followNotificationsPreference();
 followPersonPreferences();
 followShellTab();
 
