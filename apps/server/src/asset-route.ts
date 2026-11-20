@@ -16,6 +16,19 @@ import { RepoPaths } from "./services/repo-paths.ts";
 export const ASSET_ROUTE = "/api/asset";
 
 /**
+ * What an image of the project or a canvas is answered with. Its file is the repository's to write, and an SVG
+ * opened as a document of the server's origin would run its script there: as a document it runs
+ * nothing (sandboxed, no script, no request), its type is the one given, and an `<img>` draws it
+ * as before.
+ */
+export const IMAGE_HEADERS = {
+  "cache-control": "no-cache",
+  "content-security-policy":
+    "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+  "x-content-type-options": "nosniff",
+} as const;
+
+/**
  * Where the file `src` names for a canvas may be, in order: the canvas's own, then the shared one;
  * a path that leaves the designs directory is none.
  */
@@ -68,7 +81,7 @@ export const AssetRoute = HttpRouter.use(
         }
         return yield* HttpServerResponse.file(found, {
           contentType: type,
-          headers: { "cache-control": "no-cache" },
+          headers: IMAGE_HEADERS,
         }).pipe(
           // Gone or unreadable between the look and the read: not found, as it now is.
           Effect.orElseSucceed(() => notFound)
@@ -101,13 +114,10 @@ export const ProjectImageRoute = HttpRouter.use(
         if (!(found && type)) {
           return notFound;
         }
-        return yield* HttpServerResponse.file(found, {
+        return HttpServerResponse.uint8Array(found, {
           contentType: type,
-          headers: { "cache-control": "no-cache" },
-        }).pipe(
-          // Gone or unreadable between the look and the read: not found, as it now is.
-          Effect.orElseSucceed(() => notFound)
-        );
+          headers: IMAGE_HEADERS,
+        });
       })
     );
   })

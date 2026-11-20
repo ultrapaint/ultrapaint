@@ -66,6 +66,32 @@ const served = Effect.gen(function* () {
     });
 });
 
+/** The headers an image of the project is answered with. */
+const servedHeaders = Effect.gen(function* () {
+  const context = yield* Effect.context<OpenProject>();
+  const { dispose, handler } = HttpRouter.toWebHandler(
+    ProjectImageRoute.pipe(
+      Layer.provide(Layer.succeedContext(context)),
+      Layer.provideMerge(NodeHttpServer.layerHttpServices)
+    ),
+    { disableLogger: true }
+  );
+  yield* Effect.addFinalizer(() => Effect.promise(dispose));
+  return (rel: string) =>
+    Effect.promise(async () => {
+      const response = await handler(
+        new Request(
+          `http://127.0.0.1${PROJECT_IMAGE_ROUTE}?path=${encodeURIComponent(rel)}`
+        )
+      );
+      return {
+        body: await response.text(),
+        policy: response.headers.get("content-security-policy"),
+        sniff: response.headers.get("x-content-type-options"),
+      };
+    });
+});
+
 describe("the project's name (ADR 0107)", () => {
   inProject("is the one its settings give, saved with them", () =>
     Effect.gen(function* () {
@@ -258,6 +284,20 @@ describe("an image of the project, as the editor draws it (ADR 0107)", () => {
         assert.strictEqual((yield* get("brand/linked.svg")).status, 404);
         assert.strictEqual((yield* get("designs/package.json")).status, 404);
         assert.strictEqual((yield* get("brand/missing.svg")).status, 404);
+      }),
+    { files: { "brand/mark.svg": SVG } }
+  );
+
+  inProject(
+    "is served so that an SVG opened as a document runs no script on the server's origin",
+    () =>
+      Effect.gen(function* () {
+        const get = yield* servedHeaders;
+        const answer = yield* get("brand/mark.svg");
+        assert.strictEqual(answer.body, SVG);
+        assert.include(answer.policy ?? "", "sandbox");
+        assert.include(answer.policy ?? "", "default-src 'none'");
+        assert.strictEqual(answer.sniff, "nosniff");
       }),
     { files: { "brand/mark.svg": SVG } }
   );

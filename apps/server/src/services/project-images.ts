@@ -10,7 +10,7 @@ import {
   type Settings,
 } from "@ultrapaint/contracts/settings";
 import { folderName, initialsOf } from "@ultrapaint/shared/project-name";
-import { Context, Effect, FileSystem, Layer, Path, Ref } from "effect";
+import { Context, Effect, FileSystem, Layer, Option, Path, Ref } from "effect";
 import { toPosix } from "../hash.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
@@ -73,8 +73,12 @@ const initialIcon = (name: string): ShownProjectIcon => ({
 export class ProjectImages extends Context.Service<
   ProjectImages,
   {
-    /** The file `rel` names, when it is an image inside the project; null otherwise. */
-    readonly file: (rel: string) => Effect.Effect<string | null>;
+    /**
+     * What the file `rel` names holds, when it is an image inside the project; null otherwise.
+     * Read through one handle, and checked once it is open: a link swapped in along the way
+     * reads nothing from outside the project.
+     */
+    readonly file: (rel: string) => Effect.Effect<Uint8Array | null>;
     /**
      * The images found where a favicon or an app icon is kept, in the application's folder
      * first, then the project's: each by its path from the project's folder, the favicons first.
@@ -109,11 +113,29 @@ export class ProjectImages extends Context.Service<
         if (abs._tag === "None") {
           return null;
         }
-        // A file that is not there, or can't be read, is no image either.
-        const info = yield* Effect.option(fs.stat(abs.value));
-        return info._tag === "Some" && info.value.type === "File"
-          ? abs.value
-          : null;
+        return yield* Effect.scoped(
+          Effect.gen(function* () {
+            const handle = yield* fs.open(abs.value, { flag: "r" });
+            const opened = yield* handle.stat;
+            if (opened.type !== "File") {
+              return null;
+            }
+            const bytes = yield* handle.readAlloc(Number(opened.size));
+            // Once open, the path still leads inside the project, to the very file read: a
+            // link swapped in before the open, and back after, names another file.
+            const now = yield* fs.stat(yield* paths.resolve(rel));
+            const same =
+              now.dev === opened.dev &&
+              Option.getOrUndefined(now.ino) ===
+                Option.getOrUndefined(opened.ino);
+            return same
+              ? Option.getOrElse(bytes, () => new Uint8Array())
+              : null;
+          })
+        ).pipe(
+          // A file that is not there, can't be read, or leads out meanwhile is no image either.
+          Effect.orElseSucceed(() => null)
+        );
       });
 
       const bases = [
