@@ -212,6 +212,8 @@ export class RemoteProjects extends Context.Service<
             get attached() {
               return !owned;
             },
+            // Its connection is watched and made again by itself: never gone for Try again.
+            exited: Effect.succeed(false),
             get token() {
               return live.server.ready.token;
             },

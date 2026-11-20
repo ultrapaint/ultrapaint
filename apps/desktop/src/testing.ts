@@ -17,7 +17,7 @@ export interface Recorded {
   answers: (boolean | Effect.Effect<boolean>)[];
   /** What runs as a project view is let go, before it is (to look at the app then). */
   beforeDrop: Effect.Effect<void> | null;
-  /** Folders (or hosts) whose server stopped answering: its health says nothing. */
+  /** Folders whose server's process exited once it was ready. */
   dead: string[];
   /** What declining each question was called, in order. */
   declines: string[];
@@ -33,6 +33,8 @@ export interface Recorded {
   /** Paths the next pickers return; cancelled when there are none left. */
   picks: string[];
   questions: string[];
+  /** Folders (or hosts) whose health check says nothing, too slow or with no version. */
+  quiet: string[];
   /** What the window put on screen, in order: a project view by its id, or Home (`null`). */
   shown: (string | null)[];
   /**
@@ -68,6 +70,7 @@ export const makeRecorded = (): Recorded => ({
   pickers: [],
   picks: [],
   questions: [],
+  quiet: [],
   shown: [],
   stalled: [],
   starts: [],
@@ -174,7 +177,7 @@ export const fakeShell = (recorded: Recorded) =>
 export const FAKE_VERSION = "1.0.0";
 const versionOf = (recorded: Recorded, name: string) =>
   Effect.suspend((): Effect.Effect<string | undefined> => {
-    if (recorded.dead.includes(name)) {
+    if (recorded.dead.includes(name) || recorded.quiet.includes(name)) {
       return Effect.succeed(undefined);
     }
     if (name.includes("lagging")) {
@@ -240,6 +243,9 @@ export const fakeServers = (recorded: Recorded) =>
           }
           return {
             attached,
+            exited: Effect.sync(
+              () => !attached && recorded.dead.includes(name)
+            ),
             token: `token-${name}`,
             url: `http://127.0.0.1/${name}`,
             version: versionOf(recorded, name),
@@ -282,6 +288,7 @@ export const fakeRemoteProjects = (recorded: Recorded) =>
           );
           return {
             attached: false,
+            exited: Effect.succeed(false),
             token: `token-${name}`,
             url: `http://127.0.0.1/${project.host}/${project.path.split("/").at(-1) ?? ""}`,
             version: versionOf(recorded, project.host),
