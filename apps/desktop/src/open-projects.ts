@@ -97,6 +97,7 @@ const listOf = (names: readonly string[]) =>
 
 /** A project with agents at work in it, and how many. */
 interface Busy {
+  readonly id: string;
   readonly name: string;
   readonly working: number;
 }
@@ -444,9 +445,14 @@ export class OpenProjects extends Context.Service<
                 tab.running && !tab.running.server.attached
                   ? Effect.map(
                       tab.running.server.working,
-                      (working): Busy => ({ name: tab.project.name, working })
+                      (working): Busy => ({
+                        id: tab.id,
+                        name: tab.project.name,
+                        working,
+                      })
                     )
                   : Effect.succeed<Busy>({
+                      id: tab.id,
                       name: tab.project.name,
                       working: 0,
                     }),
@@ -455,15 +461,29 @@ export class OpenProjects extends Context.Service<
             (all) => all.filter((b) => b.working > 0)
           );
 
-        /** Whether the person lets the agents at work in `targets` be stopped: true when none are. */
+        /**
+         * Whether the person lets the agents at work in the servers `targets` gives be stopped:
+         * true when none are. Asked again, naming them all, when a project the answer did not
+         * cover is busy once it is given (an agent started, a start ended, while they answered):
+         * an answer covers only the projects it named.
+         */
         const agreeToStop = Effect.fnUntraced(function* (
           action: StopAll,
-          targets: readonly Tab[]
+          targets: () => readonly Tab[]
         ) {
-          const busy = yield* busyOf(targets);
-          return (
-            busy.length === 0 || (yield* confirm(stopQuestion(action, busy)))
-          );
+          const agreed = new Set<string>();
+          for (;;) {
+            const busy = yield* busyOf(targets());
+            if (busy.every((b) => agreed.has(b.id))) {
+              return true;
+            }
+            if (!(yield* confirm(stopQuestion(action, busy)))) {
+              return false;
+            }
+            for (const b of busy) {
+              agreed.add(b.id);
+            }
+          }
         });
 
         /** What a tab shows now. */
@@ -727,6 +747,10 @@ export class OpenProjects extends Context.Service<
           if (tab.launch) {
             return { _tag: "stopped", reason: "taken" } as Launched<A>;
           }
+          // Closed while what led here waited (a stop, a lock, a probe): nothing starts for it.
+          if (!isOpen(tab)) {
+            return { _tag: "stopped", reason: "close" } as Launched<A>;
+          }
           const stop = yield* Deferred.make<StopReason>();
           tab.launch = { stop };
           return yield* Effect.raceFirst(
@@ -915,7 +939,8 @@ export class OpenProjects extends Context.Service<
           // The strip told last, then the start asked for at once: what the strip shows is what
           // was asked.
           yield* tellTabs;
-          if (unstarted(tab)) {
+          // Another shown while the tabs were written: this one starts when it is shown again.
+          if (shown === tab.id && unstarted(tab)) {
             yield* ensureStarted(tab);
           }
         });
@@ -1103,11 +1128,9 @@ export class OpenProjects extends Context.Service<
           quitAsked = asked;
           return Effect.onExit(
             Effect.gen(function* () {
-              const busy = yield* busyOf(tabs);
-              if (
-                busy.length > 0 &&
-                !(yield* confirm(stopQuestion("quit", busy)))
-              ) {
+              // Every project as it is once the answer is given: a start that ended meanwhile,
+              // busy now, is asked about too.
+              if (!(yield* agreeToStop("quit", () => tabs))) {
                 return false;
               }
               yield* stopAll;
@@ -1300,7 +1323,7 @@ export class OpenProjects extends Context.Service<
               );
               if (
                 targets.length === 0 ||
-                !(yield* agreeToStop("restart", targets))
+                !(yield* agreeToStop("restart", () => targets.filter(isOpen)))
               ) {
                 return;
               }
@@ -1445,7 +1468,7 @@ export class OpenProjects extends Context.Service<
                 );
                 if (
                   targets.length > 0 &&
-                  !(yield* agreeToStop("move", targets))
+                  !(yield* agreeToStop("move", () => targets))
                 ) {
                   return Option.none<A>();
                 }
