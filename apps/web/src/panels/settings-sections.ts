@@ -14,6 +14,7 @@ import {
   MessageSquareCheck,
   Palette,
   Plug,
+  Shapes,
   SlidersHorizontal,
   SwatchBook,
 } from "lucide-react";
@@ -23,6 +24,7 @@ export type SectionId =
   | "appearance"
   | "chats"
   | "shortcuts"
+  | "nameAndIcon"
   | "repository"
   | "designSystem"
   | "review"
@@ -56,6 +58,7 @@ export const SECTION_GROUPS: readonly {
   {
     scope: "project",
     sections: [
+      { icon: Shapes, id: "nameAndIcon", label: "Name and icon" },
       { icon: FolderGit2, id: "repository", label: "Repository" },
       { icon: SwatchBook, id: "designSystem", label: "Design system" },
       { icon: MessageSquareCheck, id: "review", label: "Review" },
@@ -219,6 +222,18 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     section: "shortcuts",
     terms: "keys keyboard keybindings hotkeys",
     title: "Shortcuts",
+  },
+  {
+    id: "project-name",
+    section: "nameAndIcon",
+    terms: "project title rename tab sidebar",
+    title: "Name",
+  },
+  {
+    id: "project-icon",
+    section: "nameAndIcon",
+    terms: "project favicon logo image colour mark tab sidebar",
+    title: "Icon",
   },
   {
     id: "folder",

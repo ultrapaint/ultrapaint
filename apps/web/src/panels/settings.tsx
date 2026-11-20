@@ -55,6 +55,7 @@ import { AppearanceSection } from "./settings-appearance.tsx";
 import { FoldersGroup } from "./settings-folders.tsx";
 import { GeneralSection } from "./settings-general.tsx";
 import { Group, PathList, Row, RowMessage, Status } from "./settings-group.tsx";
+import { NameAndIconSection } from "./settings-name-and-icon.tsx";
 import { ReviewGroup } from "./settings-review.tsx";
 import {
   labelOf,
@@ -77,6 +78,7 @@ const MISSING_DESIGNS_PREFIX = "Designs directory does not exist";
 
 /** Sections that only make sense once the project has settings to work against. */
 const NEEDS_SAVED: ReadonlySet<SectionId> = new Set([
+  "nameAndIcon",
   "designSystem",
   "review",
   "skills",
@@ -471,6 +473,8 @@ type ProblemRow = "application" | "components" | "designs" | "path";
 type ChangedAt =
   | ProblemRow
   | "detect"
+  | "icon"
+  | "name"
   | "pagePngs"
   | "review"
   | "skills"
@@ -804,6 +808,7 @@ const withIgnoredNow = (
  */
 const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const storage = useProject((s) => s.info.storage);
+  const shownIcon = useProject((s) => s.info.icon);
   const [opened] = useState<Settings>(
     () => saved ?? defaultSettings(storage.defaultRepoPath ?? "")
   );
@@ -1209,6 +1214,18 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     connections: <McpConnectionGroup />,
     designSystem,
     general: <GeneralSection />,
+    nameAndIcon: (
+      <NameAndIconSection
+        icon={draft.icon}
+        leaves={leaves}
+        message={messageAt}
+        name={draft.name}
+        onIcon={(icon) => change({ icon }, "icon", "now")}
+        onName={(name) => change({ name }, "name", "later")}
+        repoPath={draft.repoPath}
+        shown={shownIcon}
+      />
+    ),
     repository,
     review: (
       <ReviewGroup
