@@ -33,10 +33,18 @@ edge.
 - **Closing** is the tab's × or the palette's Close project, asking first when an agent is at
   work there; ⌘W is unchanged, since closing the window quits. **Quitting** with agents at work
   asks one question naming every project they work in.
-- **An agent in another project that needs the person** shows a dot on its tab and a notice in
-  the window with Go to it; when the window is behind, the system's notification instead. The
-  main process learns it from each server's health (`/api/health` counts the agents working and
-  those waiting), so a project whose page was let go still says so.
+- **An agent in another project that needs the person** shows a dot on its tab, before the
+  spinner (a question or a permission waiting needs them even while its turn runs, and the chat
+  says "Your turn" then too), and a notice in the window with Go to it, over the editor or Home;
+  when the window is behind, the system's instead. **An agent that finishes there, or stops on an
+  error, notifies too**, saying which. The main process learns it from each server's health
+  (`/api/health` counts the agents working, those waiting and those whose turn failed), so a
+  project whose view was let go still says so; a server that does not answer, or one reached again
+  over SSH, is no news. The person's Notifications preference chooses what the system does: a
+  notification, a sound, or both; Off leaves only the dot and the notice in the window. It is the
+  one their editor last told the app, else the one in their profile on this machine. A project
+  on screen at any moment since the last poll tells its own agents' news from its editor, so one
+  event is told once.
 - **A project has a name and an icon**, kept in `ultrapaint.config.json` (`name`, `icon`) so the
   whole team, every machine and an SSH copy see the same: an icon of the set in a colour, or an
   image file of the project (a favicon). Without them, the folder's name, and the project's
