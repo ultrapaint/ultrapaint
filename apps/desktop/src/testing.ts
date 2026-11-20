@@ -30,6 +30,8 @@ export interface Recorded {
   /** The projects whose view was let go, in order. */
   drops: string[];
   events: string[];
+  /** How many agents each folder's server says stopped on an error. */
+  failed: Record<string, number>;
   /** Whether the window is in front; it is unless a test says otherwise. */
   focused: boolean;
   /** What the views were told of other projects' agents, in order: `null` once none is. */
@@ -50,6 +52,8 @@ export interface Recorded {
   quiet: string[];
   /** What the window put on screen, in order: a project view by its id, or Home (`null`). */
   shown: (string | null)[];
+  /** Servers by name whose health check does not answer, from now on. */
+  silent: string[];
   /**
    * Folders whose server, at its next start, never says where it listens: the start is
    * recorded as a connection, and given up when what waits for it is stopped.
@@ -61,6 +65,8 @@ export interface Recorded {
   statuses: (ShellStatus | null)[];
   /** What the tab strip was told, in order. */
   tabs: (readonly ShellTab[])[];
+  /** A token a server is reached with in place of its own: a remote one reconnected, say. */
+  tokens: Record<string, string>;
   /** What was loaded in the projects' pages, in order: the last is the latest. */
   views: View[];
   /** Which project view each of `views` was loaded in. */
@@ -81,6 +87,7 @@ export const makeRecorded = (): Recorded => ({
   details: [],
   drops: [],
   events: [],
+  failed: {},
   focused: true,
   notices: [],
   openings: [],
@@ -90,10 +97,12 @@ export const makeRecorded = (): Recorded => ({
   questions: [],
   quiet: [],
   shown: [],
+  silent: [],
   stalled: [],
   starts: [],
   statuses: [],
   tabs: [],
+  tokens: {},
   views: [],
   viewsIn: [],
   waiting: {},
@@ -243,10 +252,13 @@ const agentsIn = (recorded: Recorded, name: string) =>
         )
       : Effect.void,
     Effect.sync(() =>
-      Option.some({
-        waiting: recorded.waiting[name] ?? 0,
-        working: recorded.working[name] ?? 0,
-      })
+      recorded.silent.includes(name)
+        ? Option.none()
+        : Option.some({
+            failed: recorded.failed[name] ?? 0,
+            waiting: recorded.waiting[name] ?? 0,
+            working: recorded.working[name] ?? 0,
+          })
     )
   );
 
@@ -308,7 +320,9 @@ export const fakeServers = (recorded: Recorded) =>
             agents: agentsIn(recorded, name),
             attached,
             exited: Effect.sync(() => !attached && process.exited),
-            token: `token-${name}`,
+            get token() {
+              return recorded.tokens[name] ?? `token-${name}`;
+            },
             url: `http://127.0.0.1/${name}`,
             version: versionOf(recorded, name),
           };
@@ -351,7 +365,9 @@ export const fakeRemoteProjects = (recorded: Recorded) =>
             agents: agentsIn(recorded, name),
             attached: false,
             exited: Effect.succeed(false),
-            token: `token-${name}`,
+            get token() {
+              return recorded.tokens[name] ?? `token-${name}`;
+            },
             url: `http://127.0.0.1/${project.host}/${project.path.split("/").at(-1) ?? ""}`,
             version: versionOf(recorded, project.host),
           };

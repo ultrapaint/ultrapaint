@@ -23,6 +23,7 @@ import { Schema } from "effect";
 import { CodeLocation, NewDesignStep } from "./new-design.ts";
 import { Opening, OpeningTimes } from "./opening.ts";
 import { ShownProjectIcon } from "./project.ts";
+import { Notifications } from "./settings.ts";
 import { ScaffoldTemplate } from "./setup.ts";
 import {
   BuiltInAgentId,
@@ -145,12 +146,12 @@ export type TabState = typeof TabState.Type;
 
 /**
  * News of an agent in an open project the person is not looking at (ADR 0107): it asks them
- * something, or it finished. The window shows it over the editor, with Go to it showing the
- * project's tab; `id` tells one notice from the next.
+ * something, it finished, or it stopped before it finished (on an error). The window shows it over
+ * the editor, with Go to it showing the project's tab; `id` tells one notice from the next.
  */
 export const ProjectNotice = Schema.Struct({
   id: Schema.String,
-  news: Schema.Literals(["asks", "done"]),
+  news: Schema.Literals(["asks", "done", "stopped"]),
   /** The tab's id, which Go to it shows. */
   project: Schema.String,
   /** What it says: `<project>: an agent asks you something`. */
@@ -501,6 +502,12 @@ export const SHELL_BRIDGE = {
   /** What the shell found missing on this machine. */
   notices: invoke([], Schema.Array(ShellNotice), LOCAL),
   /**
+   * The person's Notifications preference as the calling view's editor has it, told as it loads
+   * and at each change: the shell tells of the other projects' agents by it (ADR 0107). Told by
+   * a project on another machine too, whose profile is kept there.
+   */
+  "notifications.prefer": invoke([Notifications], Schema.Void),
+  /**
    * The page's project opening, from the click until its editor is ready, or why it failed; null
    * when none is (ADR 0099). The splash draws it, over whatever the page shows.
    */
@@ -556,6 +563,11 @@ export const SHELL_BRIDGE = {
    * show from then on (ADR 0107).
    */
   "projects.describe": invoke([ProjectLook], Schema.Void),
+  /**
+   * The notice `projectNotice` holds is over, its toast closed or timed out: no view shows it
+   * again. Nothing when another notice took its place.
+   */
+  "projects.dismissNotice": invoke([Schema.String], Schema.Void),
   /** What a folder holds: an Ultrapaint project, nothing, or anything else. */
   "projects.inspect": invoke([Schema.String], FolderKind),
   "projects.list": invoke([], Schema.Array(PlatformProject)),

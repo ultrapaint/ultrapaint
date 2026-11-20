@@ -12,12 +12,14 @@
  * server waits for those under way and holds the others back (the hold). The tabs, and the one shown, are kept in `projects.json` for the next start, which
  * brings every tab back and starts only the shown one's server.
  *
- * Each running server is asked every two seconds how many agents are at work in it and how many
- * wait on the person, for its tab's spinner and dot. An agent in a project not on screen that
- * comes to ask the person something, or finishes, is news: told over the editor on screen while
- * the window is in front, by the system as the person's Notifications preference says while it is
- * behind. The project on screen tells its own, from its page (`agent-notifications.ts`), so one
- * event is told once. A project whose view was let go is asked all the same.
+ * Each running server is asked every two seconds how many agents are at work in it, how many
+ * wait on the person and how many stopped on an error, for its tab's spinner and dot. An agent in a
+ * project not on screen that comes to ask the person something, finishes or stops on an error is
+ * news: told over the view on screen (the editor, or Home's start page) while the window is in
+ * front, by the system as the person's Notifications preference says while it is behind. A
+ * project on screen at any moment since the last poll tells its own, from its editor
+ * (`agent-notifications.ts`), so one event is told once. A project whose view was let go is asked
+ * all the same.
  *
  * While a project opens its view says so on a splash, from the first moment until its editor is
  * ready (ADR 0099): each step with its time, the estimate from the project's last open, the last
@@ -35,7 +37,10 @@ import {
   reachStep,
   stepTimes,
 } from "@ultrapaint/contracts/opening";
-import { CONFIG_FILE_NAMES } from "@ultrapaint/contracts/settings";
+import {
+  CONFIG_FILE_NAMES,
+  type Notifications,
+} from "@ultrapaint/contracts/settings";
 import type {
   FirstPrompt,
   ProjectLook,
@@ -73,6 +78,7 @@ import { notifyPreference } from "./notify-preference.ts";
 import { OpeningReport } from "./opening-report.ts";
 import {
   type AgentCounts,
+  countsOr,
   NO_AGENTS,
   ProjectServer,
   type RunningServer,
@@ -162,19 +168,36 @@ type News = ProjectNotice["news"];
 
 /**
  * The news between what a server said of its agents and what it says now, if any: a new agent
- * waiting on the person, else one fewer at work.
+ * waiting on the person, else one fewer at work, which stopped when one more turn failed and
+ * finished otherwise.
  */
 export const newsOf = (before: AgentCounts, now: AgentCounts): News | null => {
   if (now.waiting > before.waiting) {
     return "asks";
   }
-  return now.working < before.working ? "done" : null;
+  if (now.working >= before.working) {
+    return null;
+  }
+  return now.failed > before.failed ? "stopped" : "done";
 };
 
-/** What the notice over the editor and the system's notification say of a project's news. */
-const NEWS_WORDS: Record<News, string> = {
-  asks: "an agent asks you something",
-  done: "an agent finished",
+/**
+ * What a project's news says: the notice over the editor (`<project>: <notice>`), and the
+ * system's notification, under the project's name.
+ */
+const NEWS_WORDS: Record<
+  News,
+  { readonly body: string; readonly notice: string }
+> = {
+  asks: {
+    body: "An agent asks you something.",
+    notice: "an agent asks you something",
+  },
+  done: { body: "An agent finished.", notice: "an agent finished" },
+  stopped: {
+    body: "An agent stopped before it finished.",
+    notice: "an agent stopped before it finished",
+  },
 };
 
 /**
@@ -212,10 +235,10 @@ interface Tab {
    */
   firstPrompt: FirstPrompt | null;
   /**
-   * The server `agents` was last heard from: the first answer of a server just started is no
-   * news, only what it says after.
+   * The run `agents` was last heard from, its server and token: the first answer of a server
+   * just started, or reached again over SSH (a new run), is no news, only what it says after.
    */
-  heard: Running | null;
+  heard: { readonly running: Running; readonly token: string } | null;
   readonly id: string;
   /** The start under way and how to stop it. */
   launch: { readonly stop: Deferred.Deferred<StopReason> } | null;
@@ -229,6 +252,8 @@ interface Tab {
   project: Project;
   /** Its server, once started and until it stops; none for a tab not shown since the start. */
   running: Running | null;
+  /** Whether its tab was on screen at any moment since the last poll: its news is its view's. */
+  shownSincePoll: boolean;
 }
 
 export class OpenProjects extends Context.Service<
@@ -257,6 +282,11 @@ export class OpenProjects extends Context.Service<
     readonly close: (id: string) => Effect.Effect<boolean>;
     /** The project whose tab is shown; none while Home is. */
     readonly current: Effect.Effect<Option.Option<Project>>;
+    /**
+     * The notice `id` is over, its toast closed or timed out: the views are told none is, so
+     * none shows it again. Nothing when another took its place.
+     */
+    readonly dismissNotice: (id: string) => Effect.Effect<void>;
     /**
      * What an open project's view says it is called and looks like, its server's info: its tab
      * and the list show it from then on (ADR 0107).
@@ -298,6 +328,11 @@ export class OpenProjects extends Context.Service<
       id: string,
       times: OpeningTimes
     ) => Effect.Effect<void>;
+    /**
+     * The person's Notifications preference, as an editor has it: what the system tells of the
+     * projects not on screen follows it from now on.
+     */
+    readonly prefer: (preference: Notifications) => Effect.Effect<void>;
     /**
      * Takes a project off the list, with the unsaved session the app kept for it; its folder,
      * here or on another machine, is left as it is. Nothing when it is not in the list. An open
@@ -411,6 +446,8 @@ export class OpenProjects extends Context.Service<
         let views: string[] = [];
         /** The projects shown since the app started, the one shown most recently first. */
         let seen: string[] = [];
+        /** The person's Notifications preference, as an editor last told it; none before. */
+        let preferred: Notifications | null = null;
         /** The notice of another project's news the views were told last; null when none is. */
         let notice: ProjectNotice | null = null;
         /** How many notices were made, each one's id. */
@@ -488,8 +525,7 @@ export class OpenProjects extends Context.Service<
                       (said): Busy => ({
                         id: tab.id,
                         name: tab.project.name,
-                        working: Option.getOrElse(said, () => NO_AGENTS)
-                          .working,
+                        working: countsOr(said).working,
                       })
                     )
                   : Effect.succeed<Busy>({
@@ -985,6 +1021,7 @@ export class OpenProjects extends Context.Service<
             return;
           }
           shown = tab.id;
+          tab.shownSincePoll = true;
           seen = [tab.id, ...seen.filter((s) => s !== tab.id)];
           // Its news is in sight now.
           yield* clearNotice(tab.id);
@@ -1016,6 +1053,7 @@ export class OpenProjects extends Context.Service<
           opening: null,
           project,
           running: null,
+          shownSincePoll: false,
         });
 
         /**
@@ -1077,10 +1115,7 @@ export class OpenProjects extends Context.Service<
           if (!running || running.server.attached) {
             return true;
           }
-          const { working } = Option.getOrElse(
-            yield* running.server.agents,
-            () => NO_AGENTS
-          );
+          const { working } = countsOr(yield* running.server.agents);
           return (
             working === 0 ||
             (yield* confirm(closeQuestion(tab.project.name, working)))
@@ -1235,39 +1270,39 @@ export class OpenProjects extends Context.Service<
 
         /**
          * Tells the person a project's news: over the editor on screen while the window is in
-         * front, else by the system as their Notifications preference says (read now, so that a
-         * change in any project's editor holds at once).
+         * front, else by the system as their Notifications preference says: the one an editor
+         * last told (`prefer`), else the one in their profile here, read now.
          */
         const tellNews = Effect.fnUntraced(function* (tab: Tab, news: News) {
           const { name } = tab.project;
+          const words = NEWS_WORDS[news];
           if (yield* shell.focused) {
             noticesMade += 1;
             notice = {
               id: String(noticesMade),
               news,
               project: tab.id,
-              title: `${name}: ${NEWS_WORDS[news]}`,
+              title: `${name}: ${words.notice}`,
             };
             yield* shell.notice(notice);
             return;
           }
-          const preference = yield* folders.current.pipe(
-            Effect.flatMap(({ user }) => notifyPreference(user)),
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-            // A folder setting that cannot be read is no choice made: nothing is said.
-            Effect.orElseSucceed(() => "off" as const)
-          );
+          const preference =
+            preferred ??
+            (yield* folders.current.pipe(
+              Effect.flatMap(({ user }) => notifyPreference(user)),
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+              // A folder setting that cannot be read is no choice made: nothing is said.
+              Effect.orElseSucceed((): Notifications => "off")
+            ));
           if (preference === "off") {
             return;
           }
-          const words = NEWS_WORDS[news];
           yield* shell.alert({
-            body: `${words.charAt(0).toUpperCase()}${words.slice(1)}.`,
-            notification:
-              preference === "notification" || preference === "both",
+            body: words.body,
+            preference,
             project: tab.id,
-            sound: preference === "sound" || preference === "both",
             title: name,
           });
         });
@@ -1289,11 +1324,18 @@ export class OpenProjects extends Context.Service<
             if (!isOpen(tab) || tab.running !== running) {
               return Effect.void;
             }
-            const news = tab.heard === running ? newsOf(tab.agents, now) : null;
+            const { token } = running.server;
+            const news =
+              tab.heard?.running === running && tab.heard.token === token
+                ? newsOf(tab.agents, now)
+                : null;
             tab.agents = now;
-            tab.heard = running;
-            // The project on screen tells its own news, from its page.
-            return news && tab.id !== shown ? tellNews(tab, news) : Effect.void;
+            tab.heard = { running, token };
+            // A tab on screen at any moment since the last poll tells its own news, from its
+            // view: its editor heard of it as it happened, when it may have been on screen.
+            const ours = !tab.shownSincePoll;
+            tab.shownSincePoll = tab.id === shown;
+            return news && ours ? tellNews(tab, news) : Effect.void;
           });
 
         /** Asks each running server about its agents, for the tabs and the news. */
@@ -1410,6 +1452,14 @@ export class OpenProjects extends Context.Service<
             yield* Effect.ignore(store.describe(id, look));
             yield* tellTabs;
           }),
+          dismissNotice: (id) =>
+            Effect.suspend(() => {
+              if (notice?.id !== id) {
+                return Effect.void;
+              }
+              notice = null;
+              return shell.notice(null);
+            }),
           isRemote: (id) => Effect.sync(() => remoteIds.has(id)),
           loadFailed: Effect.fn("OpenProjects.loadFailed")(function* (
             id: string,
@@ -1459,6 +1509,10 @@ export class OpenProjects extends Context.Service<
               store.timed(id, { ...stepTimes(underway.state), ...times })
             );
           }),
+          prefer: (preference) =>
+            Effect.sync(() => {
+              preferred = preference;
+            }),
           remove,
           // Once the starts under way are done, so that one that read the old setup starts again
           // too, and the person is asked about the servers then running, which none joins while
