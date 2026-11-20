@@ -360,7 +360,8 @@ The dev server runs with the app's own Vite config merged into one that serves f
 the app, since the app's `node_modules` is the host's: without it Vite refused a face loaded from
 an installed package, and the pictures showed the fallback face. Each picture waits for the page's
 faces. Rounds pictured before 20 November are taken again from their apps, which stay in
-`.work/outside/`, with no agent run; each run's counted marks go with its old pictures:
+`.work/outside/`, with no agent run; each run's counted marks and pairwise verdicts go with its old pictures, which
+stay until the new ones are all taken:
 
 ```sh
 pnpm evals reshoot <round> [refs…]

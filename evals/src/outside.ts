@@ -413,11 +413,14 @@ const runAgent = Effect.fn("runAgent")(function* (
   return { lines, problem, seconds: Math.round((ended - started) / 1000) };
 });
 
+// Vite's own order of discovery.
 const OWN_VITE_CONFIGS = [
-  "vite.config.ts",
-  "vite.config.mts",
   "vite.config.js",
   "vite.config.mjs",
+  "vite.config.ts",
+  "vite.config.cjs",
+  "vite.config.mts",
+  "vite.config.cts",
 ];
 const LAB_VITE_CONFIG = ".lab-vite.config.mjs";
 
@@ -441,8 +444,10 @@ const labViteConfig = Effect.fn("labViteConfig")(function* (app: string) {
     `import { mergeConfig } from "vite";
 ${base}
 const lab = { server: { fs: { strict: false } } };
-export default async (env) =>
-  mergeConfig(typeof own === "function" ? await own(env) : own, lab);
+export default async (env) => {
+  const base = await own;
+  return mergeConfig(typeof base === "function" ? await base(env) : base, lab);
+};
 `
   );
   return LAB_VITE_CONFIG;
@@ -686,7 +691,7 @@ export const reshootOutside = Effect.fn("reshootOutside")(function* (
 ) {
   const { data } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
-  let shot = 0;
+  const reshot: string[] = [];
   for (const reference of references) {
     const runs = path.join(data.runs, round, reference.id);
     if (!(yield* fs.exists(runs))) {
@@ -702,21 +707,74 @@ export const reshootOutside = Effect.fn("reshootOutside")(function* (
       if (!finished) {
         continue;
       }
+      // The new pictures replace the old only once all of them are taken.
+      const fresh = path.join(dir, "shots.new");
+      yield* fs.remove(fresh, { force: true, recursive: true });
+      const taken = yield* Effect.scoped(
+        photograph(app, reference, fresh)
+      ).pipe(
+        Effect.as(true),
+        Effect.catch((error) =>
+          Effect.logWarning(
+            `${reference.id} ${run}: kept its pictures, none taken: ${String(error)}`
+          ).pipe(Effect.as(false))
+        )
+      );
+      if (!taken) {
+        yield* fs.remove(fresh, { force: true, recursive: true });
+        continue;
+      }
       yield* fs.remove(path.join(dir, "shots"), {
         force: true,
         recursive: true,
       });
+      yield* fs.rename(fresh, path.join(dir, "shots"));
       for (const file of yield* fs.readDirectory(dir)) {
         if (file.startsWith("tells@")) {
           yield* fs.remove(path.join(dir, file));
         }
       }
-      yield* Effect.scoped(photograph(app, reference, path.join(dir, "shots")));
-      shot += 1;
+      reshot.push(`${reference.id}/${run}`);
       yield* Effect.log(`${reference.id} ${run}: pictured again`);
     }
   }
-  yield* Effect.log(`${shot} runs of ${round} pictured again`);
+  yield* forgetVerdicts(round, reshot);
+  yield* Effect.log(`${reshot.length} runs of ${round} pictured again`);
+});
+
+/** Each pairwise verdict on a run pictured again is dropped, so `pairwise` judges it anew. */
+const forgetVerdicts = Effect.fn("forgetVerdicts")(function* (
+  round: string,
+  runs: readonly string[]
+) {
+  const { data } = yield* EvalsConfig;
+  const fs = yield* FileSystem.FileSystem;
+  if (runs.length === 0) {
+    return;
+  }
+  for (const pair of yield* fs.readDirectory(data.runs)) {
+    const sides = pair.split("-vs-");
+    if (sides.length !== 2 || !sides.includes(round)) {
+      continue;
+    }
+    for (const name of ["pairwise.json", "reads.json"]) {
+      const file = path.join(data.runs, pair, name);
+      if (!(yield* fs.exists(file))) {
+        continue;
+      }
+      const verdicts = yield* readJson(
+        Schema.Record(Schema.String, Schema.Unknown),
+        file
+      );
+      const kept = Object.fromEntries(
+        Object.entries(verdicts).filter(([key]) => !runs.includes(key))
+      );
+      yield* writeJson(file, kept);
+    }
+    yield* Effect.log(
+      `${pair}: its verdicts on the runs pictured again dropped`
+    );
+  }
 });
 
 const RUN_DIR_RE = /^run-\d+$/;
