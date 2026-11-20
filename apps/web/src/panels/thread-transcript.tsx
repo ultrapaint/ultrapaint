@@ -410,7 +410,7 @@ const ToolCall = ({ item, threadId }: { item: ToolItem; threadId: string }) => {
       <CollapsibleContent>
         <div className="my-1 flex flex-col gap-1 overflow-hidden rounded-md bg-muted py-1">
           {item.locations.length > 0 && (
-            <div className="px-2.5 font-code text-muted-foreground">
+            <div className="px-2.5 font-body-small text-muted-foreground">
               {item.locations.map((l) => (
                 <div className="truncate" key={`${l.path}:${l.line ?? ""}`}>
                   {l.line === undefined ? l.path : `${l.path}:${l.line}`}

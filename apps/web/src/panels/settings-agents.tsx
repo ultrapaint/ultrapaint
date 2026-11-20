@@ -222,7 +222,7 @@ const CommandRow = () => {
     </RowMessage>
   ) : null;
   if (installed) {
-    description = <code className="break-all font-code">{installed.path}</code>;
+    description = <span className="break-all">{installed.path}</span>;
     if (!installed.onPath) {
       control = <Status tone="warning">Not on your PATH</Status>;
       message = (
@@ -314,9 +314,9 @@ const SkillRow = ({
         <>
           <CutText className="line-clamp-2">{skill.summary}</CutText>
           {skill.file ? (
-            <code className="mt-0.5 block truncate font-code">
+            <span className="mt-0.5 block truncate">
               {skill.file.replace(SKILL_FILE_RE, "")}
-            </code>
+            </span>
           ) : null}
           {shown ? (
             <div className="mt-2 max-h-96 overflow-y-auto rounded-md bg-muted p-3 font-body text-foreground">
@@ -421,10 +421,10 @@ export const SkillsGroup = ({
               <span className="font-body">No other skills yet</span>
               <span className="text-pretty font-body-small text-muted-foreground">
                 A skill is a folder with a{" "}
-                <code className="font-code">SKILL.md</code> in{" "}
-                <code className="font-code">.claude/skills</code>,{" "}
-                <code className="font-code">.agents/skills</code> or{" "}
-                <code className="font-code">skills</code>.
+                <span className="text-foreground">SKILL.md</span> in{" "}
+                <span className="text-foreground">.claude/skills</span>,{" "}
+                <span className="text-foreground">.agents/skills</span> or{" "}
+                <span className="text-foreground">skills</span>.
               </span>
             </div>
           )}
@@ -488,7 +488,7 @@ const InstallSkillGroup = () => {
                 {installed.map((folder, i) => (
                   <span key={folder}>
                     {listJoin(i, installed.length)}
-                    <code className="font-code">{folder}</code>
+                    <span className="text-foreground">{folder}</span>
                   </span>
                 ))}
                 . Saving again brings it up to date.
@@ -514,9 +514,9 @@ const InstallSkillGroup = () => {
                 <DropdownMenuItem key={into} onClick={() => save(into)}>
                   <span className="flex flex-col">
                     <span>{label}</span>
-                    <code className="font-code text-muted-foreground">
+                    <span className="font-body-small text-muted-foreground">
                       {into}/ultrapaint
-                    </code>
+                    </span>
                   </span>
                 </DropdownMenuItem>
               ))}

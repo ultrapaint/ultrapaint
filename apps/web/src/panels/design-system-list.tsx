@@ -82,7 +82,7 @@ const FilesProblem = ({
       role="alert"
       title={tokens ? "Not a valid tokens file." : "Not a valid design system."}
     >
-      Fix it in <code className="font-code text-foreground">{file}</code>
+      Fix it in <span className="text-foreground">{file}</span>
       {tokens
         ? ": the values are design-system.json’s and the code’s until then."
         : ": designs use Ultrapaint’s default look until then."}

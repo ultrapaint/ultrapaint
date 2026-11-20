@@ -414,7 +414,6 @@ export const PathList = ({
         >
           <Input
             aria-label={`${addLabel.replace(ADD_RE, "")} ${i + 1}`}
-            className="font-code"
             id={i === 0 ? id : undefined}
             onBlur={leave}
             onChange={(e) =>

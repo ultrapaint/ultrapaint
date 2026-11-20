@@ -360,7 +360,7 @@ const BatchRow = ({ batch }: { batch: MigrationBatch }) => {
     <Tooltip>
       <TooltipTrigger render={<li className="flex flex-col gap-1 py-1.5" />}>
         <span className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate font-code">{batch.dir}</span>
+          <span className="truncate font-body">{batch.dir}</span>
           <span className="shrink-0 font-body-small text-muted-foreground">
             {batch.files.length} {batch.files.length === 1 ? "file" : "files"}
           </span>

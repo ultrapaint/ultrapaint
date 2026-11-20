@@ -90,7 +90,7 @@ const Preview = ({
     <ProjectIcon icon={icon} name={project.name} size={40} />
     <div className="flex min-w-0 flex-col">
       <span className="truncate font-body-medium">{project.name}</span>
-      <span className="truncate font-code text-muted-foreground">
+      <span className="truncate font-body-small text-muted-foreground">
         {project.path}
       </span>
     </div>
@@ -334,7 +334,7 @@ const ImageRow = ({
         width={20}
       />
     </span>
-    <span className="min-w-0 flex-1 truncate font-code">{path}</span>
+    <span className="min-w-0 flex-1 truncate font-body">{path}</span>
     <span className="shrink-0 font-body-small text-muted-foreground">
       {readLabel(read)}
     </span>
@@ -441,7 +441,6 @@ const ChooseFileBody = ({
         <Input
           aria-label="Path in the project"
           autoFocus
-          className="font-code"
           onBlur={add}
           onChange={(e) => {
             setTyped(e.target.value);

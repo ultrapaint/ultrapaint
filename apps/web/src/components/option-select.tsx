@@ -12,7 +12,9 @@ import { cn } from "@/lib/cn";
 import { CutText } from "./cut-text.tsx";
 
 export interface SelectOption {
-  /** Muted second line in the list, e.g. the class the option writes. */
+  /** The description is code, e.g. the class the option writes, set in the code face. */
+  code?: boolean;
+  /** Muted second line in the list, e.g. the route the option links to. */
   description?: string;
   /** Options with the same group are listed together under its name, in first-seen order. */
   group?: string;
@@ -37,7 +39,14 @@ const Item = ({ option: o }: { option: SelectOption }) => (
     {o.description ? (
       <span className="flex flex-col">
         <span>{o.label}</span>
-        <span className="font-code text-muted-foreground">{o.description}</span>
+        <span
+          className={cn(
+            o.code ? "font-code" : "font-body-small",
+            "text-muted-foreground"
+          )}
+        >
+          {o.description}
+        </span>
       </span>
     ) : (
       o.label
@@ -95,7 +104,7 @@ export const OptionSelect = ({
           }
         </SelectValue>
         {hint ? (
-          <CutText className="min-w-0 max-w-[55%] shrink truncate font-code text-muted-foreground">
+          <CutText className="min-w-0 max-w-[55%] shrink truncate font-body-small text-muted-foreground">
             {hint}
           </CutText>
         ) : null}

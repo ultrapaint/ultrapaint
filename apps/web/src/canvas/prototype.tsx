@@ -423,7 +423,7 @@ const AddressField = () => {
     >
       <input
         aria-label="URL"
-        className="min-w-0 flex-1 bg-transparent font-code outline-none placeholder:font-body-small placeholder:text-muted-foreground"
+        className="min-w-0 flex-1 bg-transparent font-body-small outline-none placeholder:text-muted-foreground"
         onBlur={() => setDraft(null)}
         onChange={(e) => setDraft(e.target.value)}
         onFocus={(e) => e.currentTarget.select()}

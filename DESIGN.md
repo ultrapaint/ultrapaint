@@ -161,8 +161,9 @@ The editor has two themes on one set of roles, light (warm paper) and dark (warm
 
 Atlassian's semantic type tokens: seven headings and three bodies, each carrying the face, size,
 line height, weight and tracking, and the only way the editor sets type. Headings are Cal Sans,
-bodies Figtree, values, tokens, routes in code and code Geist Mono. Cal Sans has one weight, its 400, never made
-bold, and is spaced for display sizes, so the headings to 20px open it.
+bodies Figtree, values, tokens and code Geist Mono; a path, URL, route or file name is words,
+in Figtree (ADR 0108). Cal Sans has one weight, its 400, never made bold, and is spaced for
+display sizes, so the headings to 20px open it.
 
 - `font-heading-xxlarge` 32/36, `-xlarge` 28/32, `-large` 24/28, `-medium` 20/24: for a page
   of the editor's own that needs them; its panels and dialogs use the two below.
@@ -176,7 +177,8 @@ bold, and is spaced for display sizes, so the headings to 20px open it.
 - `font-body-small` 12/16: what qualifies its neighbour: a size, a route, a time, a hint, a
   description, an inspector row's label, a menu's group label.
 - `font-body-small-medium` 12/16 at 500: keys, counts, badges, avatars' initials.
-- `font-code` 12/20 mono: a value on its row, or a block of lines.
+- `font-code` 12/20 mono: a value or a command on its row, or a block of lines; never a path,
+  URL or file name.
 
 Emphasis is a token of its own, a body at Atlassian's `font.weight.medium` or `semibold`, never a
 weight added to a token.

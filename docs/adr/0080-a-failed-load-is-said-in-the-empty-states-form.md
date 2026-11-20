@@ -1,6 +1,6 @@
 # ADR 0080: A failed load is said in the empty state's form
 
-Status: accepted, 2026-11-11.
+Status: accepted, 2026-11-11. Amended by 0108 (the path to fix is set in Figtree).
 
 ## Context
 

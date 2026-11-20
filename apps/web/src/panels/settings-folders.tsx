@@ -25,9 +25,9 @@ const PathLine = ({
 }) => (
   <div className="flex min-w-0 items-start gap-2">
     {/* The line is the buttons' height, so a path that wraps starts level with them. */}
-    <code className="min-w-0 flex-1 select-text break-all py-1 font-code">
+    <span className="min-w-0 flex-1 select-text break-all py-1 font-body">
       {path}
-    </code>
+    </span>
     {children ? (
       <div className="flex shrink-0 items-center gap-2">{children}</div>
     ) : null}

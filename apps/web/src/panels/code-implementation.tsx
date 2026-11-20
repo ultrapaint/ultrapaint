@@ -166,7 +166,7 @@ export const Implementation = ({ page }: { page: Page }) => {
       </Row>
       {bound && item ? (
         <Row label="Files">
-          <CutText className="truncate font-code text-muted-foreground">
+          <CutText className="truncate font-body text-muted-foreground">
             {item.files.join(", ")}
           </CutText>
         </Row>
