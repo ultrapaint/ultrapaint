@@ -20,23 +20,24 @@ export interface AppEditor {
   readonly version: string;
 }
 
-/** The hosts of this machine the app's servers listen on, or are forwarded to over SSH. */
-const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost"]);
-
 /**
- * Whether an address is one of the app's own pages, or a page of a server on this machine (an
- * editor a server serves itself, a project over SSH forwarded here): the only ones a view may
- * show, and call the bridge from.
+ * The origin of an address, its scheme, host and port: the app's own scheme included, which
+ * `URL.origin` gives as "null". Null for what is no address.
  */
-export const isAppPage = (address: string) => {
+export const originOf = (address: string): string | null => {
   try {
     const url = new URL(address);
-    return (
-      (url.protocol === `${APP_SCHEME}:` && url.host === "app") ||
-      (url.protocol === "http:" && LOCAL_HOSTS.has(url.hostname))
-    );
+    return url.host === "" ? null : `${url.protocol}//${url.host}`;
   } catch {
-    // Not an address at all: none of the app's.
-    return false;
+    // Not an address at all: no origin.
+    return null;
   }
 };
+
+/**
+ * Whether an address is on the origin the app gave a view: the app's own pages, or the one
+ * server its project's editor is at. Any other, a service of this machine on another port
+ * included, is not the view's to show, nor to call the bridge from.
+ */
+export const onOrigin = (address: string, assigned: string | undefined) =>
+  assigned !== undefined && originOf(address) === assigned;

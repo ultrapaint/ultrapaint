@@ -1,7 +1,16 @@
 import path from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
-import { Deferred, Effect, Fiber, FileSystem, Layer, Option } from "effect";
+import {
+  Cause,
+  Deferred,
+  Effect,
+  Exit,
+  Fiber,
+  FileSystem,
+  Layer,
+  Option,
+} from "effect";
 import { TestClock } from "effect/testing";
 import { Agents, makeRuntime } from "./agents.ts";
 import { APP_EDITOR_URL, type AppEditor } from "./app-editor.ts";
@@ -89,6 +98,10 @@ const connected = (recorded: Recorded) =>
   until(recorded, ({ events }) =>
     events.some((event) => event.startsWith("connect "))
   );
+
+/** Whether the strip was told a tab is the one shown. */
+const shownIn = (told: Recorded["tabs"], id: string) =>
+  (told.at(-1) ?? []).some((t) => t.id === id && t.shown);
 
 /** The tabs as the strip was last told them: each one's name and state, the shown one marked. */
 const tabsTold = (recorded: Recorded) =>
@@ -1106,9 +1119,10 @@ describe("OpenProjects", () => {
               showing = yield* Effect.forkDetach(open.show(a.id), {
                 startImmediately: true,
               });
-              yield* until(recorded, ({ shown }) => shown.at(-1) === a.id);
-              // The copy takes a while: the show has had every chance to start a server.
-              yield* Effect.repeat(Effect.yieldNow, { times: 20 });
+              const begun = recorded.openings.length;
+              yield* until(recorded, ({ tabs }) => shownIn(tabs, a.id));
+              // The strip is told the tab shown just before its start is asked for: none began.
+              assert.strictEqual(recorded.openings.length, begun);
               recorded.events.push("copied");
             })
           );
@@ -1293,8 +1307,23 @@ describe("OpenProjects", () => {
               Effect.exit(open.open(project.id)),
               { startImmediately: true }
             );
-            yield* Fiber.join(removing);
-            yield* Fiber.join(opening);
+            const removed = yield* Fiber.join(removing);
+            const opened = yield* Fiber.join(opening);
+            // One won: removed, and the open found it gone; or opened, and the removal refused.
+            const failure = (
+              exit: Exit.Exit<unknown, { readonly _tag: string }>
+            ) =>
+              Exit.isFailure(exit)
+                ? Option.getOrUndefined(Cause.findErrorOption(exit.cause))?._tag
+                : "done";
+            assert.include(
+              [
+                ["done", "UnknownProject"],
+                ["ProjectOpen", "done"],
+              ].map((pair) => pair.join(" ")),
+              `${failure(removed)} ${failure(opened)}`,
+              name
+            );
             const listed = (yield* store.list).some((p) => p.id === project.id);
             const tabbed = (recorded.tabs.at(-1) ?? []).some(
               (t) => t.id === project.id
@@ -1378,8 +1407,10 @@ describe("OpenProjects", () => {
                 showing = yield* Effect.forkDetach(open.show(idle), {
                   startImmediately: true,
                 });
-                yield* until(recorded, ({ shown }) => shown.at(-1) === idle);
-                yield* Effect.repeat(Effect.yieldNow, { times: 20 });
+                const begun = recorded.openings.length;
+                yield* until(recorded, ({ tabs }) => shownIn(tabs, idle));
+                // Told the strip just before its start is asked for: none began.
+                assert.strictEqual(recorded.openings.length, begun);
                 recorded.events.push("copied");
               })
             );
@@ -1480,6 +1511,123 @@ describe("OpenProjects", () => {
           });
           assert.isUndefined(recorded.openings.at(-1)?.problem);
           assert.deepStrictEqual(recorded.events, ["start shop"]);
+        })
+      )
+  );
+
+  it.effect(
+    "an editor that did not load still shows its splash when its view comes back, until Try again",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProjects;
+          const shop = yield* store.add("/work/shop");
+          yield* open.open(shop.id);
+          yield* open.openingDone(shop.id, {});
+          yield* open.loadFailed(shop.id, "connection refused");
+          for (const name of ["p1", "p2", "p3", "p4", "p5"]) {
+            yield* open.open((yield* store.add(`/work/${name}`)).id);
+          }
+          assert.include(recorded.drops, shop.id);
+          yield* open.show(shop.id);
+          assert.strictEqual(recorded.viewsIn.at(-1), shop.id);
+          assert.deepStrictEqual(recorded.views.at(-1), { _tag: "Opening" });
+        })
+      )
+  );
+
+  it.effect(
+    "Try again starts a server again that stopped answering once it was ready",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProjects;
+          const shop = yield* store.add("/work/shop");
+          yield* open.open(shop.id);
+          yield* open.openingDone(shop.id, {});
+          yield* open.loadFailed(shop.id, "connection refused");
+          recorded.dead.push("shop");
+          yield* open.retryOpening(shop.id);
+          assert.deepStrictEqual(recorded.events, [
+            "start shop",
+            "stop shop",
+            "start shop",
+          ]);
+          assert.deepStrictEqual(recorded.views.at(-1), {
+            _tag: "Editor",
+            url: "http://127.0.0.1/shop",
+          });
+        })
+      )
+  );
+
+  it.effect(
+    "a show that looked for the editor of a server started again meanwhile asks the one it has now",
+    () =>
+      withApp(
+        (recorded) =>
+          Effect.gen(function* () {
+            const store = yield* ProjectStore;
+            const open = yield* OpenProjects;
+            const versions = () =>
+              recorded.events.filter((e) => e === "version lagging").length;
+            const lag = yield* store.add("/work/lagging");
+            const opening = yield* Effect.forkChild(open.open(lag.id), {
+              startImmediately: true,
+            });
+            yield* until(recorded, () => versions() === 1);
+            yield* TestClock.adjust("1 second");
+            yield* Fiber.join(opening);
+            yield* open.openingDone(lag.id, {});
+            for (const name of ["p1", "p2", "p3", "p4", "p5"]) {
+              yield* open.open((yield* store.add(`/work/${name}`)).id);
+            }
+            const showing = yield* Effect.forkChild(open.show(lag.id), {
+              startImmediately: true,
+            });
+            yield* until(recorded, () => versions() === 2);
+            // Started again while that version is asked: its view is not loaded, so only the
+            // show loads it.
+            yield* open.restart;
+            yield* TestClock.adjust("1 second");
+            yield* until(recorded, () => versions() === 3);
+            yield* TestClock.adjust("1 second");
+            yield* Fiber.join(showing);
+            // Asked a third time, of the server it has now, and loaded.
+            assert.strictEqual(versions(), 3);
+            assert.strictEqual(recorded.viewsIn.at(-1), lag.id);
+            assert.strictEqual(recorded.shown.at(-1), lag.id);
+          }),
+        { url: APP_EDITOR_URL, version: FAKE_VERSION }
+      )
+  );
+
+  it.effect(
+    "a folder move stops a server whose tab is closing before it copies",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProjects;
+          const a = yield* store.add("/work/a");
+          yield* open.open(a.id);
+          yield* open.openingDone(a.id, {});
+          const closing = yield* Effect.forkChild(open.close(a.id), {
+            startImmediately: true,
+          });
+          const moving = yield* Effect.forkChild(
+            open.whileStopped(Effect.sync(() => recorded.events.push("copy"))),
+            { startImmediately: true }
+          );
+          yield* Fiber.join(closing);
+          yield* Fiber.join(moving);
+          assert.deepStrictEqual(recorded.events, [
+            "start a",
+            "stop a",
+            "copy",
+          ]);
         })
       )
   );

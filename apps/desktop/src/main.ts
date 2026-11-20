@@ -31,7 +31,12 @@ import { AgentDownloads } from "./agent-downloads.ts";
 import { releasesFor } from "./agent-releases.ts";
 import { AgentSettings } from "./agent-settings.ts";
 import { Agents } from "./agents.ts";
-import { APP_EDITOR_URL, APP_SCHEME, isAppPage } from "./app-editor.ts";
+import {
+  APP_EDITOR_URL,
+  APP_SCHEME,
+  onOrigin,
+  originOf,
+} from "./app-editor.ts";
 import { type BridgeInfo, INFO_CHANNEL } from "./bridge.ts";
 import {
   type BridgeStates,
@@ -186,11 +191,15 @@ const viewOf = (sender: WebContents): AppView | undefined => {
 };
 
 /**
- * The view a message comes from, while what it shows is one of the app's own pages or its
- * servers' (a redirect elsewhere that slipped through calls nothing).
+ * The origin the app gave each view: the app's own for the strip, Home and a project's splash,
+ * its server's for a project's editor (moved with it, over SSH). A view shows nothing else, and
+ * calls the bridge only from it.
  */
+const assigned = new WeakMap<WebContents, string>();
+
+/** The view a message comes from, while what it shows is on the origin the app gave it. */
 const trustedViewOf = (sender: WebContents): AppView | undefined =>
-  isAppPage(sender.getURL()) ? viewOf(sender) : undefined;
+  onOrigin(sender.getURL(), assigned.get(sender)) ? viewOf(sender) : undefined;
 
 /** Who calls, as the handlers ask: a project view, or one of none. */
 const callerOf = (from: AppView) =>
@@ -299,9 +308,9 @@ const guard = (contents: WebContents) => {
     }
     return { action: "deny" };
   });
-  // Nowhere but the app's pages and its servers, whether a page goes or a server redirects it.
+  // Nowhere but the origin the app gave it, whether a page goes or a server redirects it.
   const stayHome = (event: { preventDefault: () => void }, url: string) => {
-    if (!isAppPage(url)) {
+    if (!onOrigin(url, assigned.get(contents))) {
       event.preventDefault();
     }
   };
@@ -340,11 +349,16 @@ const appPage = (file: string) => `${APP_SCHEME}://app/${file}`;
 const latestLoad = new WeakMap<WebContentsView, number>();
 
 /**
- * Loads a page in a view. A load superseded by another, or of a view let go, is no failure; one
- * of a project view that fails (its server stopped answering) says why on the project's splash,
- * with Try again.
+ * Loads a page in a view, the origin it may show from then on. A load superseded by another, or
+ * of a view let go, is no failure; any other of a project view that fails (its server stopped
+ * answering, a redirect turned away) says why on the project's splash, with Try again.
  */
 const loadIn = (view: WebContentsView, url: string, project?: string) => {
+  // What it loads is the origin it is given, before any of it commits.
+  const origin = originOf(url);
+  if (origin !== null) {
+    assigned.set(view.webContents, origin);
+  }
   const load = (latestLoad.get(view) ?? 0) + 1;
   latestLoad.set(view, load);
   view.webContents
@@ -353,8 +367,7 @@ const loadIn = (view: WebContentsView, url: string, project?: string) => {
       const superseded =
         latestLoad.get(view) !== load ||
         view.webContents.isDestroyed() ||
-        (project !== undefined && projectViews.get(project) !== view) ||
-        (error as { code?: string }).code === "ERR_ABORTED";
+        (project !== undefined && projectViews.get(project) !== view);
       return superseded || project === undefined
         ? undefined
         : runtime.runPromise(
@@ -654,7 +667,9 @@ const runtime = ManagedRuntime.make(
 ipcMain.on(INFO_CHANNEL, (event) => {
   // The page loading, as its frame says: the address it is committing to.
   const address = event.senderFrame?.url ?? event.sender.getURL();
-  const from = isAppPage(address) ? viewOf(event.sender) : undefined;
+  const from = onOrigin(address, assigned.get(event.sender))
+    ? viewOf(event.sender)
+    : undefined;
   if (!from) {
     event.returnValue = { shown: [] } satisfies BridgeInfo;
     return;

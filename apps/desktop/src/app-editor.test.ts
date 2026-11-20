@@ -1,18 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { isAppPage } from "./app-editor.ts";
+import { APP_ORIGIN, onOrigin, originOf } from "./app-editor.ts";
 
-describe("isAppPage", () => {
-  it("is the app's own pages and its servers on this machine, and nothing else", () => {
-    expect(isAppPage("ultrapaint://app/tabs.html")).toBe(true);
-    expect(isAppPage("ultrapaint://app/?canvas=redesign")).toBe(true);
-    expect(isAppPage("http://127.0.0.1:45279/")).toBe(true);
-    expect(isAppPage("http://localhost:4770/vibe")).toBe(true);
-    // A redirect elsewhere, another host of the scheme, a page of another machine.
-    expect(isAppPage("https://example.com/")).toBe(false);
-    expect(isAppPage("ultrapaint://evil/")).toBe(false);
-    expect(isAppPage("http://192.168.1.4:4770/")).toBe(false);
-    expect(isAppPage("http://127.0.0.1.example.com/")).toBe(false);
-    expect(isAppPage("")).toBe(false);
-    expect(isAppPage("about:blank")).toBe(false);
+describe("a view's origin", () => {
+  it("is the app's own scheme and host, or a server's scheme, host and port", () => {
+    expect(originOf("ultrapaint://app/tabs.html")).toBe(APP_ORIGIN);
+    expect(originOf("http://127.0.0.1:45279/vibe?x=1")).toBe(
+      "http://127.0.0.1:45279"
+    );
+    expect(originOf("about:blank")).toBeNull();
+    expect(originOf("")).toBeNull();
+  });
+
+  it("lets a view show only the origin given it: no other port, host or scheme", () => {
+    const server = "http://127.0.0.1:45279";
+    expect(onOrigin("http://127.0.0.1:45279/canvas", server)).toBe(true);
+    expect(onOrigin("http://127.0.0.1:6006/", server)).toBe(false);
+    expect(onOrigin("http://localhost:45279/", server)).toBe(false);
+    expect(onOrigin("ultrapaint://app/", server)).toBe(false);
+    expect(onOrigin("ultrapaint://app/welcome.html", APP_ORIGIN)).toBe(true);
+    expect(onOrigin("ultrapaint://evil/", APP_ORIGIN)).toBe(false);
+    expect(onOrigin("https://example.com/", APP_ORIGIN)).toBe(false);
+    // A view given none (the window's own page) shows nothing.
+    expect(onOrigin("ultrapaint://app/", undefined)).toBe(false);
   });
 });

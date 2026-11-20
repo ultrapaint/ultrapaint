@@ -17,6 +17,8 @@ export interface Recorded {
   answers: (boolean | Effect.Effect<boolean>)[];
   /** What runs as a project view is let go, before it is (to look at the app then). */
   beforeDrop: Effect.Effect<void> | null;
+  /** Folders (or hosts) whose server stopped answering: its health says nothing. */
+  dead: string[];
   /** What declining each question was called, in order. */
   declines: string[];
   /** What each question said at more length, in order. */
@@ -57,6 +59,7 @@ export interface Recorded {
 export const makeRecorded = (): Recorded => ({
   answers: [],
   beforeDrop: null,
+  dead: [],
   declines: [],
   details: [],
   drops: [],
@@ -170,12 +173,18 @@ export const fakeShell = (recorded: Recorded) =>
  */
 export const FAKE_VERSION = "1.0.0";
 const versionOf = (recorded: Recorded, name: string) =>
-  name.includes("lagging")
-    ? Effect.andThen(
+  Effect.suspend((): Effect.Effect<string | undefined> => {
+    if (recorded.dead.includes(name)) {
+      return Effect.succeed(undefined);
+    }
+    if (name.includes("lagging")) {
+      return Effect.andThen(
         Effect.sync(() => recordEvent(recorded, `version ${name}`)),
         Effect.as(Effect.sleep("1 second"), FAKE_VERSION)
-      )
-    : Effect.succeed(name.includes("older") ? "0.9.0" : FAKE_VERSION);
+      );
+    }
+    return Effect.succeed(name.includes("older") ? "0.9.0" : FAKE_VERSION);
+  });
 
 /**
  * A server per start, at `http://127.0.0.1/<folder name>`, whose stop is recorded; a folder
