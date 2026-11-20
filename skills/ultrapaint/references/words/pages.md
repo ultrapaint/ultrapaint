@@ -49,8 +49,9 @@ to bag – €66"), a sale price beside its struck-through original. A date sits
 
 ## Copy by kind of page
 
-- **Technical hero**: a news chip when there is news, a 6-word headline, a 19-word subhead saying what
-  it does for whom (product nouns inline can stand for a feature list), the verb primary and a
+- **Technical hero**: a news chip when there is news, a 6-word headline, a 19-word subhead saying what it
+  does for whom (product nouns inline can stand for a feature list), unless a two-tone headline
+  stands in for it, the verb primary and a
   quiet secondary, one reassurance line, the logos. Exact, sometimes dry, never vague.
 - **Pricing**: a headline of about `7` words and no subhead; the billing toggle with its saving
   beside it ("2 months free"); each plan its name, one line, its price with a small muted unit
