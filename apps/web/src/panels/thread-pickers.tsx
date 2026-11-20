@@ -275,7 +275,7 @@ const PermissionsSub = ({ thread }: { thread: Thread }) => {
 /**
  * Agent, model, effort, permissions and the agent's other options in one menu below the prompt,
  * beside Send; its switches below a divider. The trigger names the model and effort, led by the
- * permission mode's icon, which stays in view in every mode so full access is never out of sight.
+ * agent's mark; the permission mode is the menu's to show.
  * Before the thread's session exists the options are the ones the agent offered last time, applied
  * when it starts.
  */
@@ -315,17 +315,6 @@ export const ModelPicker = ({ thread }: { thread: Thread }) => {
     .filter(Boolean)
     .join(", ");
 
-  // The agent's mark leads, as nothing else in the chat names it (ADR 0095); the permission
-  // mode's icon after it, when the agent has modes.
-  const lead = (
-    <>
-      <AgentIcon agentId={thread.agentId} className="size-3.5 shrink-0" />
-      {mode ? (
-        <ModeIcon className="size-3.5 shrink-0" modeId={mode.id} />
-      ) : null}
-    </>
-  );
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -337,7 +326,8 @@ export const ModelPicker = ({ thread }: { thread: Thread }) => {
           />
         }
       >
-        {lead}
+        {/* The agent's mark leads, as nothing else in the chat names it (ADR 0095). */}
+        <AgentIcon agentId={thread.agentId} className="size-3.5 shrink-0" />
         {/* The value is read first, in the foreground; what qualifies it stays muted. */}
         <span className="truncate text-foreground">
           {modelName ?? agentName}
