@@ -38,9 +38,9 @@ edge.
   says "Your turn" then too), and a notice in the window with Go to it, over the editor or Home;
   when the window is behind, the system's instead. **An agent that finishes there, or stops on an
   error, notifies too**, saying which. The main process learns it from each server's health
-  (`/api/health` counts the agents working, those waiting and those whose turn failed), so a
-  project whose view was let go still says so; a server that does not answer, or one reached again
-  over SSH, is no news. The person's Notifications preference chooses what the system does: a
+  (`/api/health` counts the agents working and those waiting, and the turns finished, failed and
+  cancelled since the server started; a cancel is no news), so a project whose view was let go
+  still says so; a server that does not answer, or one reached again over SSH, is no news. The person's Notifications preference chooses what the system does: a
   notification, a sound, or both; Off leaves only the dot and the notice in the window. It is the
   one their editor last told the app, else the one in their profile on this machine. A project
   on screen at any moment since the last poll tells its own agents' news from its editor, so one

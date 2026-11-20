@@ -75,17 +75,24 @@ export interface RunningServer {
 }
 
 /**
- * The agents of a server: at work, waiting on the person (a question, a permission), and those
- * whose last turn stopped on an error.
+ * The agents of a server: at work and waiting on the person (a question, a permission) now, and
+ * the turns that finished and failed since it started. A cancelled turn is counted apart by the
+ * server, and is no one's news.
  */
 export interface AgentCounts {
   readonly failed: number;
+  readonly finished: number;
   readonly waiting: number;
   readonly working: number;
 }
 
 /** What a server that does not say is taken to have: no agents at all. */
-export const NO_AGENTS: AgentCounts = { failed: 0, waiting: 0, working: 0 };
+export const NO_AGENTS: AgentCounts = {
+  failed: 0,
+  finished: 0,
+  waiting: 0,
+  working: 0,
+};
 
 /** What a server said of its agents, or none when it did not answer. */
 export const countsOr = (said: Option.Option<AgentCounts>): AgentCounts =>
@@ -94,6 +101,7 @@ export const countsOr = (said: Option.Option<AgentCounts>): AgentCounts =>
 const Health = Schema.fromJsonString(
   Schema.Struct({
     failed: Schema.optional(Schema.Number),
+    finished: Schema.optional(Schema.Number),
     token: Schema.optional(Schema.String),
     version: Schema.optional(Schema.String),
     waiting: Schema.optional(Schema.Number),
@@ -134,6 +142,7 @@ export const agentsOf = (url: string, token: string) =>
       h.token === token
         ? Option.some<AgentCounts>({
             failed: h.failed ?? 0,
+            finished: h.finished ?? 0,
             waiting: h.waiting ?? 0,
             working: h.working ?? 0,
           })

@@ -168,17 +168,18 @@ type News = ProjectNotice["news"];
 
 /**
  * The news between what a server said of its agents and what it says now, if any: a new agent
- * waiting on the person, else one fewer at work, which stopped when one more turn failed and
- * finished otherwise.
+ * waiting on the person, else a turn more that failed, else one more that finished. The turns
+ * are counted since the server started, so that one ending while another starts is news all the
+ * same, and a cancel, counted apart, is none.
  */
 export const newsOf = (before: AgentCounts, now: AgentCounts): News | null => {
   if (now.waiting > before.waiting) {
     return "asks";
   }
-  if (now.working >= before.working) {
-    return null;
+  if (now.failed > before.failed) {
+    return "stopped";
   }
-  return now.failed > before.failed ? "stopped" : "done";
+  return now.finished > before.finished ? "done" : null;
 };
 
 /**
@@ -1273,10 +1274,14 @@ export class OpenProjects extends Context.Service<
          * front, else by the system as their Notifications preference says: the one an editor
          * last told (`prefer`), else the one in their profile here, read now.
          */
-        const tellNews = Effect.fnUntraced(function* (tab: Tab, news: News) {
+        const tellNews = Effect.fnUntraced(function* (
+          tab: Tab,
+          running: Running,
+          news: News
+        ) {
           const { name } = tab.project;
           const words = NEWS_WORDS[news];
-          if (yield* shell.focused) {
+          const showNotice = Effect.suspend(() => {
             noticesMade += 1;
             notice = {
               id: String(noticesMade),
@@ -1284,18 +1289,33 @@ export class OpenProjects extends Context.Service<
               project: tab.id,
               title: `${name}: ${words.notice}`,
             };
-            yield* shell.notice(notice);
+            return shell.notice(notice);
+          });
+          if (yield* shell.focused) {
+            return yield* showNotice;
+          }
+          // Read before what is decided, as it may wait on the disk: the editor's preference,
+          // the tab and the window are taken as they are once it is read.
+          const kept =
+            preferred === null
+              ? yield* folders.current.pipe(
+                  Effect.flatMap(({ user }) => notifyPreference(user)),
+                  Effect.provideService(FileSystem.FileSystem, fs),
+                  Effect.provideService(Path.Path, path),
+                  // A folder setting that cannot be read is no choice made: nothing is said.
+                  Effect.orElseSucceed((): Notifications => "off")
+                )
+              : "off";
+          const focused = yield* shell.focused;
+          // Shown (even for a moment), closed or started again meanwhile, the news is no longer
+          // the app's to tell.
+          if (!isOpen(tab) || tab.running !== running || tab.shownSincePoll) {
             return;
           }
-          const preference =
-            preferred ??
-            (yield* folders.current.pipe(
-              Effect.flatMap(({ user }) => notifyPreference(user)),
-              Effect.provideService(FileSystem.FileSystem, fs),
-              Effect.provideService(Path.Path, path),
-              // A folder setting that cannot be read is no choice made: nothing is said.
-              Effect.orElseSucceed((): Notifications => "off")
-            ));
+          if (focused) {
+            return yield* showNotice;
+          }
+          const preference = preferred ?? kept;
           if (preference === "off") {
             return;
           }
@@ -1318,13 +1338,22 @@ export class OpenProjects extends Context.Service<
           });
 
         /** Takes in what a tab's server says of its agents now, and tells its news. */
-        const hear = (tab: Tab, running: Running, now: AgentCounts) =>
+        const hear = (
+          tab: Tab,
+          running: Running,
+          token: string,
+          now: AgentCounts
+        ) =>
           Effect.suspend(() => {
-            // Closed, stopped or started again while it was asked: the next poll's to ask.
-            if (!isOpen(tab) || tab.running !== running) {
+            // Closed, stopped or started again while it was asked, or reached again with another
+            // token (an answer of the run before): the next poll's to ask.
+            if (
+              !isOpen(tab) ||
+              tab.running !== running ||
+              running.server.token !== token
+            ) {
               return Effect.void;
             }
-            const { token } = running.server;
             const news =
               tab.heard?.running === running && tab.heard.token === token
                 ? newsOf(tab.agents, now)
@@ -1335,7 +1364,7 @@ export class OpenProjects extends Context.Service<
             // view: its editor heard of it as it happened, when it may have been on screen.
             const ours = !tab.shownSincePoll;
             tab.shownSincePoll = tab.id === shown;
-            return news && ours ? tellNews(tab, news) : Effect.void;
+            return news && ours ? tellNews(tab, running, news) : Effect.void;
           });
 
         /** Asks each running server about its agents, for the tabs and the news. */
@@ -1346,14 +1375,17 @@ export class OpenProjects extends Context.Service<
               (tab) =>
                 Effect.suspend(() => {
                   const { running } = tab;
-                  return running
-                    ? Effect.flatMap(running.server.agents, (said) =>
-                        // One that does not answer is asked again next time.
-                        Option.isSome(said)
-                          ? hear(tab, running, said.value)
-                          : Effect.void
-                      )
-                    : Effect.void;
+                  if (!running) {
+                    return Effect.void;
+                  }
+                  // The token the question goes with: its answer is that run's.
+                  const { token } = running.server;
+                  return Effect.flatMap(running.server.agents, (said) =>
+                    // One that does not answer is asked again next time.
+                    Option.isSome(said)
+                      ? hear(tab, running, token, said.value)
+                      : Effect.void
+                  );
                 }),
               { concurrency: "unbounded", discard: true }
             )

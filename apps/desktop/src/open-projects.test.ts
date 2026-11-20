@@ -1870,6 +1870,7 @@ describe("OpenProjects' news of the agents (ADR 0107)", () => {
           });
           recorded.waiting.a = 0;
           recorded.working.a = 0;
+          recorded.finished.a = 1;
           yield* polled;
           assert.deepInclude(recorded.notices.at(-1) ?? {}, {
             news: "done",
@@ -1925,6 +1926,7 @@ describe("OpenProjects' news of the agents (ADR 0107)", () => {
           yield* keepInProfile(dir, "both");
           recorded.waiting.a = 0;
           recorded.working.a = 0;
+          recorded.finished.a = 1;
           yield* polled;
           yield* told(recorded, ["a idle", "*b idle"]);
           assert.deepStrictEqual(recorded.alerts, [
@@ -1989,6 +1991,94 @@ describe("OpenProjects' news of the agents (ADR 0107)", () => {
   );
 
   it.effect(
+    "a turn that ends while another starts is news all the same, and a cancel is none",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const { a } = yield* twoOpen;
+          recorded.working.a = 1;
+          yield* polled;
+          // One fails as another starts: as many at work as before.
+          recorded.failed.a = 1;
+          yield* polled;
+          assert.deepInclude(recorded.notices.at(-1) ?? {}, {
+            news: "stopped",
+            project: a.id,
+          });
+          // One finishes as another starts.
+          recorded.finished.a = 1;
+          yield* polled;
+          assert.strictEqual(recorded.notices.at(-1)?.news, "done");
+          const noticed = recorded.notices.length;
+          // The person stops it: none at work, no turn finished or failed.
+          recorded.working.a = 0;
+          yield* polled;
+          assert.strictEqual(recorded.notices.length, noticed);
+        })
+      )
+  );
+
+  it.effect(
+    "what the person does while the app reads their preference holds: an editor's Off, or the tab shown",
+    () =>
+      withApp((recorded, dir) =>
+        Effect.gen(function* () {
+          const { a, open } = yield* twoOpen;
+          yield* keepInProfile(dir, "both");
+          recorded.focused = false;
+          recorded.working.a = 1;
+          yield* polled;
+          recorded.waiting.a = 1;
+          // Its tab shown once the preference is read: the second time the window is asked.
+          recorded.whileFocusAsked = [Effect.void, open.show(a.id)];
+          yield* polled;
+          yield* told(recorded, ["*a waiting", "b idle"]);
+          assert.deepStrictEqual(recorded.alerts, []);
+          yield* open.show(null);
+          // Two polls with a not on screen, then news while an editor says Off.
+          yield* polled;
+          yield* polled;
+          recorded.waiting.a = 2;
+          recorded.working.b = 1;
+          recorded.whileFocusAsked = [Effect.void, open.prefer("off")];
+          yield* polled;
+          yield* told(recorded, ["a waiting", "b working"]);
+          assert.deepStrictEqual(recorded.alerts, []);
+        })
+      )
+  );
+
+  it.effect(
+    "an answer asked with the token of the run before a reconnection is dropped",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProjects;
+          const site = yield* store.addRemote({
+            host: "devbox",
+            path: "~/site",
+          });
+          yield* open.open(site.id);
+          yield* open.openingDone(site.id, {});
+          const b = yield* store.add("/work/b");
+          yield* open.open(b.id);
+          yield* polled;
+          // Reached again while an answer of the old run is on its way: the new run has
+          // finished turns of its own already.
+          recorded.whileHealthAnswers["devbox:site"] = Effect.sync(() => {
+            recorded.tokens["devbox:site"] = "token-again";
+            recorded.finished["devbox:site"] = 3;
+          });
+          yield* polled;
+          // The new run's first answer is its baseline, not news against the old one's.
+          yield* polled;
+          assert.deepStrictEqual(recorded.notices, []);
+        })
+      )
+  );
+
+  it.effect(
     "a server reached again over SSH is a new run: what it says first is no news",
     () =>
       withApp((recorded) =>
@@ -2025,6 +2115,7 @@ describe("OpenProjects' news of the agents (ADR 0107)", () => {
           // a on screen when its agent finished, then b again before the next poll.
           yield* open.show(a.id);
           recorded.working.a = 0;
+          recorded.finished.a = 1;
           yield* open.show(b.id);
           yield* polled;
           assert.deepStrictEqual(recorded.notices, []);
@@ -2045,6 +2136,7 @@ describe("OpenProjects' news of the agents (ADR 0107)", () => {
           recorded.working.a = 1;
           yield* polled;
           recorded.working.a = 0;
+          recorded.finished.a = 1;
           yield* polled;
           const first = recorded.notices.at(-1)?.id ?? "";
           recorded.waiting.a = 1;
