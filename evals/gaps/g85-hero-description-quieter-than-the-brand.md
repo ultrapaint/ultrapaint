@@ -2,7 +2,7 @@
 id: g85
 title: A hero's description smaller and greyer than the brand's
 kind: missing
-status: open
+status: wontfix
 found: 2026-11-20
 source: the person, on held-videoask runs of fx-opus-dw2 (decisions/lab-nov20c)
 skill: [references/pages/landing.md, references/picture.md]
@@ -29,3 +29,9 @@ person's call.
 read for the description's size and colour.
 
 **Result.**
+
+- `lab-nov20d`, decided (the person, 2026-11-20): no rule. The skill's muted `18–20px` default
+  is what most well-made pages do (8 of 12); VideoAsk's `24px` near-black is its own choice, which
+  a brief with the brand's facts and none of its type cannot show, and `picture.md` keeps when
+  the brand is shown. Closed as wontfix.
+
