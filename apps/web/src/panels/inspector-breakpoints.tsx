@@ -86,14 +86,21 @@ const visibilityOptions = (
   current: Visibility
 ): SelectOption[] => [
   { label: "Every width", value: "every" },
-  { description: "hidden", label: "Hidden everywhere", value: "none" },
+  {
+    code: true,
+    description: "hidden",
+    label: "Hidden everywhere",
+    value: "none",
+  },
   ...breakpoints.map((b) => ({
+    code: true,
     description: `max-${b.name}:hidden`,
     group: "From a breakpoint up",
     label: `From ${b.name} up (${b.min}px)`,
     value: `from:${b.name}`,
   })),
   ...breakpoints.map((b) => ({
+    code: true,
     description: `${b.name}:hidden`,
     group: "Below a breakpoint",
     label: `Below ${b.name} (${b.min}px)`,

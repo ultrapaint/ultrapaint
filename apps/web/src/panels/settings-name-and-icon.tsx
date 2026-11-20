@@ -70,7 +70,7 @@ export const NameAndIconSection = ({
       <Row
         description={
           icon?.kind === "file" ? (
-            <span className="break-all font-code">{icon.path}</span>
+            <span className="break-all">{icon.path}</span>
           ) : undefined
         }
         message={message("icon")}

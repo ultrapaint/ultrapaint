@@ -171,7 +171,7 @@ const PageRow = ({ entry, home }: { entry: Entry; home: string }) => {
       >
         {/* The route first, the page that serves it after. */}
         <CutText
-          className="min-w-0 shrink-0 truncate font-code"
+          className="min-w-0 shrink-0 truncate"
           tip={`${page.route}${page.route === home ? " (home)" : ""} · ${page.file}`}
         >
           {page.route}

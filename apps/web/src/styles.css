@@ -35,7 +35,7 @@
 }
 
 /* The faces: Cal Sans for headings, Figtree for bodies, Geist Mono for values, tokens and code
-   (ADR 0070), all loaded, so the editor looks the same on every machine. Kept out of the theme,
+   (ADR 0070), never for a path, a URL or a file name (ADR 0108), all loaded, so the editor looks the same on every machine. Kept out of the theme,
    so no `font-sans` or `font-mono` utility sets a face of its own. */
 :root {
   --face-heading:
@@ -251,7 +251,8 @@
   letter-spacing: 0;
 }
 
-/* Values, tokens, routes and code, a value on its row or a block of lines. */
+/* Values, tokens, commands and code, a value on its row or a block of lines. A path, a URL or a
+   file name is set in a body token (ADR 0108). */
 @utility font-code {
   font-family: var(--face-code);
   font-size: calc(0.75rem * var(--text-scale, 1));

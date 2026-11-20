@@ -156,7 +156,7 @@ const RecentItem = ({
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate">{project.name}</span>
         {project.detail ? (
-          <span className="truncate font-code text-muted-foreground">
+          <span className="truncate font-body-small text-muted-foreground">
             {project.detail}
           </span>
         ) : null}

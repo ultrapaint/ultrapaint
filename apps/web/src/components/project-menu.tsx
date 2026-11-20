@@ -64,7 +64,7 @@ export const ProjectMenu = () => {
           <ProjectIcon icon={icon} name={name} size={24} />
           <div className="flex min-w-0 flex-col">
             <span className="truncate font-body-medium">{name}</span>
-            <span className="truncate font-code text-muted-foreground">
+            <span className="truncate font-body-small text-muted-foreground">
               {repoPath}
             </span>
           </div>

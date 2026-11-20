@@ -536,11 +536,10 @@ const PathField = ({
   value: string;
 }) =>
   readOnly ? (
-    <p className="break-all py-1 font-code">{value}</p>
+    <p className="break-all py-1 font-body">{value}</p>
   ) : (
     <div className="flex gap-1">
       <Input
-        className="font-code"
         id="settings-repo"
         onChange={onChange}
         placeholder="/Users/you/code/shop"
@@ -1080,7 +1079,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           title="Designs"
         >
           <Input
-            className="font-code"
             id="settings-designs"
             onChange={(e) =>
               change({ designsDir: e.target.value }, "designs", "later")
@@ -1121,7 +1119,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           title="Application"
         >
           <Input
-            className="font-code"
             id="settings-resolve"
             onChange={(e) =>
               change(

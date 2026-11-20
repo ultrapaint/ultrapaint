@@ -192,7 +192,7 @@ const NodeRow = () => {
   );
   const found =
     status && status !== "unreachable" && "path" in status ? (
-      <code className="break-all font-code">{status.path}</code>
+      <span className="break-all">{status.path}</span>
     ) : null;
   const description: ReactNode = found ?? NEEDED;
   // Check again until it is ready.

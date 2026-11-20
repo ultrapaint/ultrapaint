@@ -467,9 +467,8 @@ const PageSection = ({ frame }: { frame: string }) => {
               <button
                 className={cn(
                   "h-7 min-w-0 flex-1 truncate rounded-md bg-muted px-2 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/25",
-                  page.route === undefined
-                    ? "font-body text-muted-foreground"
-                    : "font-code"
+                  "font-body",
+                  page.route === undefined && "text-muted-foreground"
                 )}
                 onClick={() => editPageUrl(page)}
                 type="button"

@@ -116,7 +116,6 @@ const SaveConfigForm = ({ settings }: { settings: Settings }) => {
       <Field>
         <FieldLabel htmlFor="save-config-path">Configuration file</FieldLabel>
         <Input
-          className="font-code"
           id="save-config-path"
           onChange={onConfigPath}
           spellCheck={false}

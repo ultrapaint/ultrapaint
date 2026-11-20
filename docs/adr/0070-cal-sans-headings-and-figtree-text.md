@@ -17,7 +17,7 @@ headings and Figtree for the text.
   display sizes, and at 14 and 16 its words run together, so both roles open it by 0.02em.
 - **Every other role** (body, label, small, caption) is Figtree, loaded with
   `@fontsource-variable/figtree`, at the sizes, weights and line heights Onest had.
-- **Geist Mono** stays for values, tokens and code.
+- **Geist Mono** stays for values, tokens and code (paths, URLs and file names: Figtree, 0108).
 - The boards' documentation (`UI_FONT` in `boards/board-nodes.ts`) and the splash drawn before the
   editor's code arrives (`index.html`) take Figtree with the rest.
 

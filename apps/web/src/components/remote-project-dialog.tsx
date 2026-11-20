@@ -112,7 +112,6 @@ const Form = ({ projects }: { projects: ShellProjects }) => {
           <Input
             aria-invalid={tried && host.trim() === ""}
             autoFocus
-            className="font-code"
             disabled={busy}
             id="remote-host"
             list={suggestions}
@@ -135,7 +134,6 @@ const Form = ({ projects }: { projects: ShellProjects }) => {
           <FieldLabel htmlFor="remote-path">Folder</FieldLabel>
           <Input
             aria-invalid={tried && path.trim() === ""}
-            className="font-code"
             disabled={busy}
             id="remote-path"
             onChange={(e) => setPath(e.target.value)}

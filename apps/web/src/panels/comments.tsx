@@ -157,9 +157,7 @@ const GroupName = ({
   return (
     <>
       <span className="truncate">{page.name}</span>
-      {page.route ? (
-        <span className="truncate font-code">{page.route}</span>
-      ) : null}
+      {page.route ? <span className="truncate">{page.route}</span> : null}
     </>
   );
 };

@@ -175,15 +175,9 @@ const Row = ({ problem }: { problem: Problem }) => (
   </li>
 );
 
-/** A group's name over its rows: the file it is read from, in code; Sync in words. */
+/** A group's name over its rows: the file it is read from, or Sync. */
 const Heading = ({ source }: { source: ProblemSource }) => (
-  <h3
-    className={
-      source === "Sync"
-        ? "flex h-9 items-end px-4 pb-1 font-body-small text-muted-foreground"
-        : "flex h-9 items-end px-4 pb-1 font-code text-muted-foreground"
-    }
-  >
+  <h3 className="flex h-9 items-end px-4 pb-1 font-body-small text-muted-foreground">
     {source}
   </h3>
 );

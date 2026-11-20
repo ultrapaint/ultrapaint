@@ -991,8 +991,8 @@ const PageProblem = ({
         parts={problemParts(problem)}
         title="Not a valid page."
       >
-        Fix it in <code className="font-code text-foreground">{file}</code> and
-        the page is drawn again.
+        Fix it in <span className="text-foreground">{file}</span> and the page
+        is drawn again.
       </FileProblem>
     </div>
   );
