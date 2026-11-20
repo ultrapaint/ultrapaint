@@ -724,6 +724,8 @@ export const reshootOutside = Effect.fn("reshootOutside")(function* (
         yield* fs.remove(fresh, { force: true, recursive: true });
         continue;
       }
+      // Its verdicts go first: a reshoot stopped between the two leaves none on new pictures.
+      yield* forgetVerdicts(round, [`${reference.id}/${run}`]);
       yield* fs.remove(path.join(dir, "shots"), {
         force: true,
         recursive: true,
@@ -738,7 +740,6 @@ export const reshootOutside = Effect.fn("reshootOutside")(function* (
       yield* Effect.log(`${reference.id} ${run}: pictured again`);
     }
   }
-  yield* forgetVerdicts(round, reshot);
   yield* Effect.log(`${reshot.length} runs of ${round} pictured again`);
 });
 
@@ -753,8 +754,10 @@ const forgetVerdicts = Effect.fn("forgetVerdicts")(function* (
     return;
   }
   for (const pair of yield* fs.readDirectory(data.runs)) {
-    const sides = pair.split("-vs-");
-    if (sides.length !== 2 || !sides.includes(round)) {
+    // Matched from the round's side, so a round named with "-vs-" in it is found too.
+    const judged =
+      pair.startsWith(`${round}-vs-`) || pair.endsWith(`-vs-${round}`);
+    if (!judged) {
       continue;
     }
     for (const name of ["pairwise.json", "reads.json"]) {
