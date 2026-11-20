@@ -50,6 +50,11 @@ export interface ServerOptions {
 /** A server that answers for the project. */
 export interface RunningServer {
   /**
+   * How many agents are at work in it now, and how many wait on the person, as its health check
+   * says; none when it does not answer, or another server answers in its place.
+   */
+  readonly agents: Effect.Effect<Option.Option<AgentCounts>>;
+  /**
    * The server was running already, started by the `ultrapaint` command or another app (D5):
    * it is attached to, and not the app's to stop.
    */
@@ -67,17 +72,22 @@ export interface RunningServer {
    * or does not say. The app's own editor talks only to a server of the app's version (ADR 0100).
    */
   readonly version: Effect.Effect<string | undefined>;
-  /**
-   * How many agents are at work in it now, as its health check says; none when it does not
-   * answer, or another server answers in its place.
-   */
-  readonly working: Effect.Effect<number>;
 }
+
+/** The agents of a server: at work, and waiting on the person (a question, a permission). */
+export interface AgentCounts {
+  readonly waiting: number;
+  readonly working: number;
+}
+
+/** What a server that does not say is taken to have: no agents at all. */
+export const NO_AGENTS: AgentCounts = { waiting: 0, working: 0 };
 
 const Health = Schema.fromJsonString(
   Schema.Struct({
     token: Schema.optional(Schema.String),
     version: Schema.optional(Schema.String),
+    waiting: Schema.optional(Schema.Number),
     working: Schema.optional(Schema.Number),
   })
 );
@@ -105,12 +115,20 @@ export const serverVersion = (url: string) =>
     Option.isSome(health) ? health.value.version : undefined
   );
 
-/** The agents at work in the server at `url`, if it is the run with `token`. */
-export const agentsWorking = (url: string, token: string) =>
+/**
+ * The agents at work and waiting in the server at `url`, if it is the run with `token`; none when
+ * it does not answer, or another run does.
+ */
+export const agentsOf = (url: string, token: string) =>
   Effect.map(healthOf(url), (health) =>
-    Option.isSome(health) && health.value.token === token
-      ? (health.value.working ?? 0)
-      : 0
+    Option.flatMap(health, (h) =>
+      h.token === token
+        ? Option.some<AgentCounts>({
+            waiting: h.waiting ?? 0,
+            working: h.working ?? 0,
+          })
+        : Option.none()
+    )
   );
 
 /** How long a server may take to say it listens: a cold start compiles the server's sources. */
@@ -253,6 +271,7 @@ export class ProjectServer extends Context.Service<
           );
           const attached = ready.attached === true;
           return {
+            agents: agentsOf(ready.url, ready.token),
             attached,
             exited: attached
               ? Effect.succeed(false)
@@ -264,7 +283,6 @@ export class ProjectServer extends Context.Service<
             token: ready.token,
             url: ready.url,
             version: serverVersion(ready.url),
-            working: agentsWorking(ready.url, ready.token),
           } satisfies RunningServer;
         });
 

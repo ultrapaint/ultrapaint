@@ -131,10 +131,32 @@ export type PlatformProject = typeof PlatformProject.Type;
 
 /**
  * What an open project's tab shows (ADR 0107): `opening` from the click until its editor is ready,
- * `working` while an agent works there, `idle` otherwise.
+ * `waiting` while an agent there waits on the person (a question, a permission), `working` while
+ * one works there and none waits, `idle` otherwise. Waiting goes before working: it is where the
+ * person is needed.
  */
-export const TabState = Schema.Literals(["opening", "working", "idle"]);
+export const TabState = Schema.Literals([
+  "opening",
+  "waiting",
+  "working",
+  "idle",
+]);
 export type TabState = typeof TabState.Type;
+
+/**
+ * News of an agent in an open project the person is not looking at (ADR 0107): it asks them
+ * something, or it finished. The window shows it over the editor, with Go to it showing the
+ * project's tab; `id` tells one notice from the next.
+ */
+export const ProjectNotice = Schema.Struct({
+  id: Schema.String,
+  news: Schema.Literals(["asks", "done"]),
+  /** The tab's id, which Go to it shows. */
+  project: Schema.String,
+  /** What it says: `<project>: an agent asks you something`. */
+  title: Schema.String,
+});
+export type ProjectNotice = typeof ProjectNotice.Type;
 
 /** An open project, as its tab over the window shows it (ADR 0107). */
 export const ShellTab = Schema.Struct({
@@ -500,6 +522,12 @@ export const SHELL_BRIDGE = {
    * storage is kept under it, every project view sharing the origin. Null for a view of none.
    */
   projectId: state(Schema.NullOr(Schema.String)),
+  /**
+   * News of an agent in another open project than the one on screen, while the window is in
+   * front; null once there is none (its tab shown, or closed). The window behind, the system's
+   * notification tells it instead (ADR 0107).
+   */
+  projectNotice: state(Schema.NullOr(ProjectNotice)),
   /** Adds a project, through the shell's own dialog, and opens it in a new tab. */
   "projects.add": invoke([], Schema.Void),
   /**

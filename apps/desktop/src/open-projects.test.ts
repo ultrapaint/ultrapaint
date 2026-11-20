@@ -32,7 +32,7 @@ import {
 const withApp = <A, E>(
   body: (
     recorded: Recorded,
-    /** The app's data directory. */
+    /** The app's data directory, and the person's home folder. */
     dir: string
   ) => Effect.Effect<A, E, OpenProjects | ProjectStore | FileSystem.FileSystem>,
   /** The app's own editor (ADR 0100); without, every server serves its own. */
@@ -44,7 +44,8 @@ const withApp = <A, E>(
     const recorded = makeRecorded();
     const app = OpenProjects.layer(dir, appEditor).pipe(
       Layer.provideMerge(ProjectStore.layer(dir)),
-      Layer.provideMerge(Folders.layer({ dataDir: dir, home: "/home/u" })),
+      // The person's home is the data directory: their folder, and its profile, are in it.
+      Layer.provideMerge(Folders.layer({ dataDir: dir, home: dir })),
       Layer.provideMerge(LoginShell.layerTest({ PATH: "/usr/bin" })),
       Layer.provideMerge(
         Agents.layerTest(
@@ -73,7 +74,8 @@ const startedAgain = <A, E>(
     const recorded = makeRecorded();
     const app = OpenProjects.layer(dir).pipe(
       Layer.provideMerge(ProjectStore.layer(dir)),
-      Layer.provideMerge(Folders.layer({ dataDir: dir, home: "/home/u" })),
+      // The person's home is the data directory: their folder, and its profile, are in it.
+      Layer.provideMerge(Folders.layer({ dataDir: dir, home: dir })),
       Layer.provideMerge(LoginShell.layerTest({ PATH: "/usr/bin" })),
       Layer.provideMerge(
         Agents.layerTest(
@@ -1782,6 +1784,220 @@ describe("OpenProjects", () => {
             "An agent is working in slow. Quitting stops it.",
           ]);
           assert.isFalse(recorded.events.some((e) => e.startsWith("stop")));
+        })
+      )
+  );
+});
+
+describe("OpenProjects' news of the agents (ADR 0107)", () => {
+  /** Two projects open, `b` on screen and both past their splash. */
+  const twoOpen = Effect.gen(function* () {
+    const store = yield* ProjectStore;
+    const open = yield* OpenProjects;
+    const a = yield* store.add("/work/a");
+    const b = yield* store.add("/work/b");
+    yield* open.open(a.id);
+    yield* open.openingDone(a.id, {});
+    yield* open.open(b.id);
+    yield* open.openingDone(b.id, {});
+    return { a, b, open };
+  });
+
+  /** One poll of every server. */
+  const polled = TestClock.adjust("2 seconds");
+
+  /**
+   * Waits until the strip is told `tabs`: a poll tells it once every server's answer is taken
+   * in, what the system was asked meanwhile included (the preference is read from disk).
+   */
+  const told = (recorded: Recorded, tabs: readonly string[]) =>
+    until(recorded, (r) => tabsTold(r).join() === tabs.join());
+
+  /** The person's Notifications preference, kept in their profile as the editor keeps it. */
+  const prefer = (dir: string, notifications: string) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const folder = path.join(dir, ".ultrapaint");
+      yield* fs.makeDirectory(folder, { recursive: true });
+      yield* fs.writeFileString(
+        path.join(folder, "profile.json"),
+        JSON.stringify({
+          displayName: "Ada",
+          preferences: { appearance: { accent: "teal", notifications } },
+        })
+      );
+    });
+
+  it.effect(
+    "a tab shows the dot while an agent there waits on the person, before its spinner",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          yield* twoOpen;
+          recorded.working.a = 1;
+          recorded.waiting.a = 1;
+          recorded.working.b = 1;
+          yield* polled;
+          assert.deepStrictEqual(tabsTold(recorded), [
+            "a waiting",
+            "*b working",
+          ]);
+          recorded.waiting.a = 0;
+          yield* polled;
+          assert.deepStrictEqual(tabsTold(recorded), [
+            "a working",
+            "*b working",
+          ]);
+        })
+      )
+  );
+
+  it.effect(
+    "an agent in a project not on screen that asks or finishes is told over the editor, and Go to it takes the notice away",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const { a, open } = yield* twoOpen;
+          recorded.working.a = 1;
+          yield* polled;
+          assert.deepStrictEqual(recorded.notices, []);
+          recorded.waiting.a = 1;
+          yield* polled;
+          assert.deepInclude(recorded.notices.at(-1) ?? {}, {
+            news: "asks",
+            project: a.id,
+            title: "a: an agent asks you something",
+          });
+          recorded.waiting.a = 0;
+          recorded.working.a = 0;
+          yield* polled;
+          assert.deepInclude(recorded.notices.at(-1) ?? {}, {
+            news: "done",
+            project: a.id,
+            title: "a: an agent finished",
+          });
+          // Each its own notice, and nothing from the system while the window is in front.
+          assert.strictEqual(
+            new Set(recorded.notices.map((n) => n?.id)).size,
+            2
+          );
+          assert.deepStrictEqual(recorded.alerts, []);
+          yield* open.show(a.id);
+          assert.strictEqual(recorded.notices.at(-1), null);
+        })
+      )
+  );
+
+  it.effect(
+    "the project on screen tells its own news, from its page: the app says nothing of it",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          yield* twoOpen;
+          recorded.working.b = 1;
+          yield* polled;
+          recorded.waiting.b = 1;
+          recorded.working.b = 0;
+          yield* polled;
+          recorded.focused = false;
+          recorded.waiting.b = 2;
+          yield* polled;
+          assert.deepStrictEqual(recorded.notices, []);
+          assert.deepStrictEqual(recorded.alerts, []);
+        })
+      )
+  );
+
+  it.effect(
+    "with the window behind, the system tells it as the person's Notifications preference says",
+    () =>
+      withApp((recorded, dir) =>
+        Effect.gen(function* () {
+          const { a } = yield* twoOpen;
+          recorded.focused = false;
+          recorded.working.a = 1;
+          yield* polled;
+          // No preference kept is Off, the editor's default: nothing.
+          recorded.waiting.a = 1;
+          yield* polled;
+          yield* told(recorded, ["a waiting", "*b idle"]);
+          assert.deepStrictEqual(recorded.alerts, []);
+          yield* prefer(dir, "both");
+          recorded.waiting.a = 0;
+          recorded.working.a = 0;
+          yield* polled;
+          yield* told(recorded, ["a idle", "*b idle"]);
+          assert.deepStrictEqual(recorded.alerts, [
+            {
+              body: "An agent finished.",
+              notification: true,
+              project: a.id,
+              sound: true,
+              title: "a",
+            },
+          ]);
+          yield* prefer(dir, "sound");
+          recorded.waiting.a = 1;
+          yield* polled;
+          yield* told(recorded, ["a waiting", "*b idle"]);
+          assert.deepInclude(recorded.alerts.at(-1) ?? {}, {
+            body: "An agent asks you something.",
+            notification: false,
+            sound: true,
+          });
+          yield* prefer(dir, "off");
+          recorded.waiting.a = 2;
+          // And b at work, for the strip to be told once the poll is done.
+          recorded.working.b = 1;
+          yield* polled;
+          yield* told(recorded, ["a waiting", "*b working"]);
+          assert.strictEqual(recorded.alerts.length, 2);
+          assert.deepStrictEqual(recorded.notices, []);
+        })
+      )
+  );
+
+  it.effect(
+    "a project whose view was let go still shows its agents on its tab and tells its news",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProjects;
+          const ids: string[] = [];
+          for (const name of ["p1", "p2", "p3", "p4", "p5", "p6"]) {
+            const project = yield* store.add(`/work/${name}`);
+            ids.push(project.id);
+            yield* open.open(project.id);
+            yield* open.openingDone(project.id, {});
+          }
+          assert.deepStrictEqual(recorded.drops, [ids[0]]);
+          // Its server's first answer, then the next.
+          yield* polled;
+          recorded.waiting.p1 = 1;
+          yield* polled;
+          assert.strictEqual(tabsTold(recorded)[0], "p1 waiting");
+          assert.deepInclude(recorded.notices.at(-1) ?? {}, {
+            project: ids[0],
+            title: "p1: an agent asks you something",
+          });
+        })
+      )
+  );
+
+  it.effect(
+    "what a server says as it starts, or starts again, is no news",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const { open } = yield* twoOpen;
+          recorded.waiting.a = 1;
+          recorded.working.a = 1;
+          // Started again, its agents are stopped and its first answer is the new run's.
+          yield* open.restart;
+          yield* polled;
+          assert.deepStrictEqual(tabsTold(recorded), ["a waiting", "*b idle"]);
+          assert.deepStrictEqual(recorded.notices, []);
         })
       )
   );

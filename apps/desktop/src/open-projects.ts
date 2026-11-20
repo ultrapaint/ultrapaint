@@ -12,6 +12,13 @@
  * server waits for those under way and holds the others back (the hold). The tabs, and the one shown, are kept in `projects.json` for the next start, which
  * brings every tab back and starts only the shown one's server.
  *
+ * Each running server is asked every two seconds how many agents are at work in it and how many
+ * wait on the person, for its tab's spinner and dot. An agent in a project not on screen that
+ * comes to ask the person something, or finishes, is news: told over the editor on screen while
+ * the window is in front, by the system as the person's Notifications preference says while it is
+ * behind. The project on screen tells its own, from its page (`agent-notifications.ts`), so one
+ * event is told once. A project whose view was let go is asked all the same.
+ *
  * While a project opens its view says so on a splash, from the first moment until its editor is
  * ready (ADR 0099): each step with its time, the estimate from the project's last open, the last
  * line the start printed. Cancel closes its tab; a step that fails stays on the splash with why,
@@ -32,6 +39,7 @@ import { CONFIG_FILE_NAMES } from "@ultrapaint/contracts/settings";
 import type {
   FirstPrompt,
   ProjectLook,
+  ProjectNotice,
   ShellTab,
   TabState,
 } from "@ultrapaint/contracts/shell-bridge";
@@ -61,8 +69,11 @@ import {
 } from "./errors.ts";
 import { Folders } from "./folders.ts";
 import { LoginShell } from "./login-shell.ts";
+import { notifyPreference } from "./notify-preference.ts";
 import { OpeningReport } from "./opening-report.ts";
 import {
+  type AgentCounts,
+  NO_AGENTS,
   ProjectServer,
   type RunningServer,
   serverVersion,
@@ -86,7 +97,7 @@ export const MAX_VIEWS = 5;
  */
 const HOLD = 1_000_000;
 
-/** How often each running server is asked how many agents are at work in it, for its tab. */
+/** How often each running server is asked about its agents, for its tab and the notices. */
 const POLL_EVERY = "2 seconds";
 
 /** "a", "a and b", "a, b and c". */
@@ -146,6 +157,26 @@ const closeQuestion = (name: string, working: number) => ({
   message: `Close ${name}?`,
 });
 
+/** What changed in a project's agents that is news to the person: one asks, or one finished. */
+type News = ProjectNotice["news"];
+
+/**
+ * The news between what a server said of its agents and what it says now, if any: a new agent
+ * waiting on the person, else one fewer at work.
+ */
+export const newsOf = (before: AgentCounts, now: AgentCounts): News | null => {
+  if (now.waiting > before.waiting) {
+    return "asks";
+  }
+  return now.working < before.working ? "done" : null;
+};
+
+/** What the notice over the editor and the system's notification say of a project's news. */
+const NEWS_WORDS: Record<News, string> = {
+  asks: "an agent asks you something",
+  done: "an agent finished",
+};
+
 /**
  * Why a launch is stopped: its tab closed, the app quits, or another start of the tab is under
  * way already (which the tab's lock rules out; refused rather than run twice).
@@ -173,11 +204,18 @@ interface ShownOpening {
 
 /** An open project, as its tab holds it. */
 interface Tab {
+  /** The agents at work in it and waiting on the person, as its server last said. */
+  agents: AgentCounts;
   /**
    * The start screen's prompt, until its editor takes it. Kept here rather than on the editor's
    * address, which could not hold its pictures.
    */
   firstPrompt: FirstPrompt | null;
+  /**
+   * The server `agents` was last heard from: the first answer of a server just started is no
+   * news, only what it says after.
+   */
+  heard: Running | null;
   readonly id: string;
   /** The start under way and how to stop it. */
   launch: { readonly stop: Deferred.Deferred<StopReason> } | null;
@@ -191,8 +229,6 @@ interface Tab {
   project: Project;
   /** Its server, once started and until it stops; none for a tab not shown since the start. */
   running: Running | null;
-  /** The agents at work in it, as its server last said. */
-  working: number;
 }
 
 export class OpenProjects extends Context.Service<
@@ -375,6 +411,10 @@ export class OpenProjects extends Context.Service<
         let views: string[] = [];
         /** The projects shown since the app started, the one shown most recently first. */
         let seen: string[] = [];
+        /** The notice of another project's news the views were told last; null when none is. */
+        let notice: ProjectNotice | null = null;
+        /** How many notices were made, each one's id. */
+        let noticesMade = 0;
         /** Once the app quits: no launch begins, and one that ends lets its server go. */
         let quitting = false;
         // Done once a signal stops the app: no question is answered yes after it.
@@ -444,11 +484,12 @@ export class OpenProjects extends Context.Service<
               (tab) =>
                 tab.running && !tab.running.server.attached
                   ? Effect.map(
-                      tab.running.server.working,
-                      (working): Busy => ({
+                      tab.running.server.agents,
+                      (said): Busy => ({
                         id: tab.id,
                         name: tab.project.name,
-                        working,
+                        working: Option.getOrElse(said, () => NO_AGENTS)
+                          .working,
                       })
                     )
                   : Effect.succeed<Busy>({
@@ -492,7 +533,10 @@ export class OpenProjects extends Context.Service<
           if (tab.opening && tab.opening.state.problem === undefined) {
             return "opening";
           }
-          return tab.working > 0 ? "working" : "idle";
+          if (tab.agents.waiting > 0) {
+            return "waiting";
+          }
+          return tab.agents.working > 0 ? "working" : "idle";
         };
 
         const tabsNow = (): ShellTab[] =>
@@ -787,7 +831,8 @@ export class OpenProjects extends Context.Service<
           Effect.suspend(() => {
             const was = tab.running;
             tab.running = null;
-            tab.working = 0;
+            tab.agents = NO_AGENTS;
+            tab.heard = null;
             return was ? stopServer(was.scope) : Effect.void;
           });
 
@@ -941,6 +986,8 @@ export class OpenProjects extends Context.Service<
           }
           shown = tab.id;
           seen = [tab.id, ...seen.filter((s) => s !== tab.id)];
+          // Its news is in sight now.
+          yield* clearNotice(tab.id);
           if (!(yield* loadView(tab))) {
             return;
           }
@@ -959,7 +1006,9 @@ export class OpenProjects extends Context.Service<
 
         /** A tab for `project`, not started. */
         const tabOf = (project: Project): Tab => ({
+          agents: NO_AGENTS,
           firstPrompt: null,
+          heard: null,
           id: project.id,
           launch: null,
           lock: Semaphore.makeUnsafe(1),
@@ -967,7 +1016,6 @@ export class OpenProjects extends Context.Service<
           opening: null,
           project,
           running: null,
-          working: 0,
         });
 
         /**
@@ -1029,7 +1077,10 @@ export class OpenProjects extends Context.Service<
           if (!running || running.server.attached) {
             return true;
           }
-          const working = yield* running.server.working;
+          const { working } = Option.getOrElse(
+            yield* running.server.agents,
+            () => NO_AGENTS
+          );
           return (
             working === 0 ||
             (yield* confirm(closeQuestion(tab.project.name, working)))
@@ -1072,6 +1123,7 @@ export class OpenProjects extends Context.Service<
           }
           // Its view let go, nothing of it calls the bridge any more.
           remoteIds.delete(id);
+          yield* clearNotice(id);
           yield* changed;
           yield* ofTab(tab)(release(tab)).pipe(
             Effect.ensuring(
@@ -1181,7 +1233,70 @@ export class OpenProjects extends Context.Service<
           Effect.as(stopAll, true)
         );
 
-        /** Asks each running server how many agents are at work in it, for the tabs. */
+        /**
+         * Tells the person a project's news: over the editor on screen while the window is in
+         * front, else by the system as their Notifications preference says (read now, so that a
+         * change in any project's editor holds at once).
+         */
+        const tellNews = Effect.fnUntraced(function* (tab: Tab, news: News) {
+          const { name } = tab.project;
+          if (yield* shell.focused) {
+            noticesMade += 1;
+            notice = {
+              id: String(noticesMade),
+              news,
+              project: tab.id,
+              title: `${name}: ${NEWS_WORDS[news]}`,
+            };
+            yield* shell.notice(notice);
+            return;
+          }
+          const preference = yield* folders.current.pipe(
+            Effect.flatMap(({ user }) => notifyPreference(user)),
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+            // A folder setting that cannot be read is no choice made: nothing is said.
+            Effect.orElseSucceed(() => "off" as const)
+          );
+          if (preference === "off") {
+            return;
+          }
+          const words = NEWS_WORDS[news];
+          yield* shell.alert({
+            body: `${words.charAt(0).toUpperCase()}${words.slice(1)}.`,
+            notification:
+              preference === "notification" || preference === "both",
+            project: tab.id,
+            sound: preference === "sound" || preference === "both",
+            title: name,
+          });
+        });
+
+        /** Takes the notice away when it is of `id`'s project. */
+        const clearNotice = (id: string) =>
+          Effect.suspend(() => {
+            if (notice?.project !== id) {
+              return Effect.void;
+            }
+            notice = null;
+            return shell.notice(null);
+          });
+
+        /** Takes in what a tab's server says of its agents now, and tells its news. */
+        const hear = (tab: Tab, running: Running, now: AgentCounts) =>
+          Effect.suspend(() => {
+            // Closed, stopped or started again while it was asked: the next poll's to ask.
+            if (!isOpen(tab) || tab.running !== running) {
+              return Effect.void;
+            }
+            const news = tab.heard === running ? newsOf(tab.agents, now) : null;
+            tab.agents = now;
+            tab.heard = running;
+            // The project on screen tells its own news, from its page.
+            return news && tab.id !== shown ? tellNews(tab, news) : Effect.void;
+          });
+
+        /** Asks each running server about its agents, for the tabs and the news. */
         const poll = Effect.andThen(
           Effect.suspend(() =>
             Effect.forEach(
@@ -1190,12 +1305,12 @@ export class OpenProjects extends Context.Service<
                 Effect.suspend(() => {
                   const { running } = tab;
                   return running
-                    ? Effect.map(running.server.working, (working) => {
-                        // Stopped or started again meanwhile, it is the next poll's to ask.
-                        if (tab.running === running) {
-                          tab.working = working;
-                        }
-                      })
+                    ? Effect.flatMap(running.server.agents, (said) =>
+                        // One that does not answer is asked again next time.
+                        Option.isSome(said)
+                          ? hear(tab, running, said.value)
+                          : Effect.void
+                      )
                     : Effect.void;
                 }),
               { concurrency: "unbounded", discard: true }

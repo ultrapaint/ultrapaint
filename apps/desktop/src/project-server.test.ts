@@ -2,10 +2,10 @@ import { createServer } from "node:http";
 import path from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, Exit, FileSystem, Layer, Scope } from "effect";
+import { Effect, Exit, FileSystem, Layer, Option, Scope } from "effect";
 import { APP_ORIGIN } from "./app-editor.ts";
 import {
-  agentsWorking,
+  agentsOf,
   ProjectServer,
   serverEnv,
   serverVersion,
@@ -107,7 +107,7 @@ describe("ProjectServer", () => {
           userDirIn: dir,
         });
         // It answers once all it wrote was read: a pipe left unread would hold it, or end it.
-        assert.strictEqual(yield* running.working, 1);
+        assert.strictEqual(Option.getOrThrow(yield* running.agents).working, 1);
       }).pipe(Effect.scoped, Effect.provide(withFake))
   );
 
@@ -135,9 +135,9 @@ describe("ProjectServer", () => {
   );
 });
 
-describe("agentsWorking", () => {
+describe("agentsOf", () => {
   it.effect(
-    "reads how many agents are at work, from the run it was told of only",
+    "reads how many agents are at work and how many wait on the person, from the run it was told of only",
     () =>
       Effect.gen(function* () {
         const server = createServer((_request, response) => {
@@ -147,6 +147,7 @@ describe("agentsWorking", () => {
               ok: true,
               token: "run-1",
               version: "1.2.3",
+              waiting: 1,
               working: 2,
             })
           );
@@ -167,13 +168,15 @@ describe("agentsWorking", () => {
           })
         );
         const url = `http://127.0.0.1:${port}`;
-        assert.strictEqual(yield* agentsWorking(url, "run-1"), 2);
+        assert.deepStrictEqual(
+          yield* agentsOf(url, "run-1"),
+          Option.some({ waiting: 1, working: 2 })
+        );
         // Another server on the port is not the one the app started.
-        assert.strictEqual(yield* agentsWorking(url, "run-2"), 0);
+        assert.isTrue(Option.isNone(yield* agentsOf(url, "run-2")));
         // Nothing answers: nothing to cut off.
-        assert.strictEqual(
-          yield* agentsWorking("http://127.0.0.1:9", "run-1"),
-          0
+        assert.isTrue(
+          Option.isNone(yield* agentsOf("http://127.0.0.1:9", "run-1"))
         );
         // And the version it runs, which decides the editor it is shown in (ADR 0100).
         assert.strictEqual(yield* serverVersion(url), "1.2.3");
