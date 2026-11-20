@@ -38,7 +38,7 @@ export type AgentSetup = ShellPlatform["agents"];
 export type FolderSetup = ShellPlatform["folders"];
 
 /** The shell's list of projects, which its start page opens. One project is open at a time. */
-export type ProjectSwitcher = ShellPlatform["projects"];
+export type ShellProjects = ShellPlatform["projects"];
 
 /** The shell's status, as it changes. */
 export type ShellStatusSource = ShellPlatform["shellStatus"];
