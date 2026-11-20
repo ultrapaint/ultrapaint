@@ -35,7 +35,7 @@ the page. Weights under `300` are for display sizes, `28px` and up.
 ## A public page's type
 
 - **The hero**: one size, by character: **technical** about `64px`, **humanistic** about `76px`,
-  **expressive** `90–140px`; on a phone about half, `36–44px`. Weight by character: **technical** `600`, **humanistic** `500`, **expressive** `800`; a brand set light and friendly keeps `400–500`; never lighter than the brand's own wordmark; tracked `-0.02em` to `-0.03em`; sentence case. Uppercase headlines are a character's
+  **expressive** `90–140px`; on a phone about half, `36–44px`. Weight by character: **technical** `600`, **humanistic** `500`, **expressive** `800`; a brand set light and friendly keeps `400–500`; heavier where the brand's own wordmark is; tracked `-0.02em` to `-0.03em`; sentence case. Uppercase headlines are a character's
   choice (a restaurant, a brand page), not a default.
 - **Sizes**: about five across the page; everything but the hero is plainly smaller, so the
   headline carries the rank alone.
