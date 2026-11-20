@@ -22,6 +22,16 @@ same everywhere. The welcome's project list already did.
     URL in the inspector): `font-body`, the row's token;
   - in a sentence: the sentence's token, in the foreground when the sentence is muted;
   - in a field: the field's own `font-body`.
+- **A path on one line is cut at its start** (`CutPath`), as T3 Code cuts a file's name in the
+  middle to keep its extension: what does not fit leaves from the left, so the last folder or the
+  file name stays in sight (`…/shop/src/pages/checkout.tsx`), and the tooltip shows it whole.
+  The box runs right to left and the path in it left to right, so its slashes stay where they
+  are written. A remote project's `host:` stays whole before its folder, as it tells two copies
+  of one folder apart. A project's folder under its name, a picture's path, a skill's file, a
+  tool call's files and a migration's folder are cut so; inside a row whose own tooltip says
+  more, the path opens none of its own. A route, short and read from its start, a list of
+  files and a sentence with a path in it keep the end cut; a field and a path that wraps are
+  not cut.
 - **Geist Mono stays for code**: a command (`node --version`), a token's name and value, a class
   (`max-md:hidden`, an option's description marked `code`), an element's tag, a JSON place, an
   environment variable, a package name, a slash command, a log or terminal's lines, a code block.
@@ -34,5 +44,7 @@ same everywhere. The welcome's project list already did.
   is as high as one with a name.
 - A path no longer stands out by its face. Under a name it stands out by being muted, in a
   sentence by being in the foreground.
+- Two long paths in the same project no longer read alike, cut to the same first folders: each
+  ends on its own name.
 - The Routes list, the comments' page groups and Problems' file headings read in the face of the
   names beside them.

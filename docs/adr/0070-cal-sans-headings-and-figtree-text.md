@@ -1,7 +1,8 @@
 # ADR 0070: Cal Sans for the headings, Figtree for the rest
 
 Status: accepted, 2026-11-09. Amends 0058 (the editor's faces). The roles named here are
-Atlassian's type tokens since 0071.
+Atlassian's type tokens since 0071. Amended by 0108 (a path, a URL or a file name is Figtree,
+not Geist Mono).
 
 ## Context
 
@@ -17,7 +18,7 @@ headings and Figtree for the text.
   display sizes, and at 14 and 16 its words run together, so both roles open it by 0.02em.
 - **Every other role** (body, label, small, caption) is Figtree, loaded with
   `@fontsource-variable/figtree`, at the sizes, weights and line heights Onest had.
-- **Geist Mono** stays for values, tokens and code (paths, URLs and file names: Figtree, 0108).
+- **Geist Mono** stays for values, tokens and code.
 - The boards' documentation (`UI_FONT` in `boards/board-nodes.ts`) and the splash drawn before the
   editor's code arrives (`index.html`) take Figtree with the rest.
 

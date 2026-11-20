@@ -39,6 +39,7 @@ import { cn } from "@/lib/cn";
 import { UpdateButton } from "./components/app-update.tsx";
 import { TextFileChip } from "./components/chip.tsx";
 import { composerBox, composerText } from "./components/composer-style.ts";
+import { CutPath } from "./components/cut-path.tsx";
 import { DialogHost } from "./components/dialogs.tsx";
 import { FileDropBox, FilesInput } from "./components/file-drop.tsx";
 import { IconButton } from "./components/icon-button.tsx";
@@ -568,12 +569,10 @@ const ProjectRow = ({
     >
       <span className="truncate font-body-medium">{project.name}</span>
       {project.detail ? (
-        <span
-          className="truncate font-body-small text-muted-foreground"
-          title={project.detail}
-        >
-          {project.detail}
-        </span>
+        <CutPath
+          className="font-body-small text-muted-foreground"
+          path={project.detail}
+        />
       ) : null}
     </button>
     <DropdownMenu>

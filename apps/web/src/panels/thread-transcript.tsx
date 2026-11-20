@@ -28,6 +28,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
+import { CutPath } from "../components/cut-path.tsx";
 import { CutText } from "../components/cut-text.tsx";
 import { Markdown } from "../components/markdown.tsx";
 import { isOpenQuestion } from "../lib/answers.ts";
@@ -321,7 +322,7 @@ const DiffContentView = ({
   return (
     <div>
       <div className="flex items-center gap-2 px-2.5 font-body-small text-muted-foreground">
-        <CutText className="min-w-0 truncate">{content.path}</CutText>
+        <CutPath path={content.path} />
         <span className="ml-auto shrink-0 text-foreground tabular-nums">
           +{added}
         </span>
@@ -412,9 +413,10 @@ const ToolCall = ({ item, threadId }: { item: ToolItem; threadId: string }) => {
           {item.locations.length > 0 && (
             <div className="px-2.5 font-body-small text-muted-foreground">
               {item.locations.map((l) => (
-                <div className="truncate" key={`${l.path}:${l.line ?? ""}`}>
-                  {l.line === undefined ? l.path : `${l.path}:${l.line}`}
-                </div>
+                <CutPath
+                  key={`${l.path}:${l.line ?? ""}`}
+                  path={l.line === undefined ? l.path : `${l.path}:${l.line}`}
+                />
               ))}
             </div>
           )}

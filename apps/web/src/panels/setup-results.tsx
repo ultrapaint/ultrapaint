@@ -29,6 +29,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
+import { CutPath } from "../components/cut-path.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { mapTargetsOf } from "../lib/map-targets.ts";
 import { useDesignSystem } from "../state/design-system.ts";
@@ -360,7 +361,7 @@ const BatchRow = ({ batch }: { batch: MigrationBatch }) => {
     <Tooltip>
       <TooltipTrigger render={<li className="flex flex-col gap-1 py-1.5" />}>
         <span className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate font-body">{batch.dir}</span>
+          <CutPath className="font-body" path={batch.dir} tooltip={false} />
           <span className="shrink-0 font-body-small text-muted-foreground">
             {batch.files.length} {batch.files.length === 1 ? "file" : "files"}
           </span>

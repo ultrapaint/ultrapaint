@@ -26,6 +26,7 @@ import { removeFromList } from "../lib/remove-project.ts";
 import { type PlatformProject, platform } from "../platform.ts";
 import { useShellTabs } from "../state/shell-tabs.ts";
 import { useWindowChrome } from "../state/window-controls.ts";
+import { CutPath } from "./cut-path.tsx";
 import { DialogHost, useDialogOpen } from "./dialogs.tsx";
 import { ProjectIcon } from "./project-icon.tsx";
 import {
@@ -156,9 +157,10 @@ const RecentItem = ({
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate">{project.name}</span>
         {project.detail ? (
-          <span className="truncate font-body-small text-muted-foreground">
-            {project.detail}
-          </span>
+          <CutPath
+            className="font-body-small text-muted-foreground"
+            path={project.detail}
+          />
         ) : null}
       </span>
       <button

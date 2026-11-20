@@ -33,6 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { AgentIcon } from "../components/agent-icon.tsx";
+import { CutPath } from "../components/cut-path.tsx";
 import { CutText } from "../components/cut-text.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { Markdown } from "../components/markdown.tsx";
@@ -314,9 +315,10 @@ const SkillRow = ({
         <>
           <CutText className="line-clamp-2">{skill.summary}</CutText>
           {skill.file ? (
-            <span className="mt-0.5 block truncate">
-              {skill.file.replace(SKILL_FILE_RE, "")}
-            </span>
+            <CutPath
+              className="mt-0.5"
+              path={skill.file.replace(SKILL_FILE_RE, "")}
+            />
           ) : null}
           {shown ? (
             <div className="mt-2 max-h-96 overflow-y-auto rounded-md bg-muted p-3 font-body text-foreground">
