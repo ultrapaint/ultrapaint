@@ -9,6 +9,7 @@ import {
   type PlatformProject,
   setPlatform,
 } from "../platform.ts";
+import { closeRemoteProject } from "./remote-project-dialog.tsx";
 import { TabStripPage } from "./tab-strip.tsx";
 
 (
@@ -122,6 +123,8 @@ const item = (text: string) =>
 afterEach(() => {
   act(() => mounted?.unmount());
   mounted = null;
+  // A dialog left open would cover the window from the next test's first draw.
+  closeRemoteProject();
   setPlatform(null);
   document.body.innerHTML = "";
 });
