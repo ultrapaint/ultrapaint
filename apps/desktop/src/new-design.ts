@@ -3,7 +3,7 @@
  * by the server's own `ultrapaint new`, the command's code path, run as the project's server is
  * (Electron's binary as Node, the login shell's PATH, so the user's Node and pnpm or npm install
  * it). Each line it prints is a step the start screen shows; once it is written, the folder joins
- * the project list and opens in place of the open project.
+ * the project list and opens in a tab of its own (ADR 0107).
  */
 import { NewDesignProgressLine } from "@ultrapaint/contracts/new-design";
 import type {
@@ -27,7 +27,7 @@ import {
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { DESIGNS_HOME, Folders } from "./folders.ts";
 import { LoginShell } from "./login-shell.ts";
-import { OpenProject } from "./open-project.ts";
+import { OpenProjects } from "./open-projects.ts";
 import { type ServerLaunch, serverEnv } from "./project-server.ts";
 
 const decodeLine = Schema.decodeUnknownOption(NewDesignProgressLine);
@@ -75,7 +75,7 @@ export class NewDesigns extends Context.Service<
         const path = yield* Path.Path;
         const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
         const { env } = yield* LoginShell;
-        const projects = yield* OpenProject;
+        const projects = yield* OpenProjects;
         const folders = yield* Folders;
 
         const folderFor = Effect.fn("NewDesigns.folderFor")(function* (
@@ -217,7 +217,7 @@ export class NewDesigns extends Context.Service<
                     ? { state: "done", step: "open" }
                     : {
                         detail:
-                          "The open project stays open, for its agent to finish. The design is in the list.",
+                          "The app is quitting. The design is in the list.",
                         state: "skipped",
                         step: "open",
                       }

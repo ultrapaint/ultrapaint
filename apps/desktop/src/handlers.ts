@@ -20,12 +20,13 @@ import { Effect, FileSystem, Option, Path, Schema } from "effect";
 import { AgentSettings } from "./agent-settings.ts";
 import { Agents } from "./agents.ts";
 import type { BridgeHandlers } from "./bridge-server.ts";
+import { Caller } from "./caller.ts";
 import { CommandLine } from "./command-line.ts";
 import { PathNotShown } from "./errors.ts";
 import { Folders } from "./folders.ts";
 import { NewDesigns } from "./new-design.ts";
 import { Notices } from "./notices.ts";
-import { OpenProject } from "./open-project.ts";
+import { OpenProjects } from "./open-projects.ts";
 import { ProjectStore, projectDetail, remoteInputOf } from "./projects.ts";
 import { Shell } from "./shell.ts";
 import { readSshHosts } from "./ssh-hosts.ts";
@@ -33,6 +34,11 @@ import { Updater } from "./updater.ts";
 
 /** What the handlers need besides the app's services. */
 interface HandlerOptions {
+  /**
+   * Has the tab strip cover the window, or go back to its strip (`projects.coverWindow`): the
+   * window's own business, so the main process gives it. Nothing without.
+   */
+  readonly coverWindow?: (cover: boolean) => Effect.Effect<void>;
   /** The user's home directory, which `~` in the SSH configuration names. */
   readonly home: string;
   /**
@@ -48,12 +54,13 @@ interface HandlerOptions {
 export type HandlerServices =
   | AgentSettings
   | Agents
+  | Caller
   | CommandLine
   | FileSystem.FileSystem
   | Folders
   | NewDesigns
   | Notices
-  | OpenProject
+  | OpenProjects
   | Path.Path
   | ProjectStore
   | Shell
@@ -84,7 +91,8 @@ const chatPreferences = Effect.gen(function* () {
 
 /**
  * Moves the person's folder into one they pick (ADR 0091): refused before anything stops when it
- * can't go there, then copied with the open project's server stopped, which starts again on it.
+ * can't go there, then copied with the servers of the projects open here stopped, which start
+ * again on it.
  */
 const moveUserFolder = Effect.gen(function* () {
   const folders = yield* Folders;
@@ -99,7 +107,7 @@ const moveUserFolder = Effect.gen(function* () {
     return {} satisfies FolderMove;
   }
   yield* folders.checkMove(picked.value);
-  const moved = yield* OpenProject.use((o) =>
+  const moved = yield* OpenProjects.use((o) =>
     o.whileStopped(folders.moveUser(picked.value))
   );
   return Option.match(moved, {
@@ -141,17 +149,31 @@ const inspectFolder = (folder: string) =>
     return { kind: empty ? "empty" : "folder", name } satisfies FolderKind;
   });
 
-/** Whether the open project's server runs on another machine: it hides this machine's own. */
-export const remoteOpen = Effect.map(
-  OpenProject.use((o) => o.current),
-  (current) => Option.isSome(current) && current.value.kind === "ssh"
-);
+/**
+ * Whether the calling page's project runs on another machine: its page is shown none of this
+ * machine's own (ADR 0107). The tab strip and Home are this machine's.
+ */
+export const callerRemote = Effect.gen(function* () {
+  const { project } = yield* Caller;
+  return project === null
+    ? false
+    : yield* OpenProjects.use((o) => o.isRemote(project));
+});
 
-/** A change to an agent, applied by starting the project's server again. */
+/** The calling page's project, for a call that is about it; nothing from a page of none. */
+const ownProject = <A, R>(
+  run: (id: string) => Effect.Effect<A, never, R>,
+  none: A
+) =>
+  Caller.use(({ project }) =>
+    project === null ? Effect.succeed(none) : run(project)
+  );
+
+/** A change to an agent, applied by starting every running project's server again. */
 const thenRestart = <A, E, R>(change: Effect.Effect<A, E, R>) =>
   Effect.andThen(
     change,
-    OpenProject.use((o) => o.restart)
+    OpenProjects.use((o) => o.restart)
   );
 
 /** Where the agent's executable is: the one picked, or the PATH's with `undefined`. */
@@ -239,50 +261,75 @@ export const bridgeHandlers = (
       ),
       Option.getOrNull
     ),
-  "projects.add": () => Effect.asVoid(OpenProject.use((o) => o.add)),
+  "projects.add": () => Effect.asVoid(OpenProjects.use((o) => o.add)),
   /**
    * What is wrong with the fields comes back to the dialog; a project that does not open shows
-   * why on the welcome page, as any project does.
+   * why on its splash, as any project does.
    */
   "projects.addRemote": (request) => {
     const checked = remoteInputOf(request);
     return "problem" in checked
       ? Effect.succeed({ problem: checked.problem })
       : Effect.as(
-          Effect.ignore(OpenProject.use((o) => o.addRemote(checked.input))),
+          // Failed, its splash says why.
+          Effect.ignore(OpenProjects.use((o) => o.addRemote(checked.input))),
           {}
         );
   },
+  "projects.close": (id) =>
+    id === undefined
+      ? ownProject(
+          (own) => Effect.asVoid(OpenProjects.use((o) => o.close(own))),
+          undefined
+        )
+      : Effect.asVoid(OpenProjects.use((o) => o.close(id))),
+  "projects.coverWindow": (cover) =>
+    options.coverWindow?.(cover) ?? Effect.void,
   "projects.current": () =>
     Effect.map(
-      OpenProject.use((o) => o.current),
+      OpenProjects.use((o) => o.current),
       (current) => Option.getOrNull(current)?.id ?? null
+    ),
+  "projects.describe": (look) =>
+    ownProject(
+      (own) => OpenProjects.use((o) => o.describe(own, look)),
+      undefined
     ),
   "projects.inspect": (folder) => inspectFolder(folder),
   "projects.list": () =>
     Effect.gen(function* () {
-      const open = yield* OpenProject;
+      const open = yield* OpenProjects;
       const projects = yield* ProjectStore.use((store) => store.list);
       return yield* Effect.forEach(projects, (p) =>
         Effect.map(open.unsaved(p), (unsaved) => ({
           detail: projectDetail(p),
+          ...(p.icon ? { icon: p.icon } : {}),
           id: p.id,
           name: p.name,
           unsaved,
         }))
       );
     }),
-  "projects.open": (id) => OpenProject.use((o) => o.open(id)),
+  "projects.open": (id) => OpenProjects.use((o) => o.open(id)),
   "projects.openFolder": (folder, start?: FirstPrompt) =>
     Effect.asVoid(
-      OpenProject.use((o) => o.openFolder(folder, undefined, start))
+      OpenProjects.use((o) => o.openFolder(folder, undefined, start))
     ),
   "projects.openingDone": (times) =>
-    OpenProject.use((o) => o.openingDone(times)),
-  "projects.remove": (id) => OpenProject.use((o) => o.remove(id)),
-  "projects.retryOpening": () => OpenProject.use((o) => o.retryOpening),
-  "projects.showStart": () => OpenProject.use((o) => o.showStart),
+    ownProject(
+      (own) => OpenProjects.use((o) => o.openingDone(own, times)),
+      undefined
+    ),
+  "projects.remove": (id) => OpenProjects.use((o) => o.remove(id)),
+  "projects.retryOpening": () =>
+    ownProject(
+      (own) => OpenProjects.use((o) => o.retryOpening(own)),
+      undefined
+    ),
+  "projects.show": (id) => OpenProjects.use((o) => o.show(id)),
   "projects.sshHosts": () => readSshHosts(options.sshConfig, options.home),
-  "projects.stopOpening": () => OpenProject.use((o) => o.stopOpening),
-  "projects.takeFirstPrompt": () => OpenProject.use((o) => o.takeFirstPrompt),
+  "projects.stopOpening": () =>
+    ownProject((own) => OpenProjects.use((o) => o.stopOpening(own)), undefined),
+  "projects.takeFirstPrompt": () =>
+    ownProject((own) => OpenProjects.use((o) => o.takeFirstPrompt(own)), null),
 });

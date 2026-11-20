@@ -302,6 +302,14 @@
   }
 }
 
+/*
+ * The tab strip's page (`tabs.html`, ADR 0107): see-through under the strip, so that, covering
+ * the window for a menu or a dialog of its own, it shows the project's page under them.
+ */
+body.tabs-page {
+  background: transparent;
+}
+
 html,
 body,
 #root {

@@ -1,6 +1,6 @@
 /** Fakes of what the app's services ask of Electron and of the server, for tests. */
 import type { Opening } from "@ultrapaint/contracts/opening";
-import type { ShellStatus } from "@ultrapaint/contracts/shell-bridge";
+import type { ShellStatus, ShellTab } from "@ultrapaint/contracts/shell-bridge";
 import { Effect, Layer, Option } from "effect";
 import { ServerStartError } from "./errors.ts";
 import { OpeningReport } from "./opening-report.ts";
@@ -17,14 +17,20 @@ export interface Recorded {
   answers: (boolean | Effect.Effect<boolean>)[];
   /** What declining each question was called, in order. */
   declines: string[];
+  /** What each question said at more length, in order. */
+  details: string[];
+  /** The projects whose page was let go, in order. */
+  drops: string[];
   events: string[];
-  /** What the window was told of the project opening, in order: `null` once none is. */
+  /** What each project's page was told of its opening, in order: `null` once none is. */
   openings: (Opening | null)[];
   /** The titles of the pickers opened, in order. */
   pickers: string[];
   /** Paths the next pickers return; cancelled when there are none left. */
   picks: string[];
   questions: string[];
+  /** What the window put on screen, in order: a project's page by its id, or Home (`null`). */
+  shown: (string | null)[];
   /**
    * Folders whose server, at its next start, never says where it listens: the start is
    * recorded as a connection, and given up when what waits for it is stopped.
@@ -34,7 +40,12 @@ export interface Recorded {
   starts: ServerOptions[];
   /** What the window was told the app is doing, `null` once it is done. */
   statuses: (ShellStatus | null)[];
+  /** What the tab strip was told, in order. */
+  tabs: (readonly ShellTab[])[];
+  /** What was loaded in the projects' pages, in order: the last is the latest. */
   views: View[];
+  /** Which project's page each of `views` was loaded in. */
+  viewsIn: string[];
   /** Told when an event or a question is recorded: what `until` waits on. */
   readonly watchers: Set<() => void>;
   /** How many agents each folder's server says are at work. */
@@ -44,15 +55,20 @@ export interface Recorded {
 export const makeRecorded = (): Recorded => ({
   answers: [],
   declines: [],
+  details: [],
+  drops: [],
   events: [],
   openings: [],
   pickers: [],
   picks: [],
   questions: [],
+  shown: [],
   stalled: [],
   starts: [],
   statuses: [],
+  tabs: [],
   views: [],
+  viewsIn: [],
   watchers: new Set(),
   working: {},
 });
@@ -95,15 +111,22 @@ export const fakeShell = (recorded: Recorded) =>
   Layer.succeed(
     Shell,
     Shell.of({
-      confirm: ({ cancel, message }) =>
+      confirm: ({ cancel, detail, message }) =>
         Effect.suspend(() => {
           recorded.questions.push(message);
+          recorded.details.push(detail);
           recorded.declines.push(cancel ?? "Cancel");
           tellWatchers(recorded);
           const answer = recorded.answers.shift() ?? true;
           return typeof answer === "boolean" ? Effect.succeed(answer) : answer;
         }),
-      opening: (opening) =>
+      drop: (project) => Effect.sync(() => recorded.drops.push(project)),
+      load: (project, view) =>
+        Effect.sync(() => {
+          recorded.views.push(view);
+          recorded.viewsIn.push(project);
+        }),
+      opening: (_project, opening) =>
         Effect.sync(() => {
           recorded.openings.push(opening);
           tellWatchers(recorded);
@@ -123,8 +146,14 @@ export const fakeShell = (recorded: Recorded) =>
           recorded.pickers.push(title);
           return Option.fromNullishOr(recorded.picks.shift());
         }),
-      show: (view) => Effect.sync(() => recorded.views.push(view)),
-      status: (status) => Effect.sync(() => recorded.statuses.push(status)),
+      show: (project) => Effect.sync(() => recorded.shown.push(project)),
+      status: (_project, status) =>
+        Effect.sync(() => recorded.statuses.push(status)),
+      tabs: (tabs) =>
+        Effect.sync(() => {
+          recorded.tabs.push(tabs);
+          tellWatchers(recorded);
+        }),
     })
   );
 

@@ -13,7 +13,7 @@ export const APP_ORIGIN = `${APP_SCHEME}://app`;
 /** Where the app's editor is loaded from; it reaches its server at the bridge's `editorServer`. */
 export const APP_EDITOR_URL = `${APP_ORIGIN}/`;
 
-/** The app's own editor as `OpenProject` shows it: where it loads, and the servers it talks to. */
+/** The app's own editor as `OpenProjects` shows it: where it loads, and the servers it talks to. */
 export interface AppEditor {
   readonly url: string;
   /** The version of `ultrapaint` a server must run to be shown in it: the app's own. */

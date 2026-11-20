@@ -143,6 +143,9 @@ const onPromptOpenChange = (o: boolean) => {
 const acceptConfirm = () => settleConfirm(true);
 const selectOnFocus = (e: FocusEvent<HTMLInputElement>) => e.target.select();
 
+/** Whether a question or a prompt is on screen: the tab strip covers the window while one is. */
+export const useDialogOpen = () => useDialogs((s) => s.open);
+
 export const DialogHost = () => {
   const request = useDialogs((s) => s.request);
   const open = useDialogs((s) => s.open);

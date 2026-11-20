@@ -22,9 +22,10 @@ export default defineConfig({
   build: {
     outDir: "dist",
     rolldownOptions: {
-      // The editor, and the desktop app's page for when no project is open.
+      // The editor, the desktop app's start page and its tabs over the window.
       input: {
         index: fileURLToPath(new URL("./index.html", import.meta.url)),
+        tabs: fileURLToPath(new URL("./tabs.html", import.meta.url)),
         welcome: fileURLToPath(new URL("./welcome.html", import.meta.url)),
       },
     },

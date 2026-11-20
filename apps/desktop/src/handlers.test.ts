@@ -3,17 +3,18 @@ import { assert, describe, it } from "@effect/vitest";
 import { Effect, FileSystem, Layer, Path } from "effect";
 import { AgentSettings } from "./agent-settings.ts";
 import { Agents, makeRuntime } from "./agents.ts";
+import { Caller } from "./caller.ts";
 import { CommandLine } from "./command-line.ts";
 import { Folders } from "./folders.ts";
 import {
   bridgeHandlers,
+  callerRemote,
   type HandlerServices,
-  remoteOpen,
 } from "./handlers.ts";
 import { LoginShell } from "./login-shell.ts";
 import { NewDesigns } from "./new-design.ts";
 import { Notices } from "./notices.ts";
-import { OpenProject } from "./open-project.ts";
+import { OpenProjects } from "./open-projects.ts";
 import { ProjectStore } from "./projects.ts";
 import {
   fakeRemoteProjects,
@@ -87,7 +88,9 @@ const withHandlers = <A, E>(
           node: Effect.succeed({ _tag: "Missing" }),
         })
       ),
-      OpenProject.layer(dir),
+      OpenProjects.layer(dir),
+      // A page of no project (Home, the strip) unless a test calls from a project's.
+      Caller.layer(null),
       CommandLine.layer({
         app: {
           _tag: "Bundle",
@@ -120,8 +123,12 @@ const withHandlers = <A, E>(
     );
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
 
+/** Whether the page of `id`'s project is shown none of this machine's capabilities. */
+const remoteFor = (id: string) =>
+  callerRemote.pipe(Effect.provide(Caller.layer(id)));
+
 describe("the bridge's handlers", () => {
-  it.effect("list the projects with where each is, and the open one", () =>
+  it.effect("list the projects with where each is, and the one shown", () =>
     withHandlers((handlers, recorded) =>
       Effect.gen(function* () {
         const store = yield* ProjectStore;
@@ -189,8 +196,9 @@ describe("the bridge's handlers", () => {
             {}
           );
           assert.deepStrictEqual(recorded.events, ["start devbox:site"]);
-          assert.isTrue(yield* remoteOpen);
-          // One that cannot be reached is the welcome page's to say, not the dialog's.
+          const site = yield* handlers["projects.current"]();
+          assert.isTrue(yield* remoteFor(site ?? ""));
+          // One that cannot be reached is its splash's to say, not the dialog's.
           assert.deepStrictEqual(
             yield* handlers["projects.addRemote"]({
               host: "down",
@@ -203,7 +211,7 @@ describe("the bridge's handlers", () => {
   );
 
   it.effect(
-    "remove a project from the list, and say why the open one stays",
+    "remove a project from the list, and say why an open one stays",
     () =>
       withHandlers((handlers) =>
         Effect.gen(function* () {
@@ -224,22 +232,78 @@ describe("the bridge's handlers", () => {
           );
           assert.strictEqual(
             refused.message,
-            "shop is open. Open another project, then remove it from the list."
+            "shop is open. Close its tab, then remove it from the list."
           );
           assert.strictEqual(yield* handlers["projects.current"](), shop.id);
         })
       )
   );
 
-  it.effect("tell a local project from a remote one", () =>
-    withHandlers((handlers) =>
-      Effect.gen(function* () {
-        assert.isFalse(yield* remoteOpen);
-        const store = yield* ProjectStore;
-        yield* handlers["projects.open"]((yield* store.add("/work/shop")).id);
-        assert.isFalse(yield* remoteOpen);
-      })
-    )
+  it.effect(
+    "show a page this machine's capabilities unless its project is on another machine",
+    () =>
+      withHandlers((handlers) =>
+        Effect.gen(function* () {
+          // Home and the strip are this machine's.
+          assert.isFalse(yield* callerRemote);
+          const store = yield* ProjectStore;
+          const shop = yield* store.add("/work/shop");
+          yield* handlers["projects.open"](shop.id);
+          yield* handlers["projects.addRemote"]({
+            host: "devbox",
+            path: "~/site",
+          });
+          const site = yield* handlers["projects.current"]();
+          assert.isFalse(yield* remoteFor(shop.id));
+          assert.isTrue(yield* remoteFor(site ?? ""));
+        })
+      )
+  );
+
+  it.effect(
+    "answer a page's calls for its own project: its prompt, its open done, its close",
+    () =>
+      withHandlers((handlers, recorded) =>
+        Effect.gen(function* () {
+          const start = { look: "agent", prompt: "A shop" } as const;
+          yield* handlers["projects.openFolder"]("/work/shop", start);
+          const shop = (yield* handlers["projects.current"]()) ?? "";
+          yield* handlers["projects.openFolder"]("/work/blog");
+          const blog = (yield* handlers["projects.current"]()) ?? "";
+          const fromPage =
+            (id: string) =>
+            <A, E, R>(call: Effect.Effect<A, E, R>) =>
+              call.pipe(Effect.provide(Caller.layer(id)));
+          assert.isNull(
+            yield* fromPage(blog)(handlers["projects.takeFirstPrompt"]())
+          );
+          assert.deepStrictEqual(
+            yield* fromPage(shop)(handlers["projects.takeFirstPrompt"]()),
+            start
+          );
+          // From Home, none.
+          assert.isNull(yield* handlers["projects.takeFirstPrompt"]());
+          yield* fromPage(shop)(handlers["projects.openingDone"]({}));
+          assert.deepStrictEqual(
+            (yield* handlers["projects.list"]()).map((p) => p.name),
+            ["blog", "shop"]
+          );
+          yield* fromPage(shop)(
+            handlers["projects.describe"]({ name: "Shop admin" })
+          );
+          yield* fromPage(shop)(handlers["projects.close"](undefined));
+          assert.deepStrictEqual(
+            recorded.events.filter((e) => e.startsWith("stop")),
+            ["stop shop"]
+          );
+          assert.deepStrictEqual(
+            (yield* handlers["projects.list"]()).map((p) => p.name),
+            ["blog", "Shop admin"]
+          );
+          yield* handlers["projects.close"](blog);
+          assert.isNull(yield* handlers["projects.current"]());
+        })
+      )
   );
 
   it.effect(
@@ -451,15 +515,13 @@ describe("the bridge's handlers", () => {
             _tag: "Editor",
             url: "http://127.0.0.1/shop",
           });
-          assert.deepStrictEqual(
-            yield* handlers["projects.takeFirstPrompt"](),
-            start
+          const shop = (yield* handlers["projects.current"]()) ?? "";
+          const take = handlers["projects.takeFirstPrompt"]().pipe(
+            Effect.provide(Caller.layer(shop))
           );
+          assert.deepStrictEqual(yield* take, start);
           // Taken, a reload of the editor sends nothing again.
-          assert.strictEqual(
-            yield* handlers["projects.takeFirstPrompt"](),
-            null
-          );
+          assert.strictEqual(yield* take, null);
         })
       )
   );
@@ -487,46 +549,27 @@ describe("the bridge's handlers", () => {
   );
 
   it.effect(
-    "show the start screen with the open project kept behind it, and go back to it",
-    () =>
-      withHandlers((handlers, recorded) =>
-        Effect.gen(function* () {
-          const store = yield* ProjectStore;
-          const shop = yield* store.add("/work/shop");
-          yield* handlers["projects.open"](shop.id);
-          yield* handlers["projects.showStart"]();
-          assert.deepStrictEqual(recorded.views.at(-1), {
-            _tag: "Welcome",
-            back: "shop",
-          });
-          yield* handlers["projects.open"](shop.id);
-          assert.deepStrictEqual(recorded.views.at(-1), {
-            _tag: "Editor",
-            url: "http://127.0.0.1/shop",
-          });
-          // Its server ran on behind the start screen.
-          assert.deepStrictEqual(recorded.events, ["start shop"]);
-        })
-      )
-  );
-
-  it.effect(
-    "open the folder of the project behind the start screen as its editor again, with the prompt",
+    "open the folder of an open project with a prompt: its tab shown, its editor loaded again to take it",
     () =>
       withHandlers((handlers, recorded) =>
         Effect.gen(function* () {
           yield* handlers["projects.openFolder"]("/work/shop");
-          yield* handlers["projects.showStart"]();
+          yield* handlers["projects.show"](null);
+          const loaded = recorded.views.length;
           yield* handlers["projects.openFolder"]("/work/shop", {
             look: "agent",
             prompt: "A bike shop",
           });
+          assert.strictEqual(recorded.views.length, loaded + 1);
           assert.deepStrictEqual(recorded.views.at(-1), {
             _tag: "Editor",
             url: "http://127.0.0.1/shop",
           });
+          const shop = (yield* handlers["projects.current"]()) ?? "";
           assert.deepStrictEqual(
-            yield* handlers["projects.takeFirstPrompt"](),
+            yield* handlers["projects.takeFirstPrompt"]().pipe(
+              Effect.provide(Caller.layer(shop))
+            ),
             { look: "agent", prompt: "A bike shop" }
           );
           // The server it had goes on: nothing started again.
@@ -550,22 +593,17 @@ describe("the bridge's handlers", () => {
       )
   );
 
-  it.effect(
-    "add the remote project behind the start screen as its editor again",
-    () =>
-      withHandlers((handlers, recorded) =>
-        Effect.gen(function* () {
-          const site = { host: "devbox", path: "~/site" };
-          yield* handlers["projects.addRemote"](site);
-          yield* handlers["projects.showStart"]();
-          yield* handlers["projects.addRemote"](site);
-          assert.deepStrictEqual(recorded.views.at(-1), {
-            _tag: "Editor",
-            url: "http://127.0.0.1/devbox/site",
-          });
-          assert.deepStrictEqual(recorded.events, ["start devbox:site"]);
-        })
-      )
+  it.effect("add a remote project open already by showing its tab", () =>
+    withHandlers((handlers, recorded) =>
+      Effect.gen(function* () {
+        const site = { host: "devbox", path: "~/site" };
+        yield* handlers["projects.addRemote"](site);
+        yield* handlers["projects.show"](null);
+        yield* handlers["projects.addRemote"](site);
+        assert.isNotNull(yield* handlers["projects.current"]());
+        assert.deepStrictEqual(recorded.events, ["start devbox:site"]);
+      })
+    )
   );
 });
 
@@ -597,7 +635,7 @@ const withHome = <A, E>(
 
 describe("the person's folders (ADR 0091)", () => {
   it.effect(
-    "move the person's folder: copied, the old one removed, and the open project's server started again on it",
+    "move the person's folder: copied, the old one removed, and the open projects' servers started again on it",
     () =>
       withHome((handlers, recorded, home) =>
         Effect.gen(function* () {
@@ -721,9 +759,7 @@ describe("the person's folders (ADR 0091)", () => {
           yield* fs.makeDirectory(sync);
           recorded.picks.push(sync);
           assert.deepStrictEqual(yield* handlers["folders.moveUser"](), {});
-          assert.deepStrictEqual(recorded.questions, [
-            "An agent is working in shop",
-          ]);
+          assert.deepStrictEqual(recorded.questions, ["Move your folder?"]);
           assert.deepStrictEqual(recorded.events, ["start shop"]);
           assert.isFalse(yield* fs.exists(path.join(sync, ".ultrapaint")));
           assert.strictEqual(

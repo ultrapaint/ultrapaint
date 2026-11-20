@@ -7,7 +7,7 @@ import { Agents, makeRuntime } from "./agents.ts";
 import { DESIGNS_HOME, Folders } from "./folders.ts";
 import { LoginShell } from "./login-shell.ts";
 import { folderNameOf, NewDesigns } from "./new-design.ts";
-import { OpenProject } from "./open-project.ts";
+import { OpenProjects } from "./open-projects.ts";
 import { ProjectStore } from "./projects.ts";
 import {
   fakeRemoteProjects,
@@ -48,7 +48,7 @@ const withApp = <A, E>(
         webDist: "/app/web",
       },
     }).pipe(
-      Layer.provideMerge(OpenProject.layer(path.join(home, "data"))),
+      Layer.provideMerge(OpenProjects.layer(path.join(home, "data"))),
       Layer.provideMerge(ProjectStore.layer(path.join(home, "data"))),
       Layer.provideMerge(
         Folders.layer({ dataDir: path.join(home, "data"), home })

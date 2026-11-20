@@ -1,9 +1,10 @@
 /**
  * The main process's side of the shell bridge (`@ultrapaint/contracts/shell-bridge`): one
  * handler per capability the page calls, registered from the table. A call is answered only for
- * the app's own window; its input is decoded by the capability's Schema (a `BridgeInputError`
- * otherwise), a capability the open project does not show is refused (`HiddenCapability`), the
- * handler runs, and its answer is encoded by the output's Schema. What fails reaches the page as
+ * one of the app's own pages, each for its own project (ADR 0107); its input is decoded by the
+ * capability's Schema (a `BridgeInputError` otherwise), a capability the page's project does not
+ * show is refused (`HiddenCapability`), the handler runs, and its answer is encoded by the
+ * output's Schema. What fails reaches the page as
  * its message, which is all Electron carries.
  *
  * Nothing of Electron: `main.ts` hands it `ipcMain` and how its effects run.
@@ -58,7 +59,7 @@ export type StateValue<K extends StateName> = StateValues[K];
 /** The states the window has; one not given is not shown (`windowControls` off a Mac). */
 export type BridgeStates = Partial<StateValues>;
 
-/** Whether the open project shows a capability: this machine's are hidden for a remote one. */
+/** Whether a page shows a capability: this machine's are hidden from a remote project's. */
 const isShown = (name: CapabilityName, remote: boolean) =>
   !remote || SHELL_BRIDGE[name].remote;
 
@@ -168,15 +169,21 @@ interface MainIpc<Sender extends BridgeSender> {
 }
 
 /**
- * Registers every capability the page calls: only `fromWindow`'s calls are answered, each run by
- * `run` (the app's runtime), and the steps of a call with progress go back to its sender.
+ * Registers every capability the pages call: only the calls of a page `pageOf` knows are
+ * answered, each run by `run` (the app's runtime) for that page, and the steps of a call with
+ * progress go back to its sender.
  */
-export const serveBridge = <R, Sender extends BridgeSender>(options: {
-  readonly fromWindow: (sender: Sender) => boolean;
+export const serveBridge = <R, Sender extends BridgeSender, Page>(options: {
   readonly handlers: BridgeHandlers<R>;
   readonly ipc: MainIpc<Sender>;
+  /** The app's page a call comes from; none for any other. */
+  readonly pageOf: (sender: Sender) => Page | undefined;
+  /** Whether the page's project is on another machine. */
   readonly remote: Effect.Effect<boolean, never, R>;
-  readonly run: <A, E>(effect: Effect.Effect<A, E, R>) => Promise<A>;
+  readonly run: <A, E>(
+    effect: Effect.Effect<A, E, R>,
+    page: Page
+  ) => Promise<A>;
 }) => {
   const respond = answer(options.handlers, options.remote);
   for (const name of NAMES) {
@@ -185,13 +192,15 @@ export const serveBridge = <R, Sender extends BridgeSender>(options: {
     }
     const invoked = name as InvokeName;
     options.ipc.handle(channelOf(invoked), (event, ...args) => {
-      if (!options.fromWindow(event.sender)) {
+      const page = options.pageOf(event.sender);
+      if (page === undefined) {
         return Promise.reject(new Error("not the app's window"));
       }
       return options.run(
         respond(invoked, args, (step) =>
           Effect.sync(() => event.sender.send(progressChannelOf(invoked), step))
-        )
+        ),
+        page
       );
     });
   }

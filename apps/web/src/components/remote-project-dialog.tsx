@@ -2,8 +2,8 @@
  * A folder on another machine (PLAN-desktop D12): a host as `ssh` takes it, with the aliases of
  * the user's SSH configuration suggested, the folder there, and the command that runs the server
  * there when it is not `ultrapaint` on the login shell's PATH. Only a shell that reaches other
- * machines has it (the desktop app); it opens from the welcome page and from the project
- * switcher.
+ * machines has it (the desktop app); it opens from the start page and from the tabs' + (ADR
+ * 0107), and the project opens in a tab of its own.
  */
 import { CircleAlert } from "lucide-react";
 import { useEffect, useId, useState } from "react";
@@ -33,6 +33,9 @@ const useRemoteProject = create<{ shown: boolean }>(() => ({ shown: false }));
 /** Opens the dialog, where the shell reaches other machines. */
 export const openRemoteProject = () =>
   useRemoteProject.setState({ shown: true });
+
+/** Whether the dialog is open: the tab strip covers the window while it is. */
+export const useRemoteProjectShown = () => useRemoteProject((s) => s.shown);
 
 /** Whether the shell opens folders on other machines. */
 export const canAddRemoteProjects = () => platform().projects !== undefined;
@@ -74,12 +77,13 @@ const Form = ({ projects }: { projects: ShellProjects }) => {
       });
       if (result.problem) {
         setProblem(result.problem);
+      } else {
+        // Opened in a tab of its own, or saying why on its splash there.
+        useRemoteProject.setState({ shown: false });
       }
     } catch (error) {
       setProblem(messageOf(error));
     }
-    // Opened, the window shows its editor in place of this one; not opened, the welcome page
-    // says why.
     setBusy(false);
   };
 

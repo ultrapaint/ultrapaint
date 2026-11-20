@@ -11,7 +11,7 @@ import { WelcomePage } from "./welcome.tsx";
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
- * The page on a shell with two projects, `shop` open behind it, which records removals: a page
+ * The page on a shell with two projects, `shop` open in a tab, which records removals: a page
  * of its own for each test, drawn into a root it unmounts after.
  */
 let mounted: Root | null = null;
@@ -27,7 +27,6 @@ const draw = async (
   const removed: string[] = [];
   setPlatform({
     projects: {
-      current: () => Promise.resolve("shop"),
       list: () =>
         Promise.resolve([
           {
@@ -47,6 +46,12 @@ const draw = async (
       },
     },
     serverUrl: "",
+    tabs: {
+      current: () => [
+        { id: "shop", name: "Shop", shown: false, state: "idle" },
+      ],
+      subscribe: () => () => undefined,
+    },
   } as unknown as Platform);
   document.body.innerHTML = '<div id="root"></div>';
   const root = createRoot(document.getElementById("root") as HTMLElement);
@@ -94,7 +99,7 @@ afterEach(() => {
 });
 
 describe("the start screen's projects", () => {
-  it("takes a project off the list from its row's menu, but not the one open behind the page", async () => {
+  it("takes a project off the list from its row's menu, but not one open in a tab", async () => {
     const { press, removed, settled } = await draw();
     await settled();
     expect(rows()).toEqual(["Blog/work/blog", "Shop/work/shop"]);

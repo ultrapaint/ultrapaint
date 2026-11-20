@@ -1,7 +1,8 @@
 /**
  * The desktop app (ADR 0031): a window around the same server and the same web build the
- * `ultrapaint` command serves. The app keeps a list of projects, starts the server of the one
- * open, loads its editor, and fills the editor's `Platform` with what a browser cannot do.
+ * `ultrapaint` command serves. The app keeps a list of projects, starts the server of each one
+ * open in a tab (ADR 0107), loads their editors, and fills the editor's `Platform` with what a
+ * browser cannot do. The window holds the tab strip over a page per open project and Home.
  * Nothing of the editor lives here; what the app decides lives in its services, and this file
  * connects them to Electron.
  */
@@ -23,6 +24,7 @@ import {
   safeStorage,
   shell,
   type WebContents,
+  WebContentsView,
 } from "electron";
 import { autoUpdater } from "electron-updater";
 import { AgentDownloads } from "./agent-downloads.ts";
@@ -38,20 +40,22 @@ import {
   serveBridge,
   stateMessage,
 } from "./bridge-server.ts";
+import { Caller } from "./caller.ts";
 import { CommandLine, commandApp } from "./command-line.ts";
 import { UpdateCheckError } from "./errors.ts";
 import { Folders } from "./folders.ts";
-import { bridgeHandlers, remoteOpen } from "./handlers.ts";
+import { bridgeHandlers, callerRemote } from "./handlers.ts";
 import { LoginShell } from "./login-shell.ts";
 import { NewDesigns } from "./new-design.ts";
 import { Notices } from "./notices.ts";
-import { OpenProject } from "./open-project.ts";
+import { OpenProjects } from "./open-projects.ts";
 import { ProjectServer } from "./project-server.ts";
 import { ProjectStore } from "./projects.ts";
 import { RemoteProjects } from "./remote-project.ts";
 import { SecretError, Secrets } from "./secrets.ts";
 import { Shell, type View } from "./shell.ts";
 import { RemoteServers } from "./ssh-server.ts";
+import { tabKey } from "./tab-keys.ts";
 import { type InstallMode, Updater } from "./updater.ts";
 
 // A data directory of its own, for trying the app without touching the user's.
@@ -83,37 +87,104 @@ const serverArgs = devServer
 let window: BrowserWindow | null = null;
 
 /**
- * On a Mac the window draws no title bar: its buttons sit inside the editor's title card, the
- * top-left of the floating cards (8px from the window's edges, 48px tall), centred on its
- * height. Elsewhere the system draws the frame.
+ * On a Mac the window draws no title bar: the tab strip is it (ADR 0107), its buttons inside the
+ * strip's left end, centred on its height. Elsewhere the system draws the frame over the strip.
  */
 const ownTitleBar = process.platform === "darwin";
-const TRAFFIC_LIGHTS = { x: 22, y: 26 };
-/**
- * Where the editor's content may begin past the buttons: their width (52px) and a gap wide
- * enough that the mark reads as the project's row, not a fourth button.
- */
-const CONTROLS_INSET = TRAFFIC_LIGHTS.x + 52 + 24;
+/** The tab strip's height, in CSS pixels: the pages below begin there. */
+const STRIP_HEIGHT = 44;
+const TRAFFIC_LIGHTS = { x: 14, y: 16 };
+/** Where the strip's tabs may begin past the buttons: their width (52px) and a gap. */
+const CONTROLS_INSET = TRAFFIC_LIGHTS.x + 52 + 16;
 
-/**
- * What the window tells the page as it changes (the bridge's states), kept for a page that loads
- * meanwhile: what the app is doing for the open project, and the window's buttons on a Mac.
- */
-const states: BridgeStates = {
+/** A page of the window: the tab strip, Home, or an open project's. */
+type Page =
+  | { readonly kind: "strip" }
+  | { readonly kind: "home" }
+  | { readonly kind: "project"; readonly id: string };
+
+/** The views over the window's own: the strip on top, Home and the projects' pages below it. */
+let strip: WebContentsView | null = null;
+let home: WebContentsView | null = null;
+const pages = new Map<string, WebContentsView>();
+/** The project whose page is on screen; null for Home. */
+let onScreen: string | null = null;
+/** Whether the strip covers the window, for a menu or a dialog of its own. */
+let covered = false;
+
+/** What every page is told as it changes: an update of the app, and the open tabs. */
+const shared: BridgeStates = { tabs: [], update: null };
+/** What a page of no project is told of one: nothing. */
+const NO_PROJECT: BridgeStates = {
   editorServer: null,
   opening: null,
   shellStatus: null,
-  update: null,
-  ...(ownTitleBar
-    ? { windowControls: { fullScreen: false, inset: CONTROLS_INSET } }
-    : {}),
+};
+/** What each project's page is told of its own: its server, its opening, its status. */
+const projectStates = new Map<string, BridgeStates>();
+/** The window's buttons, which the strip leaves room for: on a Mac only. */
+let windowControls = ownTitleBar
+  ? { fullScreen: false, inset: CONTROLS_INSET }
+  : undefined;
+
+/** The states a page reads as it loads. */
+const statesOf = (page: Page): BridgeStates => ({
+  ...shared,
+  ...NO_PROJECT,
+  ...(page.kind === "project" ? projectStates.get(page.id) : {}),
+  ...(page.kind === "strip" && windowControls ? { windowControls } : {}),
+});
+
+const sendTo = <K extends StateName>(
+  view: WebContentsView | null | undefined,
+  name: K,
+  value: StateValue<K>
+) => {
+  if (view && !view.webContents.isDestroyed()) {
+    const { channel, value: encoded } = stateMessage(name, value);
+    view.webContents.send(channel, encoded);
+  }
 };
 
-const tell = <K extends StateName>(name: K, value: StateValue<K>) => {
-  states[name] = value;
-  const { channel, value: encoded } = stateMessage(name, value);
-  window?.webContents.send(channel, encoded);
+/** Tells every page a state they share. */
+const tellAll = <K extends StateName>(name: K, value: StateValue<K>) => {
+  shared[name] = value;
+  for (const view of [strip, home, ...pages.values()]) {
+    sendTo(view, name, value);
+  }
 };
+
+/** Tells a project's page a state of its own, kept for its page loading later. */
+const tellProject = <K extends StateName>(
+  id: string,
+  name: K,
+  value: StateValue<K>
+) => {
+  const states = projectStates.get(id) ?? {};
+  states[name] = value;
+  projectStates.set(id, states);
+  sendTo(pages.get(id), name, value);
+};
+
+/** The page a message comes from: only the app's own pages may call the main process. */
+const pageOf = (sender: WebContents): Page | undefined => {
+  if (strip?.webContents === sender) {
+    return { kind: "strip" };
+  }
+  if (home?.webContents === sender) {
+    return { kind: "home" };
+  }
+  for (const [id, view] of pages) {
+    if (view.webContents === sender) {
+      return { id, kind: "project" };
+    }
+  }
+  return undefined;
+};
+
+/** Who calls, as the handlers ask: a project's page, or one of none. */
+const callerOf = (page: Page) =>
+  Caller.layer(page.kind === "project" ? page.id : null);
 
 /**
  * The editor's build, served to the window under the app's own scheme for the pages that have no
@@ -167,43 +238,156 @@ const serveWeb = async (request: Request) => {
   return new Response(response.body, { headers, status: response.status });
 };
 
-const showView = (view: View) =>
-  Effect.promise(async () => {
-    if (!window) {
-      return;
+/** Lays the views out: the strip over the top (or the whole window, covered), the pages below. */
+const layout = () => {
+  if (!window) {
+    return;
+  }
+  const { height, width } = window.getContentBounds();
+  const below = {
+    height: Math.max(0, height - STRIP_HEIGHT),
+    width,
+    x: 0,
+    y: STRIP_HEIGHT,
+  };
+  home?.setBounds(below);
+  for (const view of pages.values()) {
+    view.setBounds(below);
+  }
+  strip?.setBounds({
+    height: covered ? height : STRIP_HEIGHT,
+    width,
+    x: 0,
+    y: 0,
+  });
+};
+
+/** Puts a project's page on screen, or Home with `null`, and gives it the keys. */
+const showOnScreen = (id: string | null) => {
+  onScreen = id;
+  home?.setVisible(id === null);
+  for (const [pageId, view] of pages) {
+    view.setVisible(pageId === id);
+  }
+  if (!covered) {
+    (id === null ? home : pages.get(id))?.webContents.focus();
+  }
+};
+
+/** The editor's canvas in the theme it opens in, so that a page shows no flash before it draws. */
+const canvasColor = () =>
+  nativeTheme.shouldUseDarkColors ? "#121110" : "#ecebe8";
+
+/**
+ * Keeps a page on the app's own pages and its servers: a link elsewhere opens in the user's
+ * browser. ⌘1–9 show a tab, wherever the focus is.
+ */
+const guard = (contents: WebContents) => {
+  contents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith("http:") || url.startsWith("https:")) {
+      shell.openExternal(url).catch(() => undefined);
     }
-    if (view._tag === "Editor") {
-      // Told before the page loads: the app's own editor reads it as it starts (ADR 0100).
-      tell("editorServer", view.server ?? null);
-      const next = new URL(view.url);
-      const was = window.webContents.getURL();
-      // The page it was on, in either editor: the server's (http) or the app's own.
-      if (
-        view.keepLocation &&
-        (was.startsWith("http") || was.startsWith(APP_EDITOR_URL))
-      ) {
-        const current = new URL(was);
-        next.pathname = current.pathname;
-        next.search = current.search;
-        next.hash = current.hash;
-      }
-      await window.loadURL(next.href);
-      return;
+    return { action: "deny" };
+  });
+  contents.on("will-navigate", (event, url) => {
+    const current = contents.getURL();
+    if (current && new URL(url).origin !== new URL(current).origin) {
+      event.preventDefault();
     }
-    // The app's own page, under the splash of a project opening (`opening`) when the view is
-    // `Opening`: the page draws it from the bridge's state as it loads.
-    const welcome = new URL(`${APP_SCHEME}://app/welcome.html`);
-    if (view._tag === "Welcome" && view.problem) {
-      welcome.searchParams.set("problem", view.problem);
+  });
+  contents.on("before-input-event", (event, input) => {
+    const n = tabKey(input, process.platform === "darwin");
+    if (n !== null) {
+      event.preventDefault();
+      runtime
+        .runPromise(OpenProjects.use((o) => o.showAt(n)))
+        .catch(() => undefined);
     }
-    if (view._tag === "Welcome" && view.back) {
-      welcome.searchParams.set("back", view.back);
+  });
+};
+
+/** A view of one of the app's pages, with the bridge, over the window. */
+const makeView = (background = canvasColor()) => {
+  const view = new WebContentsView({
+    webPreferences: {
+      contextIsolation: true,
+      preload: path.join(appDir, "preload.cjs"),
+      sandbox: true,
+    },
+  });
+  view.setBackgroundColor(background);
+  guard(view.webContents);
+  return view;
+};
+
+/** The app's own page at `file`, under its scheme. */
+const appPage = (file: string) => `${APP_SCHEME}://app/${file}`;
+
+/** A page that did not finish loading (another load began meanwhile) is not an error. */
+const loadIn = (view: WebContentsView, url: string) => {
+  view.webContents.loadURL(url).catch(() => undefined);
+};
+
+/** Loads a view in a project's page, making the page, below the strip, when it has none. */
+const loadPage = (id: string, view: View) => {
+  if (!window) {
+    return;
+  }
+  let page = pages.get(id);
+  if (!page) {
+    page = makeView();
+    pages.set(id, page);
+    window.contentView.addChildView(page);
+    page.setVisible(onScreen === id);
+    // The strip stays over every page.
+    if (strip) {
+      window.contentView.addChildView(strip);
     }
-    await window.loadURL(welcome.href);
-  }).pipe(
-    // A page that did not finish loading (the user switched again meanwhile) is not an error.
-    Effect.catchDefect(() => Effect.void)
-  );
+    layout();
+  }
+  if (view._tag === "Opening") {
+    // The app's own page, under the splash of the project opening: drawn from its `opening`.
+    loadIn(page, appPage("welcome.html"));
+    return;
+  }
+  // Told before the page loads: the app's own editor reads it as it starts (ADR 0100).
+  tellProject(id, "editorServer", view.server ?? null);
+  const next = new URL(view.url);
+  const was = page.webContents.getURL();
+  // The page it was on, in either editor: the server's (http) or the app's own.
+  if (
+    view.keepLocation &&
+    (was.startsWith("http") || was.startsWith(APP_EDITOR_URL))
+  ) {
+    const current = new URL(was);
+    next.pathname = current.pathname;
+    next.search = current.search;
+    next.hash = current.hash;
+  }
+  loadIn(page, next.href);
+};
+
+/** Lets go of a project's page; what it was told is kept for its next load. */
+const dropPage = (id: string) => {
+  const page = pages.get(id);
+  if (!page) {
+    return;
+  }
+  pages.delete(id);
+  window?.contentView.removeChildView(page);
+  page.webContents.close();
+};
+
+/** The strip covers the window while a menu or a dialog of its own is open, and goes back. */
+const coverWindow = (cover: boolean) => {
+  covered = cover;
+  layout();
+  if (cover) {
+    strip?.webContents.focus();
+  } else {
+    showOnScreen(onScreen);
+  }
+};
 
 /** The native picker, over the window when there is one; nothing when it is cancelled. */
 const pickPath = (options: Electron.OpenDialogOptions) =>
@@ -236,7 +420,10 @@ const ElectronShell = Layer.succeed(
           : await dialog.showMessageBox(options);
         return answer.response === 0;
       }),
-    opening: (opening) => Effect.sync(() => tell("opening", opening)),
+    drop: (id) => Effect.sync(() => dropPage(id)),
+    load: (id, view) => Effect.sync(() => loadPage(id, view)),
+    opening: (id, opening) =>
+      Effect.sync(() => tellProject(id, "opening", opening)),
     // Electron answers with why it couldn't, or nothing.
     openPath: (folder) =>
       Effect.promise(() => shell.openPath(folder)).pipe(
@@ -250,8 +437,10 @@ const ElectronShell = Layer.succeed(
         properties: ["openDirectory", "createDirectory"],
         title,
       }),
-    show: showView,
-    status: (status) => Effect.sync(() => tell("shellStatus", status)),
+    show: (id) => Effect.sync(() => showOnScreen(id)),
+    status: (id, status) =>
+      Effect.sync(() => tellProject(id, "shellStatus", status)),
+    tabs: (tabs) => Effect.sync(() => tellAll("tabs", tabs)),
   })
 );
 
@@ -351,7 +540,7 @@ const runtime = ManagedRuntime.make(
   Layer.mergeAll(
     NewDesigns.layer({ home: app.getPath("home"), launch: serverLaunch }).pipe(
       Layer.provideMerge(
-        OpenProject.layer(dataDir, {
+        OpenProjects.layer(dataDir, {
           url: APP_EDITOR_URL,
           version: app.getVersion(),
         })
@@ -362,7 +551,7 @@ const runtime = ManagedRuntime.make(
       current: app.getVersion(),
       fetch,
       mode: installMode,
-      publish: (update) => tell("update", update),
+      publish: (update) => tellAll("update", update),
     })
   ).pipe(
     Layer.provideMerge(ProjectStore.layer(dataDir)),
@@ -419,44 +608,47 @@ const runtime = ManagedRuntime.make(
   )
 );
 
-/** Whether a message comes from the app's own window: only it may call the main process. */
-const fromWindow = (sender: WebContents) =>
-  window !== null && sender === window.webContents;
-
 /** What the preload script asks before the page loads: synchronous for the page. */
 ipcMain.on(INFO_CHANNEL, (event) => {
-  if (!fromWindow(event.sender)) {
+  const page = pageOf(event.sender);
+  if (!page) {
     event.returnValue = { shown: [] } satisfies BridgeInfo;
     return;
   }
   runtime
-    .runPromise(remoteOpen)
+    .runPromise(callerRemote.pipe(Effect.provide(callerOf(page))))
     .catch(() => false)
     .then((remote) => {
-      event.returnValue = bridgeInfo(remote, states);
+      event.returnValue = bridgeInfo(remote, statesOf(page));
     });
 });
 
 serveBridge({
-  fromWindow,
   handlers: bridgeHandlers({
+    coverWindow: (cover) => Effect.sync(() => coverWindow(cover)),
     home: app.getPath("home"),
     installUpdate: Effect.sync(() => quit(true, true)),
     sshConfig: sshConfig ?? path.join(app.getPath("home"), ".ssh", "config"),
   }),
   ipc: ipcMain,
-  remote: remoteOpen,
-  run: (effect) => runtime.runPromise(effect),
+  pageOf,
+  remote: callerRemote,
+  run: (effect, page) =>
+    runtime.runPromise(effect.pipe(Effect.provide(callerOf(page)))),
 });
 
 /** A folder named on the command line, after the app's own path in development. */
 const folderArgument = (argv: readonly string[]) =>
   argv.slice(app.isPackaged ? 1 : 2).find((arg) => !arg.startsWith("-"));
 
+/**
+ * The window, its own page left empty: the strip, Home and the projects' pages are views over it,
+ * so that a switch between tabs loads nothing (ADR 0107).
+ */
 const makeWindow = () => {
   const created = new BrowserWindow({
     // The editor's canvas in the theme it opens in, so the window shows no flash before it draws.
-    backgroundColor: nativeTheme.shouldUseDarkColors ? "#121110" : "#ecebe8",
+    backgroundColor: canvasColor(),
     height: 950,
     // On Linux the window's own icon, for a start with no launcher entry (`pnpm desktop:dev`);
     // macOS takes the bundle's.
@@ -468,49 +660,47 @@ const makeWindow = () => {
       ? { titleBarStyle: "hidden", trafficLightPosition: TRAFFIC_LIGHTS }
       : {}),
     title: "Ultrapaint",
-    webPreferences: {
-      contextIsolation: true,
-      preload: path.join(appDir, "preload.cjs"),
-      sandbox: true,
-    },
+    webPreferences: { contextIsolation: true, sandbox: true },
     width: 1500,
   });
-  // Kept hidden for automated checks, which drive it through the DevTools protocol.
-  if (!process.env.ULTRAPAINT_DESKTOP_HIDDEN) {
-    created.once("ready-to-show", () => created.show());
-  }
-  // The editor stays on its server; a link elsewhere opens in the user's browser.
-  created.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith("http:") || url.startsWith("https:")) {
-      shell.openExternal(url).catch(() => undefined);
-    }
-    return { action: "deny" };
-  });
-  created.webContents.on("will-navigate", (event, url) => {
-    const current = created.webContents.getURL();
-    if (current && new URL(url).origin !== new URL(current).origin) {
-      event.preventDefault();
-    }
-  });
+  guard(created.webContents);
   created.on("closed", () => {
     window = null;
   });
-  // Full screen draws no buttons: the title card takes their room back.
+  created.on("resize", layout);
+  // Full screen draws no buttons: the strip takes their room back.
   if (ownTitleBar) {
-    created.on("enter-full-screen", () =>
-      tell("windowControls", { fullScreen: true, inset: CONTROLS_INSET })
-    );
-    created.on("leave-full-screen", () =>
-      tell("windowControls", { fullScreen: false, inset: CONTROLS_INSET })
-    );
+    const fullScreen = (full: boolean) => {
+      windowControls = { fullScreen: full, inset: CONTROLS_INSET };
+      sendTo(strip, "windowControls", windowControls);
+    };
+    created.on("enter-full-screen", () => fullScreen(true));
+    created.on("leave-full-screen", () => fullScreen(false));
   }
   return created;
+};
+
+/** The strip and Home, over the window: the strip's page draws on a transparent view. */
+const makeViews = (over: BrowserWindow) => {
+  home = makeView();
+  over.contentView.addChildView(home);
+  loadIn(home, appPage("welcome.html"));
+  strip = makeView("#00000000");
+  over.contentView.addChildView(strip);
+  // Kept hidden for automated checks, which drive it through the DevTools protocol.
+  if (!process.env.ULTRAPAINT_DESKTOP_HIDDEN) {
+    strip.webContents.once("did-finish-load", () => over.show());
+  }
+  loadIn(strip, appPage("tabs.html"));
+  showOnScreen(null);
+  layout();
 };
 
 const start = async () => {
   await app.whenReady();
   protocol.handle(APP_SCHEME, serveWeb);
   window = makeWindow();
+  makeViews(window);
   if (installMode._tag === "Feed") {
     autoUpdater.on("update-downloaded", ({ version }) => {
       runtime
@@ -520,9 +710,7 @@ const start = async () => {
   }
   const folder = folderArgument(process.argv);
   await runtime.runPromise(
-    OpenProject.use((o) =>
-      folder ? Effect.ignore(o.openFolder(path.resolve(folder))) : o.start
-    )
+    OpenProjects.use((o) => o.start(folder ? path.resolve(folder) : undefined))
   );
 };
 
@@ -538,7 +726,7 @@ if (app.requestSingleInstanceLock()) {
       runtime
         .runPromise(
           Effect.ignore(
-            OpenProject.use((o) =>
+            OpenProjects.use((o) =>
               o.openFolder(path.resolve(workingDirectory, folder))
             )
           )
@@ -551,9 +739,10 @@ if (app.requestSingleInstanceLock()) {
 }
 
 /*
- * Closing the window quits (D13). The server the app started stops first, once the user agreed
- * to stop agents at work in it (a second close or Cmd-Q meanwhile has the same answer); a signal
- * does not wait for an answer, and answers no to a question already on screen (`OpenProject`).
+ * Closing the window quits (D13). The servers the app started stop first, once the user agreed
+ * to stop agents at work in them (a second close or Cmd-Q meanwhile has the same answer); a
+ * signal does not wait for an answer, and answers no to a question already on screen
+ * (`OpenProjects`).
  * `quitting` lets the close and the quit through once that is done. With `update`, the app
  * comes back as the release it downloaded (ADR 0078).
  */
@@ -563,7 +752,7 @@ const quit = (ask: boolean, update = false) => {
     return;
   }
   runtime
-    .runPromise(OpenProject.use((o) => o.stop({ ask })))
+    .runPromise(OpenProjects.use((o) => o.stop({ ask })))
     .then(async (stopped) => {
       // Not stopped, or another quit got there first.
       if (!stopped || quitting) {
