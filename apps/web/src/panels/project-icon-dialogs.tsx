@@ -97,13 +97,11 @@ const Preview = ({
   </div>
 );
 
-/** Cancel and Save, at the dialog's end. */
+/** Cancel and Save, at the dialog's end. Save is never disabled: it says what is missing. */
 const Actions = ({
-  canSave,
   onCancel,
   onSave,
 }: {
-  canSave: boolean;
   onCancel: () => void;
   onSave: () => void;
 }) => (
@@ -111,11 +109,17 @@ const Actions = ({
     <Button onClick={onCancel} variant="outline">
       Cancel
     </Button>
-    <Button disabled={!canSave} onClick={onSave}>
-      Save
-    </Button>
+    <Button onClick={onSave}>Save</Button>
   </DialogFooter>
 );
+
+/** What Save found missing, under what it is about. */
+const Missing = ({ children }: { children: string | null }) =>
+  children ? (
+    <p className="font-body-small text-destructive" role="alert">
+      {children}
+    </p>
+  ) : null;
 
 /** The dialog's body: drawn only while it is open, so each open starts from the project. */
 const ChooseIconBody = ({
@@ -135,6 +139,7 @@ const ChooseIconBody = ({
     now?.kind === "icon" ? now.name : null
   );
   const [query, setQuery] = useState("");
+  const [missing, setMissing] = useState<string | null>(null);
   const icons = iconsFor(query);
   const chosen = name ? ({ color, kind: "icon", name } as const) : now;
   return (
@@ -201,7 +206,10 @@ const ChooseIconBody = ({
                     "flex size-10 items-center justify-center rounded-lg border border-transparent text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                   )}
                   key={icon}
-                  onClick={() => setName(icon)}
+                  onClick={() => {
+                    setName(icon);
+                    setMissing(null);
+                  }}
                   role="radio"
                   style={
                     on
@@ -221,14 +229,16 @@ const ChooseIconBody = ({
             })}
           </div>
         )}
+        <Missing>{missing}</Missing>
       </div>
       <Actions
-        canSave={name !== null}
         onCancel={onClose}
         onSave={() => {
-          if (name) {
-            onSave({ color, kind: "icon", name });
+          if (!name) {
+            setMissing("Choose an icon first.");
+            return;
           }
+          onSave({ color, kind: "icon", name });
           onClose();
         }}
       />
@@ -261,12 +271,21 @@ export const ChooseIconDialog = ({
   </Dialog>
 );
 
-/** What an image is, once it loaded: SVG, its size in pixels, or that it could not be read. */
-const ImageSize = ({ size }: { size: string | undefined }) => (
-  <span className="shrink-0 font-body-small text-muted-foreground">
-    {size ?? ""}
-  </span>
-);
+/** What an image offered turned out to be once its thumbnail loaded, or that it did not. */
+type ImageRead =
+  | { kind: "svg" }
+  | { height: number; kind: "pixels"; width: number }
+  | { kind: "unreadable" };
+
+const readLabel = (read: ImageRead | undefined) => {
+  if (read?.kind === "svg") {
+    return "SVG";
+  }
+  if (read?.kind === "pixels") {
+    return `${read.width} × ${read.height}`;
+  }
+  return read?.kind === "unreadable" ? "Not found" : "";
+};
 
 /** An image offered: its thumbnail, its path and its size, checked when chosen. */
 const ImageRow = ({
@@ -274,13 +293,13 @@ const ImageRow = ({
   onChoose,
   onRead,
   path,
-  size,
+  read,
 }: {
   chosen: boolean;
   onChoose: () => void;
-  onRead: (size: string) => void;
+  onRead: (read: ImageRead) => void;
   path: string;
-  size: string | undefined;
+  read: ImageRead | undefined;
 }) => (
   // biome-ignore lint/a11y/useSemanticElements: an image with its thumbnail and size, as a radio
   <button
@@ -299,12 +318,16 @@ const ImageRow = ({
         alt=""
         className="size-5 object-contain"
         height={20}
-        onError={() => onRead("Can’t read it")}
+        onError={() => onRead({ kind: "unreadable" })}
         onLoad={(e) =>
           onRead(
             path.toLowerCase().endsWith(".svg")
-              ? "SVG"
-              : `${e.currentTarget.naturalWidth} × ${e.currentTarget.naturalHeight}`
+              ? { kind: "svg" }
+              : {
+                  height: e.currentTarget.naturalHeight,
+                  kind: "pixels",
+                  width: e.currentTarget.naturalWidth,
+                }
           )
         }
         src={projectImageUrl(path)}
@@ -312,7 +335,9 @@ const ImageRow = ({
       />
     </span>
     <span className="min-w-0 flex-1 truncate font-code">{path}</span>
-    <ImageSize size={size} />
+    <span className="shrink-0 font-body-small text-muted-foreground">
+      {readLabel(read)}
+    </span>
     <span className="flex size-4 shrink-0 items-center justify-center">
       {chosen ? <Check className="size-4" /> : null}
     </span>
@@ -336,7 +361,8 @@ const ChooseFileBody = ({
   const [problem, setProblem] = useState<string | null>(null);
   const [added, setAdded] = useState<readonly string[]>([]);
   const [chosen, setChosen] = useState<string | null>(now);
-  const [sizes, setSizes] = useState<Readonly<Record<string, string>>>({});
+  const [reads, setReads] = useState<Readonly<Record<string, ImageRead>>>({});
+  const [missing, setMissing] = useState<string | null>(null);
   const [typing, setTyping] = useState(false);
   const [typed, setTyped] = useState("");
   useEffect(() => {
@@ -351,16 +377,28 @@ const ChooseFileBody = ({
   const listed = [
     ...new Set([...(now ? [now] : []), ...added, ...(found ?? [])]),
   ];
+  /** The path typed, offered and chosen: its thumbnail, served by the project, says if it is one. */
   const add = () => {
     const path = typed.trim().replace(LEADING_DOT_RE, "");
     if (path) {
       setAdded((list) => [path, ...list.filter((p) => p !== path)]);
       setChosen(path);
+      setMissing(null);
     }
-    setTyped("");
-    setTyping(false);
   };
-  const unreadable = chosen !== null && sizes[chosen] === "Can’t read it";
+  const save = () => {
+    if (chosen === null) {
+      setMissing("Choose an image first.");
+      return;
+    }
+    // Served only from inside the project, and only an image: one that did not load is none.
+    if (reads[chosen]?.kind === "unreadable") {
+      setMissing("No image at that path in the project.");
+      return;
+    }
+    onSave({ kind: "file", path: chosen });
+    onClose();
+  };
   return (
     <>
       <DialogHeader>
@@ -385,12 +423,15 @@ const ChooseFileBody = ({
               <ImageRow
                 chosen={path === chosen}
                 key={path}
-                onChoose={() => setChosen(path)}
-                onRead={(size) =>
-                  setSizes((known) => ({ ...known, [path]: size }))
+                onChoose={() => {
+                  setChosen(path);
+                  setMissing(null);
+                }}
+                onRead={(read) =>
+                  setReads((known) => ({ ...known, [path]: read }))
                 }
                 path={path}
-                size={sizes[path]}
+                read={reads[path]}
               />
             ))
           )}
@@ -402,7 +443,10 @@ const ChooseFileBody = ({
           autoFocus
           className="font-code"
           onBlur={add}
-          onChange={(e) => setTyped(e.target.value)}
+          onChange={(e) => {
+            setTyped(e.target.value);
+            setMissing(null);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               add();
@@ -423,16 +467,8 @@ const ChooseFileBody = ({
           </Button>
         </div>
       )}
-      <Actions
-        canSave={chosen !== null && !unreadable}
-        onCancel={onClose}
-        onSave={() => {
-          if (chosen) {
-            onSave({ kind: "file", path: chosen });
-          }
-          onClose();
-        }}
-      />
+      <Missing>{missing}</Missing>
+      <Actions onCancel={onClose} onSave={save} />
     </>
   );
 };

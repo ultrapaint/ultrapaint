@@ -6,6 +6,7 @@
  */
 import type { ShownProjectIcon } from "@ultrapaint/contracts/project";
 import type { ProjectIcon as ProjectIconValue } from "@ultrapaint/contracts/settings";
+import { folderName } from "@ultrapaint/shared/project-name";
 import { RotateCcw } from "lucide-react";
 import type * as React from "react";
 import { useState } from "react";
@@ -15,12 +16,6 @@ import { IconButton } from "../components/icon-button.tsx";
 import { ProjectIcon } from "../components/project-icon.tsx";
 import { ChooseFileDialog, ChooseIconDialog } from "./project-icon-dialogs.tsx";
 import { Group, Row } from "./settings-group.tsx";
-
-const SEPARATOR_RE = /[\\/]/;
-
-/** The folder's own name, at the end of its path. */
-export const folderName = (path: string) =>
-  path.split(SEPARATOR_RE).filter(Boolean).at(-1) ?? path;
 
 export const NameAndIconSection = ({
   icon,
@@ -49,8 +44,9 @@ export const NameAndIconSection = ({
   const [dialog, setDialog] = useState<"icon" | "file" | null>(null);
   const folder = folderName(repoPath);
   const shownName = name?.trim() || folder;
-  const drawn = icon ?? shown;
-  const project = { icon: drawn, name: shownName, path: repoPath };
+  // The dialogs start from the icon the settings give; the row draws what the server shows for
+  // it, so a file that is gone shows the default (the favicon, else the initials in a colour).
+  const project = { icon: icon ?? shown, name: shownName, path: repoPath };
   const opened = (which: "icon" | "file") => (open: boolean) =>
     setDialog(open ? which : null);
   return (
@@ -82,7 +78,7 @@ export const NameAndIconSection = ({
         title="Icon"
       >
         <div className="flex items-center gap-2">
-          <ProjectIcon icon={drawn} name={shownName} size={28} />
+          <ProjectIcon icon={shown} name={shownName} size={28} />
           {icon ? (
             <IconButton
               className="text-muted-foreground"
