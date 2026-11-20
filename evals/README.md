@@ -186,7 +186,8 @@ systemd-run --user --collect --unit=lab-<name> \
 The shell fills in the thread and the path to `t3` when it starts the job, so the end hook holds no
 `$` and no `%`: systemd expands both, and a `$$` in a job's command comes back from a
 `daemon-reload` as the shell's pid. The guard reads every quota: a job that runs only Claude takes
-`--setenv=CODEX=101 --setenv=CURSOR=101`, or Codex's or Cursor's own window stops it at its start.
+`--setenv=SKIP_CODEX=1 --setenv=SKIP_CURSOR=1`, or Codex's or Cursor's own window stops it at its
+start, and a lapsed login to either stops it after five failed reads.
 The job has no timeout and outlives the agent's session, a restart of T3 Code and a logout. The
 guard exits with the round's own code, or 75 when it stopped the round, and says why in its log.
 `systemctl --user list-units 'lab-*'` lists the jobs running, `journalctl --user -u lab-<name>` has
