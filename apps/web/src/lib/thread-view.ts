@@ -3,7 +3,7 @@
  * word a list, a dot or a badge says of it. Every place that shows a thread's state reads it
  * here rather than its status, so a thread being stopped is working everywhere at once.
  */
-import { isBusy, type Thread } from "@ultrapaint/contracts/threads";
+import { isBusy, isWaiting, type Thread } from "@ultrapaint/contracts/threads";
 
 export interface ThreadView {
   /** A turn runs, or is being stopped (contracts' `isBusy`). */
@@ -38,7 +38,7 @@ export const threadView = (
     return IDLE;
   }
   const busy = isBusy(thread.status);
-  const waiting = thread.summary?.waiting === true;
+  const waiting = isWaiting(thread);
   const failed = thread.status === "error";
   if (busy) {
     // Its review models look at what it made (ADR 0063): still working, in other words.

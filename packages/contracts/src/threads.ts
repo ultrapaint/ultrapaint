@@ -62,6 +62,14 @@ export const isBusy = (status: ThreadStatus | undefined): boolean =>
   status === "running" || status === "reviewing" || status === "cancelling";
 
 /**
+ * The agent waits on the person: a question it asked or a permission it needs is undecided (its
+ * `summary` says so), whether its turn is still under way or not.
+ */
+export const isWaiting = (thread: {
+  readonly summary?: { readonly waiting: boolean } | undefined;
+}): boolean => thread.summary?.waiting === true;
+
+/**
  * A setting the agent's session offers: its model, reasoning effort, and the like. A `boolean`
  * is on or off (its choices `true` and `false`) and is set as a boolean; a select, the kind a
  * thread written before kept without saying, is one of its choices.
