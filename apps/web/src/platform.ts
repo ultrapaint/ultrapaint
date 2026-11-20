@@ -75,6 +75,16 @@ export const platform = (): Platform => {
   return current;
 };
 
+/**
+ * What the shell gave, without working out the server's address: for what asks only whether the
+ * shell has a capability, which may run where the page has no address (a module's state).
+ */
+export const shellPlatform = (): Partial<ShellPlatform> =>
+  current ??
+  (globalThis as { ultrapaintPlatform?: Partial<ShellPlatform> })
+    .ultrapaintPlatform ??
+  {};
+
 /** The WebSocket of a server at an http(s) address. */
 const socketOf = (address: string) => {
   const url = new URL("/ws", address);

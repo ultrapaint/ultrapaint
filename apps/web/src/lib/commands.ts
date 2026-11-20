@@ -14,7 +14,7 @@ import type { Thread } from "@ultrapaint/contracts/threads";
 import { openCommandPalette } from "../components/command-palette.tsx";
 import { openShortcutSheet } from "../components/shortcut-sheet.tsx";
 import type { LayerItem } from "../panels/layer-tree.ts";
-import { platform } from "../platform.ts";
+import { shellPlatform } from "../platform.ts";
 import { useAgents } from "../state/agents.ts";
 import { setView, zoomToFit, zoomToSelection } from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
@@ -535,9 +535,9 @@ const projectCommands = (): CommandSpec[] => [
     group: "Project",
     id: "closeProject",
     keywords: "tab stop",
-    offered: () => platform().projects?.close !== undefined,
+    offered: () => shellPlatform().projects?.close !== undefined,
     run: () => {
-      platform().projects?.close(undefined).catch(reportError);
+      shellPlatform().projects?.close(undefined).catch(reportError);
     },
     title: "Close project",
   },
