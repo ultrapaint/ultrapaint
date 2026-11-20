@@ -599,13 +599,14 @@ refactor and the board view left.
   (`tabs.html`, `tab-strip.tsx`), in a view over the project views, fed by the bridge's `tabs`;
   the window's title bar on a Mac. _Avoid_: tab bar, project switcher (gone).
 - **Project notice**: the desktop app's news of an agent in an open project not on screen that
-  asks the person something or finished (ADR 0107; `ProjectNotice`, the bridge's
-  `projectNotice`): learnt from each server's health (`working`, `waiting`), so a project whose
-  view was let go still tells it. A toast over the editor on screen with Go to it, which shows
-  that project's tab, while the window is in front; the system's notification, its sound or both
-  under the person's Notifications preference while it is behind. The project on screen tells its
-  own agents' news from its page (`agent-notifications.ts`), so one event is told once. _Avoid_:
-  notice (what the app found missing on the machine), alert.
+  asks the person something, finished, or stopped on an error (ADR 0107; `ProjectNotice`, the
+  bridge's `projectNotice`): learnt from each server's health (`working`, `waiting`, `failed`), so
+  a project whose view was let go still tells it. A toast over the view on screen (the editor, or
+  Home's start page) with Go to it, which shows that project's tab, while the window is in front,
+  taken back from every view once it closes; the system's notification, its sound or both under
+  the person's Notifications preference while the window is behind. A project on screen since the
+  last poll tells its own agents' news from its editor (`agent-notifications.ts`), so one event is
+  told once. _Avoid_: notice (what the app found missing on the machine), alert.
 - **Project's name and icon**: how a project is shown on its tab and in the title row, kept in
   its configuration (`name`, `icon`) so the team sees the same (ADR 0107): an icon of the set in
   one of nine colours, or an image file of the project. Without them, the folder's name, and the
