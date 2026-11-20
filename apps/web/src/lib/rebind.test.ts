@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import "../testing/fake-browser.ts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useKeybindings } from "../state/keybindings.ts";

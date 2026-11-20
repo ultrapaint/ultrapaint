@@ -1,11 +1,14 @@
+// @vitest-environment happy-dom
 import "../testing/fake-browser.ts";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { type Platform, setPlatform } from "../platform.ts";
 import { leaveBoard, openBoard } from "../state/board.ts";
 import { useEditor } from "../state/editor.ts";
 import {
   type Command,
   commandList,
   commands,
+  paletteCommands,
   searchCommands,
 } from "./commands.ts";
 
@@ -138,5 +141,31 @@ describe("on a board view (ADR 0045)", () => {
         "tool:pan",
       ])
     );
+  });
+});
+
+describe("Close project (ADR 0107)", () => {
+  afterEach(() => {
+    setPlatform(null);
+  });
+
+  const closeProject = () =>
+    paletteCommands().find((c) => c.title === "Close project");
+
+  it("is the desktop app's, closing the page's own project", () => {
+    expect(closeProject()).toBeUndefined();
+    const closed: unknown[] = [];
+    setPlatform({
+      projects: {
+        close: (id?: string) => {
+          closed.push(id);
+          return Promise.resolve();
+        },
+      },
+      serverUrl: "",
+    } as unknown as Platform);
+    closeProject()?.run();
+    // No id: the shell closes the project of the page that asked.
+    expect(closed).toEqual([undefined]);
   });
 });
