@@ -327,24 +327,29 @@ export class Browser extends Context.Service<
             const fold = await page.screenshot({ type: "png" });
             await page.evaluate(scrollThroughInBrowser);
             // A screen that scrolls inside a panel shows only its fold in a full-page picture:
-            // the window grows until the panel holds all it scrolls, a few times at most, as
-            // the content can reflow at the new height.
-            for (let grown = 0; grown < 3; grown += 1) {
-              // biome-ignore lint/performance/noAwaitInLoops: each height follows the reflow
-              const extra = await page.evaluate(innerOverflowInBrowser);
+            // the window grows until the panel holds all it scrolls, again while the content
+            // reflows at the new height. A panel that doesn't grow with the window (a fixed
+            // height) gets back the window it had, as a taller one would only add blank rows.
+            const first = { height: viewport.height, width: viewport.width };
+            let hidden = await page.evaluate(innerOverflowInBrowser, first);
+            for (let pass = 0; pass < MAX_TILES && hidden > 0; pass += 1) {
               const size = page.viewportSize();
-              if (
-                extra === 0 ||
-                size === null ||
-                size.height >= MAX_TILES * TILE_HEIGHT
-              ) {
+              if (size === null || size.height >= MAX_TILES * TILE_HEIGHT) {
                 break;
               }
+              // biome-ignore lint/performance/noAwaitInLoops: each height follows the reflow
               await page.setViewportSize({
-                height: Math.min(size.height + extra, MAX_TILES * TILE_HEIGHT),
+                height: Math.min(size.height + hidden, MAX_TILES * TILE_HEIGHT),
                 width: size.width,
               });
               await page.waitForTimeout(500);
+              const left = await page.evaluate(innerOverflowInBrowser, first);
+              if (left >= hidden) {
+                await page.setViewportSize(size);
+                await page.waitForTimeout(500);
+                break;
+              }
+              hidden = left;
             }
             await page.evaluate(fontsLoadedInBrowser);
             const full = await page.screenshot({ fullPage: true, type: "png" });
