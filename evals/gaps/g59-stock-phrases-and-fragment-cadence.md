@@ -2,7 +2,7 @@
 id: g59
 title: Stock marketing phrases and "X. No Y." cadence
 kind: missing
-status: testing
+status: done
 found: 2026-11-10
 source: Impeccable's detector (aphoristic-cadence, marketing-buzzword), kept by the person in `decisions/design-research-nov10`; not a person's correction
 skill: [references/words/pages.md, references/words/voice.md]
@@ -50,4 +50,10 @@ sections: []
   "not X" heading 5 of 12 → 4 of 12, each once on its page, as the line allows ("Pay per invoice,
   never per payment" on both invoicing runs). The counter's fragments 8 of 12 → 3 of 12
   (runs/fx-opus-hf/tells.md). The call is asked in `decisions/lab-nov20b`.
+- `lab-nov20b`, decided (the person, 2026-11-20): the candidate's heroes and a page's headings
+  read less like one formula; ship it. Shipped in `references/words/pages.md`, the headline: "A
+  claim, not a label, in the form its words need: one plain sentence, short stacked sentences, or
+  a two-tone line … No form is the default, and a page's headings don't repeat a cadence: two
+  claims stacked, or one set against what the thing is not, comes once on a page at most", with
+  its Check row; the technical hero's recipe no longer asks for a two-tone headline. Done.
 
