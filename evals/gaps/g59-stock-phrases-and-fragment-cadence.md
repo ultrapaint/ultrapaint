@@ -39,4 +39,15 @@ sections: []
   first and sets as the technical hero's. The next candidate, `headline-forms`, names the forms
   with none as the default, and lets a page repeat a cadence (two claims stacked, or one set
   against what it is not) once at most; its round, `fx-opus-hf`, is running on six landing briefs.
+- `fx-opus-hf`: 2026-11-20, six fresh landing briefs (backup-landing, invoicing-api,
+  language-app, meal-kit, sleep-ring-waitlist, analytics-pricing), 2 runs each, Opus in Claude
+  Code designing with `candidates/headline-forms` (`pages.md`: the headline "in the form its words
+  need", the forms named with none the default, a page repeating a cadence once at most; the
+  technical hero no longer two-tone by rule; its Check row), against `fx-opus-main` on the same
+  briefs. Each run's h1 and h2 read from its source and the counter's marks, classified by hand:
+  heroes in two parts (a forced break or two sentences) 9 of 12 → 6 of 12; pages whose headings
+  repeat one cadence (two stacked pairs, two "X. Y." sentences) 4 of 12 → 1 of 12; pages with a
+  "not X" heading 5 of 12 → 4 of 12, each once on its page, as the line allows ("Pay per invoice,
+  never per payment" on both invoicing runs). The counter's fragments 8 of 12 → 3 of 12
+  (runs/fx-opus-hf/tells.md). The call is asked in `decisions/lab-nov20b`.
 
