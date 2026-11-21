@@ -251,8 +251,12 @@ refactor and the board view left.
   `references/…`, hold what a rule line cannot: a topic's detail (`layout.md`, `surfaces.md`), a
   kind of screen (`kinds/dialog.md`) or of public page (`pages/landing.md`), making the system
   (`system/`), the words (`words/`). A **kind** is the one file the agent names in step 2 and
-  opens before the first element. The skill speaks the web's terms; the briefing says what they
-  are in the editor (`skillTerms`). It is written whole to `~/.cache/ultrapaint/skills/<hash>/`,
+  opens before the first element. The skill speaks the web's terms and names nothing of the
+  editor but its own name (ADR 0110); the briefing says what they are in the editor
+  (`skillTerms`). A **capability** is what an agent may have beyond files and a reply (a question
+  tool, another agent, a reviewer that sends findings, a view at a width, the design system's
+  store, a component's documentation), named once in the core's "Where you work" and used by its
+  steps in those words; `skillTerms` says what the editor gives for each. It is written whole to `~/.cache/ultrapaint/skills/<hash>/`,
   each mention of a reference named there, and the project's own skills turned on are told after
   it (ADR 0094). A review **category** names a concern, held by one
   file of the skill (contracts' `CATEGORY_FILES`).
