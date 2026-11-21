@@ -4,9 +4,10 @@
  * what a design thread is told; its references (`references/…`) hold what a rule line cannot, read
  * when the core names them. Its heading is the skill's title, the paragraph after it the summary.
  *
- * The skill is written for any web interface, in the web's terms: it names none of the editor's
- * tools or fields, and what they are in the editor is the briefing's to say (`skillTerms`). So
- * every agent reads the same words, with the editor's tools or without them.
+ * The skill is written for any web interface, in the web's terms: it names nothing of the editor
+ * but its own name (ADR 0110). What an agent may have beyond files and a reply is a capability its
+ * "Where you work" names, and what the editor gives for each is the briefing's to say
+ * (`skillTerms`). So every agent reads the same words, with the editor's tools or without them.
  *
  * Its files are written whole to the user's cache (`skillDirOf`), which the agent sandbox lets
  * agents read, and every `` `references/…` `` the skill says is named where that folder, or an MCP

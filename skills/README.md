@@ -15,8 +15,11 @@ sits outside it and everything inside it is for the agent that uses the skill.
 - A value that differs by character (technical, humanistic, expressive) is stated once for each,
   never as options to pick from. A public page's file ends with two short worked examples per
   character, values only.
-- The skill speaks the web's terms, with none of the editor's words: the briefing's `skillTerms`
-  says them in the editor.
+- The skill speaks the web's terms, with none of the editor's words, and names nothing of the
+  editor but its own name, `ultrapaint`. What an agent may have beyond files and a reply (a
+  question tool, a reviewer that sends findings, a view at a width…) is a capability its "Where
+  you work" names once and each step uses in those words; the briefing's `skillTerms` says what
+  the editor gives for each, and its terms for the rest. A test holds both.
 - A rule holds for any product and describes the device, never where it was seen: no company,
   product, site, library or person from the lab's references or corpus (ADR 0068). Faces, icon
   packages and tools the agent is told to use (Inter, Lucide, Figma) are instructions, and named.

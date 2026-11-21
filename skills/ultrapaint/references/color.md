@@ -3,17 +3,20 @@
 Naming and adding tokens, computing contrast, colouring charts and categories, and colouring a
 public page.
 
-## Token presets
+## Naming tokens
 
-A design system names its semantic tokens in one of two presets; use the one it has.
+Use the names the design system has for its semantic tokens. Two forms are common:
 
-- **Simple**: roles, in shadcn's names: `background`, `foreground`, `card`, `popover`, `muted`
-  and `muted-foreground`, `border`, `input`, `ring`, `primary`, `secondary`, `destructive`, each
-  with its `-foreground` pair, and the chart colours.
-- **Detailed**: tokens by property and meaning, grouped text, background and border
-  (`text-color-subtle`, `background-color-danger-subtle`, `border-color-focus`), each meaning with
-  its subtle and bold steps where screens need them. A property takes only its own group: a
-  background token never colours text.
+- **Roles**, as shadcn names them: `background`, `foreground`, `card`, `popover`, `muted` and
+  `muted-foreground`, `border`, `input`, `ring`, `primary`, `secondary`, `destructive`, each with
+  its `-foreground` pair, and the chart colours.
+- **By property and meaning**, grouped text, background and border (`text-color-subtle`,
+  `background-color-danger-subtle`, `border-color-focus`), each meaning with its subtle and bold
+  steps where screens need them. A property takes only its own group: a background token never
+  colours text.
+
+A system that names its tokens another way keeps its names: find the token whose role fits.
+A new system takes the roles.
 
 A raw step of the colour scale (`blue-500`) appears on a screen only where DESIGN.md's colours
 name it for that use.
