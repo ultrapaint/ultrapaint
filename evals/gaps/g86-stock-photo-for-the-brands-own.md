@@ -27,7 +27,8 @@ A stock photo only when the person asks for one, and then one that shows what th
 **Test.** The briefs with named photos and none given (`fresh-river-charity`, `fresh-hotel`,
 `fresh-bakery`, `fresh-coffee-roaster`, `fresh-cabin-search`), 2 runs each, Opus designing with
 the candidate, against the skill on main: the pictures that are stock photos or that show
-something the brief contradicts, counted per page. It passes at none, with every placeholder
-captioned.
+something the brief contradicts, counted per page. It passes at none, with every picture the brief
+names drawn as a captioned placeholder or, where its section was left out, not counted against it;
+a page that drops the named pictures outright fails.
 
 **Result.**
