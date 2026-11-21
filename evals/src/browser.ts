@@ -333,6 +333,7 @@ export class Browser extends Context.Service<
             const first = { height: viewport.height, width: viewport.width };
             let hidden = await page.evaluate(innerOverflowInBrowser, {
               ...first,
+              panels: 0,
               pick: true,
             });
             for (let pass = 0; pass < MAX_TILES && hidden.most > 0; pass += 1) {
@@ -351,6 +352,7 @@ export class Browser extends Context.Service<
               await page.waitForTimeout(500);
               const left = await page.evaluate(innerOverflowInBrowser, {
                 ...first,
+                panels: hidden.panels,
                 pick: false,
               });
               if (left.total >= hidden.total) {

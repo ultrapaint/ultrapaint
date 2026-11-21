@@ -249,15 +249,18 @@ export const innerOverflowInBrowser = (first: {
   readonly height: number;
   /** The first measure picks the panels and marks them; later ones measure only those. */
   readonly pick: boolean;
+  /** How many panels the first measure picked. */
+  readonly panels: number;
   readonly width: number;
 }) => {
   const MARK = "data-lab-panel";
   let most = 0;
   let total = 0;
+  let panels = 0;
   // `body` too: under an `html` that doesn't scroll, it can be the page's one scroller.
   const marked = document.querySelectorAll(`[${MARK}]`);
-  // A page that rebuilt its panels at the new size left no mark: they are picked again.
-  const pick = first.pick || marked.length === 0;
+  // A page that rebuilt one of its panels at the new size left it with no mark: all are picked again.
+  const pick = first.pick || marked.length < first.panels;
   const candidates = pick ? document.querySelectorAll("body, body *") : marked;
   for (const element of candidates) {
     // In the page, so no module-level constant: a plain comparison, not a regex.
@@ -281,10 +284,11 @@ export const innerOverflowInBrowser = (first: {
     if (pick) {
       element.setAttribute(MARK, "");
     }
+    panels += 1;
     most = Math.max(most, Math.max(0, hidden));
     total += Math.max(0, hidden);
   }
-  return { most, total };
+  return { most, panels, total };
 };
 
 /**
