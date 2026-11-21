@@ -1,8 +1,10 @@
 /**
  * What the review loop says (ADR 0063): to a review model, its role, the skill's rules (ADR 0077),
- * the person's request and the pages as it is shown them; to the designer, a round's findings to fix or decline. The wording
- * and the answer's shape are the lab's (`evals/prompts/review-section.md`,
- * `evals/src/section-review.ts`), so the editor and the lab review a design alike.
+ * the person's request and the pages as it is shown them; to the designer, a round's findings to fix or decline. How a
+ * review judges is the skill's (its review job and `references/review.md`, ADR 0111), told as the
+ * lab's `told` reviewers are told it (`toldRules`); the answer's shape is the lab's
+ * (`evals/prompts/review-section.md`, `evals/src/section-review.ts`), so the editor and the lab
+ * review a design alike.
  */
 import type { ContentBlock } from "@ultrapaint/acp/acp-agent";
 import {
@@ -27,16 +29,15 @@ export interface PageView {
   readonly route?: string | undefined;
 }
 
-/** The review role: a fresh designer that only looks, and the answer it gives. */
+/**
+ * The review role: a fresh designer that only looks, and the answer it gives. How it judges (what
+ * first, the request's scope, one finding per problem, the severities and the sign-off) is the
+ * skill's review job and `references/review.md`, told after it (ADR 0111): the role keeps what is
+ * the editor's, its sandbox, its pages and its answer.
+ */
 export const REVIEWER_ROLE = `You review a design with Ultrapaint's design skill: you are a fresh designer seeing it for the first time. You only look. The repository is read-only to you and every file, terminal and permission you ask for is refused: read what you are given here, and change nothing. The designer makes the fixes.
 
-Review what takes judgement, which a check can't: the hierarchy (what is seen first, second, third), restraint (what could go), its character (whether it looks made for this product rather than any), the states the request needs (empty, loading, error, long content) and its content (words that say what the person gets, in their language). Then the rest a careful designer would fix: layout, spacing, typography, colour, elevation, borders, iconography, motion, components, usability, accessibility, and how it keeps to a picture it was given.
-
-Review within the person's request below: its content is used as written (a word, a label or a line of copy it gives is not a finding), a picture it gave decides the look, and the components (a dialog, tabs, a switch, an input, a button) are the design system's: how one draws itself is the system's. Report only what the designer can change within this request.
-
-Keep to its scope, and judge the pages that are there. A page, state or flow the request doesn't ask for is a \`minor\` finding at most, never a \`major\`: asking for more of them makes the design bigger, not better. A fix never adds an element the picture doesn't have, and never undoes a fix the designer was asked for before.
-
-List every problem in each page that a careful designer would fix: one finding per problem, each with what is wrong, where, which rule it breaks and the fix. Leave out what is fine. The pages are often one screen in its states (empty, loading, an error): a problem they share is one finding, given once, on the first page that has it, its \`where\` naming the others.
+Review it as the skill's review job below says, by its rules and its review: what to judge first, within the person's request and its scope, one finding per problem, each with its severity, and whether each page is done. The pages are often one screen in its states (empty, loading, an error): a problem they share is one finding, given on the first page that has it, its \`where\` naming the others.
 
 Answer with one fenced \`\`\`json block, and nothing after it:
 
@@ -47,10 +48,10 @@ Answer with one fenced \`\`\`json block, and nothing after it:
 - \`findings\`, each with:
   - \`title\` (a few words), \`where\` (the element), \`problem\` (what is wrong, in one or two sentences) and \`fix\`;
   - \`category\`: the concern it falls under, one of ${CATEGORIES.map((c) => `\`${c}\``).join(", ")} (\`picture\` for how it keeps to a picture it was given);
-  - \`severity\`: \`blocker\` (it fails at its job: unreadable, can't be used, broken), \`major\` (a careful designer wouldn't ship what is drawn), \`minor\` (noticeable, worth fixing) or \`nit\` (polish);
+  - \`severity\`: \`blocker\`, \`major\`, \`minor\` or \`nit\`, as the skill's review defines them;
   - \`rule\`: the skill's rule it breaks, as its file and the rule's words (\`references/states.md › every load has its error\`), or empty when the skill has no rule for it.
 - \`reached\`: the categories the page has besides hierarchy, restraint, layout, spacing, typography and color (icons → \`iconography\`, words → \`content\`, a loading or empty state → \`states\`, …): what it is scored on.
-- \`signOff\`: \`done\` true when, for what the person asked, the page is good enough as it stands: nothing a careful designer wouldn't ship is left (no blocker or major finding); minor findings and nits are worth fixing and don't hold it back. Then \`left\` is empty. Else \`done\` false and \`left\` saying in a sentence what has to change first. Hold a product screen to a high bar, and a quick sketch the request asks for to a lower one.`;
+- \`signOff\`: \`done\` true when the page is done for what the person asked, as the skill's review says, and then \`left\` is empty; else \`done\` false and \`left\` saying in a sentence what has to change first.`;
 
 /**
  * The skill's rules, told to a review model after its role (ADR 0077): it opens no file, so what
@@ -82,7 +83,7 @@ ${
           "\n"
         )}\n\nFor each, decide whether the design fixes it now. Give back as findings only those not fixed, with their title as written above, and any new blocker.`
     : "Another review model looked first and found nothing the designer had to fix. Give back only blockers."
-} Leave out everything else: new majors, minor findings and nits are let go at this point. \`signOff.done\` is true when you give back nothing.`;
+} Judge it as the skill's review says of a second look. \`signOff.done\` is true when you give back nothing.`;
 
 /** What a review model is given: its role, the request, and each page's picture and document. */
 export const reviewerPrompt = (

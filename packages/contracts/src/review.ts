@@ -597,31 +597,52 @@ export const formatReviewModel = (model: ReviewModel): string =>
 export const REVIEW_TABLE_FILE = "references/review.md";
 
 const RULES_HEADING = "## The rules";
+const REVIEW_JOB_HEADING = "## Reviewing a design";
 const NEXT_HEADING_RE = /\n## /;
+
+/** The part of the core under `heading`, to the next part; empty when it has none. */
+const partOf = (core: string, heading: string) => {
+  const from = core.indexOf(heading);
+  if (from < 0) {
+    return "";
+  }
+  const after = core.slice(from + heading.length);
+  const end = after.search(NEXT_HEADING_RE);
+  return after.slice(0, end < 0 ? undefined : end).trim();
+};
 
 /**
  * The skill's rules as a review model is told them (ADR 0077), when it opens no file: the core's
- * rule lines (its `## The rules`, the whole core where it has no such part) and the review table
- * when the skill has one. The lab tells its `told` reviewers the same words, which caught twice
- * what the same models caught with none (ep-1).
+ * rule lines (its `## The rules`, the whole core where it has no such part), its review job (ADR
+ * 0111), and the review file when the skill has one, whose method and rows are what the job opens.
+ * The lab tells its `told` reviewers the same words, which caught twice what the same models
+ * caught with none (ep-1).
  */
 export const toldRules = (core: string, table: string | undefined) => {
-  const from = core.indexOf(RULES_HEADING);
-  const after = from < 0 ? "" : core.slice(from + RULES_HEADING.length);
-  const end = after.search(NEXT_HEADING_RE);
-  const rules = from < 0 ? core : after.slice(0, end < 0 ? undefined : end);
+  const rules = partOf(core, RULES_HEADING) || core.trim();
+  const job = partOf(core, REVIEW_JOB_HEADING);
   return [
     "",
     "The skill's rules, which hold on every screen:",
     "",
     "<rules>",
-    rules.trim(),
+    rules,
     "</rules>",
+    ...(job === ""
+      ? []
+      : [
+          "",
+          "How the skill reviews a design. You open no file: what it would have you open is given below, or is not given.",
+          "",
+          "<review-job>",
+          job,
+          "</review-job>",
+        ]),
     ...(table === undefined
       ? []
       : [
           "",
-          "What to look for, row by row: each row is something you can see or read, and its fix.",
+          "How a review judges, and what to look for row by row: each row is something you can see or read, and its fix.",
           "",
           "<review>",
           table.trim(),

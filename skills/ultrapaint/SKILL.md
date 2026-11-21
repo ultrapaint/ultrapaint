@@ -52,9 +52,9 @@ says what each is called there.
    and a headline set in pieces keeps the spaces between its words. Your last message names each
    file you opened.
 6. **Have each section reviewed.** Where you have a reviewer that sends you findings, answer
-   them: fix each, or say why not. Elsewhere, when you can start another agent, have a fresh one review each section
-   from a crop at 2× (dark and light where the product has both) with this skill's review job,
-   and fix what it finds.
+   them: fix each, or say why not. Elsewhere, when you can start another agent, have a fresh one
+   review each section from a crop at 2× (dark and light where the product has both) with this
+   skill's review job, and fix what it finds.
 
 ### The kind of screen or page
 
@@ -379,9 +379,9 @@ A screen, a page or one section of one, made by someone else or by you, in two p
    usability against the inventory, line by line: what is said twice, what is named two ways, what
    a state lacks. Run the rest of its rows against what the picture shows: each element, each
    text, each icon, each gap. Then name the kind, open the kind's file and the files it names, and
-   check it as step 5 says.
+   run every rule here and the Check table of each file you opened against each element.
 
-Report each failure with the rule it breaks (its file and its words), where it is, and the fix.
+Judge and report each finding, and whether the design is done, as `references/review.md` says.
 The inventory is yours: it is not part of the report.
 
 ## Making the design system
