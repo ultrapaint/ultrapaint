@@ -255,9 +255,10 @@ export const innerOverflowInBrowser = (first: {
   let most = 0;
   let total = 0;
   // `body` too: under an `html` that doesn't scroll, it can be the page's one scroller.
-  const candidates = first.pick
-    ? document.querySelectorAll("body, body *")
-    : document.querySelectorAll(`[${MARK}]`);
+  const marked = document.querySelectorAll(`[${MARK}]`);
+  // A page that rebuilt its panels at the new size left no mark: they are picked again.
+  const pick = first.pick || marked.length === 0;
+  const candidates = pick ? document.querySelectorAll("body, body *") : marked;
   for (const element of candidates) {
     // In the page, so no module-level constant: a plain comparison, not a regex.
     const overflow = getComputedStyle(element).overflowY;
@@ -270,14 +271,14 @@ export const innerOverflowInBrowser = (first: {
     // the first measure judges it: a panel that qualifies once the window has grown (a sidebar
     // at `40vh`) would otherwise count against the panel the growth was for.
     if (
-      first.pick &&
+      pick &&
       (hidden <= 1 ||
         box.width < first.width / 3 ||
         box.height < first.height / 2)
     ) {
       continue;
     }
-    if (first.pick) {
+    if (pick) {
       element.setAttribute(MARK, "");
     }
     most = Math.max(most, Math.max(0, hidden));
