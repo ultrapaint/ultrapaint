@@ -1,0 +1,33 @@
+---
+id: g86
+title: A stock photo standing in for the brand's own
+kind: missing
+status: open
+found: 2026-11-21
+source: the person, on fx-opus-new20 (decisions/new20)
+skill: [SKILL.md]
+sections: []
+---
+
+**What happened.** The charity brief lists the trust's own photos (volunteers in waders, before
+and after at four sites, the salmon at the fish pass) and the app has none. Run 1 fetched stock
+photos: its hero is a beach clean-up in another organisation's T-shirts, the brewery a pint of
+beer, the school a stock classroom. Run 2 drew twelve labelled placeholders, each captioned with the
+photo it stands for. The person: "Labelled placeholders but depends on what the user asks, if they
+explicitly request stock photos then we should use those".
+
+**The skill now.** Nothing on what stands in for pictures the brief names and doesn't give.
+`references/picture.md` ("never a grey box") is for rebuilding a picture, not for a new design.
+
+**Proposed.** Where the brand's own pictures are named and not given, each is a labelled
+placeholder: one flat tone of the palette, captioned with the picture it stands for and its crop.
+A stock photo only when the person asks for one, and then one that shows what the brief says.
+(Run 2's twelve copies of one gradient and wave read as decoration: the tone stays flat.)
+
+**Test.** The briefs with named photos and none given (`fresh-river-charity`, `fresh-hotel`,
+`fresh-bakery`, `fresh-coffee-roaster`, `fresh-cabin-search`), 2 runs each, Opus designing with
+the candidate, against the skill on main: the pictures that are stock photos or that show
+something the brief contradicts, counted per page. It passes at none, with every placeholder
+captioned.
+
+**Result.**
