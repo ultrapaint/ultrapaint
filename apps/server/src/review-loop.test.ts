@@ -160,6 +160,19 @@ describe("a design's review", () => {
       // Told the skill's rules, as the lab's told reviewers are (ADR 0077).
       assert.include(said, REVIEWER_RULES);
       assert.include(said, "<rules>");
+      // The review's method is the skill's (ADR 0111): its job, its scope and its severities,
+      // which the role no longer says of its own.
+      assert.include(REVIEWER_RULES, "<review-job>");
+      assert.include(
+        REVIEWER_RULES,
+        "A careful designer would not ship what is drawn"
+      );
+      assert.include(REVIEWER_RULES, "A second look");
+      assert.notInclude(REVIEWER_ROLE, "it fails at its job");
+      assert.notInclude(
+        REVIEWER_ROLE,
+        "asking for more of them makes the design bigger"
+      );
       assert.include(said, REQUEST);
       assert.include(said, PAGE);
       assert.include(said, "no editor is open to draw it");

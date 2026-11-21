@@ -256,10 +256,12 @@ refactor and the board view left.
   (`skillTerms`). A **capability** is what an agent may have beyond files and a reply (a question
   tool, another agent, a reviewer that sends findings, a view at a width, the design system's
   store, a component's documentation), named once in the core's "Where you work" and used by its
-  steps in those words; `skillTerms` says what the editor gives for each. It is written whole to `~/.cache/ultrapaint/skills/<hash>/`,
-  each mention of a reference named there, and the project's own skills turned on are told after
-  it (ADR 0094). A review **category** names a concern, held by one
-  file of the skill (contracts' `CATEGORY_FILES`).
+  steps in those words; `skillTerms` says what the editor gives for each, and the review loop is
+  the reviewer where it runs. It is written whole to `~/.cache/ultrapaint/skills/<hash>/`, each
+  mention of a reference named there, and the project's own skills turned on are told after it
+  (ADR 0094). How a review judges (what first, its scope, the severities, the sign-off, a second
+  look) is the skill's `references/review.md`, before its rows (ADR 0111). A review **category**
+  names a concern, held by one file of the skill (contracts' `CATEGORY_FILES`).
   _Avoid_: router, part, override (the per-part skills, replaced or extended by a project's file,
   before the core).
 - **Project skills**: a project's own skills (ADR 0094; `SkillsService`): the folders with a
