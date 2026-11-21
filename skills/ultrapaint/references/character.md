@@ -80,7 +80,8 @@ every character.
 
 ## Write it down before the first screen
 
-Write DESIGN.md at the root of the repository while you work, its tokens in its front matter:
+Write DESIGN.md while you work, its tokens in its front matter: through the design system's store
+where you have one, else at the root of the repository.
 
 - **Overview**: who the product is for, the feel in the user's words, a named reference ("a
   printed lecture handout", not "clean and modern"), and the dials in one line ("warm · open ·

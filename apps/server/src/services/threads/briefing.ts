@@ -168,11 +168,14 @@ calls — is the code's. When the user asks for behaviour, ${ways.noteBehaviour}
 tell them it goes to the code when the design is implemented (the Implement button). Token values
 are the design's: change them in the design system, never in a stylesheet.`;
 
-/** What a design thread is told of the editor's review loop (ADR 0063), when its turns are reviewed. */
-const REVIEW_ANSWERED = `- When your turn ends, the editor has the user's review models look at what you made and sends
-  you their findings. Fix each, or decline it with its reason, and end that reply with one line
-  per declined finding: "Declined: <title> — <reason>". The editor runs the review: don't start
-  one of your own.
+/**
+ * What a design thread is told of the editor's review loop (ADR 0063), when its turns are
+ * reviewed: the design skill's "a reviewer that sends you findings" (ADR 0110), told only then.
+ */
+export const REVIEW_ANSWERED = `- When your turn ends, the editor has the user's review models look at what you made and sends
+  you their findings: they are the design skill's "a reviewer that sends you findings". Fix each,
+  or decline it with its reason, and end that reply with one line per declined finding:
+  "Declined: <title> — <reason>". The editor runs the review: don't start one of your own.
 `;
 
 /**
@@ -194,7 +197,10 @@ ${reviewed ? REVIEW_ANSWERED : ""}- At the end, say where the result is, each ch
 /**
  * The design skill's terms in this tool. The skill is written for any web interface, so a text
  * style, a token, a breakpoint or a size is said there in the web's words and here in the page
- * model's fields; what it leaves to "a question" or "the design system", here to the tools.
+ * model's fields. What an agent may have beyond files and a reply, the skill names once as a
+ * capability ("Where you work": a question tool, a view at a width…) and here, in its words, is
+ * what the editor gives for each; "another agent" is the agent's own, and the reviewer is the
+ * review loop, told where it runs (`REVIEW_ANSWERED`).
  */
 export const skillTerms = (
   ways: AgentWays,
@@ -209,16 +215,16 @@ export const skillTerms = (
     "- A transition is a text node beside the page on the canvas, one line each: trigger, what moves, duration, curve; the page shows its end state.",
     ...(t
       ? [
-          `- DESIGN.md and the tokens, each value in every theme: ${t.read_design_system}. Save both together with ${t.write_design_system}.`,
-          `- The one question the skill asks goes to ${t.ask_user}.`,
-          `- A component's props, variants and example: ${t.get_component}; replace every placeholder of its example with real content.`,
-          `- Check a width with ${t.get_screenshot}'s width, and give the page views at the widths you check (${t.set_frame}'s views: [390, 1440]).`,
+          `- The design system's store is ${t.read_design_system}: DESIGN.md and the tokens, each value in every theme. Save both together with ${t.write_design_system}.`,
+          `- A question tool is ${t.ask_user}: the one question the skill asks goes there.`,
+          `- A component's documentation is ${t.get_component}: its props, variants and example; replace every placeholder of its example with real content.`,
+          `- A view at a width is ${t.get_screenshot} at that width; give the page views at the widths you check (${t.set_frame}'s views: [390, 1440]).`,
           "- A component written into the code is placed once the user runs Sync. Do not ask them to run it, and do not wait: draw now with the components the system has and, where one is missing, its parts, and say in your last message what Sync will bring in.",
           `- From Figma, /sync figma and /import-figma run the steps; the skill's \`${skillDir}/references/system/figma.md\` decides each match.`,
         ]
       : [
-          `- DESIGN.md is at the root of the repository, its tokens in its front matter; every token's value in every theme is in ${designsDir}/design.tokens.json.`,
-          "- A component's props and variants are its line among the components listed below.",
+          `- The design system's store is the files: DESIGN.md at the root of the repository, its tokens in its front matter; every token's value in every theme is in ${designsDir}/design.tokens.json.`,
+          "- A component's documentation is its line among the components listed below: its props and variants.",
         ]),
   ];
   return `The design skill in this tool:\n${lines.join("\n")}\n`;

@@ -1,9 +1,10 @@
 # Making components
 
 Making or changing the design system's components in code: their anatomy, variants, sizes,
-states and props. A component is made once, in its own file, with its variants as a map (`cva`,
-a `variants` object) and typed props; screens compose with it and never restyle it, so whatever
-a screen needs to say is a variant or a prop.
+states and props, in whatever framework the product's code uses. A component is made once, in
+its own file, with its variants as one map from a variant to its styles (in React, `cva` or a
+`variants` object) and typed props; screens compose with it and never restyle it, so whatever a
+screen needs to say is a variant or a prop.
 
 ## The product's anatomy
 
@@ -31,12 +32,12 @@ Icon to label is the scale's small step, the same in every button, menu item and
 - Props take plain values: text, numbers, true or false, one of a list. Text inside a component is
   its text prop or its children; a slot is named for what goes in it (`icon`, `end`, `actions`).
 - An icon prop takes the icon's name from the system's set (`icon="search"`), drawn by the
-  system's `Icon` at the component's size and colour, so every icon comes from one set at one
-  size per control.
+  system's one icon component at the component's size and colour, so every icon comes from one
+  set at one size per control.
 - A component that wraps an element (a field with an icon, a select with its trigger) puts the
-  `className` and `style` a screen passes on its outer element and the element's own attributes
-  on the inner one: a size set from outside then reaches the box that also holds the icon, which
-  stays centred.
+  styling a screen passes (`className` and `style` in React, `class` elsewhere) on its outer
+  element and the element's own attributes on the inner one: a size set from outside then
+  reaches the box that also holds the icon, which stays centred.
 
 ## Quiet versions for rows and sentences
 
@@ -77,7 +78,7 @@ Where the product has not chosen:
 | A table drawing its own badges or avatars | The Badge and the Avatar |
 | A variant, size or state left undrawn | Every cell |
 | Buttons and fields of one size at different heights | One height per size |
-| An icon prop that takes an element | The icon's name, drawn by the system's `Icon` |
-| A wrapping component passing `style` to its inner element | `className` and `style` on the outer one |
+| An icon prop that takes an element | The icon's name, drawn by the system's icon component |
+| A wrapping component passing the screen's styling to its inner element | That styling on the outer one |
 | A shadow where a fill or a border would hold the group | The fill, then the border |
 | Pills beside rounded buttons | One radius per family |

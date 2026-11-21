@@ -15,8 +15,9 @@ Open with it, before the first element: `references/components.md`, `references/
 - **Single column**: the same form column centred on the page, the logo above it.
 - On a phone the second half goes.
 - Spacing: padding `32px`, fields `16px` apart, groups `32px`.
-- A form in a side panel of a working screen (an inspector, settings beside a canvas) is
-  compact: controls at the system's compact height, `32px` in a technical product,, fields `8px` apart, padding `12–16px`. The spacing above is
+- A form in a side panel of a working screen (the properties of the selected item beside the
+  document it belongs to) is compact: controls at the system's compact height, `32px` in a
+  technical product, fields `8px` apart, padding `12–16px`. The spacing above is
   for a form that is the whole page.
 
 ## Fields

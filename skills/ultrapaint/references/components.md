@@ -5,7 +5,8 @@ most often get wrong.
 
 ## Look before you use it
 
-Read the component in its documentation, its source or the list of components you were given:
+Read a component's documentation where you have it, else its source or the list of components
+you were given:
 its props, its variants, its sizes and its slots. Start from its example and replace every
 placeholder with real content. Its size comes from outside: the room its parent gives it, its size
 prop. When no variant says what the screen needs, take another component or ask the user.

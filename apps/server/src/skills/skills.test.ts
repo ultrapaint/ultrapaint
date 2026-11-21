@@ -5,12 +5,13 @@ import { AskUser } from "../services/mcp/ask-user.ts";
 import { EditorTools } from "../services/mcp/route.ts";
 import { GetScreenshot } from "../services/mcp/screenshot.ts";
 import { agentWays } from "../services/threads/agent-ways.ts";
-import { skillTerms } from "../services/threads/briefing.ts";
+import { REVIEW_ANSWERED, skillTerms } from "../services/threads/briefing.ts";
 import {
   CORE_FILE,
   coreText,
   naming,
   REFERENCES_MENTION,
+  referenceFiles,
   skillFiles,
   skillFilesAt,
 } from "./index.ts";
@@ -45,6 +46,24 @@ const EDITOR_TERMS = [
   "| without:",
 ];
 
+/** The editor, named: the skill names nothing of it but its own name, in its title. */
+const EDITOR_NAMED_RE =
+  /\bUltrapaint\b|\bthe editor\b|\breview loop\b|\btoken presets?\b/gi;
+
+/** The capabilities the core's "Where you work" names, each in bold at the head of its line. */
+const capabilities = () => {
+  const from = coreText.indexOf("## Where you work");
+  const part = coreText.slice(from, coreText.indexOf("\n## ", from + 1));
+  return [...part.matchAll(/^- \*\*(.+?)\*\*/gm)].map((m) => m[1] ?? "");
+};
+
+/**
+ * What `skillTerms` leaves out: the agent's own, wherever it works, and the reviewer, which is
+ * the review loop where it runs (`REVIEW_ANSWERED`), not in every chat.
+ */
+const THE_AGENTS_OWN = "another agent";
+const THE_REVIEWER = "a reviewer that sends you findings";
+
 describe("the design skill", () => {
   it("the generated module is skills/ultrapaint/ as it is: run `pnpm -F @ultrapaint/server skills` after an edit", () => {
     const generated = readFileSync(
@@ -74,6 +93,37 @@ describe("the design skill", () => {
         .map((tool) => `${file} names ${tool}`),
     ]);
     assert.deepStrictEqual(found, []);
+  });
+
+  it("names nothing of the editor but its own name, in its title", () => {
+    const found = Object.entries(skillFiles).flatMap(([file, text]) =>
+      (text.replace(CORE_HEADING_RE, "").match(EDITOR_NAMED_RE) ?? []).map(
+        (word) => `${file} says ${word}`
+      )
+    );
+    assert.deepStrictEqual(found, []);
+  });
+
+  it("names what an agent may have once, in its Where you work, and uses it in those words", () => {
+    const named = capabilities();
+    assert.includeMembers(named, [
+      "a question tool",
+      "a reviewer that sends you findings",
+      "a view at a width",
+      "the design system's store",
+      "a component's documentation",
+    ]);
+    const used = [
+      coreText.slice(coreText.indexOf("## Designing a screen")),
+      ...referenceFiles.map((file) => skillFiles[file] ?? ""),
+    ].join("\n");
+    for (const capability of named) {
+      assert.include(
+        used,
+        capability,
+        `"${capability}" is named and no step uses it`
+      );
+    }
   });
 
   it("names every file of its references in backticks, and each is there", () => {
@@ -115,6 +165,22 @@ describe("the design skill's terms in the editor", () => {
     const figma: RegExpExecArray | null = FIGMA_RE.exec(terms);
     assert.strictEqual(figma?.[1], "/cache/abc/references/system/figma.md");
     assert.isDefined(skillFiles["references/system/figma.md"]);
+  });
+
+  it("say what the editor gives for each capability the skill names", () => {
+    const terms = skillTerms(agentWays(true), "designs", "/cache/abc");
+    const missing = capabilities()
+      .filter((c) => c !== THE_AGENTS_OWN && c !== THE_REVIEWER)
+      .filter((capability) => !terms.toLowerCase().includes(capability));
+    assert.deepStrictEqual(missing, []);
+    assert.include(capabilities(), THE_REVIEWER);
+    assert.include(REVIEW_ANSWERED, THE_REVIEWER);
+  });
+
+  it("without the tools, still say where the design system's store and each component's documentation are", () => {
+    const terms = skillTerms(agentWays(false), "designs", "/cache/abc");
+    assert.include(terms.toLowerCase(), "the design system's store");
+    assert.include(terms.toLowerCase(), "a component's documentation");
   });
 
   it("without the tools, name none and say where the tokens' values are", () => {
