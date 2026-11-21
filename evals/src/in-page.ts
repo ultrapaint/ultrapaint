@@ -239,8 +239,8 @@ export const scrollThroughInBrowser = async () => {
 
 /**
  * Runs in the page: how much taller the window must be for a screen that scrolls inside a panel
- * (an app shell the window's height, its main column scrolling) to show that panel whole. Zero
- * when the page itself scrolls, which a full-page picture already takes. A panel is judged by the
+ * (an app shell the window's height, its main column scrolling) to show that panel whole, even
+ * when the page also overflows the window by a little. A panel is judged by the
  * window's first size, so one the window outgrows is still measured. `most` is the largest panel's
  * hidden height, what the window grows by; `total` is all panels', what tells progress when one
  * panel grows with the window beside one that doesn't.
@@ -249,10 +249,6 @@ export const innerOverflowInBrowser = (first: {
   readonly height: number;
   readonly width: number;
 }) => {
-  const root = document.scrollingElement ?? document.documentElement;
-  if (root.scrollHeight > window.innerHeight + 1) {
-    return { most: 0, total: 0 };
-  }
   let most = 0;
   let total = 0;
   // `body` too: under an `html` that doesn't scroll, it can be the page's one scroller.
