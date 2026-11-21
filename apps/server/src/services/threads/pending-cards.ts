@@ -117,38 +117,46 @@ export const makePendingCards = (
         : []),
     ].join("\n");
     const decision = yield* Deferred.make<RequestPermissionResponse>();
-    permissions.set(requestId, decision);
-    yield* store.push(threadId, {
-      at: yield* Clock.currentTimeMillis,
-      decision: null,
-      id: requestId,
-      kind: "permission",
-      options: request.options.map((o) => ({
-        kind: o.kind,
-        name: o.name,
-        optionId: o.optionId,
-      })),
-      requestId,
-      title: toolCall.title ?? "Permission request",
-      ...(detail ? { detail } : {}),
-      ...(toolCall.toolCallId ? { toolCallId: toolCall.toolCallId } : {}),
-    });
-    const response = yield* Deferred.await(decision).pipe(
-      // Withdrawn by the agent: answered in the person's place, or no longer asked.
+    const record = (heard: RequestPermissionResponse) => {
+      const picked =
+        heard.outcome.outcome === "selected"
+          ? heard.outcome.optionId
+          : "cancelled";
+      return store.patchItem(threadId, requestId, (i) =>
+        i.kind === "permission" ? { ...i, decision: picked } : i
+      );
+    };
+    const response = yield* Effect.gen(function* () {
+      permissions.set(requestId, decision);
+      yield* store.push(threadId, {
+        at: yield* Clock.currentTimeMillis,
+        decision: null,
+        id: requestId,
+        kind: "permission",
+        options: request.options.map((o) => ({
+          kind: o.kind,
+          name: o.name,
+          optionId: o.optionId,
+        })),
+        requestId,
+        title: toolCall.title ?? "Permission request",
+        ...(detail ? { detail } : {}),
+        ...(toolCall.toolCallId ? { toolCallId: toolCall.toolCallId } : {}),
+      });
+      return yield* Deferred.await(decision);
+    }).pipe(
+      // Withdrawn by the agent, from the card's first moment: answered in the person's place,
+      // or no longer asked. The pick and the withdrawal settle the same deferred, so the card
+      // records whichever came first.
       Effect.onInterrupt(() =>
-        store.patchItem(threadId, requestId, (i) =>
-          i.kind === "permission" ? { ...i, decision: "cancelled" } : i
+        Effect.andThen(
+          Deferred.succeed(decision, CANCELLED),
+          Effect.flatMap(Deferred.await(decision), record)
         )
       ),
       Effect.ensuring(Effect.sync(() => permissions.delete(requestId)))
     );
-    const picked =
-      response.outcome.outcome === "selected"
-        ? response.outcome.optionId
-        : "cancelled";
-    yield* store.patchItem(threadId, requestId, (i) =>
-      i.kind === "permission" ? { ...i, decision: picked } : i
-    );
+    yield* record(response);
     return response;
   });
 
@@ -162,9 +170,15 @@ export const makePendingCards = (
         message: "permission request is no longer pending",
       });
     }
-    yield* Deferred.succeed(decision, {
+    // Refused when the agent withdrew the request first.
+    const taken = yield* Deferred.succeed(decision, {
       outcome: { optionId, outcome: "selected" },
     });
+    if (!taken) {
+      return yield* new NotFound({
+        message: "permission request is no longer pending",
+      });
+    }
   });
 
   const elicitation = Effect.fnUntraced(function* (
@@ -184,29 +198,38 @@ export const makePendingCards = (
     }
     const itemId = yield* newItemId;
     const reply = yield* Deferred.make<CreateElicitationResponse>();
-    forms.set(itemId, { questions, reply });
-    shown += 1;
-    yield* store.push(threadId, {
-      answers: null,
-      at: yield* Clock.currentTimeMillis,
-      elicitation: { message: request.message },
-      id: itemId,
-      kind: "question",
-      questions,
-    });
-    return yield* Deferred.await(reply).pipe(
+    return yield* Effect.gen(function* () {
+      forms.set(itemId, { questions, reply });
+      shown += 1;
+      yield* store.push(threadId, {
+        answers: null,
+        at: yield* Clock.currentTimeMillis,
+        elicitation: { message: request.message },
+        id: itemId,
+        kind: "question",
+        questions,
+      });
+      return yield* Deferred.await(reply);
+    }).pipe(
       // Withdrawn by the agent (Claude Code's `$/cancel_request`), which no longer listens for
-      // the answers: the card says so, as it does when the turn is stopped.
+      // the answers: the card says so, as it does when the turn is stopped. The answers and the
+      // withdrawal settle the same deferred, so only one of them is ever recorded.
       Effect.onInterrupt(() =>
-        store.patchItem(threadId, itemId, (item) =>
-          item.kind === "question" && item.answers === null
-            ? { ...item, outcome: "cancelled" as const }
-            : item
+        Effect.flatMap(Deferred.succeed(reply, CANCEL), (withdrawn) =>
+          withdrawn ? cancelled(itemId) : Effect.void
         )
       ),
       Effect.ensuring(Effect.sync(() => forms.delete(itemId)))
     );
   });
+
+  /** A question card whose agent stopped waiting: no longer asked. */
+  const cancelled = (itemId: string) =>
+    store.patchItem(threadId, itemId, (item) =>
+      item.kind === "question" && item.answers === null
+        ? { ...item, outcome: "cancelled" as const }
+        : item
+    );
 
   const ask = Effect.fnUntraced(function* (questions: readonly Question[]) {
     if (!(yield* store.get(threadId))) {
@@ -246,17 +269,22 @@ export const makePendingCards = (
         message: "the agent no longer waits for these answers",
       });
     }
+    // Taken by the agent before they are recorded: answers it withdrew from never read as given.
+    if (waiting !== undefined) {
+      const taken = yield* Deferred.succeed(waiting.reply, {
+        action: "accept",
+        content: contentOf(waiting.questions, answers),
+      });
+      if (!taken) {
+        return yield* new Conflict({
+          message: "the agent no longer waits for these answers",
+        });
+      }
+    }
     yield* store.patchItem(threadId, itemId, (item) =>
       item.kind === "question" ? { ...item, answers } : item
     );
-    if (waiting === undefined) {
-      return answersText(card.questions, answers);
-    }
-    yield* Deferred.succeed(waiting.reply, {
-      action: "accept",
-      content: contentOf(waiting.questions, answers),
-    });
-    return null;
+    return waiting === undefined ? answersText(card.questions, answers) : null;
   });
 
   const decline = Effect.fnUntraced(function* (itemId: string) {
@@ -266,12 +294,16 @@ export const makePendingCards = (
         message: "the agent no longer waits for these answers",
       });
     }
+    if (!(yield* Deferred.succeed(waiting.reply, DECLINE))) {
+      return yield* new NotFound({
+        message: "the agent no longer waits for these answers",
+      });
+    }
     yield* store.patchItem(threadId, itemId, (item) =>
       item.kind === "question"
         ? { ...item, outcome: "declined" as const }
         : item
     );
-    yield* Deferred.succeed(waiting.reply, DECLINE);
   });
 
   const releaseAll = Effect.gen(function* () {
@@ -280,12 +312,9 @@ export const makePendingCards = (
       yield* Deferred.succeed(decision, CANCELLED);
     }
     for (const [itemId, pending] of forms) {
-      yield* store.patchItem(threadId, itemId, (item) =>
-        item.kind === "question" && item.answers === null
-          ? { ...item, outcome: "cancelled" as const }
-          : item
-      );
-      yield* Deferred.succeed(pending.reply, CANCEL);
+      if (yield* Deferred.succeed(pending.reply, CANCEL)) {
+        yield* cancelled(itemId);
+      }
     }
     forms.clear();
   });
