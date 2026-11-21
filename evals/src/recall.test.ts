@@ -469,7 +469,7 @@ describe("recall", () => {
     }
   );
 
-  it("tells a reviewer that opens no file the core's rules, and the review table when the version has one", () => {
+  it("tells a reviewer that opens no file the core's rules and review job, and the review file when the version has one", () => {
     const core =
       "# Skill\n\n## Designing\n\n1. Settle the character.\n\n## The rules\n\n### Words\n\n- Nouns label, verbs act.\n\n## Reviewing a design\n\nOpen the kind's file.\n";
     const told = toldRules(
@@ -482,7 +482,8 @@ describe("recall", () => {
     );
     assert.include(told, "| A stray hairline | Remove it |\n</review>");
     assert.notInclude(told, "Settle the character");
-    assert.notInclude(told, "Open the kind's file");
+    // The skill's review job, as an agent outside the editor reviews (ADR 0111).
+    assert.include(told, "<review-job>\nOpen the kind's file.\n</review-job>");
     assert.notInclude(toldRules(core, undefined), "<review>");
     // A core with no such part (a router) is told whole.
     assert.include(

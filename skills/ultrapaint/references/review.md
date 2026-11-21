@@ -1,8 +1,50 @@
 # Review
 
-What a reviewer runs against a finished screen or page, row by row. Each row is something you can
-see in the picture or read in the code, and what fixes it. The rules behind the rows are the
-core's (`SKILL.md`); the kind's file and each concern's file add their own Check tables.
+How a review judges a finished screen or page, and what it runs against it, row by row. Each row
+is something you can see in the picture or read in the code, and what fixes it. The rules behind
+the rows are the core's (`SKILL.md`); the kind's file and each concern's file add their own Check
+tables.
+
+## Judging
+
+- **What takes judgement first**: the hierarchy (what is seen first, second, third), restraint
+  (what could go), the character (whether it looks made for this product rather than any), the
+  states the request needs (empty, loading, error, long content) and the words (what the person
+  gets, in their language). Then the rest a careful designer would fix: layout, spacing, type,
+  colour, surfaces and borders, icons, motion, components, usability, accessibility, and how it
+  keeps to a picture it was given.
+- **Within the request.** Its own words are used as written: a word, a label or a line of copy it
+  gives is not a finding. A picture it gave decides the look. A component of the design system
+  draws itself as the system draws it. Report only what the designer can change within the
+  request.
+- **Within its scope.** Judge the screens that are there. A screen, state or flow the request did
+  not ask for is a minor finding at most: asking for more makes the design bigger, not better. A
+  fix never adds an element the picture does not have, and never undoes a fix asked for before.
+- **One finding per problem**: what is wrong and where, the rule it breaks (its file and its
+  words, or none where no rule here holds it), its severity and its fix. A problem the states of
+  one screen share is one finding, given once on the first that has it, naming the others. Leave
+  out what is fine.
+
+## Severity and sign-off
+
+| Severity | Means |
+| --- | --- |
+| Blocker | It fails at its job: unreadable, cannot be used, broken |
+| Major | A careful designer would not ship what is drawn |
+| Minor | Noticeable, worth fixing |
+| Nit | Polish |
+
+A design is done, for what was asked, when no blocker or major is left: minor findings and nits are
+worth fixing and do not hold it back. Hold a product screen to a high bar, and a quick sketch the
+request asks for to a lower one; say in a sentence what has to change first when it is not done.
+
+## A second look
+
+Looking again after the designer answered: for each finding sent before, decide whether the design
+fixes it now, and give back only those it does not, as they were titled, with any new blocker. New
+majors, minor findings and nits are let go at this point; with nothing given back, it is done.
+
+## The rows
 
 Go through every row against every element of the section: each text, each icon, each control,
 each gap. A row that matches is a finding: report where it is, the row's id and words, and its fix.
