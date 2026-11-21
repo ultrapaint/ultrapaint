@@ -28,8 +28,7 @@ Answer with:
     sentences) and `fix`;
   - `category`: the concern it falls under (`spacing`, `states`, `content`, …;
     `picture` for how it keeps to a picture it was given);
-  - `severity`: `blocker` (it fails at its job: unreadable, can't be used, broken), `major` (a
-    careful designer wouldn't ship it), `minor` (noticeable, worth fixing) or `nit` (polish);
+  - `severity`: `blocker`, `major`, `minor` or `nit`, as the skill's review defines them;
   - `rule`: the skill's rule it breaks, as its file and the rule's words
     (`references/states.md › every load has its error`), or empty when the skill has no rule for it.
 - `coverage`: one row for each of hierarchy, restraint, layout, spacing, typography and color,
@@ -42,9 +41,8 @@ Answer with:
 - `reached`: the categories the section has besides hierarchy, restraint, layout, spacing,
   typography and color (icons → `iconography`, words → `content`, a loading or empty state →
   `states`, …): what it is scored on.
-- `signOff`: `done` true when, for what the designer was asked, the section is good enough as it
-  stands (none of your findings is a `blocker` or a `major`), with `left` empty; else `done` false and `left` saying in a sentence what has to change
-  first. Hold a product screen to a high bar, and a quick sketch the request asks for to a lower
-  one.
+- `signOff`: `done` true when the section is done for what the designer was asked, as the skill's
+  review says, with `left` empty; else `done` false and `left` saying in a sentence what has to
+  change first.
 - `systemNotes`, each with `component` (the design system's component) and `note` (what it would
   change), or none.
