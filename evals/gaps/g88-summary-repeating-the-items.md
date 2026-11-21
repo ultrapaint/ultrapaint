@@ -22,7 +22,7 @@ checks' findings to the designer) and see whether the repeat is caught. If it is
 "A summary over items that repeats their own marks | One line of what needs action, or none".
 
 **Test.** `fresh-sprint-board` and `fresh-sales-dashboard`, 2 runs each, Opus designing with the
-skill on main: summaries whose every line repeats a mark shown in the items under them. It passes
-at none in four.
+skill on main: the lines of each summary that repeat a mark shown in the items under them. It
+passes when no summary has more than one such line, in all four.
 
 **Result.**

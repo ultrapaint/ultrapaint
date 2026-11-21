@@ -21,6 +21,7 @@ label in the control's weight; the current one in the foreground or the accent, 
 muted."
 
 **Test.** The phone briefs (`fresh-bank-home`, `fresh-flow-booking`), 2 runs each, Opus designing
-with the candidate: the bottom bar's label size. It passes at `10–12px` in every run that draws one.
+with the candidate: the bottom bar's label size. It passes at `10–12px` in every run that draws one, with at least two runs
+drawing one; with fewer, the test is inconclusive and runs again.
 
 **Result.**
