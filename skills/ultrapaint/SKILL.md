@@ -15,6 +15,21 @@ landing page, a shop, a portfolio, a magazine. A rule that names one holds for t
 Four jobs, below: designing a screen or a page with the design system it has; reviewing one;
 making the design system; writing only the words.
 
+## Where you work
+
+Every job works with the product's files and your reply alone. Where you work may give you more,
+and a step that can use it names it in these words:
+
+- **a question tool**, which puts a question to the user and waits for the answer;
+- **another agent**, fresh, that you can start on a task;
+- **a reviewer that sends you findings** on what you made, when your turn ends;
+- **a view at a width**: the screen as it is drawn, at the width you choose;
+- **the design system's store**, where its tokens and DESIGN.md are read and saved;
+- **a component's documentation**: its props, variants, sizes and example.
+
+Use each where you have it; where you have none, the step says what to do instead. Where you work
+says what each is called there.
+
 ## Designing a screen or a page
 
 1. **Settle the character.** DESIGN.md's Overview says how the product should feel, and its
@@ -33,12 +48,13 @@ making the design system; writing only the words.
    accessibility. Run every rule below against every screen, element by element, then the Check
    table of each file you opened, and fix what fails. Find each small uppercase label above a
    heading and delete it unless it states a fact the heading cannot. Look at the page at the
-   phone's width and the desktop's: every image loads, and a headline set in pieces keeps the
-   spaces between its words. Your last message names each file you opened.
-6. **Have each section reviewed.** Where your work is reviewed for you (an editor's review loop),
-   answer its findings. Elsewhere, when you can start another agent, have a fresh one review each
-   section from a crop at 2× (dark and light where the product has both) with this skill, and fix
-   what it finds.
+   phone's width and the desktop's, in a view at a width or else in a browser: every image loads,
+   and a headline set in pieces keeps the spaces between its words. Your last message names each
+   file you opened.
+6. **Have each section reviewed.** Where you have a reviewer that sends you findings, answer
+   them: fix each, or say why not. Elsewhere, when you can start another agent, have a fresh one review each section
+   from a crop at 2× (dark and light where the product has both) with this skill's review job,
+   and fix what it finds.
 
 ### The kind of screen or page
 
@@ -115,8 +131,8 @@ says what the content already shows is noise: remove it, rather than shrinking o
   line under it.
 - No decoration: an icon beside every label, a box around one element, a divider between things
   already apart, a badge that says nothing, an icon inside a field its label names.
-- A value appears once, where it is read or set: not a size on its frame and again in a caption,
-  not a count on a group and on its heading.
+- A value appears once, where it is read or set: not a file's size on its row and again in a
+  caption, not a count on a group and on its heading.
 - An object's page shows in view the facts a task on it needs. Facts needed only sometimes
   (identifiers, build or machine details, sizes, codes another team uses, checks that passed) go
   under one "Details" disclosure at the end of the side column, or on another tab: one step away,
@@ -286,8 +302,8 @@ says what the content already shows is noise: remove it, rather than shrinking o
 - Controls inside a row or a sentence stay quiet: text and a chevron, not an outlined select. A
   switch sits at the row's right edge, its label left.
 - A copy action sits inside the field's end; a field's placeholder shows an example of its
-  format, and a rule it must meet is a muted line under it, never text in a box; a change badge sits
-  at the row's far right with no caption.
+  format, and a rule it must meet is a muted line under it, never text in a box; a badge marking
+  a row as changed sits at the row's far right with no caption.
 - More: `references/components.md`, before you use a component you have not used in this
   system.
 

@@ -491,11 +491,11 @@ describe("the editor's tools in what an agent is told", () => {
   /** What the briefing says of the design skill's terms, by a line with the tools and without. */
   const skillLines = {
     components: [
-      "A component's props, variants and example: get_component",
-      "A component's props and variants are its line among the components listed below.",
+      "A component's documentation is get_component: its props, variants and example",
+      "A component's documentation is its line among the components listed below: its props and variants.",
     ],
     tokens: [
-      "DESIGN.md and the tokens, each value in every theme: read_design_system",
+      "The design system's store is read_design_system: DESIGN.md and the tokens, each value in every theme",
       "every token's value in every theme is in designs/design.tokens.json",
     ],
   } as const;
@@ -630,6 +630,10 @@ describe("the briefing", () => {
           (yield* briefing.text("design", { reviewed: false })) ?? "";
         assert.notInclude(untold, review);
         assert.notInclude(untold, "Declined:");
+        // The skill's "a reviewer that sends you findings" is the loop only where it runs (ADR 0110).
+        const reviewer = `the design skill's "a reviewer that sends you findings"`;
+        assert.include(told, reviewer);
+        assert.notInclude(untold, reviewer);
         // The rest of how it works in the chat is said either way.
         assert.include(untold, "Ask one question at a time");
       }).pipe(Effect.provide(ProjectTest()), Effect.scoped)

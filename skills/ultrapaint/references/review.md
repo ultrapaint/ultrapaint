@@ -20,7 +20,7 @@ each gap. A row that matches is a finding: report where it is, the row's id and 
 | W7 | An icon on every label, a box around one element, a divider between separated groups | Remove the decoration |
 | W8 | Navigation or borders heavier than the content | Lighter chrome |
 | W9 | An item under a group starting at another column | One column for the group's items |
-| W10 | A value the window already shows elsewhere (a size on its frame, a count on its group, a title its nav item names) | Once, where it is read or set |
+| W10 | A value the window already shows elsewhere (a file's size on its row and in a caption, a count on its group, a title its nav item names) | Once, where it is read or set |
 | W11 | Lorem ipsum, "Title", "Item 1" | Real copy |
 | W12 | A legend on a chart whose series are labelled on it, a title over a block its tabs already name | Delete it; shrinking is not enough |
 | W13 | "vs last year" after each change when the period is stated once above them, "Enabled" beside a switch, "17 rows" under a table, "5 of 5" over a stepper, a title over a toolbar | Remove it: the thing beside it already says so |
@@ -127,7 +127,7 @@ each gap. A row that matches is a finding: report where it is, the row's id and 
 | Id | You see | Fix |
 | --- | --- | --- |
 | C1 | A hex or `rgb()` value on a surface, a text or a border | The semantic token for that role |
-| C2 | In a detailed system, one property's token on another (a `background-color-*` on text) | The token of that property, the same meaning |
+| C2 | In a system that names tokens by property, one property's token on another (a `background-color-*` on text) | The token of that property, the same meaning |
 | C3 | A palette token in a component's colours | The semantic token it stands for |
 | C4 | A blue-grey neutral the character does not ask for | A neutral or warm one; if the system's own is blue-grey, tell the user |
 | C5 | The accent on headings, icons or dividers | Neutral; the accent stays on the action and the selection |
