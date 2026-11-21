@@ -247,12 +247,18 @@ export const scrollThroughInBrowser = async () => {
  */
 export const innerOverflowInBrowser = (first: {
   readonly height: number;
+  /** The first measure picks the panels and marks them; later ones measure only those. */
+  readonly pick: boolean;
   readonly width: number;
 }) => {
+  const MARK = "data-lab-panel";
   let most = 0;
   let total = 0;
   // `body` too: under an `html` that doesn't scroll, it can be the page's one scroller.
-  for (const element of document.querySelectorAll("body, body *")) {
+  const candidates = first.pick
+    ? document.querySelectorAll("body, body *")
+    : document.querySelectorAll(`[${MARK}]`);
+  for (const element of candidates) {
     // In the page, so no module-level constant: a plain comparison, not a regex.
     const overflow = getComputedStyle(element).overflowY;
     if (overflow !== "auto" && overflow !== "scroll") {
@@ -260,15 +266,22 @@ export const innerOverflowInBrowser = (first: {
     }
     const hidden = element.scrollHeight - element.clientHeight;
     const box = element.getBoundingClientRect();
-    // A panel that holds the screen's content, not a menu or a code block that scrolls.
+    // A panel that holds the screen's content, not a menu or a code block that scrolls. Only
+    // the first measure judges it: a panel that qualifies once the window has grown (a sidebar
+    // at `40vh`) would otherwise count against the panel the growth was for.
     if (
-      hidden > 1 &&
-      box.width >= first.width / 3 &&
-      box.height >= first.height / 2
+      first.pick &&
+      (hidden <= 1 ||
+        box.width < first.width / 3 ||
+        box.height < first.height / 2)
     ) {
-      most = Math.max(most, hidden);
-      total += hidden;
+      continue;
     }
+    if (first.pick) {
+      element.setAttribute(MARK, "");
+    }
+    most = Math.max(most, Math.max(0, hidden));
+    total += Math.max(0, hidden);
   }
   return { most, total };
 };

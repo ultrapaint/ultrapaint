@@ -331,7 +331,10 @@ export class Browser extends Context.Service<
             // reflows at the new height. A panel that doesn't grow with the window (a fixed
             // height) gets back the window it had, as a taller one would only add blank rows.
             const first = { height: viewport.height, width: viewport.width };
-            let hidden = await page.evaluate(innerOverflowInBrowser, first);
+            let hidden = await page.evaluate(innerOverflowInBrowser, {
+              ...first,
+              pick: true,
+            });
             for (let pass = 0; pass < MAX_TILES && hidden.most > 0; pass += 1) {
               const size = page.viewportSize();
               if (size === null || size.height >= MAX_TILES * TILE_HEIGHT) {
@@ -346,7 +349,10 @@ export class Browser extends Context.Service<
                 width: size.width,
               });
               await page.waitForTimeout(500);
-              const left = await page.evaluate(innerOverflowInBrowser, first);
+              const left = await page.evaluate(innerOverflowInBrowser, {
+                ...first,
+                pick: false,
+              });
               if (left.total >= hidden.total) {
                 await page.setViewportSize(size);
                 await page.waitForTimeout(500);
