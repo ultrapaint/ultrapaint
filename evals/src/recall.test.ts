@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { assert, describe, it } from "@effect/vitest";
 import { toldRules } from "@ultrapaint/contracts/review";
 import { Effect, FileSystem, Layer } from "effect";
@@ -91,6 +92,7 @@ const scripted = (asked: Asked) => {
 };
 
 const LABEL_RE = /^(F\d+)\./gm;
+const COMMIT_RE = /^([0-9a-f]{7,}|unknown)/;
 const RESULT_RE =
   /- `r`: \d{4}-\d\d-\d\d, caught: shipped 0\/2, fix 2\/2 \(opus, effort high/;
 
@@ -231,6 +233,21 @@ describe("recall", () => {
           yield* readData("runs/r/skills/fix/references/states.md"),
           "# The candidate's states\n"
         );
+        // The record says what each version's skill said, and the checkout it was laid over.
+        const record = JSON.parse(yield* readData("runs/r/recall.json"));
+        assert.deepStrictEqual(Object.keys(record.skillTrees), [
+          "shipped",
+          "fix",
+        ]);
+        assert.strictEqual(record.skillTrees.fix.dir, "skills/fix");
+        assert.strictEqual(
+          record.skillTrees.fix.files["references/states.md"],
+          createHash("sha256")
+            .update("# The candidate's states\n")
+            .digest("hex")
+        );
+        assert.match(record.commit, COMMIT_RE);
+        assert.include(report, `on the checkout at ${record.commit}`);
         // A reviewer works beside the section's pictures and code, with nothing that names a gap.
         assert.strictEqual(
           yield* readData("runs/r/sections/panel/code/DESIGN.md"),
