@@ -46,3 +46,5 @@ object.
 - `rt-2-gpt`: 2026-11-16, caught: shipped 2/2, review-table 2/2, review-inventory 2/2 (reviewed by gpt-6.1-sol, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2-gpt/report.md)
 - `placement-1`: 2026-11-17, caught: shipped 1/2 (+1 partly), placement 0/2 (+2 partly) (reviewed by opus, judged by opus, cursor:grok-4.7-high, effort high; runs/placement-1/report.md)
 - `placement-2`: 2026-11-17, caught: shipped 1/2 (+1 partly), placement-2 0/2 (+2 partly) (reviewed by opus, judged by opus, cursor:grok-4.7-high, effort high; runs/placement-2/report.md)
+- `up88-told`: 2026-11-22, caught: main+told 1/3 (+2 partly), up88-2+told 0/3 (+3 partly) (opus, effort high; runs/up88-told/report.md)
+- `up88-names`: 2026-11-22, caught: main 2/3 (+1 partly), up88-1 2/3 (+1 partly), up88-2 2/3 (+1 partly) (opus, effort high; runs/up88-names/report.md)

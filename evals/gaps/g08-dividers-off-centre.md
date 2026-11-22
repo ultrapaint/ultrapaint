@@ -38,3 +38,5 @@ vertical centre is its bar's.
 - `ep-1`: 2026-11-11, caught: review-table@opus+untold 0/2, review-table@opus+told 0/2 (+1 partly), review-table@gpt-6.1-sol+untold 2/2, review-table@gpt-6.1-sol+told 2/2 (reviewed by opus, gpt-6.1-sol, judged by cursor:grok-4.7-high, effort high; runs/ep-1/report.md)
 - `chk-1`: 2026-11-11, caught: shipped 0/3, shipped+checks 3/3 (opus, effort high; runs/chk-1/report.md)
 - `rt-2-gpt`: 2026-11-16, caught: shipped 2/2, review-table 2/2, review-inventory 2/2 (reviewed by gpt-6.1-sol, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2-gpt/report.md)
+- `up88-told`: 2026-11-22, caught: main+told 0/3, up88-2+told 0/3 (+1 partly) (opus, effort high; runs/up88-told/report.md)
+- `up88-names`: 2026-11-22, caught: main 0/3, up88-1 0/3, up88-2 0/3 (opus, effort high; runs/up88-names/report.md)
