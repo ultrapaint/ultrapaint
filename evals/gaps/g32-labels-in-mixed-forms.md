@@ -41,3 +41,5 @@ named: shipped skill 0/2, redesign-gaps 1/2. The person rated it real
 - `recall-main19b`: 2026-11-19, caught: shipped 3/4 (opus, effort high; runs/recall-main19b/report.md)
 - With the skill on main (row-lines-2 shipped), caught in 4 of 6 reviews, against 0 of 2 with the
   skill before it in `g76-rl` and 0 of 3 in `rt-2`: done.
+- `up88-told`: 2026-11-22, caught: main+told 0/3, up88-2+told 1/3 (opus, effort high; runs/up88-told/report.md)
+- `up88-names`: 2026-11-22, caught: main 1/3, up88-1 2/3, up88-2 1/3 (opus, effort high; runs/up88-names/report.md)

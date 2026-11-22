@@ -69,3 +69,5 @@ problems.
 - `placement-2`: 2026-11-17, its sections' gaps caught: shipped 10/16, placement-2 8/16 (reviewed by opus, judged by opus, cursor:grok-4.7-high, effort high; runs/placement-2/report.md)
 - `recall-main19`: 2026-11-19, its sections' gaps caught: shipped 13/18 (+2 partly) (opus, effort high; runs/recall-main19/report.md)
 - `recall-main19b`: 2026-11-19, its sections' gaps caught: shipped 26/36 (+5 partly) (opus, effort high; runs/recall-main19b/report.md)
+- `up88-told`: 2026-11-22, its sections' gaps caught: main+told 94/141 (+15 partly), up88-2+told 92/141 (+10 partly) (opus, effort high; runs/up88-told/report.md)
+- `up88-names`: 2026-11-22, its sections' gaps caught: main 103/141 (+14 partly), up88-1 108/141 (+10 partly), up88-2 98/138 (+16 partly) (opus, effort high; runs/up88-names/report.md)

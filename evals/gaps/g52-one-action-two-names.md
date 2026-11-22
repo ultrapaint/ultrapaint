@@ -47,3 +47,5 @@ thing and action gets. That round needs a brief of two screens, which the lab ha
 - `ep-1`: 2026-11-11, caught: review-table@opus+untold 0/2 (+1 partly), review-table@opus+told 0/2 (+2 partly), review-table@gpt-6.1-sol+untold 0/2 (+2 partly), review-table@gpt-6.1-sol+told 0/2 (+2 partly) (reviewed by opus, gpt-6.1-sol, judged by cursor:grok-4.7-high, effort high; runs/ep-1/report.md)
 - `chk-1`: 2026-11-11, caught: shipped 3/3, shipped+checks 2/3 (opus, effort high; runs/chk-1/report.md)
 - `rt-2-gpt`: 2026-11-16, caught: shipped 0/2 (+2 partly), review-table 0/2 (+1 partly), review-inventory 0/2 (+2 partly) (reviewed by gpt-6.1-sol, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2-gpt/report.md)
+- `up88-told`: 2026-11-22, caught: main+told 1/3 (+2 partly), up88-2+told 2/3 (opus, effort high; runs/up88-told/report.md)
+- `up88-names`: 2026-11-22, caught: main 2/3 (+1 partly), up88-1 2/3 (+1 partly), up88-2 1/3 (+2 partly) (opus, effort high; runs/up88-names/report.md)

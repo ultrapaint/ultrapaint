@@ -36,3 +36,5 @@ named: shipped skill 1/2, redesign-gaps 0/2. The person rated it real
 - `chk-1`: 2026-11-11, caught: shipped 1/3 (+2 partly), shipped+checks 3/3 (opus, effort high; runs/chk-1/report.md)
 - `rt-2-gpt`: 2026-11-16, caught: shipped 2/2, review-table 2/2, review-inventory 2/2 (reviewed by gpt-6.1-sol, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2-gpt/report.md)
 - `gaps-nov18`, decided (the person, 2026-11-19, `decisions/gaps-nov18`): closed as done. The shipped skill catches it: 2 of 2, and 1 of 3 with 2 partly.
+- `up88-told`: 2026-11-22, caught: main+told 1/3, up88-2+told 2/3 (opus, effort high; runs/up88-told/report.md)
+- `up88-names`: 2026-11-22, caught: main 1/3 (+1 partly), up88-1 2/3 (+1 partly), up88-2 0/3 (+1 partly) (opus, effort high; runs/up88-names/report.md)

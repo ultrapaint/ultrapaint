@@ -38,3 +38,5 @@ at 1.4:1 with no fill and no label.
 - `g76-rl`: 2026-11-17, caught: shipped 0/2, row-lines 0/2 (reviewed by opus, judged by opus, cursor:grok-4.7-high, effort high; runs/g76-rl/report.md)
 - `recall-main19`: 2026-11-19, caught: shipped 0/2 (opus, effort high; runs/recall-main19/report.md)
 - `recall-main19b`: 2026-11-19, caught: shipped 0/4 (+1 partly) (opus, effort high; runs/recall-main19b/report.md)
+- `up88-told`: 2026-11-22, caught: main+told 0/3 (+1 partly), up88-2+told 0/3 (opus, effort high; runs/up88-told/report.md)
+- `up88-names`: 2026-11-22, caught: main 0/3, up88-1 0/3, up88-2 0/3 (+1 partly) (opus, effort high; runs/up88-names/report.md)

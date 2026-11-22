@@ -41,3 +41,5 @@ row tall and isn't among the three heaviest things on a squint.
 - `g02-2`: 2026-11-11, caught: shipped 3/3, g02-three-times 2/3 (+1 partly) (opus, effort high; runs/g02-2/report.md)
 - `chk-1`: 2026-11-11, caught: shipped 3/3, shipped+checks 1/3 (+2 partly) (opus, effort high; runs/chk-1/report.md)
 - `rt-2-gpt`: 2026-11-16, caught: shipped 2/2, review-table 0/2 (+2 partly), review-inventory 0/2 (+2 partly) (reviewed by gpt-6.1-sol, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2-gpt/report.md)
+- `up88-told`: 2026-11-22, caught: main+told 3/3, up88-2+told 2/3 (+1 partly) (opus, effort high; runs/up88-told/report.md)
+- `up88-names`: 2026-11-22, caught: main 2/3 (+1 partly), up88-1 3/3, up88-2 3/3 (opus, effort high; runs/up88-names/report.md)
