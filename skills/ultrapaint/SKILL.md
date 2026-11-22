@@ -48,8 +48,8 @@ making the design system; writing only the words.
 | Settings, billing, integrations, a profile, a team page | `references/kinds/settings.md` |
 | A table, a list of records, their filters and pagination | `references/kinds/table.md` |
 | A dashboard, figures, charts | `references/kinds/dashboard.md` |
-| Sign-in, sign-up, onboarding, a contact form | `references/kinds/form.md` |
-| A sidebar, a header, a command palette, a menu, a calendar or date picker | `references/kinds/navigation.md` |
+| Sign-in, sign-up, onboarding, a contact form, any long form in an app | `references/kinds/form.md` |
+| A sidebar, a header, a phone's bottom bar, a command palette, a menu, a calendar or date picker | `references/kinds/navigation.md` |
 | A toast, a notification panel, an AI chat, a file manager | `references/kinds/feedback.md` |
 | A product's landing page: hero, features, pricing, FAQ, testimonials, footer | `references/pages/landing.md` |
 | A shop, a restaurant, a hotel | `references/pages/shop.md` |
@@ -236,7 +236,8 @@ says what the content already shows is noise: remove it, rather than shrinking o
   tell the user and use it all the same.
 - A status badge is the system's neutral Badge (a fill that differs from its card, foreground or
   muted text) with at most a small coloured dot inside. Status colours report status only, never
-  decoration or a chart series; categories take their own hues.
+  decoration or a chart series. A category is told by its label; a hue of its own goes to the
+  one a reader must not miss (`references/color.md`).
 - Selected is the system's selected style, a neutral fill or a solid brand fill, never a pale wash
   of the accent. Hover, pressed, focus and disabled are steps of the same role; a state brings no
   new hue.
@@ -259,6 +260,11 @@ says what the content already shows is noise: remove it, rather than shrinking o
 - One radius family by size; buttons and fields share the default radius. A corner inside another
   takes the outer radius less the padding. Full-bleed images and bare tables are square.
 - More: `references/surfaces.md`, when you layer surfaces, overlays or shadows.
+- A picture the brief names and doesn't give (the brand's own photos, a product shot) is a
+  placeholder in its place and crop: one flat tone of the palette, captioned with what it will
+  show. Never a stock photo, unless the person asks for stock photos; then one that shows what
+  the brief says. A chart, a diagram or a screen of the product the page can draw is drawn, not
+  left as a placeholder.
 
 ### Icons
 

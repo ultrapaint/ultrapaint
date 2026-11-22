@@ -2,7 +2,7 @@
 id: g87
 title: A hue for every category
 kind: missing
-status: open
+status: done
 found: 2026-11-21
 source: the person, on fx-opus-new20 (decisions/new20)
 skill: [references/color.md, SKILL.md, references/character.md]
@@ -35,3 +35,13 @@ page has more than two where the main runs have three or more, and the person pr
 candidate's pages.
 
 **Result.**
+- `fx-opus-c20`: 2026-11-21, `candidates/new20` (`color.md`'s paragraph and row, `SKILL.md`'s
+  line and `character.md`'s colour line as **Proposed**), `fresh-changelog`,
+  `fresh-team-calendar`, `fresh-sprint-board`, 2 runs each, Opus in Claude Code designing: category
+  hues per page at most two (changelog: an icon on Breaking in run 1, small dots on Deprecated and
+  Breaking in run 2; calendars by name in one tint or in greys; board labels as grey chips),
+  against five on both changelogs and five on calendar run 2 in `fx-opus-new20`. The sprint
+  board's repeating summary (g88) was gone in both runs too.
+- Decision of 2026-11-22 (`decisions/new20-ship`): shipped. `pages/shop.md`'s hue per flavour and
+  `moves.md`'s colour-coded markers stay: a brand's device on product tiles, and a move chosen on
+  purpose.

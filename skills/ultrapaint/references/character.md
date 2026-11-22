@@ -60,7 +60,7 @@ every character.
   where it can be.
 - Type: a friendly geometric or humanist sans, a step larger at every level.
 - Shape: radius `12–20px`; soft fills rather than borders.
-- Colour: warm neutrals, a livelier accent; categories in their own hues.
+- Colour: warm neutrals, a livelier accent.
 - Imagery: illustrations and photographs where they carry meaning: an empty state, a welcome, a
   reward. In games, celebration in motion and colour where something is won.
 - Tone: warm, second person, encouraging; plain where something can go wrong.

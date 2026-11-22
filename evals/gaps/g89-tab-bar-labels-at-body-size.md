@@ -2,7 +2,7 @@
 id: g89
 title: A phone tab bar's labels at body size
 kind: missing
-status: open
+status: done
 found: 2026-11-21
 source: the person, on fx-opus-new20 (decisions/new20)
 skill: [references/kinds/navigation.md]
@@ -25,3 +25,7 @@ with the candidate: the bottom bar's label size. It passes at `10–12px` in eve
 drawing one; with fewer, the test is inconclusive and runs again.
 
 **Result.**
+- `fx-opus-c20`: 2026-11-21, `candidates/new20` (the bottom bar in `navigation.md`, routed from
+  `SKILL.md`), `fresh-bank-home`, 2 runs, Opus in Claude Code designing: both runs drew a bottom
+  bar, labels about `12px` (against about `17px` in `fx-opus-new20` run 2). It passes.
+- Decision of 2026-11-22 (`decisions/new20-ship`): shipped.

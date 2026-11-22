@@ -2,7 +2,7 @@
 id: g91
 title: A long form drawn as one page of every field
 kind: missing
-status: open
+status: testing
 found: 2026-11-21
 source: the person, on fx-opus-new20 (decisions/new20)
 skill: [references/kinds/form.md]
@@ -24,3 +24,10 @@ on the pictures, not a measure.
 **Test.** `fresh-patient-intake`, 2 runs per version, Opus designing; the person picks on a deck.
 
 **Result.**
+- `fx-opus-g91steps`, `fx-opus-g91collapsed`, `fx-opus-g91both`: 2026-11-21, each on top of
+  `candidates/new20`, `fresh-patient-intake`, 2 runs each, Opus in Claude Code designing. All four
+  runs told to use steps drew one page and said why: "Receptionists tab straight through and need
+  to see everything that's missing, so I didn't split the form into steps." The collapsed version
+  closed only Accessibility needs (run 2).
+- Decision of 2026-11-22 (`decisions/new20-ship`): steps anyway, against the agent's call of one
+  page with the optional sections closed. The rule is made firm and run again.

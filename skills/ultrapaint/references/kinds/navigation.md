@@ -28,6 +28,11 @@ Open with it, before the first element: `references/iconography.md`, `references
   a dark sidebar is raised by a lighter surface, not a shadow. The sidebar takes the page's or a
   neighbouring surface, never a flood of the brand colour.
 
+## Bottom bar (phone)
+
+- Four or five icons, each over a `10–12px` label in the control's weight; the current one in
+  the foreground or the accent, the others muted. Never labels at body size.
+
 ## Top bar
 
 - The title, then search as a field where there is room (an icon button only in a bar too
