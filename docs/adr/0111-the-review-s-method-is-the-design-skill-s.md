@@ -1,6 +1,6 @@
 # ADR 0111: The review's method is the design skill's
 
-Status: proposed, 2026-11-21, until the lab measures it (gap p14). Amends 0063 (what a review
+Status: accepted, 2026-11-22, measured on gap p14 (recall held). Amends 0063 (what a review
 model is told) and 0077 (what a told reviewer is told).
 
 ## Context

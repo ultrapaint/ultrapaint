@@ -2,7 +2,7 @@
 id: p14
 title: The review's method told only to the editor's reviewers
 kind: process
-status: open
+status: done
 found: 2026-11-21
 source: an audit of the skill's independence from the editor (thread of 2026-11-20)
 skill: [SKILL.md, references/review.md]
@@ -60,3 +60,17 @@ round from before this change is not a baseline. Run the shipped skill's side ag
 compare that side with its last told round to see what telling the job alone does.
 
 **Result.**
+- `up88-told`: 2026-11-22, told reviewers, both versions under this change's `toldRules` (the core's
+  review job told), 17 sections × 3 runs (Opus reviewing and judging, effort high;
+  runs/up88-told/report.md). There `up88-shipped` is main's skill and `shipped` this change, at
+  8ddc22d9. Caught: main 104/168 (62%, +25 partly), this change 98/166 (59%, +24 partly), −3
+  points (−9 to +3): recall holds. Findings no gap matched, per review: 11.9 against 9.9, unrated
+  (`recall --rate` would say whether fewer is less noise).
+- `up88-names`: 2026-11-22, reviewers that open the skill: this change 113/165 (68%) against
+  main's 117/168 (70%), −1 point (−7 to +4); findings no gap matched 12.3 against 13.8 per review.
+  The rest of the round is p13's.
+- `up88-fx-shipped` against `up88-fx`: 2026-11-22, fresh briefs outside the editor, main's skill
+  against this change (p13's line has the tells and the blind pairwise). A designer started a
+  fresh agent to review its sections in 1 run of 8 with main's skill and 2 of 8 with this one, so
+  the method reaches few designs made outside the editor: p08, reopened.
+- Decision of 2026-11-22: shipped with UP-88's second stage (#90).

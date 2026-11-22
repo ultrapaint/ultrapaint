@@ -2,7 +2,7 @@
 id: p08
 title: The review step skipped when an agent could be started
 kind: process
-status: done
+status: open
 found: 2026-11-04
 source: design round `design-after` (three product screens remade from a picture, skill at 1d8977c)
 skill: [SKILL.md]
@@ -27,3 +27,7 @@ the sections' findings compared.
 
 **Result.**
 - Decision of 2026-11-06 (`decisions/skill-gaps-nov6`): closed, the skill unchanged: the editor's review loop (ADR 0063) starts the review models itself at the end of every design turn.
+- `up88-fx-shipped`, `up88-fx`: 2026-11-22, fresh briefs outside the editor (plain host, Opus in
+  Claude Code, 8 runs each), where no review loop starts a reviewer: a designer had a fresh agent
+  review its sections in 1 run of 8 with main's skill and 2 of 8 with p14's change, which puts
+  the review's method in the skill. Reopened: outside the editor the step is still skipped.
