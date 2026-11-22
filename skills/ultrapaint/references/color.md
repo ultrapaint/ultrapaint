@@ -40,11 +40,14 @@ than adding black.
 ## One hue, one meaning
 
 A hue means one thing across the product; hues within about `15°` count as one. When the accent
-means interactive, static text in it invites a click. Categories (tags, calendar events, the
-steps of a process) take their own hues, at least `30°` from the primary and from each other; one
-may be green or orange in a shade that is not the status token. Each category keeps its tint
-wherever it appears, and a filter for a status repeats the status's dot. A change badge
-(↗ 1.2%) is the neutral Badge with its arrow; nothing in it takes a colour.
+means interactive, static text in it invites a click. A category (a tag, an entry's type, a
+person's calendar, a step of a process) is told by its label, not a hue. A hue of its own goes to
+the one category a reader must not miss (breaking, urgent, overdue); where a reader scans by
+category with no label in view (a week of several people's events), tints of one hue or greys
+come before separate hues, and separate hues only past what a label and a tint can tell, at least
+`30°` from the primary and from each other. A category keeps its mark wherever it appears, and a
+filter for a status repeats the status's dot. A change badge (↗ 1.2%) is the neutral Badge with
+its arrow; nothing in it takes a colour.
 
 ## Charts
 
@@ -81,6 +84,6 @@ solid. Text on it is computed as on a photograph.
 | --- | --- |
 | A contrast claimed and not computed, or computed in one theme only | Compute the pair from the token values in each theme |
 | Two categories, or a category and the primary, within `30°` | Move one |
-| Categories flattened to the accent and grey | Each its own hue |
+| A hue for every category where a label tells them apart | The label; a hue for the one that needs attention |
 | A colour logo strip beside an accent | Greyscale or monochrome |
 | Type on a bright photograph with no scrim | An overlay or a bottom scrim |

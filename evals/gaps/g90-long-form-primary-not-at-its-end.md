@@ -2,7 +2,7 @@
 id: g90
 title: A long form's primary away from its end
 kind: missed
-status: open
+status: done
 found: 2026-11-21
 source: the person, on fx-opus-new20 (decisions/new20)
 skill: [references/kinds/form.md]
@@ -28,3 +28,8 @@ draft saved on its own needs no Save draft button, only its line ('Draft saved 4
 the candidate: where the primary is. It passes when it sits after the last field in every run.
 
 **Result.**
+- `fx-opus-c20`: 2026-11-21, `candidates/new20` (the Actions line and Check row in `form.md`, and
+  `SKILL.md` routing any long form in an app to it), `fresh-patient-intake`, 2 runs, Opus in Claude
+  Code designing: Register after the last field in both, Finish later beside it, the side list
+  only what's left. It passes. (`fresh-workspace-settings` was not run: it has no long form.)
+- Decision of 2026-11-22 (`decisions/new20-ship`): shipped.

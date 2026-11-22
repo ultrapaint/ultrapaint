@@ -2,7 +2,7 @@
 id: g86
 title: A stock photo standing in for the brand's own
 kind: missing
-status: open
+status: done
 found: 2026-11-21
 source: the person, on fx-opus-new20 (decisions/new20)
 skill: [SKILL.md]
@@ -32,3 +32,11 @@ names drawn as a captioned placeholder or, where its section was left out, not c
 a page that drops the named pictures outright fails.
 
 **Result.**
+- `fx-opus-c20`: 2026-11-21, `candidates/new20` (the skill on main with the placeholder rule in
+  `SKILL.md`), `fresh-river-charity` and `fresh-hotel`, 2 runs each, Opus in Claude Code designing:
+  stock photos 0 in 4 runs (against `fx-opus-new20`'s charity run 1, a beach clean-up in another
+  organisation's shirts); every named picture a flat captioned placeholder. It went one step too
+  far: the changelog's timing chart, which the brief lists as a picture, was a grey placeholder in
+  both runs, where `fx-opus-new20` drew it in code.
+- Decision of 2026-11-22 (`decisions/new20-ship`): shipped, with the clause "A chart, a diagram or
+  a screen of the product the page can draw is drawn, not left as a placeholder".
