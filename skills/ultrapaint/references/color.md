@@ -83,7 +83,7 @@ solid. Text on it is computed as on a photograph.
 | You see | Fix |
 | --- | --- |
 | A contrast claimed and not computed, or computed in one theme only | Compute the pair from the token values in each theme |
-| Two categories, or a category and the primary, within `30°` | Move one |
+| Two categories in separate hues, or a category's hue and the primary, within `30°` | Move one, or make them tints of one hue |
 | A hue for every category where a label tells them apart | The label; a hue for the one that needs attention |
 | A colour logo strip beside an accent | Greyscale or monochrome |
 | Type on a bright photograph with no scrim | An overlay or a bottom scrim |

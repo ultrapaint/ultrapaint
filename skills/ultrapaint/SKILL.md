@@ -207,7 +207,7 @@ says what the content already shows is noise: remove it, rather than shrinking o
 - A paragraph runs `45–65` characters: cap its column at about `60ch`; a lead, a card's or a
   feature's text on a public page nearer `50ch`.
 - Floors: body `16px`, interface text `14px`, captions `13px`, nothing under `12px` except an
-  uppercase or mono label on a public page at `11px`. Under `18px` the weight stays `400` or more.
+  uppercase or mono label on a public page at `11px` and a phone bottom bar's labels at `10–11px`. Under `18px` the weight stays `400` or more.
 - Two text colours plainly apart: the foreground for what is read first (titles, names, values,
   labels of actions); muted for what qualifies it (descriptions, hints, timestamps, metadata,
   placeholders). In one region, muted plays at most two roles; a group label outranks its

@@ -27,5 +27,7 @@ drawing one; with fewer, the test is inconclusive and runs again.
 **Result.**
 - `fx-opus-c20`: 2026-11-21, `candidates/new20` (the bottom bar in `navigation.md`, routed from
   `SKILL.md`), `fresh-bank-home`, 2 runs, Opus in Claude Code designing: both runs drew a bottom
-  bar, labels about `12px` (against about `17px` in `fx-opus-new20` run 2). It passes.
+  bar, labels about `12px` (against about `17px` in `fx-opus-new20` run 2). That passes on
+  `fresh-bank-home` only: `fresh-flow-booking`, the test's second brief, was not run, so the test
+  is incomplete; the person decided on these two runs.
 - Decision of 2026-11-22 (`decisions/new20-ship`): shipped.
