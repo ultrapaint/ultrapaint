@@ -28,11 +28,11 @@ A stock photo only when the person asks for one, and then one that shows what th
 `fresh-bakery`, `fresh-coffee-roaster`, `fresh-cabin-search`), and for the clause one brief whose
 named picture is a chart the page can draw (`fresh-changelog`), 2 runs each, Opus designing with
 the candidate, against the skill on main: the pictures that are stock photos or that show
-something the brief contradicts, counted per page. It passes at none, with every picture the brief
-names drawn as a captioned placeholder or, where its section was left out, not counted against it;
-a page that drops the named pictures outright fails. Since the clause shipped with it, a chart, a
-diagram or a product screen the page can draw (`fresh-changelog`'s timing chart) is drawn: a
-placeholder for one fails.
+something the brief contradicts, counted per page. It passes at none, with every named photo drawn as
+a captioned placeholder or, where its section was left out, not counted against it; a page that
+drops the named photos outright fails. A chart, a diagram or a product screen the page can draw
+(`fresh-changelog`'s timing chart) is the clause's: it passes drawn in code, and a placeholder for
+one fails.
 
 **Result.**
 - `fx-opus-c20`: 2026-11-21, `candidates/new20` (the skill on main with the placeholder rule in
