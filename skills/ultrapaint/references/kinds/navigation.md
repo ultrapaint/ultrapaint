@@ -84,8 +84,10 @@ Open with it, before the first element: `references/iconography.md`, `references
 - Header: a date tile (the month abbreviated over the day), the title, the range muted; then,
   right, Previous, Today and Next as one button group with shared borders, a view select, and
   "Add event".
-- Events take their category's hue for tint, border and text together, one hue per category,
-  apart from the accent. The title left and truncated, the time right. A day cell shows three
+- Events are told apart by their title and their calendar's name; their fill is a tint of one
+  hue or a grey, tint, border and text together, and a hue per calendar only past what a name and
+  a tint can tell (`references/color.md`), apart from the accent. The title left and truncated,
+  the time right. A day cell shows three
   events, then a muted "2 more".
 - The selected day is a solid foreground fill; today a neutral circle; days outside the month
   muted. The current time is a thin line across the day in one hue kept for it, its time in the

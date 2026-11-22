@@ -16,7 +16,7 @@ Open with it, before the first element: `references/components.md`, `references/
 - On a phone the second half goes.
 - Spacing: padding `32px`, fields `16px` apart, groups `32px`.
 - A form in a side panel of a working screen (an inspector, settings beside a canvas) is
-  compact: controls at the system's compact height, `32px` in a technical product,, fields `8px` apart, padding `12–16px`. The spacing above is
+  compact: controls at the system's compact height, `32px` in a technical product, fields `8px` apart, padding `12–16px`. The spacing above is
   for a form that is the whole page.
 
 ## Fields
@@ -32,7 +32,8 @@ Open with it, before the first element: `references/components.md`, `references/
 
 - The primary is full width, as wide as the fields, at the form's end.
 - On every form, short or long, in a page or in an app, the primary sits after the last field,
-  never above the fields or in a side panel; fixed to the bottom only on a phone. A draft saved
+  never above the fields or in a panel beside the form; fixed to the bottom only on a phone. A
+  form that is itself a side panel ends in its primary like any other. A draft saved
   on its own needs no Save draft button, only its line ("Draft saved 40 seconds ago").
 - Other ways in follow it: one full-width outline button per provider stacked under it, or a
   row of equal logo-only buttons after an "or" set in a rule. A word in a rule ("or") stands in
@@ -76,7 +77,7 @@ Open with it, before the first element: `references/components.md`, `references/
 | You see | Fix |
 | --- | --- |
 | A field drawn as an underline only | The system's field, its label above |
-| A long form's primary in a bar fixed to a desktop window, above the fields or in a side panel | After the last field |
+| A long form's primary in a bar fixed to a desktop window, above the fields or in a panel beside the form | After the last field |
 | A selected card tinted, bordered, coloured and checked | The border and the check only |
 | Code digits or the active step in the accent | Digits in the foreground; the ring marks the active cell |
 | A password checklist and a meter together | One |
