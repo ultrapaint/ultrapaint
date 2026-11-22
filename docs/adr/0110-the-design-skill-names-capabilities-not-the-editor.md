@@ -1,6 +1,6 @@
 # ADR 0110: The design skill names capabilities, not the editor
 
-Status: proposed, 2026-11-21, until the lab measures it (gap p13). Amends 0069 (the web's terms)
+Status: accepted, 2026-11-22, measured on gap p13 (recall held). Amends 0069 (the web's terms)
 and 0062 (the token presets in the skill).
 
 ## Context
