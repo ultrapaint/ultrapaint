@@ -31,9 +31,14 @@ import { Browser } from "./browser.ts";
 import { foldName, screenShotName, tileName } from "./capture.ts";
 import { EvalsConfig } from "./config.ts";
 import { EvalsError } from "./errors.ts";
-import { commitOf, RoundInfo, type RunInfo } from "./generate.ts";
+import { RoundInfo, type RunInfo } from "./generate.ts";
 import { prompt, readJson, writeJson, writeText } from "./layout.ts";
-import { recordSkillTree, versionName, writeSkillTree } from "./recall.ts";
+import {
+  commitOf,
+  recordSkillTree,
+  versionName,
+  writeSkillTree,
+} from "./recall.ts";
 import {
   describeScreens,
   describeViewports,

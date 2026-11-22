@@ -23,7 +23,6 @@ import {
   type ThreadItem,
 } from "@ultrapaint/contracts/threads";
 import { Duration, Effect, FileSystem, Schedule, Schema } from "effect";
-import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import {
   ADDED_TEXT_FILE,
   type AddedTextEntry,
@@ -42,7 +41,12 @@ import {
   writeText,
 } from "./layout.ts";
 import type { Models } from "./models.ts";
-import { recordSkillTree, SkillTree, writeSkillTree } from "./recall.ts";
+import {
+  commitOf,
+  recordSkillTree,
+  SkillTree,
+  writeSkillTree,
+} from "./recall.ts";
 import {
   describeViewports,
   familyOf,
@@ -186,26 +190,6 @@ export const editorReviewOf = (flags: {
     effort: flags.effort,
   })),
 });
-
-export const commitOf = Effect.gen(function* () {
-  const { checkout } = yield* EvalsConfig;
-  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-  const head = yield* spawner.string(
-    ChildProcess.make("git", ["rev-parse", "--short", "HEAD"], {
-      cwd: checkout,
-    })
-  );
-  const dirty = yield* spawner.string(
-    ChildProcess.make(
-      "git",
-      ["status", "--porcelain", "--", "apps", "packages"],
-      {
-        cwd: checkout,
-      }
-    )
-  );
-  return `${head.trim()}${dirty.trim() ? " (with uncommitted changes)" : ""}`;
-}).pipe(Effect.orElseSucceed(() => "unknown"));
 
 /** The pictures a run is given of its reference: the fold and its enlarged parts, absolute paths. */
 export const referencePictures = Effect.fn("referencePictures")(function* (

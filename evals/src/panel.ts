@@ -20,11 +20,11 @@ import {
 } from "@ultrapaint/contracts/review";
 import { Effect, FileSystem, Schema } from "effect";
 import { EvalsConfig } from "./config.ts";
-import { commitOf, RoundInfo, RunInfo, referencePictures } from "./generate.ts";
+import { RoundInfo, RunInfo, referencePictures } from "./generate.ts";
 import { Judgement, roundRuns } from "./judge.ts";
 import { readJson, writeJson, writeText } from "./layout.ts";
 import { skillReads } from "./pairwise.ts";
-import { writeSkillTree } from "./recall.ts";
+import { commitOf, writeSkillTree } from "./recall.ts";
 import { notesOf, REVIEW_FILE } from "./review-loop.ts";
 import {
   mergeSection,

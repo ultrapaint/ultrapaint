@@ -420,7 +420,9 @@ A version is `built-in`, the checkout's `skills/ultrapaint/`, or `candidates/<fi
 laid over the checkout's at their paths in the skill (`SKILL.md`, `references/kinds/dialog.md`),
 the rest as shipped. It takes `--runs` (3: under three, one gap's count says little), `--effort`
 (high) and resumes like a round. It writes `runs/<round>/report.md` and each measured gap's line
-under **Result.**
+under **Result.** Each version's skill is kept in `runs/<round>/skills/<version>/` as its
+reviewers read it, and `recall.json` records the checkout's commit and the hash of every file of
+each, as a round's `round.json` does: `shipped` is the checkout's skill, whichever branch it is on.
 
 The report says how far its counts go. Under **How far the counts go**, each version has what it
 caught, what it caught or partly caught, the 95% interval of its recall and its difference from

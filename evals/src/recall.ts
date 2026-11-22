@@ -52,6 +52,7 @@ import {
   Schema,
   Semaphore,
 } from "effect";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { EvalsConfig } from "./config.ts";
 import { Answers, type Deck, writeDeck } from "./decide.ts";
 import { EvalsError } from "./errors.ts";
@@ -462,17 +463,26 @@ export interface RecallOptions {
   readonly skills: readonly string[];
 }
 
-/** The skill as a version gives it, written once into the round: what its reviewers read. */
-const skillTree = Effect.fn("skillTree")(function* (
-  round: string,
-  skills: string
-) {
-  const { data } = yield* EvalsConfig;
-  return yield* writeSkillTree(
-    path.join(data.runs, round, "skills", versionName(skills)),
-    skills
+/** The checkout's commit, short, and whether its apps or packages have uncommitted changes. */
+export const commitOf = Effect.gen(function* () {
+  const { checkout } = yield* EvalsConfig;
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const head = yield* spawner.string(
+    ChildProcess.make("git", ["rev-parse", "--short", "HEAD"], {
+      cwd: checkout,
+    })
   );
-});
+  const dirty = yield* spawner.string(
+    ChildProcess.make(
+      "git",
+      ["status", "--porcelain", "--", "apps", "packages"],
+      {
+        cwd: checkout,
+      }
+    )
+  );
+  return `${head.trim()}${dirty.trim() ? " (with uncommitted changes)" : ""}`;
+}).pipe(Effect.orElseSucceed(() => "unknown"));
 
 /**
  * The skill as a version gives it, written once at `tree`: the checkout's `skills/ultrapaint/`,
@@ -915,24 +925,34 @@ const judgesOf = (options: RecallOptions): readonly string[] => {
   return options.judges ?? [options.judgeModel];
 };
 
-/** The round's record, `recall.json`, left to the run that judges when this one only reviews. */
+/**
+ * The round's record, `recall.json`, left to the run that judges when this one only reviews: its
+ * settings, the checkout's commit, and each version's skill tree (`skills/<version>/`) with the
+ * hash of every file, so what each version said is known after the checkout and candidates move.
+ */
 const writeRecord = (
   out: string,
   options: RecallOptions,
-  sections: readonly string[],
-  judges: readonly string[]
+  record: {
+    readonly commit: string;
+    readonly judges: readonly string[];
+    readonly sections: readonly string[];
+    readonly skillTrees: Readonly<Record<string, SkillTree>>;
+  }
 ) =>
   options.reviewsOnly
     ? Effect.void
     : writeJson(path.join(out, "recall.json"), {
+        commit: record.commit,
         effort: options.effort,
         inputs: options.inputs ?? ["pictures"],
         judgeModel: options.judgeModel,
-        ...(judges.length > 1 && { judges }),
+        ...(record.judges.length > 1 && { judges: record.judges }),
         models: options.models,
         runs: options.runs,
-        sections,
+        sections: record.sections,
         skills: options.skills,
+        skillTrees: record.skillTrees,
       });
 
 export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
@@ -957,11 +977,21 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
   const reviewers = versionsOf(options.skills, options.models, options.inputs);
   const versions = reviewers.map((v) => v.name);
   const judges = judgesOf(options);
+  // Each version's skill as its reviewers read it, kept in the round with the hash of every file.
   const trees = new Map<string, string>();
+  const skillTrees: Record<string, SkillTree> = {};
   for (const skills of options.skills) {
-    trees.set(skills, yield* skillTree(options.round, skills));
+    const tree = yield* recordSkillTree(options.round, skills);
+    trees.set(skills, path.join(out, tree.dir));
+    skillTrees[versionName(skills)] = tree;
   }
-  yield* writeRecord(out, options, ids, judges);
+  const commit = yield* commitOf;
+  yield* writeRecord(out, options, {
+    commit,
+    judges,
+    sections: ids,
+    skillTrees,
+  });
 
   // A finding is matched by the judge; a gap of process is measured through its sections' findings.
   const findingGaps = gaps.filter(isFinding);
@@ -1134,6 +1164,7 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
     );
   }
   const text = reportOf({
+    commit,
     cost,
     gaps,
     held,
@@ -1174,6 +1205,8 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
 });
 
 interface ReportInput {
+  /** The checkout's commit: `built-in` is its skill, and a candidate is laid over it. */
+  readonly commit: string;
   readonly cost: number;
   readonly gaps: readonly LoadedGap[];
   readonly held: readonly string[];
@@ -1490,7 +1523,10 @@ export const reportOf = (input: ReportInput) => {
     `${headOf(options)}, effort ${options.effort}. ` +
       `${options.runs} run(s) per section and version. Skills: ${options.skills
         .map((s) => `${versionName(s)} (\`${s}\`)`)
-        .join(", ")}. Cost: $${input.cost.toFixed(2)}.`,
+        .join(
+          ", "
+        )}, on the checkout at ${input.commit}, each kept in \`skills/\`. ` +
+      `Cost: $${input.cost.toFixed(2)}.`,
     "",
     "A gap is caught when the judge, blind to the version, found a review's finding naming the " +
       "same problem on the same element; partly, when one touched it and missed what made it one.",

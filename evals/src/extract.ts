@@ -16,7 +16,7 @@ import { Browser } from "./browser.ts";
 
 import { EvalsConfig } from "./config.ts";
 import { EvalsError } from "./errors.ts";
-import { commitOf, traceOf } from "./generate.ts";
+import { traceOf } from "./generate.ts";
 import {
   listDir,
   prompt,
@@ -26,6 +26,7 @@ import {
   writeText,
 } from "./layout.ts";
 import { Models } from "./models.ts";
+import { commitOf } from "./recall.ts";
 import { familyOf, loadReferences } from "./reference.ts";
 import { slugOf } from "./sections.ts";
 import { launch, rpc, runPrompt, type UltrapaintSession } from "./session.ts";
