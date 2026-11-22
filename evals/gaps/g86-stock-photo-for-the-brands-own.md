@@ -25,7 +25,8 @@ A stock photo only when the person asks for one, and then one that shows what th
 (Run 2's twelve copies of one gradient and wave read as decoration: the tone stays flat.)
 
 **Test.** The briefs with named photos and none given (`fresh-river-charity`, `fresh-hotel`,
-`fresh-bakery`, `fresh-coffee-roaster`, `fresh-cabin-search`), 2 runs each, Opus designing with
+`fresh-bakery`, `fresh-coffee-roaster`, `fresh-cabin-search`), and for the clause one brief whose
+named picture is a chart the page can draw (`fresh-changelog`), 2 runs each, Opus designing with
 the candidate, against the skill on main: the pictures that are stock photos or that show
 something the brief contradicts, counted per page. It passes at none, with every picture the brief
 names drawn as a captioned placeholder or, where its section was left out, not counted against it;
