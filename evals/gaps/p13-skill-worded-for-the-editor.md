@@ -2,7 +2,7 @@
 id: p13
 title: The skill worded for the editor
 kind: process
-status: open
+status: done
 found: 2026-11-21
 source: an audit of the skill's independence from the editor (thread of 2026-11-20)
 skill: [SKILL.md, references/color.md, references/review.md, references/kinds/form.md, references/system/components.md]
@@ -58,3 +58,20 @@ inside the editor the agent still answers the review loop and uses the editor's 
 `skillTerms` names them.
 
 **Result.**
+- `up88-names`: 2026-11-22, reviewers that open the skill, 17 sections × 3 runs (Opus reviewing
+  and judging, effort high; runs/up88-names/report.md). There `up88-shipped` is main's skill,
+  `up88-names` this change and `shipped` the review method on top (p14), at 8ddc22d9. Caught:
+  main 117/168 (70%, +24 partly), this change 123/168 (73%, +19 partly), +4 points (−2 to +9);
+  with p14 113/165 (68%), −1 point (−7 to +4). Recall holds. Findings no gap matched, per review:
+  13.8, 13.4, 12.3, unrated.
+- `up88-fx-shipped` against `up88-fx`: 2026-11-22, fresh briefs outside the editor (sprint board,
+  patient intake, team calendar, charity home; 2 runs each, Opus in Claude Code, plain host), main's
+  skill against this change with p14's. Tells: a side stripe on 2 of 8 pages against 1 of 8, none
+  other. Blind pairwise (Opus, both orders): main 4, the change 2, ties 2; the judge's reasons are
+  the runs' own (a form naming its missing fields or counting them, the brief's photos drawn as
+  placeholders in one run of each), none about a line this change touches.
+- `up88-editor`: 2026-11-22, in the editor (family host, `untitled-general-settings`, 1 run,
+  `--review editor`): the agent used `get_component` and `get_screenshot` where `skillTerms` names
+  them, and answered the review loop's findings, declining one with its reason. Its first three
+  `get_component` calls by the bare name failed ("No such tool"), as in seven rounds before it.
+- Decision of 2026-11-22: shipped with UP-88's first stage (#89).
