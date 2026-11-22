@@ -41,5 +41,8 @@ placeholder for one fails.
   organisation's shirts); every named picture a flat captioned placeholder. It went one step too
   far: the changelog's timing chart, which the brief lists as a picture, was a grey placeholder in
   both runs, where `fx-opus-new20` drew it in code.
+- `fresh-changelog`, the clause's brief: in `fx-opus-c20`, without the clause, its timing chart
+  was a placeholder in 2 of 2 runs; in `fx-opus-new20` (the skill before g86) drawn in code in 2 of
+  2. The clause itself is not yet run.
 - Decision of 2026-11-22 (`decisions/new20-ship`): shipped, with the clause "A chart, a diagram or
   a screen of the product the page can draw is drawn, not left as a placeholder".
