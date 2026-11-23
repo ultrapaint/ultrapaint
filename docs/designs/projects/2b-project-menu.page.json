@@ -39,7 +39,7 @@
             ]},
             {"type": "column", "id": "c_00176", "gap": 1, "children": [
               {"type": "text", "id": "t_00174", "color": "$color-foreground", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "shop-admin", "weight": 500},
-              {"type": "text", "id": "t_00175", "color": "$color-muted-foreground", "font": "'Geist Mono', ui-monospace, monospace", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "~/Code/shop-admin"}
+              {"type": "text", "id": "t_00175", "color": "$color-muted-foreground", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "~/Code/shop-admin"}
             ]}
           ]},
           {"type": "row", "id": "r_00179", "crossAlign": "center", "fill": "$color-border", "height": 1, "margin": {"bottom": 4, "left": -4, "right": -4, "top": 4}, "width": "fill", "children": [

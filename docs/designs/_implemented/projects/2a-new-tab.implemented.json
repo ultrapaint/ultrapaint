@@ -1,0 +1,828 @@
+{
+  "kind": "page",
+  "notes": [],
+  "root": {
+    "fill": "$color-canvas",
+    "id": "n_47kdx0",
+    "crossAlign": "stretch",
+    "children": [
+      {
+        "height": 44,
+        "id": "r_00150",
+        "name": "Tabs",
+        "padding": {
+          "bottom": 0,
+          "left": 14,
+          "right": 10,
+          "top": 0
+        },
+        "width": "fill",
+        "crossAlign": "center",
+        "gap": 4,
+        "children": [
+          {
+            "id": "r_00124",
+            "crossAlign": "center",
+            "gap": 8,
+            "children": [
+              {
+                "fill": "#ff5f57",
+                "height": 12,
+                "id": "r_00121",
+                "radius": 999,
+                "width": 12,
+                "crossAlign": "center",
+                "children": [],
+                "type": "row"
+              },
+              {
+                "fill": "#febc2e",
+                "height": 12,
+                "id": "r_00122",
+                "radius": 999,
+                "width": 12,
+                "crossAlign": "center",
+                "children": [],
+                "type": "row"
+              },
+              {
+                "fill": "#28c840",
+                "height": 12,
+                "id": "r_00123",
+                "radius": 999,
+                "width": 12,
+                "crossAlign": "center",
+                "children": [],
+                "type": "row"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "id": "r_00125",
+            "width": 16,
+            "crossAlign": "center",
+            "children": [],
+            "type": "row"
+          },
+          {
+            "height": 32,
+            "id": "r_00120",
+            "name": "Home",
+            "radius": 8,
+            "width": 32,
+            "align": "center",
+            "crossAlign": "center",
+            "children": [
+              {
+                "height": 16,
+                "id": "img_00119",
+                "name": "house",
+                "width": 16,
+                "tint": "$color-muted-foreground",
+                "src": "assets/icons/house.svg",
+                "type": "image"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "id": "r_00126",
+            "width": 4,
+            "crossAlign": "center",
+            "children": [],
+            "type": "row"
+          },
+          {
+            "fill": "$color-accent",
+            "height": 32,
+            "id": "r_00131",
+            "name": "Tab, shop-admin, current",
+            "padding": {
+              "bottom": 0,
+              "left": 10,
+              "right": 6,
+              "top": 0
+            },
+            "radius": 8,
+            "width": 192,
+            "crossAlign": "center",
+            "gap": 8,
+            "children": [
+              {
+                "fill": "#60a5fa24",
+                "height": 16,
+                "id": "r_00129",
+                "name": "Project icon",
+                "radius": 4,
+                "width": 16,
+                "align": "center",
+                "crossAlign": "center",
+                "children": [
+                  {
+                    "height": 11,
+                    "id": "img_00128",
+                    "name": "boxes",
+                    "width": 11,
+                    "tint": "#60a5fa",
+                    "src": "assets/icons/boxes.svg",
+                    "type": "image"
+                  }
+                ],
+                "type": "row"
+              },
+              {
+                "id": "t_00130",
+                "width": "fill",
+                "color": "$color-foreground",
+                "lineHeight": 1.43,
+                "size": 14,
+                "weight": 500,
+                "role": "paragraph",
+                "text": "shop-admin",
+                "type": "text"
+              },
+              {
+                "height": 20,
+                "id": "r_a580aec",
+                "name": "Slot",
+                "width": 20,
+                "align": "center",
+                "crossAlign": "center",
+                "children": [
+                  {
+                    "height": 14,
+                    "id": "img_00127",
+                    "name": "x",
+                    "width": 14,
+                    "tint": "$color-muted-foreground",
+                    "src": "assets/icons/x.svg",
+                    "type": "image"
+                  }
+                ],
+                "type": "row"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "height": 32,
+            "id": "r_00136",
+            "name": "Tab, docs-site",
+            "padding": {
+              "bottom": 0,
+              "left": 10,
+              "right": 6,
+              "top": 0
+            },
+            "radius": 8,
+            "width": 192,
+            "crossAlign": "center",
+            "gap": 8,
+            "children": [
+              {
+                "fill": "#4ade8024",
+                "height": 16,
+                "id": "r_00134",
+                "name": "Project icon",
+                "radius": 4,
+                "width": 16,
+                "align": "center",
+                "crossAlign": "center",
+                "children": [
+                  {
+                    "height": 11,
+                    "id": "img_00133",
+                    "name": "book-open",
+                    "width": 11,
+                    "tint": "#4ade80",
+                    "src": "assets/icons/book-open.svg",
+                    "type": "image"
+                  }
+                ],
+                "type": "row"
+              },
+              {
+                "id": "t_00135",
+                "width": "fill",
+                "color": "$color-muted-foreground",
+                "lineHeight": 1.43,
+                "size": 14,
+                "weight": 500,
+                "role": "paragraph",
+                "text": "docs-site",
+                "type": "text"
+              },
+              {
+                "height": 20,
+                "id": "r_a581yrj",
+                "name": "Slot",
+                "width": 20,
+                "align": "center",
+                "crossAlign": "center",
+                "children": [
+                  {
+                    "height": 14,
+                    "id": "img_00132",
+                    "name": "loader-circle",
+                    "width": 14,
+                    "tint": "$color-agent",
+                    "src": "assets/icons/loader-circle.svg",
+                    "type": "image"
+                  }
+                ],
+                "type": "row"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "height": 32,
+            "id": "r_00142",
+            "name": "Tab, ultrapaint",
+            "padding": {
+              "bottom": 0,
+              "left": 10,
+              "right": 6,
+              "top": 0
+            },
+            "radius": 8,
+            "width": 192,
+            "crossAlign": "center",
+            "gap": 8,
+            "children": [
+              {
+                "fill": "$color-muted",
+                "height": 16,
+                "id": "r_00140",
+                "name": "Favicon",
+                "radius": 4,
+                "width": 16,
+                "align": "center",
+                "crossAlign": "center",
+                "children": [
+                  {
+                    "height": 13,
+                    "id": "img_00139",
+                    "name": "ultrapaint-mark",
+                    "width": 13,
+                    "tint": "$color-foreground",
+                    "src": "assets/icons/ultrapaint-mark.svg",
+                    "type": "image"
+                  }
+                ],
+                "type": "row"
+              },
+              {
+                "id": "t_00141",
+                "width": "fill",
+                "color": "$color-muted-foreground",
+                "lineHeight": 1.43,
+                "size": 14,
+                "weight": 500,
+                "role": "paragraph",
+                "text": "ultrapaint",
+                "type": "text"
+              },
+              {
+                "height": 20,
+                "id": "r_00138",
+                "name": "Slot",
+                "width": 20,
+                "align": "center",
+                "crossAlign": "center",
+                "children": [
+                  {
+                    "fill": "$color-warning",
+                    "height": 8,
+                    "id": "r_00137",
+                    "radius": 999,
+                    "width": 8,
+                    "crossAlign": "center",
+                    "children": [],
+                    "type": "row"
+                  }
+                ],
+                "type": "row"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "height": 32,
+            "id": "r_00146",
+            "name": "Tab, bike-shop",
+            "padding": {
+              "bottom": 0,
+              "left": 10,
+              "right": 6,
+              "top": 0
+            },
+            "radius": 8,
+            "width": 192,
+            "crossAlign": "center",
+            "gap": 8,
+            "children": [
+              {
+                "fill": "#fb923c24",
+                "height": 16,
+                "id": "r_00144",
+                "name": "Project icon",
+                "radius": 4,
+                "width": 16,
+                "align": "center",
+                "crossAlign": "center",
+                "children": [
+                  {
+                    "id": "t_00143",
+                    "color": "#fb923c",
+                    "font": "'Cal Sans', system-ui, sans-serif",
+                    "lineHeight": 1,
+                    "size": 10,
+                    "weight": 400,
+                    "role": "paragraph",
+                    "text": "B",
+                    "type": "text"
+                  }
+                ],
+                "type": "row"
+              },
+              {
+                "id": "t_00145",
+                "width": "fill",
+                "color": "$color-muted-foreground",
+                "lineHeight": 1.43,
+                "size": 14,
+                "weight": 500,
+                "role": "paragraph",
+                "text": "bike-shop",
+                "type": "text"
+              },
+              {
+                "height": 20,
+                "id": "r_a582gl4",
+                "name": "Slot",
+                "width": 20,
+                "children": [],
+                "type": "row"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "fill": "$color-accent",
+            "height": 28,
+            "id": "r_00148",
+            "name": "New tab, open",
+            "radius": 6,
+            "width": 28,
+            "align": "center",
+            "crossAlign": "center",
+            "children": [
+              {
+                "height": 16,
+                "id": "img_00147",
+                "name": "plus",
+                "width": 16,
+                "tint": "$color-foreground",
+                "src": "assets/icons/plus.svg",
+                "type": "image"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "id": "r_00149",
+            "width": "fill",
+            "crossAlign": "center",
+            "children": [],
+            "type": "row"
+          }
+        ],
+        "type": "row"
+      },
+      {
+        "border": {
+          "color": "$color-border",
+          "style": "solid",
+          "width": "1px"
+        },
+        "fill": "$color-popover",
+        "id": "c_00118",
+        "margin": {
+          "bottom": 0,
+          "left": 918,
+          "right": 0,
+          "top": -4
+        },
+        "name": "New tab menu",
+        "padding": {
+          "bottom": 4,
+          "left": 4,
+          "right": 4,
+          "top": 4
+        },
+        "radius": 10,
+        "shadow": "$shadow-xl",
+        "width": 288,
+        "children": [
+          {
+            "id": "r_00082",
+            "padding": {
+              "bottom": 2,
+              "left": 8,
+              "right": 8,
+              "top": 6
+            },
+            "width": "fill",
+            "crossAlign": "center",
+            "children": [
+              {
+                "id": "t_00081",
+                "color": "$color-muted-foreground",
+                "lineHeight": 1.33,
+                "size": 12,
+                "weight": 500,
+                "role": "paragraph",
+                "text": "Recent",
+                "type": "text"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "fill": "$color-accent",
+            "id": "r_00090",
+            "padding": {
+              "bottom": 6,
+              "left": 8,
+              "right": 8,
+              "top": 6
+            },
+            "radius": 6,
+            "width": "fill",
+            "crossAlign": "center",
+            "gap": 8,
+            "children": [
+              {
+                "fill": "#fb923c24",
+                "height": 16,
+                "id": "r_00084",
+                "name": "Project icon",
+                "radius": 4,
+                "width": 16,
+                "align": "center",
+                "crossAlign": "center",
+                "children": [
+                  {
+                    "id": "t_00083",
+                    "color": "#fb923c",
+                    "font": "'Cal Sans', system-ui, sans-serif",
+                    "lineHeight": 1,
+                    "size": 10,
+                    "weight": 400,
+                    "role": "paragraph",
+                    "text": "B",
+                    "type": "text"
+                  }
+                ],
+                "type": "row"
+              },
+              {
+                "id": "c_00087",
+                "gap": 1,
+                "children": [
+                  {
+                    "id": "t_00085",
+                    "color": "$color-foreground",
+                    "lineHeight": 1.43,
+                    "size": 14,
+                    "role": "paragraph",
+                    "text": "bike-shop",
+                    "type": "text"
+                  },
+                  {
+                    "id": "t_00086",
+                    "color": "$color-muted-foreground",
+                    "lineHeight": 1.333,
+                    "size": 12,
+                    "role": "paragraph",
+                    "text": "~/Code/bike-shop",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "r_00088",
+                "width": "fill",
+                "crossAlign": "center",
+                "children": [],
+                "type": "row"
+              },
+              {
+                "height": 14,
+                "id": "img_00089",
+                "name": "x",
+                "width": 14,
+                "tint": "$color-muted-foreground",
+                "src": "assets/icons/x.svg",
+                "type": "image"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "id": "r_00097",
+            "padding": {
+              "bottom": 6,
+              "left": 8,
+              "right": 8,
+              "top": 6
+            },
+            "radius": 6,
+            "width": "fill",
+            "crossAlign": "center",
+            "gap": 8,
+            "children": [
+              {
+                "fill": "#a78bfa24",
+                "height": 16,
+                "id": "r_00092",
+                "name": "Project icon",
+                "radius": 4,
+                "width": 16,
+                "align": "center",
+                "crossAlign": "center",
+                "children": [
+                  {
+                    "id": "t_00091",
+                    "color": "#a78bfa",
+                    "font": "'Cal Sans', system-ui, sans-serif",
+                    "lineHeight": 1,
+                    "size": 10,
+                    "weight": 400,
+                    "role": "paragraph",
+                    "text": "P",
+                    "type": "text"
+                  }
+                ],
+                "type": "row"
+              },
+              {
+                "id": "c_00095",
+                "gap": 1,
+                "children": [
+                  {
+                    "id": "t_00093",
+                    "color": "$color-foreground",
+                    "lineHeight": 1.43,
+                    "size": 14,
+                    "role": "paragraph",
+                    "text": "portfolio",
+                    "type": "text"
+                  },
+                  {
+                    "id": "t_00094",
+                    "color": "$color-muted-foreground",
+                    "lineHeight": 1.333,
+                    "size": 12,
+                    "role": "paragraph",
+                    "text": "~/Ultrapaint/portfolio",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "r_00096",
+                "width": "fill",
+                "crossAlign": "center",
+                "children": [],
+                "type": "row"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "id": "r_00104",
+            "padding": {
+              "bottom": 6,
+              "left": 8,
+              "right": 8,
+              "top": 6
+            },
+            "radius": 6,
+            "width": "fill",
+            "crossAlign": "center",
+            "gap": 8,
+            "children": [
+              {
+                "fill": "#2dd4bf24",
+                "height": 16,
+                "id": "r_00099",
+                "name": "Project icon",
+                "radius": 4,
+                "width": 16,
+                "align": "center",
+                "crossAlign": "center",
+                "children": [
+                  {
+                    "height": 11,
+                    "id": "img_00098",
+                    "name": "server",
+                    "width": 11,
+                    "tint": "#2dd4bf",
+                    "src": "assets/icons/server.svg",
+                    "type": "image"
+                  }
+                ],
+                "type": "row"
+              },
+              {
+                "id": "c_00102",
+                "gap": 1,
+                "children": [
+                  {
+                    "id": "t_00100",
+                    "color": "$color-foreground",
+                    "lineHeight": 1.43,
+                    "size": 14,
+                    "role": "paragraph",
+                    "text": "nas-tools",
+                    "type": "text"
+                  },
+                  {
+                    "id": "t_00101",
+                    "color": "$color-muted-foreground",
+                    "lineHeight": 1.333,
+                    "size": 12,
+                    "role": "paragraph",
+                    "text": "nas:~/nas-tools",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "r_00103",
+                "width": "fill",
+                "crossAlign": "center",
+                "children": [],
+                "type": "row"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "fill": "$color-border",
+            "height": 1,
+            "id": "r_00106",
+            "margin": {
+              "bottom": 4,
+              "left": -4,
+              "right": -4,
+              "top": 4
+            },
+            "width": "fill",
+            "crossAlign": "center",
+            "children": [
+              {
+                "height": 1,
+                "id": "r_00105",
+                "width": "fill",
+                "crossAlign": "center",
+                "children": [],
+                "type": "row"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "id": "r_00109",
+            "padding": {
+              "bottom": 6,
+              "left": 8,
+              "right": 8,
+              "top": 6
+            },
+            "radius": 6,
+            "width": "fill",
+            "crossAlign": "center",
+            "gap": 8,
+            "children": [
+              {
+                "id": "t_00107",
+                "color": "$color-foreground",
+                "lineHeight": 1.43,
+                "size": 14,
+                "role": "paragraph",
+                "text": "Open folder…",
+                "type": "text"
+              },
+              {
+                "id": "r_00108",
+                "width": "fill",
+                "crossAlign": "center",
+                "children": [],
+                "type": "row"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "id": "r_00112",
+            "padding": {
+              "bottom": 6,
+              "left": 8,
+              "right": 8,
+              "top": 6
+            },
+            "radius": 6,
+            "width": "fill",
+            "crossAlign": "center",
+            "gap": 8,
+            "children": [
+              {
+                "id": "t_00110",
+                "color": "$color-foreground",
+                "lineHeight": 1.43,
+                "size": 14,
+                "role": "paragraph",
+                "text": "Open over SSH…",
+                "type": "text"
+              },
+              {
+                "id": "r_00111",
+                "width": "fill",
+                "crossAlign": "center",
+                "children": [],
+                "type": "row"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "fill": "$color-border",
+            "height": 1,
+            "id": "r_00114",
+            "margin": {
+              "bottom": 4,
+              "left": -4,
+              "right": -4,
+              "top": 4
+            },
+            "width": "fill",
+            "crossAlign": "center",
+            "children": [
+              {
+                "height": 1,
+                "id": "r_00113",
+                "width": "fill",
+                "crossAlign": "center",
+                "children": [],
+                "type": "row"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "id": "r_00117",
+            "padding": {
+              "bottom": 6,
+              "left": 8,
+              "right": 8,
+              "top": 6
+            },
+            "radius": 6,
+            "width": "fill",
+            "crossAlign": "center",
+            "gap": 8,
+            "children": [
+              {
+                "id": "t_00115",
+                "color": "$color-foreground",
+                "lineHeight": 1.43,
+                "size": 14,
+                "role": "paragraph",
+                "text": "New project…",
+                "type": "text"
+              },
+              {
+                "id": "r_00116",
+                "width": "fill",
+                "crossAlign": "center",
+                "children": [],
+                "type": "row"
+              }
+            ],
+            "type": "row"
+          }
+        ],
+        "type": "column"
+      }
+    ],
+    "direction": "column",
+    "type": "page"
+  }
+}

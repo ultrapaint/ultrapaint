@@ -1,0 +1,599 @@
+{
+  "kind": "page",
+  "notes": [],
+  "root": {
+    "fill": "$color-canvas",
+    "id": "n_imzqpp",
+    "crossAlign": "stretch",
+    "children": [
+      {
+        "id": "r_00201",
+        "padding": {
+          "bottom": 8,
+          "left": 8,
+          "right": 8,
+          "top": 8
+        },
+        "width": "fill",
+        "crossAlign": "start",
+        "children": [
+          {
+            "id": "c_00190",
+            "crossAlign": "start",
+            "children": [
+              {
+                "border": {
+                  "color": "$color-border",
+                  "style": "solid",
+                  "width": "1px"
+                },
+                "fill": "$color-sidebar",
+                "id": "c_00171",
+                "name": "Left card",
+                "radius": 14,
+                "width": 400,
+                "children": [
+                  {
+                    "height": 48,
+                    "id": "r_00164",
+                    "name": "Title row, as in the browser",
+                    "padding": {
+                      "bottom": 0,
+                      "left": 10,
+                      "right": 10,
+                      "top": 0
+                    },
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 10,
+                    "children": [
+                      {
+                        "height": 32,
+                        "id": "r_00158",
+                        "name": "Mark",
+                        "radius": 8,
+                        "width": 32,
+                        "align": "center",
+                        "crossAlign": "center",
+                        "children": [
+                          {
+                            "height": 22,
+                            "id": "img_00157",
+                            "name": "ultrapaint-mark",
+                            "width": 22,
+                            "tint": "$color-foreground",
+                            "src": "assets/icons/ultrapaint-mark.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "id": "t_00156",
+                        "name": "Divider",
+                        "color": "$color-muted-foreground",
+                        "lineHeight": 1,
+                        "size": 22,
+                        "weight": 300,
+                        "role": "paragraph",
+                        "text": "/",
+                        "type": "text"
+                      },
+                      {
+                        "fill": "$color-accent",
+                        "id": "r_00155",
+                        "name": "Project menu, open",
+                        "padding": {
+                          "bottom": 6,
+                          "left": 8,
+                          "right": 8,
+                          "top": 6
+                        },
+                        "radius": 8,
+                        "crossAlign": "center",
+                        "gap": 6,
+                        "children": [
+                          {
+                            "fill": "#60a5fa24",
+                            "height": 16,
+                            "id": "r_00152",
+                            "name": "Project icon",
+                            "radius": 4,
+                            "width": 16,
+                            "align": "center",
+                            "crossAlign": "center",
+                            "children": [
+                              {
+                                "height": 11,
+                                "id": "img_00151",
+                                "name": "boxes",
+                                "width": 11,
+                                "tint": "#60a5fa",
+                                "src": "assets/icons/boxes.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "type": "row"
+                          },
+                          {
+                            "id": "t_00153",
+                            "color": "$color-foreground",
+                            "font": "'Cal Sans', system-ui, sans-serif",
+                            "lineHeight": 1.43,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "shop-admin",
+                            "type": "text"
+                          },
+                          {
+                            "height": 16,
+                            "id": "img_00154",
+                            "name": "chevron-down",
+                            "width": 16,
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/chevron-down.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "id": "r_00159",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "children": [],
+                        "type": "row"
+                      },
+                      {
+                        "height": 28,
+                        "id": "r_00161",
+                        "radius": 6,
+                        "width": 28,
+                        "align": "center",
+                        "crossAlign": "center",
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_00160",
+                            "name": "search",
+                            "width": 16,
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/search.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "height": 28,
+                        "id": "r_00163",
+                        "radius": 6,
+                        "width": 28,
+                        "align": "center",
+                        "crossAlign": "center",
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_00162",
+                            "name": "panel-left",
+                            "width": 16,
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/panel-left.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "type": "row"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "r_00170",
+                    "name": "Canvas",
+                    "padding": {
+                      "bottom": 8,
+                      "left": 8,
+                      "right": 8,
+                      "top": 0
+                    },
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "fill": "$color-muted",
+                        "height": 36,
+                        "id": "r_00169",
+                        "padding": {
+                          "bottom": 0,
+                          "left": 10,
+                          "right": 10,
+                          "top": 0
+                        },
+                        "radius": 8,
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_00165",
+                            "name": "frame",
+                            "width": 16,
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/frame.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_00166",
+                            "color": "$color-foreground",
+                            "lineHeight": 1.43,
+                            "size": 14,
+                            "weight": 500,
+                            "role": "paragraph",
+                            "text": "Checkout",
+                            "type": "text"
+                          },
+                          {
+                            "id": "r_00167",
+                            "width": "fill",
+                            "crossAlign": "center",
+                            "children": [],
+                            "type": "row"
+                          },
+                          {
+                            "height": 16,
+                            "id": "img_00168",
+                            "name": "chevron-down",
+                            "width": 16,
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/chevron-down.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "type": "row"
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "border": {
+                  "color": "$color-border",
+                  "style": "solid",
+                  "width": "1px"
+                },
+                "fill": "$color-popover",
+                "id": "c_00189",
+                "margin": {
+                  "bottom": 0,
+                  "left": 66,
+                  "right": 0,
+                  "top": 4
+                },
+                "name": "Project menu",
+                "padding": {
+                  "bottom": 4,
+                  "left": 4,
+                  "right": 4,
+                  "top": 4
+                },
+                "radius": 10,
+                "shadow": "$shadow-xl",
+                "width": 280,
+                "children": [
+                  {
+                    "id": "r_00177",
+                    "name": "This project",
+                    "padding": {
+                      "bottom": 6,
+                      "left": 8,
+                      "right": 8,
+                      "top": 6
+                    },
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 10,
+                    "children": [
+                      {
+                        "fill": "#60a5fa24",
+                        "height": 24,
+                        "id": "r_00173",
+                        "name": "Project icon",
+                        "radius": 6,
+                        "width": 24,
+                        "align": "center",
+                        "crossAlign": "center",
+                        "children": [
+                          {
+                            "height": 17,
+                            "id": "img_00172",
+                            "name": "boxes",
+                            "width": 17,
+                            "tint": "#60a5fa",
+                            "src": "assets/icons/boxes.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "id": "c_00176",
+                        "gap": 1,
+                        "children": [
+                          {
+                            "id": "t_00174",
+                            "color": "$color-foreground",
+                            "lineHeight": 1.43,
+                            "size": 14,
+                            "weight": 500,
+                            "role": "paragraph",
+                            "text": "shop-admin",
+                            "type": "text"
+                          },
+                          {
+                            "id": "t_00175",
+                            "color": "$color-muted-foreground",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "~/Code/shop-admin",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "fill": "$color-border",
+                    "height": 1,
+                    "id": "r_00179",
+                    "margin": {
+                      "bottom": 4,
+                      "left": -4,
+                      "right": -4,
+                      "top": 4
+                    },
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "height": 1,
+                        "id": "r_00178",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "children": [],
+                        "type": "row"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "r_00182",
+                    "padding": {
+                      "bottom": 6,
+                      "left": 8,
+                      "right": 8,
+                      "top": 6
+                    },
+                    "radius": 6,
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 8,
+                    "children": [
+                      {
+                        "id": "t_00180",
+                        "color": "$color-foreground",
+                        "lineHeight": 1.43,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "Project settings",
+                        "type": "text"
+                      },
+                      {
+                        "id": "r_00181",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "children": [],
+                        "type": "row"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "r_00185",
+                    "padding": {
+                      "bottom": 6,
+                      "left": 8,
+                      "right": 8,
+                      "top": 6
+                    },
+                    "radius": 6,
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 8,
+                    "children": [
+                      {
+                        "id": "t_00183",
+                        "color": "$color-foreground",
+                        "lineHeight": 1.43,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "Show in Finder",
+                        "type": "text"
+                      },
+                      {
+                        "id": "r_00184",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "children": [],
+                        "type": "row"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "r_00188",
+                    "padding": {
+                      "bottom": 6,
+                      "left": 8,
+                      "right": 8,
+                      "top": 6
+                    },
+                    "radius": 6,
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 8,
+                    "children": [
+                      {
+                        "id": "t_00186",
+                        "color": "$color-foreground",
+                        "lineHeight": 1.43,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "Copy path",
+                        "type": "text"
+                      },
+                      {
+                        "id": "r_00187",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "children": [],
+                        "type": "row"
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "column"
+          },
+          {
+            "id": "r_00191",
+            "width": "fill",
+            "crossAlign": "center",
+            "children": [],
+            "type": "row"
+          },
+          {
+            "border": {
+              "color": "$color-border",
+              "style": "solid",
+              "width": "1px"
+            },
+            "fill": "$color-sidebar",
+            "id": "r_00198",
+            "padding": {
+              "bottom": 4,
+              "left": 4,
+              "right": 4,
+              "top": 4
+            },
+            "radius": 12,
+            "crossAlign": "center",
+            "gap": 2,
+            "children": [
+              {
+                "fill": "$color-accent",
+                "id": "r_00193",
+                "padding": {
+                  "bottom": 6,
+                  "left": 12,
+                  "right": 12,
+                  "top": 6
+                },
+                "radius": 8,
+                "crossAlign": "center",
+                "children": [
+                  {
+                    "id": "t_00192",
+                    "color": "$color-foreground",
+                    "lineHeight": 1.43,
+                    "size": 14,
+                    "weight": 500,
+                    "role": "paragraph",
+                    "text": "Canvas",
+                    "type": "text"
+                  }
+                ],
+                "type": "row"
+              },
+              {
+                "id": "r_00195",
+                "padding": {
+                  "bottom": 6,
+                  "left": 12,
+                  "right": 12,
+                  "top": 6
+                },
+                "radius": 8,
+                "crossAlign": "center",
+                "children": [
+                  {
+                    "id": "t_00194",
+                    "color": "$color-muted-foreground",
+                    "lineHeight": 1.43,
+                    "size": 14,
+                    "weight": 500,
+                    "role": "paragraph",
+                    "text": "Design system",
+                    "type": "text"
+                  }
+                ],
+                "type": "row"
+              },
+              {
+                "id": "r_00197",
+                "padding": {
+                  "bottom": 6,
+                  "left": 12,
+                  "right": 12,
+                  "top": 6
+                },
+                "radius": 8,
+                "crossAlign": "center",
+                "children": [
+                  {
+                    "id": "t_00196",
+                    "color": "$color-muted-foreground",
+                    "lineHeight": 1.43,
+                    "size": 14,
+                    "weight": 500,
+                    "role": "paragraph",
+                    "text": "Prototype",
+                    "type": "text"
+                  }
+                ],
+                "type": "row"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "id": "r_00199",
+            "width": "fill",
+            "crossAlign": "center",
+            "children": [],
+            "type": "row"
+          },
+          {
+            "height": 1,
+            "id": "r_00200",
+            "width": 400,
+            "crossAlign": "center",
+            "children": [],
+            "type": "row"
+          }
+        ],
+        "type": "row"
+      }
+    ],
+    "direction": "column",
+    "type": "page"
+  }
+}

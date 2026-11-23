@@ -1,0 +1,358 @@
+{
+  "kind": "page",
+  "notes": [],
+  "root": {
+    "fill": "$color-canvas",
+    "id": "n_qsyepg",
+    "align": "center",
+    "crossAlign": "center",
+    "children": [
+      {
+        "border": {
+          "color": "$color-border",
+          "style": "solid",
+          "width": "1px"
+        },
+        "fill": "$color-popover",
+        "id": "c_00322",
+        "name": "Choose file",
+        "padding": {
+          "bottom": 24,
+          "left": 24,
+          "right": 24,
+          "top": 24
+        },
+        "radius": 14,
+        "shadow": "$shadow-2xl",
+        "width": 440,
+        "gap": 20,
+        "children": [
+          {
+            "id": "r_00321",
+            "width": "fill",
+            "crossAlign": "center",
+            "children": [
+              {
+                "id": "t_00317",
+                "color": "$color-foreground",
+                "lineHeight": 1.33,
+                "size": 18,
+                "weight": 600,
+                "role": "paragraph",
+                "text": "Choose file",
+                "type": "text"
+              },
+              {
+                "id": "r_00318",
+                "width": "fill",
+                "crossAlign": "center",
+                "children": [],
+                "type": "row"
+              },
+              {
+                "height": 28,
+                "id": "r_00320",
+                "radius": 6,
+                "width": 28,
+                "align": "center",
+                "crossAlign": "center",
+                "children": [
+                  {
+                    "height": 16,
+                    "id": "img_00319",
+                    "name": "x",
+                    "width": 16,
+                    "tint": "$color-muted-foreground",
+                    "src": "assets/icons/x.svg",
+                    "type": "image"
+                  }
+                ],
+                "type": "row"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "id": "c_00314",
+            "name": "Images in the project",
+            "width": "fill",
+            "gap": 2,
+            "children": [
+              {
+                "fill": "$color-accent",
+                "id": "r_00299",
+                "padding": {
+                  "bottom": 8,
+                  "left": 10,
+                  "right": 10,
+                  "top": 8
+                },
+                "radius": 8,
+                "width": "fill",
+                "crossAlign": "center",
+                "gap": 10,
+                "children": [
+                  {
+                    "fill": "$color-muted",
+                    "height": 32,
+                    "id": "r_00294",
+                    "radius": 6,
+                    "width": 32,
+                    "align": "center",
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "height": 18,
+                        "id": "img_00293",
+                        "name": "shapes",
+                        "width": 18,
+                        "tint": "#60a5fa",
+                        "src": "assets/icons/shapes.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "t_00295",
+                    "color": "$color-foreground",
+                    "lineHeight": 1.333,
+                    "size": 13,
+                    "role": "paragraph",
+                    "text": "public/favicon.svg",
+                    "type": "text"
+                  },
+                  {
+                    "id": "r_00296",
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "children": [],
+                    "type": "row"
+                  },
+                  {
+                    "id": "t_00297",
+                    "color": "$color-muted-foreground",
+                    "lineHeight": 1.33,
+                    "size": 12,
+                    "role": "paragraph",
+                    "text": "SVG",
+                    "type": "text"
+                  },
+                  {
+                    "height": 16,
+                    "id": "img_00298",
+                    "name": "check",
+                    "width": 16,
+                    "tint": "$color-foreground",
+                    "src": "assets/icons/check.svg",
+                    "type": "image"
+                  }
+                ],
+                "type": "row"
+              },
+              {
+                "id": "r_00306",
+                "padding": {
+                  "bottom": 8,
+                  "left": 10,
+                  "right": 10,
+                  "top": 8
+                },
+                "radius": 8,
+                "width": "fill",
+                "crossAlign": "center",
+                "gap": 10,
+                "children": [
+                  {
+                    "fill": "$color-muted",
+                    "height": 32,
+                    "id": "r_00301",
+                    "radius": 6,
+                    "width": 32,
+                    "align": "center",
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "height": 18,
+                        "id": "img_00300",
+                        "name": "shapes",
+                        "width": 18,
+                        "tint": "#60a5fa",
+                        "src": "assets/icons/shapes.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "t_00302",
+                    "color": "$color-foreground",
+                    "lineHeight": 1.333,
+                    "size": 13,
+                    "role": "paragraph",
+                    "text": "app/icon.png",
+                    "type": "text"
+                  },
+                  {
+                    "id": "r_00303",
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "children": [],
+                    "type": "row"
+                  },
+                  {
+                    "id": "t_00304",
+                    "color": "$color-muted-foreground",
+                    "lineHeight": 1.33,
+                    "size": 12,
+                    "role": "paragraph",
+                    "text": "512 × 512",
+                    "type": "text"
+                  },
+                  {
+                    "id": "r_00305",
+                    "width": 16,
+                    "crossAlign": "center",
+                    "children": [],
+                    "type": "row"
+                  }
+                ],
+                "type": "row"
+              },
+              {
+                "id": "r_00313",
+                "padding": {
+                  "bottom": 8,
+                  "left": 10,
+                  "right": 10,
+                  "top": 8
+                },
+                "radius": 8,
+                "width": "fill",
+                "crossAlign": "center",
+                "gap": 10,
+                "children": [
+                  {
+                    "fill": "$color-muted",
+                    "height": 32,
+                    "id": "r_00308",
+                    "radius": 6,
+                    "width": 32,
+                    "align": "center",
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "height": 18,
+                        "id": "img_00307",
+                        "name": "shapes",
+                        "width": 18,
+                        "tint": "#60a5fa",
+                        "src": "assets/icons/shapes.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "t_00309",
+                    "color": "$color-foreground",
+                    "lineHeight": 1.333,
+                    "size": 13,
+                    "role": "paragraph",
+                    "text": "public/apple-touch-icon.png",
+                    "type": "text"
+                  },
+                  {
+                    "id": "r_00310",
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "children": [],
+                    "type": "row"
+                  },
+                  {
+                    "id": "t_00311",
+                    "color": "$color-muted-foreground",
+                    "lineHeight": 1.33,
+                    "size": 12,
+                    "role": "paragraph",
+                    "text": "180 × 180",
+                    "type": "text"
+                  },
+                  {
+                    "id": "r_00312",
+                    "width": 16,
+                    "crossAlign": "center",
+                    "children": [],
+                    "type": "row"
+                  }
+                ],
+                "type": "row"
+              }
+            ],
+            "type": "column"
+          },
+          {
+            "id": "r_00316",
+            "width": "fill",
+            "crossAlign": "center",
+            "children": [
+              {
+                "id": "i_00315",
+                "props": {
+                  "variant": "outline",
+                  "size": "sm"
+                },
+                "text": "Choose another file…",
+                "component": "Button",
+                "from": "@ultrapaint/system",
+                "type": "instance"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "id": "r_00260",
+            "width": "fill",
+            "crossAlign": "center",
+            "gap": 8,
+            "children": [
+              {
+                "id": "r_00257",
+                "width": "fill",
+                "crossAlign": "center",
+                "children": [],
+                "type": "row"
+              },
+              {
+                "id": "i_00258",
+                "props": {
+                  "variant": "outline",
+                  "size": "sm"
+                },
+                "text": "Cancel",
+                "component": "Button",
+                "from": "@ultrapaint/system",
+                "type": "instance"
+              },
+              {
+                "id": "i_00259",
+                "props": {
+                  "variant": "primary",
+                  "size": "sm"
+                },
+                "text": "Save",
+                "component": "Button",
+                "from": "@ultrapaint/system",
+                "type": "instance"
+              }
+            ],
+            "type": "row"
+          }
+        ],
+        "type": "column"
+      }
+    ],
+    "direction": "column",
+    "type": "page"
+  }
+}

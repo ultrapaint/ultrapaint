@@ -2,13 +2,17 @@
   "root": {"type": "page", "id": "root", "crossAlign": "stretch", "direction": "column", "fill": "$color-canvas", "children": [
     {"type": "row", "id": "r_00173", "crossAlign": "end", "height": "fill", "padding": {"bottom": 24, "left": 24, "right": 24, "top": 24}, "width": "fill", "children": [
       {"type": "row", "id": "r_00172", "width": "fill", "children": []},
-      {"type": "row", "id": "r_00171", "name": "Toast", "border": {"color": "$color-border", "style": "solid", "width": "1px"}, "crossAlign": "start", "fill": "$color-popover", "gap": 12, "padding": {"bottom": 12, "left": 14, "right": 14, "top": 12}, "radius": 12, "shadow": "$shadow-xl", "width": 420, "children": [
-        {"type": "row", "id": "r_00166", "crossAlign": "center", "fill": "$color-warning", "height": 8, "radius": 999, "width": 8, "children": []},
-        {"type": "column", "id": "c_00169", "gap": 2, "width": "fill", "children": [
-          {"type": "text", "id": "t_00167", "color": "$color-foreground", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "ultrapaint: Claude Code asks you something", "weight": 500},
-          {"type": "text", "id": "t_00168", "color": "$color-muted-foreground", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Which alarm types should the modal offer?"}
+      {"type": "row", "id": "r_00171", "name": "Toast", "border": {"color": "$color-border", "style": "solid", "width": "1px"}, "crossAlign": "center", "fill": "$color-popover", "gap": 6, "padding": {"bottom": 16, "left": 16, "right": 16, "top": 16}, "radius": "$radius-lg", "shadow": "$shadow-overlay", "width": 356, "children": [
+        {"type": "row", "id": "r_y6d157b", "name": "Close", "align": "center", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-popover", "height": 20, "margin": {"left": -26, "right": -14, "top": -48}, "radius": 999, "width": 20, "children": [
+          {"type": "image", "id": "img_y6d0gvy", "name": "x", "alt": "", "height": 12, "src": "assets/icons/x.svg", "tint": "$color-foreground", "width": 12}
         ]},
-        {"type": "instance", "id": "i_00170", "component": "Button", "from": "@ultrapaint/system", "props": {"variant": "outline", "size": "sm"}, "text": "Go to it", "children": []}
+        {"type": "row", "id": "r_00166", "crossAlign": "center", "fill": "$color-warning", "height": 8, "margin": {"right": 6}, "radius": 999, "width": 8, "children": []},
+        {"type": "column", "id": "c_00169", "gap": 2, "width": "fill", "children": [
+          {"type": "text", "id": "t_00167", "color": "$color-foreground", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "ultrapaint: an agent asks you something", "weight": 500}
+        ]},
+        {"type": "instance", "id": "i_00170", "component": "Button", "fill": "$color-popover-foreground", "from": "@ultrapaint/system", "height": 24, "padding": {"left": 8, "right": 8}, "props": {"variant": "primary", "size": "sm"}, "radius": "$radius-sm", "children": [
+          {"type": "text", "id": "t_5wv0sib", "color": "$color-popover", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "Go to it", "weight": 500}
+        ]}
       ]}
     ]}
   ]},
