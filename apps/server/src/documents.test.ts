@@ -147,6 +147,59 @@ describe("an app component's instance on a page (ADR 0114)", () => {
   );
 
   it.effect(
+    "sets a property-backed field of an instance the same batch inserts as its property",
+    () =>
+      Effect.gen(function* () {
+        yield* project(
+          Effect.flatMap(DocumentService, (d) =>
+            d.apply({
+              edits: [
+                {
+                  doc: "promo.page.json",
+                  ops: [
+                    {
+                      node: {
+                        component: "Promo",
+                        from: "#app",
+                        id: "late",
+                        type: "instance",
+                      },
+                      op: "insert",
+                      parent: "page",
+                    },
+                    {
+                      id: "late/title",
+                      op: "update",
+                      set: { text: "Later" },
+                    },
+                  ],
+                },
+              ],
+            })
+          )
+        );
+        const page = yield* project(
+          Effect.flatMap(DocumentService, (d) => d.get("promo.page.json"))
+        );
+        const late = page.root
+          ? childrenOf(page.root).find((n) => n.id === "late")
+          : undefined;
+        assert.deepInclude(late ?? {}, { props: { title: "Later" } });
+        assert.notProperty(late ?? {}, "overrides");
+      }).pipe(
+        Effect.provide(
+          ProjectTest({
+            files: {
+              "designs/components/Promo.component.json": PROMO,
+              "designs/promo.page.json": PAGE,
+            },
+          })
+        ),
+        Effect.scoped
+      )
+  );
+
+  it.effect(
     "sets a layer's field that a property sets as the property, whoever edits it",
     () =>
       Effect.gen(function* () {

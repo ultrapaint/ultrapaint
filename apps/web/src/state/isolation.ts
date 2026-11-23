@@ -17,7 +17,7 @@
  */
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import { componentDocOf, variantKey } from "@ultrapaint/contracts/components";
-import type { InstanceNode } from "@ultrapaint/contracts/document";
+import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import {
   layerIdOf,
   layerPath,
@@ -189,8 +189,9 @@ export const editVariant = (variant: VariantEdited | null) => {
 export const startIsolation = (): (() => void) => {
   const offs = [
     useEditor.subscribe((now, before) => {
+      // Every level: what was edited in place is the page's no more.
       if (now.canvas !== before.canvas || now.workspace !== before.workspace) {
-        leaveIsolation();
+        leaveTo(0);
       }
     }),
     useComponents.subscribe(showTree),
@@ -204,6 +205,34 @@ export const startIsolation = (): (() => void) => {
     for (const off of offs) {
       off();
     }
+  };
+};
+
+/**
+ * What a board's frame draws, as far as the levels edited on it need: the instance of the
+ * component its outermost level edits, at that level's variant. Null on a page's frame.
+ */
+const boardRootOf = (isolated: Isolation): DesignNode | null => {
+  let outermost = isolated;
+  while (outermost.around) {
+    outermost = outermost.around;
+  }
+  if (frameRefOf(outermost.frame).kind !== "board") {
+    return null;
+  }
+  const { variant } = outermost;
+  return {
+    children: [
+      {
+        component: outermost.component,
+        from: APP_FROM,
+        id: outermost.drawn,
+        ...(variant && { props: { [variant.property]: variant.member } }),
+        type: "instance",
+      },
+    ],
+    id: "board",
+    type: "column",
   };
 };
 
@@ -235,7 +264,7 @@ export const useIsolatedRequest = (frame: string): RenderRequest["isolate"] => {
       return "";
     }
     const path = layerPath(
-      drawnRootOf(s.docs, canvas, frame),
+      drawnRootOf(s.docs, canvas, frame) ?? boardRootOf(isolated),
       isolated.drawn,
       (name) => appComponentOf(components, name)
     );

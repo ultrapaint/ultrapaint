@@ -144,6 +144,13 @@ interface ApplyOptions {
     | ((layer: string, tree: DesignNode) => string | undefined)
     | undefined;
   readonly next: IdGenerator;
+  /**
+   * What an operation is made before it is applied, on the tree as the operations before it made
+   * it: a field of an instance's layer that a property sets, set as that property (ADR 0114).
+   */
+  readonly route?:
+    | ((op: DocOp, tree: DesignNode) => readonly DocOp[])
+    | undefined;
 }
 
 interface Applied {
@@ -204,7 +211,7 @@ export const applyOps = (
 ): Applied => {
   const draft = cloneJson(root) as unknown as Draft;
   const created: string[] = [];
-  const { canvas, kindOf, next } = options;
+  const { canvas, kindOf, next, route } = options;
 
   const parentId = (parent: string | null) => parent ?? draft.id;
   /** On the canvas's top level a node has a position; anywhere else it has none. */
@@ -468,7 +475,10 @@ export const applyOps = (
     }
     checkLayerFields(set);
     // Read off the tree as the batch has made it so far: an instance inserted in it is there.
-    const kind = kindOf?.(id, draft as unknown as DesignNode);
+    const kind =
+      typeof set.type === "string"
+        ? kindOf?.(id, draft as unknown as DesignNode)
+        : undefined;
     checkLayerKind(id, set.type, kind, kindOf !== undefined, at);
     const overrides = {
       ...(node.overrides as
@@ -560,18 +570,18 @@ export const applyOps = (
     }
   };
 
-  for (const op of ops) {
+  const applyOne = (op: DocOp) => {
     if ((op.op === "update" || op.op === "remove") && isLayer(op.id)) {
       overrideOp(
         op.id,
         op.op === "update" ? op.set : { hidden: true },
         op.op === "update" ? op.at : undefined
       );
-      continue;
+      return;
     }
     if (op.op === "setProps" && isLayer(op.id)) {
       setLayerProps(op.id, op.props, op.at);
-      continue;
+      return;
     }
     ownNodes(op);
     switch (op.op) {
@@ -604,6 +614,15 @@ export const applyOps = (
         break;
       default:
         break;
+    }
+  };
+
+  // Each operation as `route` makes it on the tree the ones before it made (ADR 0114).
+  for (const given of ops) {
+    for (const op of route
+      ? route(given, draft as unknown as DesignNode)
+      : [given]) {
+      applyOne(op);
     }
   }
 

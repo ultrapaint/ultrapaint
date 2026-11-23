@@ -656,7 +656,7 @@ const applyToEach = (
         );
       }
       if (op.op === "setProps" && op.at === undefined) {
-        return propsOpsAt(node, frame, op.props);
+        return propsOpsAt(node, frame, op.props, layer);
       }
       return [op];
     });

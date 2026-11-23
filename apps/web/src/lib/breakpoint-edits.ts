@@ -144,7 +144,9 @@ export const updateOpsAt = (
 export const propsOpsAt = (
   node: DesignNode,
   frame: string,
-  props: Fields
+  props: Fields,
+  /** The node is a layer of an instance, whose props are its instance override's. */
+  explicit = false
 ): DocOp[] => {
   if (node.type !== "instance") {
     return [];
@@ -170,7 +172,9 @@ export const propsOpsAt = (
           : sourceOf(node, `props.${key}`, breakpoints, shown);
       return [key, value, from] as const;
     }
-    const same = value !== null && sameJson(inheritedProps?.[key], value);
+    // A layer's prop taken away would show its main component's there, not the level below's.
+    const same =
+      !explicit && value !== null && sameJson(inheritedProps?.[key], value);
     return [key, same ? null : value, target] as const;
   });
   return [...groupBy(entries)].map(([at, fields]) => ({

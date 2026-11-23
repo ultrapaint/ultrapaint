@@ -285,6 +285,20 @@ describe("an app component's instance overrides (ADR 0114)", () => {
     expect(crowded).toContain('panelBFill2="blue"');
   });
 
+  it("write a nested instance's prop named `at` as any other", () => {
+    expect(
+      toCode(
+        {
+          ...shell,
+          overrides: { i_9k2m1x: { props: { at: "noon" } } },
+          props: {},
+        } as DesignNode,
+        none,
+        { fileOf: (name) => files[name] }
+      )
+    ).toContain('navAt="noon"');
+  });
+
   it("set at a breakpoint are written for that breakpoint", () => {
     expect(code()).toContain("sidebarHidden");
   });

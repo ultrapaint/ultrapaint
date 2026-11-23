@@ -31,7 +31,11 @@ import {
   LAYER_SEPARATOR,
   throughProperties,
 } from "@ultrapaint/design-document/instance-layers";
-import { applyOps, DocumentOpError } from "@ultrapaint/design-document/ops";
+import {
+  applyOps,
+  cloneJson,
+  DocumentOpError,
+} from "@ultrapaint/design-document/ops";
 import { changedNodes } from "@ultrapaint/design-document/patch";
 import {
   canvasDocOf,
@@ -524,22 +528,31 @@ export class DocumentService extends Context.Service<
         const inserted = ops.flatMap((op) =>
           op.op === "insert" || op.op === "replace" ? [op.node] : []
         );
-        const nodeNamed = (id: string) =>
-          findNode(tree, id) ??
-          inserted.map((n) => findNode(n, id)).find((n) => n !== null) ??
-          null;
-        for (const op of ops) {
-          if (!("id" in op && isInstanceLayer(op.id))) {
-            continue;
-          }
-          const [first = "", ...rest] = op.id.split(LAYER_SEPARATOR);
-          let node: DesignNode | null = nodeNamed(first);
-          for (const id of rest) {
+        // The instance a layer's way starts at: the tree's, and any the batch puts in its place.
+        const namedIn = (id: string) =>
+          [tree, ...inserted].flatMap((n) => findNode(n, id) ?? []);
+        /** Reads the component of each instance on the way from `start`, layer by layer. */
+        const readAlong = Effect.fnUntraced(function* (
+          start: DesignNode,
+          way: readonly string[]
+        ) {
+          let node: DesignNode | null = start;
+          for (const id of way) {
             if (node?.type !== "instance") {
-              break;
+              return;
             }
-            const file = yield* read(node.component);
+            const file: AppComponentFile | undefined = yield* read(
+              node.component
+            );
             node = file ? findNode(file.tree, id) : null;
+          }
+        });
+        for (const op of ops) {
+          if ("id" in op && isInstanceLayer(op.id)) {
+            const [first = "", ...rest] = op.id.split(LAYER_SEPARATOR);
+            for (const start of namedIn(first)) {
+              yield* readAlong(start, rest);
+            }
           }
         }
         return (name: string) => files.get(name);
@@ -592,18 +605,20 @@ export class DocumentService extends Context.Service<
                       : `the operations could not be applied: ${messageOf(error)}`,
                 }),
               try: () =>
-                applyOps(
-                  loaded.root as DesignNode,
-                  // A field of an instance's layer that a property sets is set as the property.
-                  throughProperties(change.ops, loaded.root, fileOfLayer),
-                  {
-                    canvas: canvas !== null,
-                    // What a layer of an instance may be turned into is its own kind's to say.
-                    kindOf: (layer, tree) =>
-                      findLayer(tree, layer, fileOfLayer)?.type,
-                    next: makeIdGenerator(idsOf(loaded.root as DesignNode)),
-                  }
-                ),
+                applyOps(loaded.root as DesignNode, change.ops, {
+                  canvas: canvas !== null,
+                  // What a layer of an instance may be turned into is its own kind's to say, on
+                  // the tree as the batch has it, copied: an edit made in place is no cache's.
+                  kindOf: (layer, tree) =>
+                    findLayer(cloneJson(tree), layer, fileOfLayer)?.type,
+                  next: makeIdGenerator(idsOf(loaded.root as DesignNode)),
+                  // A field of an instance's layer that a property sets is set as the property,
+                  // an instance the batch inserted before it included.
+                  route: (op, tree) =>
+                    "id" in op && isInstanceLayer(op.id)
+                      ? throughProperties([op], cloneJson(tree), fileOfLayer)
+                      : [op],
+                }),
             });
             yield* writeDocument(tx, change.doc, loaded, result.root);
             // By its file: two spellings of one page are one document.
