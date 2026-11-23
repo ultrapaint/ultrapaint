@@ -11,17 +11,22 @@ import {
   type DocumentState,
   isWholeDocument,
 } from "@ultrapaint/contracts/document";
+import {
+  type AppFileOf,
+  findLayer,
+  layerPath,
+} from "@ultrapaint/design-document/instance-layers";
 import { withChangedNodes } from "@ultrapaint/design-document/patch";
 import {
   canvasDocOf,
   canvasOfDoc,
   childrenOf,
   findNode,
-  findPath,
   shareUnchanged,
 } from "@ultrapaint/design-document/tree";
 import { canvasIdOf } from "@ultrapaint/shared/canvas";
 import { create } from "zustand";
+import { appComponentOf, useComponents } from "./components.ts";
 import { api } from "./connection.ts";
 import { documentShown, frameRefOf, nodeFrameOf } from "./frame-ref.ts";
 import { reportError, useProject } from "./project.ts";
@@ -292,21 +297,33 @@ export const drawnRootOf = (
   }
 };
 
-/** A node of a frame, by id. */
+/** An app component's file by its name, as the editor holds the components now. */
+export const appFileOf: AppFileOf = (name) =>
+  appComponentOf(useComponents.getState().components, name);
+
+/**
+ * A node of a frame, by id: one of its document's, or a layer of an instance as the instance draws
+ * it (`shell/side`, ADR 0114).
+ */
 export const nodeIn = (
   docs: Record<string, DocumentState>,
   canvas: string | null,
   frame: string,
   id: string
-): DesignNode | null => findNode(rootOfFrame(docs, canvas, frame), id);
+): DesignNode | null =>
+  findLayer(rootOfFrame(docs, canvas, frame), id, appFileOf);
 
-/** The way down to a node inside the frame's document, the frame's root first. */
+/**
+ * The way down to a node inside the frame's document, the frame's root first; to a layer of an
+ * instance, through the instances that draw it.
+ */
 export const pathIn = (
   docs: Record<string, DocumentState>,
   canvas: string | null,
   frame: string,
   id: string
-): DesignNode[] | null => findPath(rootOfFrame(docs, canvas, frame), id);
+): DesignNode[] | null =>
+  layerPath(rootOfFrame(docs, canvas, frame), id, appFileOf);
 
 /** The frame a node of the canvas's document is shown in: its top-level ancestor's. */
 export const frameOfCanvasNode = (

@@ -88,7 +88,8 @@ const membersChange = (
 };
 
 /** A name no property has yet: `base`, else `base 2`, `base 3`… */
-const freeName = (file: AppComponentFile, base: string) => {
+/** A name for a new property of `file`: `base`, or `base 2`, `base 3`… while it is taken. */
+export const freeName = (file: AppComponentFile, base: string) => {
   const taken = new Set(file.properties.map((p) => p.name));
   let name = base;
   for (let i = 2; taken.has(name); i += 1) {

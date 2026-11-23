@@ -440,3 +440,91 @@ describe("touchedBy", () => {
     expect(touchedBy(ops, created, root)).toEqual(["x_1"]);
   });
 });
+
+describe("an instance's layers (ADR 0114)", () => {
+  const shell = (overrides?: InstanceNode["overrides"]): PageNode => ({
+    children: [
+      {
+        component: "Shell",
+        from: "#app",
+        id: "shell",
+        type: "instance",
+        ...(overrides && { overrides }),
+      },
+    ],
+    id: "root",
+    type: "page",
+  });
+  const overridesOf = (root: DesignNode) =>
+    (findNode(root, "shell") as InstanceNode).overrides;
+
+  it("are changed as the instance's overrides, a breakpoint's in their own `at`", () => {
+    const { root } = applyOps(
+      shell({ side: { gap: 4 } }),
+      [
+        { id: "shell/side", op: "update", set: { fill: "#111" } },
+        { at: "md", id: "shell/side", op: "update", set: { gap: 8 } },
+        { id: "shell/nav/text", op: "update", set: { color: "red" } },
+      ],
+      options()
+    );
+    expect(overridesOf(root)).toEqual({
+      "nav/text": { color: "red" },
+      side: { at: { md: { gap: 8 } }, fill: "#111", gap: 4 },
+    });
+  });
+
+  it("are given back to the main component's value by a null, the override gone once empty", () => {
+    const { root } = applyOps(
+      shell({ "nav/text": { color: "red" }, side: { fill: "#111", gap: 4 } }),
+      [
+        { id: "shell/side", op: "update", set: { gap: null } },
+        { id: "shell/nav/text", op: "update", set: { color: null } },
+      ],
+      options()
+    );
+    expect(overridesOf(root)).toEqual({ side: { fill: "#111" } });
+    const cleared = applyOps(
+      root,
+      [{ id: "shell/side", op: "update", set: { fill: null } }],
+      options()
+    ).root;
+    expect(overridesOf(cleared)).toBeUndefined();
+  });
+
+  it("set a nested instance's props for this instance alone", () => {
+    const { root } = applyOps(
+      shell(),
+      [{ id: "shell/nav", op: "setProps", props: { label: "Home" } }],
+      options()
+    );
+    expect(overridesOf(root)).toEqual({ nav: { props: { label: "Home" } } });
+  });
+
+  it("are hidden when removed, never taken out of the component", () => {
+    const { root } = applyOps(
+      shell(),
+      [{ id: "shell/side", op: "remove" }],
+      options()
+    );
+    expect(overridesOf(root)).toEqual({ side: { hidden: true } });
+  });
+
+  it("are never moved, wrapped, duplicated or given nodes: that is the main component's", () => {
+    for (const op of [
+      { id: "shell/side", index: 0, op: "move", parent: "root" },
+      { ids: ["shell/side"], op: "wrap", type: "row" },
+      { id: "shell/side", op: "duplicate" },
+      { node: text("x"), op: "insert", parent: "shell/side" },
+      { id: "shell/side", op: "update", set: { children: [] } },
+    ] as DocOp[]) {
+      expect(() => applyOps(shell(), [op], options())).toThrow(DocumentOpError);
+    }
+  });
+
+  it("name their instance as what the operations touched", () => {
+    const ops: DocOp[] = [{ id: "shell/side", op: "update", set: { gap: 2 } }];
+    const { created, root } = applyOps(shell(), ops, options());
+    expect(touchedBy(ops, created, root)).toEqual(["shell"]);
+  });
+});

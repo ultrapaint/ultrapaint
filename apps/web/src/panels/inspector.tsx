@@ -16,6 +16,7 @@ import type {
   InstanceNode,
 } from "@ultrapaint/contracts/document";
 import type { ViewportPreset } from "@ultrapaint/contracts/pages";
+import { isInstanceLayer } from "@ultrapaint/design-document/instance-layers";
 import { nodeKind, nodeLabel } from "@ultrapaint/design-document/tree";
 import {
   BoxSelect,
@@ -97,6 +98,11 @@ import {
   useDraft,
 } from "./inspector-fields.tsx";
 import {
+  InstanceLayerNote,
+  MainComponentRows,
+  OverridesSection,
+} from "./inspector-instance.tsx";
+import {
   LayoutSection,
   SizeSection,
   SpacingSection,
@@ -126,6 +132,7 @@ export const Inspector = () => {
     return <NothingSelected />;
   }
   const { frame, node, nodes } = inspected;
+  const layer = nodes.some((n) => isInstanceLayer(n.id));
   // Updated in place from one selection to the next, not mounted again: a selection costs what
   // changes, not every field and control drawn anew.
   return (
@@ -134,13 +141,22 @@ export const Inspector = () => {
     >
       <div className="flex flex-col pb-4">
         <Header frame={frame} node={node} nodes={nodes} />
-        {nodes.length === 1 && <IsolatedComponent frame={frame} node={node} />}
-        {nodes.length === 1 && <VariationsSection frame={frame} node={node} />}
+        {nodes.length === 1 && <InstanceLayerNote frame={frame} node={node} />}
+        {nodes.length === 1 && !layer && (
+          <IsolatedComponent frame={frame} node={node} />
+        )}
+        {/* A layer of an instance has no variations of its own (ADR 0114). */}
+        {nodes.length === 1 && !layer && (
+          <VariationsSection frame={frame} node={node} />
+        )}
         {node.type === "page" && nodes.length === 1 && (
           <PageSection frame={frame} />
         )}
-        {nodes.length === 1 && <BehaviourSection frame={frame} node={node} />}
+        {nodes.length === 1 && !layer && (
+          <BehaviourSection frame={frame} node={node} />
+        )}
         {nodes.length === 1 && <BreakpointSection frame={frame} node={node} />}
+        {nodes.length === 1 && <OverridesSection frame={frame} node={node} />}
         {oneComponent(nodes) && <InstanceSection frame={frame} nodes={nodes} />}
         {allOf(nodes, "text") && <TextSection nodes={nodes} />}
         {allOf(nodes, "image") && <ImageSection nodes={nodes} />}
@@ -348,13 +364,15 @@ const Header = ({
   nodes: readonly DesignNode[];
 }) => {
   const isRoot = node.type === "page";
+  // A layer of an instance is the main component's to name, wrap or copy (ADR 0114).
+  const layer = nodes.some((n) => isInstanceLayer(n.id));
   const several = nodes.length > 1;
   // A page's root is named by its page, which the pages list renames.
   const pageName = useProject((s) =>
     isRoot ? s.pages.find((p) => p.id === frame)?.name : undefined
   );
   // What heads the panel when the name is not the node's to edit.
-  let title: string | null = pageName ?? null;
+  let title: string | null = pageName ?? (layer ? nodeLabel(node) : null);
   if (several) {
     title = `${nodes.length} selected`;
   }
@@ -399,7 +417,7 @@ const Header = ({
         <div className="min-w-0 flex-1">
           <Kinds frame={frame} node={node} nodes={nodes} />
         </div>
-        {isRoot ? null : (
+        {isRoot || layer ? null : (
           <div className="-mr-1 flex shrink-0 items-center gap-0.5">
             <HeaderAction
               disabled={!wrappable}
@@ -551,6 +569,9 @@ const InstanceSection = ({
           </span>
         }
       >
+        {nodes.length === 1 ? (
+          <MainComponentRows frame={frame} node={node} />
+        ) : null}
         {ownText ? (
           <Row label="Text">
             <TextInput

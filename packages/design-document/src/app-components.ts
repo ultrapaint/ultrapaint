@@ -2,8 +2,10 @@
  * An app component's instance as the nodes it draws (ADR 0041): the component's tree with the
  * instance's property values in it, the overrides of each choice's member laid over the nodes
  * that keep them (`at["size=lg"]`, as a breakpoint's), and the instance's children in the slots
- * they name. The renderer draws it in the instance's place; "Detach" puts it there for good, with
- * ids of its own. Nested app components stay instances: each is drawn as its own when it is.
+ * they name, and the instance's own overrides of its layers over all of it (ADR 0114). The renderer
+ * draws it in the instance's place; "Detach" puts it there for good, with ids of its own. Nested
+ * app components stay instances, handed the overrides of their layers: each is drawn as its own
+ * when it is.
  *
  * Pure, and free of the catalogue: the server, the renderer and the editor share it.
  */
@@ -74,6 +76,84 @@ const withVariants = (node: DesignNode, chosen: readonly string[]): Fields => {
     fields.at = Object.fromEntries(breakpoints);
   }
   return fields;
+};
+
+type Overrides = NonNullable<InstanceNode["overrides"]>;
+
+/**
+ * A layer's instance override laid over it (ADR 0114): its fields over the layer's, a breakpoint's
+ * beside the layer's own at that breakpoint, a nested instance's props over its own.
+ */
+const layOverride = (fields: Fields, over: Fields) => {
+  for (const [key, value] of Object.entries(over)) {
+    if (value === undefined || value === null) {
+      continue;
+    }
+    if (key === "props" && typeof value === "object") {
+      fields.props = { ...(fields.props as Fields | undefined), ...value };
+    } else if (key === "at" && typeof value === "object") {
+      const at = { ...(fields.at as Record<string, Fields> | undefined) };
+      for (const [name, set] of Object.entries(
+        value as Record<string, Fields>
+      )) {
+        at[name] = { ...at[name], ...set };
+      }
+      fields.at = at;
+    } else {
+      fields[key] = value;
+    }
+  }
+};
+
+/**
+ * The overrides a nested instance `layer` is handed: those of the ways through it, `"nav/label"`
+ * as its `"label"`, laid over its own, layer by layer.
+ */
+const handedOn = (
+  own: Overrides | undefined,
+  overrides: Overrides,
+  layer: string
+): Overrides | undefined => {
+  const prefix = `${layer}/`;
+  const handed = Object.entries(overrides).filter(([key]) =>
+    key.startsWith(prefix)
+  );
+  if (handed.length === 0) {
+    return own;
+  }
+  const out: Record<string, Fields> = { ...own };
+  for (const [key, over] of handed) {
+    const inner = key.slice(prefix.length);
+    const fields: Fields = { ...out[inner] };
+    layOverride(fields, over);
+    out[inner] = fields;
+  }
+  return out as Overrides;
+};
+
+/**
+ * The instance's own changes to a layer, which win over the main component's, its member's
+ * included (ADR 0114); a nested instance is handed the overrides of its layers.
+ */
+const overrideLayer = (
+  fields: Fields,
+  overrides: Overrides,
+  node: DesignNode
+) => {
+  const over = overrides[node.id];
+  if (over) {
+    layOverride(fields, over);
+  }
+  if (node.type === "instance") {
+    const handed = handedOn(
+      fields.overrides as Overrides | undefined,
+      overrides,
+      node.id
+    );
+    if (handed) {
+      fields.overrides = handed;
+    }
+  }
 };
 
 /** What setting a property's value does to a node it targets. */
@@ -160,11 +240,13 @@ export const expandAppInstance = (
     }
   }
   const filled = new Set<string>();
+  const overrides: Overrides = instance.overrides ?? {};
   const visit = (node: DesignNode): DesignNode => {
     const fields = withVariants(node, chosen);
     for (const { property, prop, value } of targets.get(node.id) ?? []) {
       setOn(fields, property, value, prop);
     }
+    overrideLayer(fields, overrides, node);
     fields.id = rename(node.id);
     const fill = fills.get(node.id);
     if (fill) {
