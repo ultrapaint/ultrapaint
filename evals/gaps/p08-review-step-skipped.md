@@ -38,4 +38,6 @@ the sections' findings compared.
   skill and 8 of 8 with the candidate, the last message giving the verdicts in 2 and 7. Runs about
   as long (561 s and 582 s on average); tells about the same; pairwise (both orders) the candidate
   2, main 1, 5 ties.
-- Decision of 2026-11-23 (the person): the candidate's step 6 ships; done.
+- Decision of 2026-11-23 (the person): the candidate's step 6 ships; done. Its verdict sentence is
+  scoped to the reviewer the designer starts, since the editor's review loop reviews after the
+  turn ends.
