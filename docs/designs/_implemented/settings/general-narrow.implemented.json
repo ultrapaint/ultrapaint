@@ -1,0 +1,471 @@
+{
+  "kind": "page",
+  "notes": [],
+  "root": {
+    "fill": "#0b0b0c",
+    "id": "root",
+    "padding": 16,
+    "align": "center",
+    "crossAlign": "center",
+    "children": [
+      {
+        "border": {
+          "color": "$color-border",
+          "style": "solid",
+          "width": 1
+        },
+        "fill": "$color-sidebar",
+        "height": "fill",
+        "id": "c_s1c0",
+        "name": "Settings dialog · narrow",
+        "radius": "$radius-2xl",
+        "shadow": "$shadow-overlay",
+        "width": "fill",
+        "children": [
+          {
+            "border": {
+              "color": "$color-border",
+              "style": "solid",
+              "width": "0 0 1px 0"
+            },
+            "height": 48,
+            "id": "r_s1b1",
+            "padding": {
+              "left": 20,
+              "right": 12
+            },
+            "width": "fill",
+            "crossAlign": "center",
+            "children": [
+              {
+                "id": "t_3840r7h",
+                "width": "fill",
+                "color": "$color-foreground",
+                "font": "'Cal Sans', system-ui, sans-serif",
+                "lineHeight": 1.429,
+                "size": 14,
+                "tracking": "0.02em",
+                "weight": 400,
+                "role": "paragraph",
+                "text": "Settings",
+                "type": "text"
+              },
+              {
+                "height": 24,
+                "id": "i_38510ri",
+                "name": "Close",
+                "radius": "$radius-md",
+                "width": 24,
+                "props": {
+                  "variant": "ghost",
+                  "size": "icon"
+                },
+                "children": [
+                  {
+                    "height": 14,
+                    "id": "img_3852c6e",
+                    "name": "x",
+                    "width": 14,
+                    "alt": "",
+                    "tint": "$color-foreground",
+                    "src": "assets/icons/x.svg",
+                    "type": "image"
+                  }
+                ],
+                "component": "Button",
+                "from": "@ultrapaint/system",
+                "type": "instance"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "id": "r_3856gbo",
+            "name": "Section",
+            "padding": {
+              "left": 12,
+              "right": 12,
+              "top": 12
+            },
+            "width": "fill",
+            "children": [
+              {
+                "border": {
+                  "color": "$color-input",
+                  "style": "solid",
+                  "width": 1
+                },
+                "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)",
+                "height": 28,
+                "id": "r_3855nh3",
+                "name": "Select",
+                "padding": {
+                  "left": 8,
+                  "right": 8
+                },
+                "radius": "$radius-md",
+                "width": "fill",
+                "crossAlign": "center",
+                "gap": 6,
+                "children": [
+                  {
+                    "id": "t_3853jal",
+                    "width": "fill",
+                    "color": "$color-foreground",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": 1.429,
+                    "size": 14,
+                    "role": "paragraph",
+                    "text": "General",
+                    "type": "text"
+                  },
+                  {
+                    "height": 14,
+                    "id": "img_3854q07",
+                    "name": "chevron-down",
+                    "width": 14,
+                    "alt": "",
+                    "tint": "$color-muted-foreground",
+                    "src": "assets/icons/chevron-down.svg",
+                    "type": "image"
+                  }
+                ],
+                "type": "row"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "id": "c_s1bz",
+            "padding": 20,
+            "width": "fill",
+            "gap": 32,
+            "children": [
+              {
+                "id": "c_385ltr3",
+                "name": "Group · untitled",
+                "width": "fill",
+                "gap": 8,
+                "children": [
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "id": "c_385ke9b",
+                    "name": "Rows",
+                    "radius": "$radius-lg",
+                    "width": "fill",
+                    "children": [
+                      {
+                        "id": "c_385cy7j",
+                        "name": "Row · Display name",
+                        "padding": {
+                          "bottom": 12,
+                          "left": 16,
+                          "right": 16,
+                          "top": 12
+                        },
+                        "width": "fill",
+                        "gap": 12,
+                        "children": [
+                          {
+                            "id": "c_385bd2u",
+                            "width": "fill",
+                            "gap": 2,
+                            "children": [
+                              {
+                                "id": "t_3859zfo",
+                                "color": "$color-foreground",
+                                "font": "'Cal Sans', system-ui, sans-serif",
+                                "lineHeight": 1.429,
+                                "size": 14,
+                                "tracking": "0.02em",
+                                "weight": 400,
+                                "role": "paragraph",
+                                "text": "Display name",
+                                "type": "text"
+                              },
+                              {
+                                "id": "t_385avea",
+                                "color": "$color-muted-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.333,
+                                "size": 12,
+                                "role": "paragraph",
+                                "text": "Signs your comments. Left empty, your name from git is used.",
+                                "type": "text"
+                              }
+                            ],
+                            "type": "column"
+                          },
+                          {
+                            "border": {
+                              "color": "$color-input",
+                              "style": "solid",
+                              "width": 1
+                            },
+                            "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)",
+                            "height": 28,
+                            "id": "r_385889j",
+                            "name": "Field",
+                            "padding": {
+                              "left": 8,
+                              "right": 8
+                            },
+                            "radius": "$radius-md",
+                            "width": "fill",
+                            "crossAlign": "center",
+                            "gap": 6,
+                            "children": [
+                              {
+                                "id": "t_38571k2",
+                                "width": "fill",
+                                "color": "$color-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.429,
+                                "size": 14,
+                                "role": "paragraph",
+                                "text": "Sam Rivera",
+                                "type": "text"
+                              }
+                            ],
+                            "type": "row"
+                          }
+                        ],
+                        "type": "column"
+                      },
+                      {
+                        "border": {
+                          "color": "$color-border",
+                          "style": "solid",
+                          "width": "1px 0 0 0"
+                        },
+                        "id": "c_385jv4r",
+                        "name": "Row · Notifications",
+                        "padding": {
+                          "bottom": 12,
+                          "left": 16,
+                          "right": 16,
+                          "top": 12
+                        },
+                        "width": "fill",
+                        "gap": 12,
+                        "children": [
+                          {
+                            "id": "c_385i5qo",
+                            "width": "fill",
+                            "gap": 2,
+                            "children": [
+                              {
+                                "id": "t_385g73e",
+                                "color": "$color-foreground",
+                                "font": "'Cal Sans', system-ui, sans-serif",
+                                "lineHeight": 1.429,
+                                "size": 14,
+                                "tracking": "0.02em",
+                                "weight": 400,
+                                "role": "paragraph",
+                                "text": "Notifications",
+                                "type": "text"
+                              },
+                              {
+                                "id": "t_385hlqq",
+                                "color": "$color-muted-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.333,
+                                "size": 12,
+                                "role": "paragraph",
+                                "text": "When an agent finishes or asks you something while the window is in the background.",
+                                "type": "text"
+                              }
+                            ],
+                            "type": "column"
+                          },
+                          {
+                            "border": {
+                              "color": "$color-input",
+                              "style": "solid",
+                              "width": 1
+                            },
+                            "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)",
+                            "height": 28,
+                            "id": "r_385fnfe",
+                            "name": "Select",
+                            "padding": {
+                              "left": 8,
+                              "right": 8
+                            },
+                            "radius": "$radius-md",
+                            "width": "fill",
+                            "crossAlign": "center",
+                            "gap": 6,
+                            "children": [
+                              {
+                                "id": "t_385ds9y",
+                                "width": "fill",
+                                "color": "$color-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.429,
+                                "size": 14,
+                                "role": "paragraph",
+                                "text": "Notification and sound",
+                                "type": "text"
+                              },
+                              {
+                                "height": 14,
+                                "id": "img_385e2qm",
+                                "name": "chevron-down",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-muted-foreground",
+                                "src": "assets/icons/chevron-down.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "type": "row"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "column"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "c_385wddl",
+                "name": "Group · Your data",
+                "width": "fill",
+                "gap": 8,
+                "children": [
+                  {
+                    "id": "r_385u2ix",
+                    "padding": {
+                      "left": 16,
+                      "right": 16
+                    },
+                    "width": "fill",
+                    "crossAlign": "start",
+                    "gap": 12,
+                    "children": [
+                      {
+                        "id": "c_385t0gb",
+                        "width": "fill",
+                        "gap": 2,
+                        "children": [
+                          {
+                            "id": "t_385siem",
+                            "color": "$color-foreground",
+                            "font": "'Cal Sans', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "tracking": "0.02em",
+                            "weight": 400,
+                            "role": "paragraph",
+                            "text": "Your data",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "id": "c_385viem",
+                    "name": "Rows",
+                    "radius": "$radius-lg",
+                    "width": "fill",
+                    "children": [
+                      {
+                        "id": "c_385rtkm",
+                        "name": "Row · Keep review findings",
+                        "padding": {
+                          "bottom": 12,
+                          "left": 16,
+                          "right": 16,
+                          "top": 12
+                        },
+                        "width": "fill",
+                        "gap": 12,
+                        "children": [
+                          {
+                            "id": "c_385qab4",
+                            "width": "fill",
+                            "gap": 2,
+                            "children": [
+                              {
+                                "id": "t_385o71w",
+                                "color": "$color-foreground",
+                                "font": "'Cal Sans', system-ui, sans-serif",
+                                "lineHeight": 1.429,
+                                "size": 14,
+                                "tracking": "0.02em",
+                                "weight": 400,
+                                "role": "paragraph",
+                                "text": "Keep review findings",
+                                "type": "text"
+                              },
+                              {
+                                "id": "t_385pch7",
+                                "color": "$color-muted-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.333,
+                                "size": 12,
+                                "role": "paragraph",
+                                "text": "Saves what review models find, so the design skill can learn from it.",
+                                "type": "text"
+                              }
+                            ],
+                            "type": "column"
+                          },
+                          {
+                            "fill": "$color-primary",
+                            "height": 16,
+                            "id": "r_385npd7",
+                            "name": "Switch, on",
+                            "padding": 2,
+                            "radius": 999,
+                            "width": 28,
+                            "align": "end",
+                            "children": [
+                              {
+                                "fill": "#ffffff",
+                                "height": 12,
+                                "id": "r_385mn5a",
+                                "radius": 999,
+                                "width": 12,
+                                "children": [],
+                                "type": "row"
+                              }
+                            ],
+                            "type": "row"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "column"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "column"
+          }
+        ],
+        "type": "column"
+      }
+    ],
+    "direction": "column",
+    "type": "page"
+  }
+}

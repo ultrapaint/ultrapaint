@@ -1,0 +1,2619 @@
+{
+  "kind": "page",
+  "notes": [],
+  "root": {
+    "fill": "#0b0b0c",
+    "id": "root",
+    "padding": 0,
+    "align": "center",
+    "crossAlign": "center",
+    "children": [
+      {
+        "id": "r_s99",
+        "crossAlign": "start",
+        "gap": 32,
+        "children": [
+          {
+            "border": {
+              "color": "$color-border",
+              "style": "solid",
+              "width": 1
+            },
+            "fill": "$color-rail",
+            "id": "r_s8d",
+            "minHeight": 720,
+            "name": "Settings dialog",
+            "radius": "$radius-2xl",
+            "shadow": "$shadow-overlay",
+            "width": 960,
+            "crossAlign": "stretch",
+            "children": [
+              {
+                "fill": "$color-rail",
+                "id": "c_2qv7v1da",
+                "name": "Sections",
+                "width": 224,
+                "children": [
+                  {
+                    "height": 48,
+                    "id": "r_2qu6kt28",
+                    "padding": {
+                      "left": 20,
+                      "right": 20
+                    },
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "id": "t_2qu6jzxg",
+                        "color": "$color-foreground",
+                        "font": "'Cal Sans', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "tracking": "0.02em",
+                        "weight": 400,
+                        "role": "paragraph",
+                        "text": "Settings",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "r_2qu6quv0",
+                    "padding": {
+                      "bottom": 8,
+                      "left": 12,
+                      "right": 12
+                    },
+                    "width": "fill",
+                    "children": [
+                      {
+                        "border": {
+                          "color": "$color-input",
+                          "style": "solid",
+                          "width": 1
+                        },
+                        "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)",
+                        "height": 28,
+                        "id": "r_2qu6p51l",
+                        "name": "Search",
+                        "padding": {
+                          "left": 8,
+                          "right": 6
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 6,
+                        "children": [
+                          {
+                            "height": 14,
+                            "id": "img_2qu6l5u9",
+                            "name": "search",
+                            "width": 14,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/search.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_2qu6mvia",
+                            "width": "fill",
+                            "color": "$color-muted-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Search",
+                            "type": "text"
+                          },
+                          {
+                            "border": {
+                              "color": "$color-border",
+                              "style": "solid",
+                              "width": 1
+                            },
+                            "fill": "$color-muted",
+                            "height": 20,
+                            "id": "r_2qu6onxu",
+                            "padding": {
+                              "left": 5,
+                              "right": 5
+                            },
+                            "radius": "$radius-sm",
+                            "align": "center",
+                            "crossAlign": "center",
+                            "children": [
+                              {
+                                "id": "t_2qu6nssg",
+                                "color": "$color-muted-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.333,
+                                "size": 12,
+                                "role": "paragraph",
+                                "text": "/",
+                                "type": "text"
+                              }
+                            ],
+                            "type": "row"
+                          }
+                        ],
+                        "type": "row"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "c_2qv7uah8",
+                    "name": "Nav",
+                    "padding": {
+                      "bottom": 12,
+                      "left": 12,
+                      "right": 12
+                    },
+                    "width": "fill",
+                    "gap": 2,
+                    "children": [
+                      {
+                        "id": "t_2qu6rg0e",
+                        "padding": {
+                          "bottom": 4,
+                          "left": 8,
+                          "top": 4
+                        },
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.333,
+                        "size": 12,
+                        "role": "paragraph",
+                        "text": "You",
+                        "type": "text"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_2qu6ul2d",
+                        "name": "Nav · General",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_2qu6suk5",
+                            "name": "sliders-horizontal",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/sliders-horizontal.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_2qu6th4n",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "General",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "fill": "$color-accent",
+                        "height": 30,
+                        "id": "r_2qu6xrtd",
+                        "name": "Nav · Appearance",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_2qu6voz7",
+                            "name": "palette",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-foreground",
+                            "src": "assets/icons/palette.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_2qu6w5o1",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Appearance",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_2qu700w8",
+                        "name": "Nav · Chats",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_2qu6y4lo",
+                            "name": "message-square",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/message-square.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_2qu6zeim",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Chats",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_2qu73npb",
+                        "name": "Nav · Shortcuts",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_2qu71slh",
+                            "name": "keyboard",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/keyboard.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_2qu72hqc",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Shortcuts",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "id": "t_2qu74kih",
+                        "padding": {
+                          "bottom": 4,
+                          "left": 8,
+                          "top": 12
+                        },
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.333,
+                        "size": 12,
+                        "role": "paragraph",
+                        "text": "Project · ultrapaint",
+                        "type": "text"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_2qu772yz",
+                        "name": "Nav · Name and icon",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_2qu758s2",
+                            "name": "shapes",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/shapes.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_2qu761u0",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Name and icon",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_2qu7a8j6",
+                        "name": "Nav · Repository",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_2qu78oft",
+                            "name": "folder-git-2",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/folder-git-2.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_2qu79go5",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Repository",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_2qu7dzu0",
+                        "name": "Nav · Design system",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_2qu7bd37",
+                            "name": "swatch-book",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/swatch-book.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_2qu7cvh6",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Design system",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_2qu7ggvd",
+                        "name": "Nav · Review",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_2qu7enj4",
+                            "name": "message-square-check",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/message-square-check.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_2qu7fhyi",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Review",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_2qu7j01d",
+                        "name": "Nav · Skills",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_2qu7h9p3",
+                            "name": "book-open",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/book-open.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_2qu7iybj",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Skills",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "id": "t_2qu7kfdb",
+                        "padding": {
+                          "bottom": 4,
+                          "left": 8,
+                          "top": 12
+                        },
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.333,
+                        "size": 12,
+                        "role": "paragraph",
+                        "text": "This computer",
+                        "type": "text"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_2qu7n4mb",
+                        "name": "Nav · Agents",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_2qu7lwvj",
+                            "name": "bot",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/bot.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_2qu7me6i",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Agents",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_2qu7qtwn",
+                        "name": "Nav · Connections",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_2qu7ou2e",
+                            "name": "plug",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/plug.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_2qu7pv2s",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Connections",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_2qu7tu2x",
+                        "name": "Nav · About",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_2qu7r73d",
+                            "name": "info",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/info.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_2qu7spcx",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "About",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      }
+                    ],
+                    "type": "column"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "border": {
+                  "color": "$color-border",
+                  "style": "solid",
+                  "width": "0 0 0 1px"
+                },
+                "fill": "$color-sidebar",
+                "id": "c_2qv81r60",
+                "name": "Page",
+                "radius": "0 16px 16px 0",
+                "width": "fill",
+                "children": [
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": "0 0 1px 0"
+                    },
+                    "height": 48,
+                    "id": "r_2qv7z5b4",
+                    "name": "Header",
+                    "padding": {
+                      "left": 20,
+                      "right": 12
+                    },
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 12,
+                    "children": [
+                      {
+                        "id": "t_2qv7w7tb",
+                        "width": "fill",
+                        "color": "$color-foreground",
+                        "font": "'Cal Sans', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "tracking": "0.02em",
+                        "weight": 400,
+                        "role": "paragraph",
+                        "text": "Appearance",
+                        "type": "text"
+                      },
+                      {
+                        "height": 24,
+                        "id": "i_2qv7xs2z",
+                        "name": "Close",
+                        "radius": "$radius-md",
+                        "width": 24,
+                        "props": {
+                          "variant": "ghost",
+                          "size": "icon"
+                        },
+                        "children": [
+                          {
+                            "height": 14,
+                            "id": "img_2qv7y43h",
+                            "name": "x",
+                            "width": 14,
+                            "alt": "",
+                            "tint": "$color-foreground",
+                            "src": "assets/icons/x.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "component": "Button",
+                        "from": "@ultrapaint/system",
+                        "type": "instance"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "c_2qv80rx3",
+                    "maxWidth": 768,
+                    "name": "Scroll",
+                    "padding": 20,
+                    "width": "fill",
+                    "gap": 32,
+                    "children": [
+                      {
+                        "id": "c_2qu4jsul",
+                        "name": "Group · untitled",
+                        "width": "fill",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "border": {
+                              "color": "$color-border",
+                              "style": "solid",
+                              "width": 1
+                            },
+                            "id": "c_2qu4io7x",
+                            "name": "Rows",
+                            "radius": "$radius-lg",
+                            "width": "fill",
+                            "children": [
+                              {
+                                "id": "c_2qu44ohi",
+                                "name": "Row · Theme",
+                                "padding": {
+                                  "bottom": 12,
+                                  "left": 16,
+                                  "right": 16,
+                                  "top": 12
+                                },
+                                "width": "fill",
+                                "gap": 12,
+                                "children": [
+                                  {
+                                    "id": "c_2qt2i1r2",
+                                    "gap": 2,
+                                    "children": [
+                                      {
+                                        "id": "t_2qt2givx",
+                                        "color": "$color-foreground",
+                                        "font": "'Cal Sans', system-ui, sans-serif",
+                                        "lineHeight": 1.429,
+                                        "size": 14,
+                                        "tracking": "0.02em",
+                                        "weight": 400,
+                                        "role": "paragraph",
+                                        "text": "Theme",
+                                        "type": "text"
+                                      },
+                                      {
+                                        "id": "t_2qt2h8gg",
+                                        "color": "$color-muted-foreground",
+                                        "font": "'Figtree Variable', system-ui, sans-serif",
+                                        "lineHeight": 1.333,
+                                        "size": 12,
+                                        "role": "paragraph",
+                                        "text": "The editor’s light and dark. Designs keep their own themes.",
+                                        "type": "text"
+                                      }
+                                    ],
+                                    "type": "column"
+                                  },
+                                  {
+                                    "id": "r_2qu43m28",
+                                    "width": "fill",
+                                    "gap": 16,
+                                    "children": [
+                                      {
+                                        "id": "c_2qu3809n",
+                                        "name": "Theme · System",
+                                        "width": "fill",
+                                        "gap": 8,
+                                        "children": [
+                                          {
+                                            "border": {
+                                              "color": "$color-primary",
+                                              "style": "solid",
+                                              "width": 2
+                                            },
+                                            "height": 96,
+                                            "id": "r_2qu333y0",
+                                            "padding": 4,
+                                            "radius": "$radius-lg",
+                                            "width": "fill",
+                                            "children": [
+                                              {
+                                                "fill": "#eeecea",
+                                                "height": "fill",
+                                                "id": "r_2qu2s9w7",
+                                                "padding": 4,
+                                                "radius": 4,
+                                                "width": "fill",
+                                                "crossAlign": "stretch",
+                                                "gap": 4,
+                                                "children": [
+                                                  {
+                                                    "fill": "#ffffff",
+                                                    "id": "c_2qu2m00z",
+                                                    "padding": 4,
+                                                    "radius": 2,
+                                                    "width": 22,
+                                                    "gap": 3,
+                                                    "children": [
+                                                      {
+                                                        "fill": "#9a948e",
+                                                        "height": 2,
+                                                        "id": "r_2qu2j0z6",
+                                                        "width": 12,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      },
+                                                      {
+                                                        "fill": "#9a948e",
+                                                        "height": 2,
+                                                        "id": "r_2qu2kilu",
+                                                        "width": 10,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      },
+                                                      {
+                                                        "fill": "#9a948e",
+                                                        "height": 2,
+                                                        "id": "r_2qu2lmta",
+                                                        "width": 12,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      }
+                                                    ],
+                                                    "type": "column"
+                                                  },
+                                                  {
+                                                    "id": "r_2qu2oxuu",
+                                                    "width": "fill",
+                                                    "align": "center",
+                                                    "crossAlign": "center",
+                                                    "children": [
+                                                      {
+                                                        "fill": "#ffffff",
+                                                        "height": 28,
+                                                        "id": "r_2qu2nfoc",
+                                                        "radius": 2,
+                                                        "width": 40,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      }
+                                                    ],
+                                                    "type": "row"
+                                                  },
+                                                  {
+                                                    "fill": "#ffffff",
+                                                    "id": "c_2qu2rda7",
+                                                    "padding": 4,
+                                                    "radius": 2,
+                                                    "width": 22,
+                                                    "gap": 3,
+                                                    "children": [
+                                                      {
+                                                        "fill": "#9a948e",
+                                                        "height": 2,
+                                                        "id": "r_2qu2p5rp",
+                                                        "width": 10,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      },
+                                                      {
+                                                        "fill": "#9a948e",
+                                                        "height": 2,
+                                                        "id": "r_2qu2qirj",
+                                                        "width": 12,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      }
+                                                    ],
+                                                    "type": "column"
+                                                  }
+                                                ],
+                                                "type": "row"
+                                              },
+                                              {
+                                                "fill": "#141312",
+                                                "height": "fill",
+                                                "id": "r_2qu32tvy",
+                                                "padding": 4,
+                                                "radius": 4,
+                                                "width": "fill",
+                                                "crossAlign": "stretch",
+                                                "gap": 4,
+                                                "children": [
+                                                  {
+                                                    "fill": "#232120",
+                                                    "id": "c_2qu2wxti",
+                                                    "padding": 4,
+                                                    "radius": 2,
+                                                    "width": 22,
+                                                    "gap": 3,
+                                                    "children": [
+                                                      {
+                                                        "fill": "#9a948e",
+                                                        "height": 2,
+                                                        "id": "r_2qu2tsm2",
+                                                        "width": 12,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      },
+                                                      {
+                                                        "fill": "#9a948e",
+                                                        "height": 2,
+                                                        "id": "r_2qu2u8le",
+                                                        "width": 10,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      },
+                                                      {
+                                                        "fill": "#9a948e",
+                                                        "height": 2,
+                                                        "id": "r_2qu2vl28",
+                                                        "width": 12,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      }
+                                                    ],
+                                                    "type": "column"
+                                                  },
+                                                  {
+                                                    "id": "r_2qu2y0as",
+                                                    "width": "fill",
+                                                    "align": "center",
+                                                    "crossAlign": "center",
+                                                    "children": [
+                                                      {
+                                                        "fill": "#ffffff",
+                                                        "height": 28,
+                                                        "id": "r_2qu2xyaz",
+                                                        "radius": 2,
+                                                        "width": 40,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      }
+                                                    ],
+                                                    "type": "row"
+                                                  },
+                                                  {
+                                                    "fill": "#232120",
+                                                    "id": "c_2qu31znu",
+                                                    "padding": 4,
+                                                    "radius": 2,
+                                                    "width": 22,
+                                                    "gap": 3,
+                                                    "children": [
+                                                      {
+                                                        "fill": "#9a948e",
+                                                        "height": 2,
+                                                        "id": "r_2qu2zvgw",
+                                                        "width": 10,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      },
+                                                      {
+                                                        "fill": "#9a948e",
+                                                        "height": 2,
+                                                        "id": "r_2qu30z41",
+                                                        "width": 12,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      }
+                                                    ],
+                                                    "type": "column"
+                                                  }
+                                                ],
+                                                "type": "row"
+                                              }
+                                            ],
+                                            "type": "row"
+                                          },
+                                          {
+                                            "id": "r_2qu37gvu",
+                                            "crossAlign": "center",
+                                            "gap": 8,
+                                            "children": [
+                                              {
+                                                "border": {
+                                                  "color": "$color-primary",
+                                                  "style": "solid",
+                                                  "width": 1
+                                                },
+                                                "fill": "$color-primary",
+                                                "height": 16,
+                                                "id": "r_2qu35etz",
+                                                "radius": 999,
+                                                "width": 16,
+                                                "align": "center",
+                                                "crossAlign": "center",
+                                                "children": [
+                                                  {
+                                                    "fill": "#ffffff",
+                                                    "height": 6,
+                                                    "id": "r_2qu3494x",
+                                                    "radius": 999,
+                                                    "width": 6,
+                                                    "children": [],
+                                                    "type": "row"
+                                                  }
+                                                ],
+                                                "type": "row"
+                                              },
+                                              {
+                                                "id": "t_2qu36xpg",
+                                                "color": "$color-foreground",
+                                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                                "lineHeight": 1.429,
+                                                "size": 14,
+                                                "role": "paragraph",
+                                                "text": "System",
+                                                "type": "text"
+                                              }
+                                            ],
+                                            "type": "row"
+                                          }
+                                        ],
+                                        "type": "column"
+                                      },
+                                      {
+                                        "id": "c_2qu3navw",
+                                        "name": "Theme · Light",
+                                        "width": "fill",
+                                        "gap": 8,
+                                        "children": [
+                                          {
+                                            "border": {
+                                              "color": "$color-border",
+                                              "style": "solid",
+                                              "width": 1
+                                            },
+                                            "height": 96,
+                                            "id": "r_2qu3jrb2",
+                                            "padding": 4,
+                                            "radius": "$radius-lg",
+                                            "width": "fill",
+                                            "children": [
+                                              {
+                                                "fill": "#eeecea",
+                                                "height": "fill",
+                                                "id": "r_2qu3iy4z",
+                                                "padding": 4,
+                                                "radius": 4,
+                                                "width": "fill",
+                                                "crossAlign": "stretch",
+                                                "gap": 4,
+                                                "children": [
+                                                  {
+                                                    "fill": "#ffffff",
+                                                    "id": "c_2qu3c9g3",
+                                                    "padding": 4,
+                                                    "radius": 2,
+                                                    "width": 22,
+                                                    "gap": 3,
+                                                    "children": [
+                                                      {
+                                                        "fill": "#9a948e",
+                                                        "height": 2,
+                                                        "id": "r_2qu39ey1",
+                                                        "width": 12,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      },
+                                                      {
+                                                        "fill": "#9a948e",
+                                                        "height": 2,
+                                                        "id": "r_2qu3atwo",
+                                                        "width": 10,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      },
+                                                      {
+                                                        "fill": "#9a948e",
+                                                        "height": 2,
+                                                        "id": "r_2qu3bnk4",
+                                                        "width": 12,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      }
+                                                    ],
+                                                    "type": "column"
+                                                  },
+                                                  {
+                                                    "id": "r_2qu3esv4",
+                                                    "width": "fill",
+                                                    "align": "center",
+                                                    "crossAlign": "center",
+                                                    "children": [
+                                                      {
+                                                        "fill": "#ffffff",
+                                                        "height": 28,
+                                                        "id": "r_2qu3d3d9",
+                                                        "radius": 2,
+                                                        "width": 40,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      }
+                                                    ],
+                                                    "type": "row"
+                                                  },
+                                                  {
+                                                    "fill": "#ffffff",
+                                                    "id": "c_2qu3h2lf",
+                                                    "padding": 4,
+                                                    "radius": 2,
+                                                    "width": 22,
+                                                    "gap": 3,
+                                                    "children": [
+                                                      {
+                                                        "fill": "#9a948e",
+                                                        "height": 2,
+                                                        "id": "r_2qu3fq9t",
+                                                        "width": 10,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      },
+                                                      {
+                                                        "fill": "#9a948e",
+                                                        "height": 2,
+                                                        "id": "r_2qu3gdco",
+                                                        "width": 12,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      }
+                                                    ],
+                                                    "type": "column"
+                                                  }
+                                                ],
+                                                "type": "row"
+                                              }
+                                            ],
+                                            "type": "row"
+                                          },
+                                          {
+                                            "id": "r_2qu3mcdt",
+                                            "crossAlign": "center",
+                                            "gap": 8,
+                                            "children": [
+                                              {
+                                                "border": {
+                                                  "color": "$color-input",
+                                                  "style": "solid",
+                                                  "width": 1
+                                                },
+                                                "fill": "$color-transparent",
+                                                "height": 16,
+                                                "id": "r_2qu3kmwe",
+                                                "radius": 999,
+                                                "width": 16,
+                                                "align": "center",
+                                                "crossAlign": "center",
+                                                "children": [],
+                                                "type": "row"
+                                              },
+                                              {
+                                                "id": "t_2qu3lr85",
+                                                "color": "$color-foreground",
+                                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                                "lineHeight": 1.429,
+                                                "size": 14,
+                                                "role": "paragraph",
+                                                "text": "Light",
+                                                "type": "text"
+                                              }
+                                            ],
+                                            "type": "row"
+                                          }
+                                        ],
+                                        "type": "column"
+                                      },
+                                      {
+                                        "id": "c_2qu4261a",
+                                        "name": "Theme · Dark",
+                                        "width": "fill",
+                                        "gap": 8,
+                                        "children": [
+                                          {
+                                            "border": {
+                                              "color": "$color-border",
+                                              "style": "solid",
+                                              "width": 1
+                                            },
+                                            "height": 96,
+                                            "id": "r_2qu3ynkd",
+                                            "padding": 4,
+                                            "radius": "$radius-lg",
+                                            "width": "fill",
+                                            "children": [
+                                              {
+                                                "fill": "#141312",
+                                                "height": "fill",
+                                                "id": "r_2qu3xagv",
+                                                "padding": 4,
+                                                "radius": 4,
+                                                "width": "fill",
+                                                "crossAlign": "stretch",
+                                                "gap": 4,
+                                                "children": [
+                                                  {
+                                                    "fill": "#232120",
+                                                    "id": "c_2qu3rqd3",
+                                                    "padding": 4,
+                                                    "radius": 2,
+                                                    "width": 22,
+                                                    "gap": 3,
+                                                    "children": [
+                                                      {
+                                                        "fill": "#9a948e",
+                                                        "height": 2,
+                                                        "id": "r_2qu3ojo4",
+                                                        "width": 12,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      },
+                                                      {
+                                                        "fill": "#9a948e",
+                                                        "height": 2,
+                                                        "id": "r_2qu3pieh",
+                                                        "width": 10,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      },
+                                                      {
+                                                        "fill": "#9a948e",
+                                                        "height": 2,
+                                                        "id": "r_2qu3q6a6",
+                                                        "width": 12,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      }
+                                                    ],
+                                                    "type": "column"
+                                                  },
+                                                  {
+                                                    "id": "r_2qu3tjr3",
+                                                    "width": "fill",
+                                                    "align": "center",
+                                                    "crossAlign": "center",
+                                                    "children": [
+                                                      {
+                                                        "fill": "#ffffff",
+                                                        "height": 28,
+                                                        "id": "r_2qu3sd62",
+                                                        "radius": 2,
+                                                        "width": 40,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      }
+                                                    ],
+                                                    "type": "row"
+                                                  },
+                                                  {
+                                                    "fill": "#232120",
+                                                    "id": "c_2qu3w1sk",
+                                                    "padding": 4,
+                                                    "radius": 2,
+                                                    "width": 22,
+                                                    "gap": 3,
+                                                    "children": [
+                                                      {
+                                                        "fill": "#9a948e",
+                                                        "height": 2,
+                                                        "id": "r_2qu3uctf",
+                                                        "width": 10,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      },
+                                                      {
+                                                        "fill": "#9a948e",
+                                                        "height": 2,
+                                                        "id": "r_2qu3vww4",
+                                                        "width": 12,
+                                                        "children": [],
+                                                        "type": "row"
+                                                      }
+                                                    ],
+                                                    "type": "column"
+                                                  }
+                                                ],
+                                                "type": "row"
+                                              }
+                                            ],
+                                            "type": "row"
+                                          },
+                                          {
+                                            "id": "r_2qu41qpn",
+                                            "crossAlign": "center",
+                                            "gap": 8,
+                                            "children": [
+                                              {
+                                                "border": {
+                                                  "color": "$color-input",
+                                                  "style": "solid",
+                                                  "width": 1
+                                                },
+                                                "fill": "$color-transparent",
+                                                "height": 16,
+                                                "id": "r_2qu3zm24",
+                                                "radius": 999,
+                                                "width": 16,
+                                                "align": "center",
+                                                "crossAlign": "center",
+                                                "children": [],
+                                                "type": "row"
+                                              },
+                                              {
+                                                "id": "t_2qu40z6i",
+                                                "color": "$color-foreground",
+                                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                                "lineHeight": 1.429,
+                                                "size": 14,
+                                                "role": "paragraph",
+                                                "text": "Dark",
+                                                "type": "text"
+                                              }
+                                            ],
+                                            "type": "row"
+                                          }
+                                        ],
+                                        "type": "column"
+                                      }
+                                    ],
+                                    "type": "row"
+                                  }
+                                ],
+                                "type": "column"
+                              },
+                              {
+                                "border": {
+                                  "color": "$color-border",
+                                  "style": "solid",
+                                  "width": "1px 0 0 0"
+                                },
+                                "id": "c_2qu4h12x",
+                                "name": "Row · Accent",
+                                "padding": {
+                                  "bottom": 12,
+                                  "left": 16,
+                                  "right": 16,
+                                  "top": 12
+                                },
+                                "width": "fill",
+                                "gap": 12,
+                                "children": [
+                                  {
+                                    "id": "r_2qu4g82s",
+                                    "width": "fill",
+                                    "crossAlign": "center",
+                                    "gap": 24,
+                                    "children": [
+                                      {
+                                        "id": "c_2qu4erms",
+                                        "padding": 0,
+                                        "width": 240,
+                                        "gap": 2,
+                                        "children": [
+                                          {
+                                            "id": "t_2qu4cd2u",
+                                            "color": "$color-foreground",
+                                            "font": "'Cal Sans', system-ui, sans-serif",
+                                            "lineHeight": 1.429,
+                                            "size": 14,
+                                            "tracking": "0.02em",
+                                            "weight": 400,
+                                            "role": "paragraph",
+                                            "text": "Accent",
+                                            "type": "text"
+                                          },
+                                          {
+                                            "id": "t_2qu4dnv5",
+                                            "color": "$color-muted-foreground",
+                                            "font": "'Figtree Variable', system-ui, sans-serif",
+                                            "lineHeight": 1.333,
+                                            "size": 12,
+                                            "role": "paragraph",
+                                            "text": "What you act on: the main button, a switch on, the focus ring.",
+                                            "type": "text"
+                                          }
+                                        ],
+                                        "type": "column"
+                                      },
+                                      {
+                                        "id": "r_2qu4f2m6",
+                                        "width": "fill",
+                                        "align": "end",
+                                        "crossAlign": "center",
+                                        "gap": 8,
+                                        "children": [
+                                          {
+                                            "id": "r_2qu4be8s",
+                                            "crossAlign": "center",
+                                            "gap": 8,
+                                            "children": [
+                                              {
+                                                "border": {
+                                                  "color": "$color-foreground",
+                                                  "style": "solid",
+                                                  "width": 2
+                                                },
+                                                "fill": "#2563eb",
+                                                "height": 24,
+                                                "id": "r_2qu46jt7",
+                                                "radius": 999,
+                                                "width": 24,
+                                                "align": "center",
+                                                "crossAlign": "center",
+                                                "children": [
+                                                  {
+                                                    "height": 12,
+                                                    "id": "img_2qu457av",
+                                                    "name": "check",
+                                                    "width": 12,
+                                                    "alt": "",
+                                                    "tint": "#ffffff",
+                                                    "src": "assets/icons/check.svg",
+                                                    "type": "image"
+                                                  }
+                                                ],
+                                                "type": "row"
+                                              },
+                                              {
+                                                "fill": "#0f766e",
+                                                "height": 24,
+                                                "id": "r_2qu4781s",
+                                                "radius": 999,
+                                                "width": 24,
+                                                "align": "center",
+                                                "crossAlign": "center",
+                                                "children": [],
+                                                "type": "row"
+                                              },
+                                              {
+                                                "fill": "#15803d",
+                                                "height": 24,
+                                                "id": "r_2qu4857e",
+                                                "radius": 999,
+                                                "width": 24,
+                                                "align": "center",
+                                                "crossAlign": "center",
+                                                "children": [],
+                                                "type": "row"
+                                              },
+                                              {
+                                                "fill": "#c2410c",
+                                                "height": 24,
+                                                "id": "r_2qu49ajz",
+                                                "radius": 999,
+                                                "width": 24,
+                                                "align": "center",
+                                                "crossAlign": "center",
+                                                "children": [],
+                                                "type": "row"
+                                              },
+                                              {
+                                                "fill": "#f4f4f5",
+                                                "height": 24,
+                                                "id": "r_2qu4aple",
+                                                "radius": 999,
+                                                "width": 24,
+                                                "align": "center",
+                                                "crossAlign": "center",
+                                                "children": [],
+                                                "type": "row"
+                                              }
+                                            ],
+                                            "type": "row"
+                                          }
+                                        ],
+                                        "type": "row"
+                                      }
+                                    ],
+                                    "type": "row"
+                                  }
+                                ],
+                                "type": "column"
+                              }
+                            ],
+                            "type": "column"
+                          }
+                        ],
+                        "type": "column"
+                      },
+                      {
+                        "id": "c_2qu5ffbo",
+                        "name": "Group · Canvas",
+                        "width": "fill",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "id": "r_2qu5dtnp",
+                            "padding": {
+                              "left": 16,
+                              "right": 16
+                            },
+                            "width": "fill",
+                            "crossAlign": "start",
+                            "gap": 12,
+                            "children": [
+                              {
+                                "id": "c_2qu5cjqg",
+                                "width": "fill",
+                                "gap": 2,
+                                "children": [
+                                  {
+                                    "id": "t_2qu5ba1q",
+                                    "color": "$color-foreground",
+                                    "font": "'Cal Sans', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "tracking": "0.02em",
+                                    "weight": 400,
+                                    "role": "paragraph",
+                                    "text": "Canvas",
+                                    "type": "text"
+                                  }
+                                ],
+                                "type": "column"
+                              }
+                            ],
+                            "type": "row"
+                          },
+                          {
+                            "border": {
+                              "color": "$color-border",
+                              "style": "solid",
+                              "width": 1
+                            },
+                            "id": "c_2qu5eljx",
+                            "name": "Rows",
+                            "radius": "$radius-lg",
+                            "width": "fill",
+                            "children": [
+                              {
+                                "id": "c_2qu4r2y8",
+                                "name": "Row · Show the grid",
+                                "padding": {
+                                  "bottom": 12,
+                                  "left": 16,
+                                  "right": 16,
+                                  "top": 12
+                                },
+                                "width": "fill",
+                                "gap": 12,
+                                "children": [
+                                  {
+                                    "id": "r_2qu4qe78",
+                                    "width": "fill",
+                                    "crossAlign": "center",
+                                    "gap": 24,
+                                    "children": [
+                                      {
+                                        "id": "c_2qu4oisj",
+                                        "padding": 0,
+                                        "width": 240,
+                                        "gap": 2,
+                                        "children": [
+                                          {
+                                            "id": "t_2qu4m6ys",
+                                            "color": "$color-foreground",
+                                            "font": "'Cal Sans', system-ui, sans-serif",
+                                            "lineHeight": 1.429,
+                                            "size": 14,
+                                            "tracking": "0.02em",
+                                            "weight": 400,
+                                            "role": "paragraph",
+                                            "text": "Show the grid",
+                                            "type": "text"
+                                          },
+                                          {
+                                            "id": "t_2qu4n2pm",
+                                            "color": "$color-muted-foreground",
+                                            "font": "'Figtree Variable', system-ui, sans-serif",
+                                            "lineHeight": 1.333,
+                                            "size": 12,
+                                            "role": "paragraph",
+                                            "text": "Shows 8px cells; what you place snaps to them.",
+                                            "type": "text"
+                                          }
+                                        ],
+                                        "type": "column"
+                                      },
+                                      {
+                                        "id": "r_2qu4pn5r",
+                                        "width": "fill",
+                                        "align": "end",
+                                        "crossAlign": "center",
+                                        "gap": 8,
+                                        "children": [
+                                          {
+                                            "fill": "$color-input",
+                                            "height": 16,
+                                            "id": "r_2qu4ltxk",
+                                            "name": "Switch, off",
+                                            "padding": 2,
+                                            "radius": 999,
+                                            "width": 28,
+                                            "align": "start",
+                                            "children": [
+                                              {
+                                                "fill": "#ffffff",
+                                                "height": 12,
+                                                "id": "r_2qu4kw2i",
+                                                "radius": 999,
+                                                "width": 12,
+                                                "children": [],
+                                                "type": "row"
+                                              }
+                                            ],
+                                            "type": "row"
+                                          }
+                                        ],
+                                        "type": "row"
+                                      }
+                                    ],
+                                    "type": "row"
+                                  }
+                                ],
+                                "type": "column"
+                              },
+                              {
+                                "border": {
+                                  "color": "$color-border",
+                                  "style": "solid",
+                                  "width": "1px 0 0 0"
+                                },
+                                "id": "c_2qu4z4be",
+                                "name": "Row · Show comments",
+                                "padding": {
+                                  "bottom": 12,
+                                  "left": 16,
+                                  "right": 16,
+                                  "top": 12
+                                },
+                                "width": "fill",
+                                "gap": 12,
+                                "children": [
+                                  {
+                                    "id": "r_2qu4y1lp",
+                                    "width": "fill",
+                                    "crossAlign": "center",
+                                    "gap": 24,
+                                    "children": [
+                                      {
+                                        "id": "c_2qu4wia9",
+                                        "padding": 0,
+                                        "width": 240,
+                                        "gap": 2,
+                                        "children": [
+                                          {
+                                            "id": "t_2qu4ujyp",
+                                            "color": "$color-foreground",
+                                            "font": "'Cal Sans', system-ui, sans-serif",
+                                            "lineHeight": 1.429,
+                                            "size": 14,
+                                            "tracking": "0.02em",
+                                            "weight": 400,
+                                            "role": "paragraph",
+                                            "text": "Show comments",
+                                            "type": "text"
+                                          },
+                                          {
+                                            "id": "t_2qu4vsvd",
+                                            "color": "$color-muted-foreground",
+                                            "font": "'Figtree Variable', system-ui, sans-serif",
+                                            "lineHeight": 1.333,
+                                            "size": 12,
+                                            "role": "paragraph",
+                                            "text": "Pins on the designs they’re left on.",
+                                            "type": "text"
+                                          }
+                                        ],
+                                        "type": "column"
+                                      },
+                                      {
+                                        "id": "r_2qu4xyem",
+                                        "width": "fill",
+                                        "align": "end",
+                                        "crossAlign": "center",
+                                        "gap": 8,
+                                        "children": [
+                                          {
+                                            "fill": "$color-primary",
+                                            "height": 16,
+                                            "id": "r_2qu4thyf",
+                                            "name": "Switch, on",
+                                            "padding": 2,
+                                            "radius": 999,
+                                            "width": 28,
+                                            "align": "end",
+                                            "children": [
+                                              {
+                                                "fill": "#ffffff",
+                                                "height": 12,
+                                                "id": "r_2qu4spj9",
+                                                "radius": 999,
+                                                "width": 12,
+                                                "children": [],
+                                                "type": "row"
+                                              }
+                                            ],
+                                            "type": "row"
+                                          }
+                                        ],
+                                        "type": "row"
+                                      }
+                                    ],
+                                    "type": "row"
+                                  }
+                                ],
+                                "type": "column"
+                              },
+                              {
+                                "border": {
+                                  "color": "$color-border",
+                                  "style": "solid",
+                                  "width": "1px 0 0 0"
+                                },
+                                "id": "c_2qu5aae6",
+                                "name": "Row · Scroll wheel",
+                                "padding": {
+                                  "bottom": 12,
+                                  "left": 16,
+                                  "right": 16,
+                                  "top": 12
+                                },
+                                "width": "fill",
+                                "gap": 12,
+                                "children": [
+                                  {
+                                    "id": "r_2qu592b0",
+                                    "width": "fill",
+                                    "crossAlign": "center",
+                                    "gap": 24,
+                                    "children": [
+                                      {
+                                        "id": "c_2qu57bi2",
+                                        "padding": 0,
+                                        "width": 240,
+                                        "gap": 2,
+                                        "children": [
+                                          {
+                                            "id": "t_2qu557bf",
+                                            "color": "$color-foreground",
+                                            "font": "'Cal Sans', system-ui, sans-serif",
+                                            "lineHeight": 1.429,
+                                            "size": 14,
+                                            "tracking": "0.02em",
+                                            "weight": 400,
+                                            "role": "paragraph",
+                                            "text": "Scroll wheel",
+                                            "type": "text"
+                                          },
+                                          {
+                                            "id": "t_2qu56tfw",
+                                            "color": "$color-muted-foreground",
+                                            "font": "'Figtree Variable', system-ui, sans-serif",
+                                            "lineHeight": 1.333,
+                                            "size": 12,
+                                            "role": "paragraph",
+                                            "text": "Pinch and ⌘/Ctrl+wheel always zoom.",
+                                            "type": "text"
+                                          }
+                                        ],
+                                        "type": "column"
+                                      },
+                                      {
+                                        "id": "r_2qu58apj",
+                                        "width": "fill",
+                                        "align": "end",
+                                        "crossAlign": "center",
+                                        "gap": 8,
+                                        "children": [
+                                          {
+                                            "fill": "$color-muted",
+                                            "height": 28,
+                                            "id": "r_2qu54td9",
+                                            "name": "Segmented",
+                                            "padding": 2,
+                                            "radius": "$radius-md",
+                                            "crossAlign": "center",
+                                            "gap": 2,
+                                            "children": [
+                                              {
+                                                "fill": "$color-accent",
+                                                "height": 24,
+                                                "id": "r_2qu519pt",
+                                                "padding": {
+                                                  "left": 8,
+                                                  "right": 8
+                                                },
+                                                "radius": "$radius-sm",
+                                                "crossAlign": "center",
+                                                "children": [
+                                                  {
+                                                    "id": "t_2qu504jj",
+                                                    "color": "$color-foreground",
+                                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                                    "lineHeight": 1.429,
+                                                    "size": 14,
+                                                    "role": "paragraph",
+                                                    "text": "Pans",
+                                                    "type": "text"
+                                                  }
+                                                ],
+                                                "type": "row"
+                                              },
+                                              {
+                                                "height": 24,
+                                                "id": "r_2qu53xc8",
+                                                "padding": {
+                                                  "left": 8,
+                                                  "right": 8
+                                                },
+                                                "radius": "$radius-sm",
+                                                "crossAlign": "center",
+                                                "children": [
+                                                  {
+                                                    "id": "t_2qu526xe",
+                                                    "color": "$color-muted-foreground",
+                                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                                    "lineHeight": 1.429,
+                                                    "size": 14,
+                                                    "role": "paragraph",
+                                                    "text": "Zooms",
+                                                    "type": "text"
+                                                  }
+                                                ],
+                                                "type": "row"
+                                              }
+                                            ],
+                                            "type": "row"
+                                          }
+                                        ],
+                                        "type": "row"
+                                      }
+                                    ],
+                                    "type": "row"
+                                  }
+                                ],
+                                "type": "column"
+                              }
+                            ],
+                            "type": "column"
+                          }
+                        ],
+                        "type": "column"
+                      },
+                      {
+                        "id": "c_2qu6i6gd",
+                        "name": "Group · Interface",
+                        "width": "fill",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "id": "r_2qu6g8md",
+                            "padding": {
+                              "left": 16,
+                              "right": 16
+                            },
+                            "width": "fill",
+                            "crossAlign": "start",
+                            "gap": 12,
+                            "children": [
+                              {
+                                "id": "c_2qu6ffs0",
+                                "width": "fill",
+                                "gap": 2,
+                                "children": [
+                                  {
+                                    "id": "t_2qu6ew20",
+                                    "color": "$color-foreground",
+                                    "font": "'Cal Sans', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "tracking": "0.02em",
+                                    "weight": 400,
+                                    "role": "paragraph",
+                                    "text": "Interface",
+                                    "type": "text"
+                                  }
+                                ],
+                                "type": "column"
+                              }
+                            ],
+                            "type": "row"
+                          },
+                          {
+                            "border": {
+                              "color": "$color-border",
+                              "style": "solid",
+                              "width": 1
+                            },
+                            "id": "c_2qu6h6x3",
+                            "name": "Rows",
+                            "radius": "$radius-lg",
+                            "width": "fill",
+                            "children": [
+                              {
+                                "id": "c_2qu5s499",
+                                "name": "Row · Text size",
+                                "padding": {
+                                  "bottom": 12,
+                                  "left": 16,
+                                  "right": 16,
+                                  "top": 12
+                                },
+                                "width": "fill",
+                                "gap": 12,
+                                "children": [
+                                  {
+                                    "id": "r_2qu5ratb",
+                                    "width": "fill",
+                                    "crossAlign": "center",
+                                    "gap": 24,
+                                    "children": [
+                                      {
+                                        "id": "c_2qu5ppm5",
+                                        "padding": 0,
+                                        "width": 240,
+                                        "gap": 2,
+                                        "children": [
+                                          {
+                                            "id": "t_2qu5n40e",
+                                            "color": "$color-foreground",
+                                            "font": "'Cal Sans', system-ui, sans-serif",
+                                            "lineHeight": 1.429,
+                                            "size": 14,
+                                            "tracking": "0.02em",
+                                            "weight": 400,
+                                            "role": "paragraph",
+                                            "text": "Text size",
+                                            "type": "text"
+                                          },
+                                          {
+                                            "id": "t_2qu5o355",
+                                            "color": "$color-muted-foreground",
+                                            "font": "'Figtree Variable', system-ui, sans-serif",
+                                            "lineHeight": 1.333,
+                                            "size": 12,
+                                            "role": "paragraph",
+                                            "text": "The panels’ text. The canvas keeps its own zoom.",
+                                            "type": "text"
+                                          }
+                                        ],
+                                        "type": "column"
+                                      },
+                                      {
+                                        "id": "r_2qu5q7p3",
+                                        "width": "fill",
+                                        "align": "end",
+                                        "crossAlign": "center",
+                                        "gap": 8,
+                                        "children": [
+                                          {
+                                            "fill": "$color-muted",
+                                            "height": 28,
+                                            "id": "r_2qu5m9tf",
+                                            "name": "Segmented",
+                                            "padding": 2,
+                                            "radius": "$radius-md",
+                                            "crossAlign": "center",
+                                            "gap": 2,
+                                            "children": [
+                                              {
+                                                "height": 24,
+                                                "id": "r_2qu5h426",
+                                                "padding": {
+                                                  "left": 8,
+                                                  "right": 8
+                                                },
+                                                "radius": "$radius-sm",
+                                                "crossAlign": "center",
+                                                "children": [
+                                                  {
+                                                    "id": "t_2qu5gnlw",
+                                                    "color": "$color-muted-foreground",
+                                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                                    "lineHeight": 1.429,
+                                                    "size": 14,
+                                                    "role": "paragraph",
+                                                    "text": "Small",
+                                                    "type": "text"
+                                                  }
+                                                ],
+                                                "type": "row"
+                                              },
+                                              {
+                                                "fill": "$color-accent",
+                                                "height": 24,
+                                                "id": "r_2qu5j5p2",
+                                                "padding": {
+                                                  "left": 8,
+                                                  "right": 8
+                                                },
+                                                "radius": "$radius-sm",
+                                                "crossAlign": "center",
+                                                "children": [
+                                                  {
+                                                    "id": "t_2qu5ir1t",
+                                                    "color": "$color-foreground",
+                                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                                    "lineHeight": 1.429,
+                                                    "size": 14,
+                                                    "role": "paragraph",
+                                                    "text": "Default",
+                                                    "type": "text"
+                                                  }
+                                                ],
+                                                "type": "row"
+                                              },
+                                              {
+                                                "height": 24,
+                                                "id": "r_2qu5lh3m",
+                                                "padding": {
+                                                  "left": 8,
+                                                  "right": 8
+                                                },
+                                                "radius": "$radius-sm",
+                                                "crossAlign": "center",
+                                                "children": [
+                                                  {
+                                                    "id": "t_2qu5khir",
+                                                    "color": "$color-muted-foreground",
+                                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                                    "lineHeight": 1.429,
+                                                    "size": 14,
+                                                    "role": "paragraph",
+                                                    "text": "Large",
+                                                    "type": "text"
+                                                  }
+                                                ],
+                                                "type": "row"
+                                              }
+                                            ],
+                                            "type": "row"
+                                          }
+                                        ],
+                                        "type": "row"
+                                      }
+                                    ],
+                                    "type": "row"
+                                  }
+                                ],
+                                "type": "column"
+                              },
+                              {
+                                "border": {
+                                  "color": "$color-border",
+                                  "style": "solid",
+                                  "width": "1px 0 0 0"
+                                },
+                                "id": "c_2qu60qn9",
+                                "name": "Row · Increase contrast",
+                                "padding": {
+                                  "bottom": 12,
+                                  "left": 16,
+                                  "right": 16,
+                                  "top": 12
+                                },
+                                "width": "fill",
+                                "gap": 12,
+                                "children": [
+                                  {
+                                    "id": "r_2qu5z9rt",
+                                    "width": "fill",
+                                    "crossAlign": "center",
+                                    "gap": 24,
+                                    "children": [
+                                      {
+                                        "id": "c_2qu5x64i",
+                                        "padding": 0,
+                                        "width": 240,
+                                        "gap": 2,
+                                        "children": [
+                                          {
+                                            "id": "t_2qu5vvv6",
+                                            "color": "$color-foreground",
+                                            "font": "'Cal Sans', system-ui, sans-serif",
+                                            "lineHeight": 1.429,
+                                            "size": 14,
+                                            "tracking": "0.02em",
+                                            "weight": 400,
+                                            "role": "paragraph",
+                                            "text": "Increase contrast",
+                                            "type": "text"
+                                          },
+                                          {
+                                            "id": "t_2qu5w4ti",
+                                            "color": "$color-muted-foreground",
+                                            "font": "'Figtree Variable', system-ui, sans-serif",
+                                            "lineHeight": 1.333,
+                                            "size": 12,
+                                            "role": "paragraph",
+                                            "text": "Darker muted text and firmer edges.",
+                                            "type": "text"
+                                          }
+                                        ],
+                                        "type": "column"
+                                      },
+                                      {
+                                        "id": "r_2qu5yhay",
+                                        "width": "fill",
+                                        "align": "end",
+                                        "crossAlign": "center",
+                                        "gap": 8,
+                                        "children": [
+                                          {
+                                            "fill": "$color-input",
+                                            "height": 16,
+                                            "id": "r_2qu5uocz",
+                                            "name": "Switch, off",
+                                            "padding": 2,
+                                            "radius": 999,
+                                            "width": 28,
+                                            "align": "start",
+                                            "children": [
+                                              {
+                                                "fill": "#ffffff",
+                                                "height": 12,
+                                                "id": "r_2qu5txl7",
+                                                "radius": 999,
+                                                "width": 12,
+                                                "children": [],
+                                                "type": "row"
+                                              }
+                                            ],
+                                            "type": "row"
+                                          }
+                                        ],
+                                        "type": "row"
+                                      }
+                                    ],
+                                    "type": "row"
+                                  }
+                                ],
+                                "type": "column"
+                              },
+                              {
+                                "border": {
+                                  "color": "$color-border",
+                                  "style": "solid",
+                                  "width": "1px 0 0 0"
+                                },
+                                "id": "c_2qu6dvyz",
+                                "name": "Row · Motion",
+                                "padding": {
+                                  "bottom": 12,
+                                  "left": 16,
+                                  "right": 16,
+                                  "top": 12
+                                },
+                                "width": "fill",
+                                "gap": 12,
+                                "children": [
+                                  {
+                                    "id": "r_2qu6cqkw",
+                                    "width": "fill",
+                                    "crossAlign": "center",
+                                    "gap": 24,
+                                    "children": [
+                                      {
+                                        "id": "c_2qu6a4fk",
+                                        "padding": 0,
+                                        "width": 240,
+                                        "gap": 2,
+                                        "children": [
+                                          {
+                                            "id": "t_2qu68ojd",
+                                            "color": "$color-foreground",
+                                            "font": "'Cal Sans', system-ui, sans-serif",
+                                            "lineHeight": 1.429,
+                                            "size": 14,
+                                            "tracking": "0.02em",
+                                            "weight": 400,
+                                            "role": "paragraph",
+                                            "text": "Motion",
+                                            "type": "text"
+                                          },
+                                          {
+                                            "id": "t_2qu69xd5",
+                                            "color": "$color-muted-foreground",
+                                            "font": "'Figtree Variable', system-ui, sans-serif",
+                                            "lineHeight": 1.333,
+                                            "size": 12,
+                                            "role": "paragraph",
+                                            "text": "System follows your computer’s Reduce motion setting.",
+                                            "type": "text"
+                                          }
+                                        ],
+                                        "type": "column"
+                                      },
+                                      {
+                                        "id": "r_2qu6b2d3",
+                                        "width": "fill",
+                                        "align": "end",
+                                        "crossAlign": "center",
+                                        "gap": 8,
+                                        "children": [
+                                          {
+                                            "fill": "$color-muted",
+                                            "height": 28,
+                                            "id": "r_2qu67gkd",
+                                            "name": "Segmented",
+                                            "padding": 2,
+                                            "radius": "$radius-md",
+                                            "crossAlign": "center",
+                                            "gap": 2,
+                                            "children": [
+                                              {
+                                                "fill": "$color-accent",
+                                                "height": 24,
+                                                "id": "r_2qu62z11",
+                                                "padding": {
+                                                  "left": 8,
+                                                  "right": 8
+                                                },
+                                                "radius": "$radius-sm",
+                                                "crossAlign": "center",
+                                                "children": [
+                                                  {
+                                                    "id": "t_2qu61han",
+                                                    "color": "$color-foreground",
+                                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                                    "lineHeight": 1.429,
+                                                    "size": 14,
+                                                    "role": "paragraph",
+                                                    "text": "System",
+                                                    "type": "text"
+                                                  }
+                                                ],
+                                                "type": "row"
+                                              },
+                                              {
+                                                "height": 24,
+                                                "id": "r_2qu642aw",
+                                                "padding": {
+                                                  "left": 8,
+                                                  "right": 8
+                                                },
+                                                "radius": "$radius-sm",
+                                                "crossAlign": "center",
+                                                "children": [
+                                                  {
+                                                    "id": "t_2qu63m4n",
+                                                    "color": "$color-muted-foreground",
+                                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                                    "lineHeight": 1.429,
+                                                    "size": 14,
+                                                    "role": "paragraph",
+                                                    "text": "Reduced",
+                                                    "type": "text"
+                                                  }
+                                                ],
+                                                "type": "row"
+                                              },
+                                              {
+                                                "height": 24,
+                                                "id": "r_2qu66p0e",
+                                                "padding": {
+                                                  "left": 8,
+                                                  "right": 8
+                                                },
+                                                "radius": "$radius-sm",
+                                                "crossAlign": "center",
+                                                "children": [
+                                                  {
+                                                    "id": "t_2qu65r93",
+                                                    "color": "$color-muted-foreground",
+                                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                                    "lineHeight": 1.429,
+                                                    "size": 14,
+                                                    "role": "paragraph",
+                                                    "text": "Full",
+                                                    "type": "text"
+                                                  }
+                                                ],
+                                                "type": "row"
+                                              }
+                                            ],
+                                            "type": "row"
+                                          }
+                                        ],
+                                        "type": "row"
+                                      }
+                                    ],
+                                    "type": "row"
+                                  }
+                                ],
+                                "type": "column"
+                              }
+                            ],
+                            "type": "column"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "column"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "id": "c_s98",
+            "name": "Notes",
+            "padding": {
+              "top": 8
+            },
+            "width": 300,
+            "gap": 12,
+            "children": [
+              {
+                "id": "c_s8i",
+                "width": "fill",
+                "gap": 4,
+                "children": [
+                  {
+                    "id": "r_s8g",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "fill": "#3d7bff",
+                        "height": 8,
+                        "id": "r_s8e",
+                        "radius": 999,
+                        "width": 8,
+                        "children": [],
+                        "type": "row"
+                      },
+                      {
+                        "id": "t_s8f",
+                        "color": "$color-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": "16px",
+                        "size": 12,
+                        "weight": 500,
+                        "role": "paragraph",
+                        "text": "Changed",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "t_s8h",
+                    "color": "#a1a1aa",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": "16px",
+                    "size": 12,
+                    "role": "paragraph",
+                    "text": "Theme is three cards with a drawing of the editor in each, as T3 Code’s, not a select: seen before it is picked.",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "c_s8n",
+                "width": "fill",
+                "gap": 4,
+                "children": [
+                  {
+                    "id": "r_s8l",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "fill": "#8b5cf6",
+                        "height": 8,
+                        "id": "r_s8j",
+                        "radius": 999,
+                        "width": 8,
+                        "children": [],
+                        "type": "row"
+                      },
+                      {
+                        "id": "t_s8k",
+                        "color": "$color-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": "16px",
+                        "size": 12,
+                        "weight": 500,
+                        "role": "paragraph",
+                        "text": "Moved",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "t_s8m",
+                    "color": "#a1a1aa",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": "16px",
+                    "size": 12,
+                    "role": "paragraph",
+                    "text": "Grid and Comments were only toggles on the canvas toolbar; they stay there and are listed here too.",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "c_s8s",
+                "width": "fill",
+                "gap": 4,
+                "children": [
+                  {
+                    "id": "r_s8q",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "fill": "#ec4899",
+                        "height": 8,
+                        "id": "r_s8o",
+                        "radius": 999,
+                        "width": 8,
+                        "children": [],
+                        "type": "row"
+                      },
+                      {
+                        "id": "t_s8p",
+                        "color": "$color-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": "16px",
+                        "size": 12,
+                        "weight": 500,
+                        "role": "paragraph",
+                        "text": "New",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "t_s8r",
+                    "color": "#a1a1aa",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": "16px",
+                    "size": 12,
+                    "role": "paragraph",
+                    "text": "Scroll wheel: a mouse user can make the wheel zoom, as Figma’s ‘Scroll to zoom’.",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "c_s8x",
+                "width": "fill",
+                "gap": 4,
+                "children": [
+                  {
+                    "id": "r_s8v",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "fill": "#ec4899",
+                        "height": 8,
+                        "id": "r_s8t",
+                        "radius": 999,
+                        "width": 8,
+                        "children": [],
+                        "type": "row"
+                      },
+                      {
+                        "id": "t_s8u",
+                        "color": "$color-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": "16px",
+                        "size": 12,
+                        "weight": 500,
+                        "role": "paragraph",
+                        "text": "New",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "t_s8w",
+                    "color": "#a1a1aa",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": "16px",
+                    "size": 12,
+                    "role": "paragraph",
+                    "text": "Text size of the interface; the canvas keeps its own zoom.",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "c_s92",
+                "width": "fill",
+                "gap": 4,
+                "children": [
+                  {
+                    "id": "r_s90",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "fill": "#ec4899",
+                        "height": 8,
+                        "id": "r_s8y",
+                        "radius": 999,
+                        "width": 8,
+                        "children": [],
+                        "type": "row"
+                      },
+                      {
+                        "id": "t_s8z",
+                        "color": "$color-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": "16px",
+                        "size": 12,
+                        "weight": 500,
+                        "role": "paragraph",
+                        "text": "New",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "t_s91",
+                    "color": "#a1a1aa",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": "16px",
+                    "size": 12,
+                    "role": "paragraph",
+                    "text": "Increase contrast darkens muted text and edges (light’s muted text is chosen at 4.4:1); T3 Code has a contrast slider.",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "c_s97",
+                "width": "fill",
+                "gap": 4,
+                "children": [
+                  {
+                    "id": "r_s95",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "fill": "#ec4899",
+                        "height": 8,
+                        "id": "r_s93",
+                        "radius": 999,
+                        "width": 8,
+                        "children": [],
+                        "type": "row"
+                      },
+                      {
+                        "id": "t_s94",
+                        "color": "$color-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": "16px",
+                        "size": 12,
+                        "weight": 500,
+                        "role": "paragraph",
+                        "text": "New",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "t_s96",
+                    "color": "#a1a1aa",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": "16px",
+                    "size": 12,
+                    "role": "paragraph",
+                    "text": "Motion: System, Reduced or Full; today the editor only follows the system.",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "column"
+          }
+        ],
+        "type": "row"
+      }
+    ],
+    "direction": "column",
+    "type": "page"
+  }
+}

@@ -1,0 +1,1136 @@
+{
+  "kind": "page",
+  "notes": [],
+  "root": {
+    "fill": "#0b0b0c",
+    "id": "root",
+    "padding": 0,
+    "align": "center",
+    "crossAlign": "center",
+    "children": [
+      {
+        "id": "r_smh",
+        "crossAlign": "start",
+        "gap": 32,
+        "children": [
+          {
+            "border": {
+              "color": "$color-border",
+              "style": "solid",
+              "width": 1
+            },
+            "fill": "$color-rail",
+            "id": "r_slv",
+            "minHeight": 736,
+            "name": "Settings dialog",
+            "radius": "$radius-2xl",
+            "shadow": "$shadow-overlay",
+            "width": 960,
+            "crossAlign": "stretch",
+            "children": [
+              {
+                "fill": "$color-rail",
+                "id": "c_3ab1xmlx",
+                "name": "Sections",
+                "width": 224,
+                "children": [
+                  {
+                    "height": 48,
+                    "id": "r_3aamh88",
+                    "padding": {
+                      "left": 20,
+                      "right": 20
+                    },
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "id": "t_3aalc31",
+                        "color": "$color-foreground",
+                        "font": "'Cal Sans', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "tracking": "0.02em",
+                        "weight": 400,
+                        "role": "paragraph",
+                        "text": "Settings",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "r_3aase1a",
+                    "padding": {
+                      "bottom": 8,
+                      "left": 12,
+                      "right": 12
+                    },
+                    "width": "fill",
+                    "children": [
+                      {
+                        "border": {
+                          "color": "$color-input",
+                          "style": "solid",
+                          "width": 1
+                        },
+                        "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)",
+                        "height": 28,
+                        "id": "r_3aarrx5",
+                        "name": "Search",
+                        "padding": {
+                          "left": 8,
+                          "right": 6
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 6,
+                        "children": [
+                          {
+                            "height": 14,
+                            "id": "img_3aanwsy",
+                            "name": "search",
+                            "width": 14,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/search.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_3aaocyo",
+                            "width": "fill",
+                            "color": "$color-muted-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Search",
+                            "type": "text"
+                          },
+                          {
+                            "border": {
+                              "color": "$color-border",
+                              "style": "solid",
+                              "width": 1
+                            },
+                            "fill": "$color-muted",
+                            "height": 20,
+                            "id": "r_3aaq7y6",
+                            "padding": {
+                              "left": 5,
+                              "right": 5
+                            },
+                            "radius": "$radius-sm",
+                            "align": "center",
+                            "crossAlign": "center",
+                            "children": [
+                              {
+                                "id": "t_3aapxpn",
+                                "color": "$color-muted-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.333,
+                                "size": 12,
+                                "role": "paragraph",
+                                "text": "/",
+                                "type": "text"
+                              }
+                            ],
+                            "type": "row"
+                          }
+                        ],
+                        "type": "row"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "c_3ab1wg87",
+                    "name": "Nav",
+                    "padding": {
+                      "bottom": 12,
+                      "left": 12,
+                      "right": 12
+                    },
+                    "width": "fill",
+                    "gap": 2,
+                    "children": [
+                      {
+                        "id": "t_3aat0p2",
+                        "padding": {
+                          "bottom": 4,
+                          "left": 8,
+                          "top": 4
+                        },
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.333,
+                        "size": 12,
+                        "role": "paragraph",
+                        "text": "You",
+                        "type": "text"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_3aaw2ue",
+                        "name": "Nav · General",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_3aaunhc",
+                            "name": "sliders-horizontal",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/sliders-horizontal.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_3aav6ti",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "General",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_3aaz24y",
+                        "name": "Nav · Appearance",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_3aaxhkl",
+                            "name": "palette",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/palette.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_3aay3n6",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Appearance",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_3aa12m61",
+                        "name": "Nav · Chats",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_3aa10kg7",
+                            "name": "message-square",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/message-square.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_3aa11daa",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Chats",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_3aa15utm",
+                        "name": "Nav · Shortcuts",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_3aa13xmi",
+                            "name": "keyboard",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/keyboard.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_3aa14lgq",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Shortcuts",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "id": "t_3aa16t42",
+                        "padding": {
+                          "bottom": 4,
+                          "left": 8,
+                          "top": 12
+                        },
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.333,
+                        "size": 12,
+                        "role": "paragraph",
+                        "text": "Project · ultrapaint",
+                        "type": "text"
+                      },
+                      {
+                        "fill": "$color-accent",
+                        "height": 30,
+                        "id": "r_3aa19n58",
+                        "name": "Nav · Name and icon",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_3aa17l46",
+                            "name": "shapes",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-foreground",
+                            "src": "assets/icons/shapes.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_3aa18omg",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Name and icon",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_3aa1cjtk",
+                        "name": "Nav · Repository",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_3aa1a94z",
+                            "name": "folder-git-2",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/folder-git-2.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_3aa1bnnf",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Repository",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_3aa1fhoi",
+                        "name": "Nav · Design system",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_3aa1dw6o",
+                            "name": "swatch-book",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/swatch-book.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_3aa1eqs9",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Design system",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_3ab1ivc5",
+                        "name": "Nav · Review",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_3aa1gg96",
+                            "name": "message-square-check",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/message-square-check.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_3ab1hlvp",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Review",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_3ab1lyng",
+                        "name": "Nav · Skills",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_3ab1jy5k",
+                            "name": "book-open",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/book-open.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_3ab1k1hd",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Skills",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "id": "t_3ab1m2m7",
+                        "padding": {
+                          "bottom": 4,
+                          "left": 8,
+                          "top": 12
+                        },
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.333,
+                        "size": 12,
+                        "role": "paragraph",
+                        "text": "This computer",
+                        "type": "text"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_3ab1pj0f",
+                        "name": "Nav · Agents",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_3ab1n52a",
+                            "name": "bot",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/bot.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_3ab1ou60",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Agents",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_3ab1s0ny",
+                        "name": "Nav · Connections",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_3ab1qfkv",
+                            "name": "plug",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/plug.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_3ab1rs78",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Connections",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "height": 30,
+                        "id": "r_3ab1vx59",
+                        "name": "Nav · About",
+                        "padding": {
+                          "left": 8,
+                          "right": 8
+                        },
+                        "radius": "$radius-md",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 16,
+                            "id": "img_3ab1tdhw",
+                            "name": "info",
+                            "width": 16,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/info.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_3ab1u620",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "About",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      }
+                    ],
+                    "type": "column"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "border": {
+                  "color": "$color-border",
+                  "style": "solid",
+                  "width": "0 0 0 1px"
+                },
+                "fill": "$color-sidebar",
+                "id": "c_3ab23rgd",
+                "name": "Page",
+                "radius": "0 16px 16px 0",
+                "width": "fill",
+                "children": [
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": "0 0 1px 0"
+                    },
+                    "height": 48,
+                    "id": "r_3ab21u9p",
+                    "name": "Header",
+                    "padding": {
+                      "left": 20,
+                      "right": 12
+                    },
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 12,
+                    "children": [
+                      {
+                        "id": "t_3ab1ysp8",
+                        "width": "fill",
+                        "color": "$color-foreground",
+                        "font": "'Cal Sans', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "tracking": "0.02em",
+                        "weight": 400,
+                        "role": "paragraph",
+                        "text": "Name and icon",
+                        "type": "text"
+                      },
+                      {
+                        "height": 24,
+                        "id": "i_3ab1z3r9",
+                        "name": "Close",
+                        "radius": "$radius-md",
+                        "width": 24,
+                        "props": {
+                          "variant": "ghost",
+                          "size": "icon"
+                        },
+                        "children": [
+                          {
+                            "height": 14,
+                            "id": "img_3ab20ijk",
+                            "name": "x",
+                            "width": 14,
+                            "alt": "",
+                            "tint": "$color-foreground",
+                            "src": "assets/icons/x.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "component": "Button",
+                        "from": "@ultrapaint/system",
+                        "type": "instance"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "c_3ab22lf4",
+                    "maxWidth": 768,
+                    "name": "Scroll",
+                    "padding": 20,
+                    "width": "fill",
+                    "gap": 32,
+                    "children": [
+                      {
+                        "id": "c_3aak0yd",
+                        "name": "Group · untitled",
+                        "width": "fill",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "border": {
+                              "color": "$color-border",
+                              "style": "solid",
+                              "width": 1
+                            },
+                            "id": "c_3aajojw",
+                            "name": "Rows",
+                            "radius": "$radius-lg",
+                            "width": "fill",
+                            "children": [
+                              {
+                                "id": "c_3aa794m",
+                                "name": "Row · Name",
+                                "padding": {
+                                  "bottom": 12,
+                                  "left": 16,
+                                  "right": 16,
+                                  "top": 12
+                                },
+                                "width": "fill",
+                                "gap": 12,
+                                "children": [
+                                  {
+                                    "id": "r_3aa6jmx",
+                                    "width": "fill",
+                                    "crossAlign": "start",
+                                    "gap": 24,
+                                    "children": [
+                                      {
+                                        "id": "c_3aa4au2",
+                                        "padding": {
+                                          "top": 4
+                                        },
+                                        "width": 240,
+                                        "gap": 2,
+                                        "children": [
+                                          {
+                                            "id": "t_3aa2x0i",
+                                            "color": "$color-foreground",
+                                            "font": "'Cal Sans', system-ui, sans-serif",
+                                            "lineHeight": 1.429,
+                                            "size": 14,
+                                            "tracking": "0.02em",
+                                            "weight": 400,
+                                            "role": "paragraph",
+                                            "text": "Name",
+                                            "type": "text"
+                                          },
+                                          {
+                                            "id": "t_3aa37it",
+                                            "color": "$color-muted-foreground",
+                                            "font": "'Figtree Variable', system-ui, sans-serif",
+                                            "lineHeight": 1.333,
+                                            "size": 12,
+                                            "role": "paragraph",
+                                            "text": "On the tab and in the sidebar. Left empty, the folder’s name.",
+                                            "type": "text"
+                                          }
+                                        ],
+                                        "type": "column"
+                                      },
+                                      {
+                                        "id": "c_3aa5qn0",
+                                        "width": "fill",
+                                        "gap": 6,
+                                        "children": [
+                                          {
+                                            "border": {
+                                              "color": "$color-input",
+                                              "style": "solid",
+                                              "width": 1
+                                            },
+                                            "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)",
+                                            "height": 28,
+                                            "id": "r_3a91zjj",
+                                            "name": "Field",
+                                            "padding": {
+                                              "left": 8,
+                                              "right": 8
+                                            },
+                                            "radius": "$radius-md",
+                                            "width": "fill",
+                                            "crossAlign": "center",
+                                            "gap": 6,
+                                            "children": [
+                                              {
+                                                "id": "t_3a90ml9",
+                                                "width": "fill",
+                                                "color": "$color-foreground",
+                                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                                "lineHeight": 1.429,
+                                                "size": 14,
+                                                "role": "paragraph",
+                                                "text": "Ultrapaint",
+                                                "type": "text"
+                                              }
+                                            ],
+                                            "type": "row"
+                                          }
+                                        ],
+                                        "type": "column"
+                                      }
+                                    ],
+                                    "type": "row"
+                                  }
+                                ],
+                                "type": "column"
+                              },
+                              {
+                                "border": {
+                                  "color": "$color-border",
+                                  "style": "solid",
+                                  "width": "1px 0 0 0"
+                                },
+                                "id": "c_3aaip7v",
+                                "name": "Row · Icon",
+                                "padding": {
+                                  "bottom": 12,
+                                  "left": 16,
+                                  "right": 16,
+                                  "top": 12
+                                },
+                                "width": "fill",
+                                "gap": 12,
+                                "children": [
+                                  {
+                                    "id": "r_3aah8tk",
+                                    "width": "fill",
+                                    "crossAlign": "center",
+                                    "gap": 24,
+                                    "children": [
+                                      {
+                                        "id": "c_3aaf5bo",
+                                        "padding": 0,
+                                        "width": 240,
+                                        "gap": 2,
+                                        "children": [
+                                          {
+                                            "id": "t_3aaevac",
+                                            "color": "$color-foreground",
+                                            "font": "'Cal Sans', system-ui, sans-serif",
+                                            "lineHeight": 1.429,
+                                            "size": 14,
+                                            "tracking": "0.02em",
+                                            "weight": 400,
+                                            "role": "paragraph",
+                                            "text": "Icon",
+                                            "type": "text"
+                                          }
+                                        ],
+                                        "type": "column"
+                                      },
+                                      {
+                                        "id": "r_3aagmo0",
+                                        "width": "fill",
+                                        "align": "end",
+                                        "crossAlign": "center",
+                                        "gap": 8,
+                                        "children": [
+                                          {
+                                            "fill": "#000000",
+                                            "height": 28,
+                                            "id": "r_3aa92c3",
+                                            "radius": 7,
+                                            "width": 28,
+                                            "align": "center",
+                                            "crossAlign": "center",
+                                            "children": [
+                                              {
+                                                "height": 20,
+                                                "id": "img_3aa8orx",
+                                                "name": "ultrapaint-mark",
+                                                "width": 20,
+                                                "alt": "",
+                                                "tint": "#ffffff",
+                                                "src": "assets/icons/ultrapaint-mark.svg",
+                                                "type": "image"
+                                              }
+                                            ],
+                                            "type": "row"
+                                          },
+                                          {
+                                            "border": {
+                                              "color": "$color-border",
+                                              "style": "solid",
+                                              "width": 1
+                                            },
+                                            "fill": "transparent",
+                                            "height": 28,
+                                            "id": "i_3aaaky3",
+                                            "padding": {
+                                              "left": 10,
+                                              "right": 10
+                                            },
+                                            "radius": "$radius-md",
+                                            "props": {
+                                              "variant": "outline",
+                                              "size": "sm"
+                                            },
+                                            "text": "Choose icon",
+                                            "component": "Button",
+                                            "from": "@ultrapaint/system",
+                                            "type": "instance"
+                                          },
+                                          {
+                                            "border": {
+                                              "color": "$color-border",
+                                              "style": "solid",
+                                              "width": 1
+                                            },
+                                            "fill": "transparent",
+                                            "height": 28,
+                                            "id": "i_3aac2u9",
+                                            "padding": {
+                                              "left": 10,
+                                              "right": 10
+                                            },
+                                            "radius": "$radius-md",
+                                            "props": {
+                                              "variant": "outline",
+                                              "size": "sm"
+                                            },
+                                            "text": "Choose file",
+                                            "component": "Button",
+                                            "from": "@ultrapaint/system",
+                                            "type": "instance"
+                                          }
+                                        ],
+                                        "type": "row"
+                                      }
+                                    ],
+                                    "type": "row"
+                                  }
+                                ],
+                                "type": "column"
+                              }
+                            ],
+                            "type": "column"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "column"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "id": "c_smg",
+            "name": "Notes",
+            "padding": {
+              "top": 8
+            },
+            "width": 300,
+            "gap": 12,
+            "children": [
+              {
+                "id": "np_00064",
+                "width": "fill",
+                "gap": 4,
+                "children": [
+                  {
+                    "id": "np_00065",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "fill": "#22c55e",
+                        "height": 8,
+                        "id": "np_00066",
+                        "radius": 999,
+                        "width": 8,
+                        "children": [],
+                        "type": "row"
+                      },
+                      {
+                        "id": "np_00067",
+                        "color": "$color-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": "16px",
+                        "size": 12,
+                        "weight": 500,
+                        "role": "paragraph",
+                        "text": "New",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "np_00068",
+                    "color": "#a1a1aa",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": "16px",
+                    "size": 12,
+                    "role": "paragraph",
+                    "text": "Name and icon: the project’s look, first in its section, as T3 Code’s Projects page. The name and icon show on the desktop app’s tab and in the sidebar, in the desktop app and in the browser.",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "np_00069",
+                "width": "fill",
+                "gap": 4,
+                "children": [
+                  {
+                    "id": "np_00070",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "fill": "#22c55e",
+                        "height": 8,
+                        "id": "np_00071",
+                        "radius": 999,
+                        "width": 8,
+                        "children": [],
+                        "type": "row"
+                      },
+                      {
+                        "id": "np_00072",
+                        "color": "$color-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": "16px",
+                        "size": 12,
+                        "weight": 500,
+                        "role": "paragraph",
+                        "text": "New",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "np_00073",
+                    "color": "#a1a1aa",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": "16px",
+                    "size": 12,
+                    "role": "paragraph",
+                    "text": "Choose icon opens an icon in a colour; Choose file, the images found in the project (a favicon, an app icon) or any other. The arrow goes back to the default: the project’s favicon when it has one, else its initial in a colour.",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "np_00074",
+                "width": "fill",
+                "gap": 4,
+                "children": [
+                  {
+                    "id": "np_00075",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "fill": "#8b5cf6",
+                        "height": 8,
+                        "id": "np_00076",
+                        "radius": 999,
+                        "width": 8,
+                        "children": [],
+                        "type": "row"
+                      },
+                      {
+                        "id": "np_00077",
+                        "color": "$color-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": "16px",
+                        "size": 12,
+                        "weight": 500,
+                        "role": "paragraph",
+                        "text": "Moved",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "np_00078",
+                    "color": "#a1a1aa",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": "16px",
+                    "size": 12,
+                    "role": "paragraph",
+                    "text": "Change icon… leaves the project menu: Project settings there opens this page.",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "column"
+          }
+        ],
+        "type": "row"
+      }
+    ],
+    "direction": "column",
+    "type": "page"
+  }
+}

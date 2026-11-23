@@ -343,6 +343,216 @@
           "apps/web/src/lib/project-notices.ts"
         ]
       }
+    },
+    "settings/about.page.json": {
+      "implemented": {
+        "at": 1795454712017,
+        "code": {
+          "apps/web/src/panels/settings-about.tsx": "21ba728e86ab4d41",
+          "apps/web/src/panels/settings-folders.tsx": "4a06948a5bfd5193",
+          "apps/web/src/panels/settings-group.tsx": "5979019eb79fbf6e",
+          "apps/web/src/panels/settings.tsx": "5b1fa3c70ccb2736"
+        },
+        "design": "e57641fb590ad0ae",
+        "files": [
+          "apps/web/src/panels/settings-about.tsx",
+          "apps/web/src/panels/settings-folders.tsx",
+          "apps/web/src/panels/settings-group.tsx",
+          "apps/web/src/panels/settings.tsx"
+        ]
+      }
+    },
+    "settings/agents.page.json": {
+      "implemented": {
+        "at": 1795454711530,
+        "code": {
+          "apps/web/src/panels/settings-agents.tsx": "1f4823adf8911f0b",
+          "apps/web/src/panels/settings-group.tsx": "5979019eb79fbf6e",
+          "apps/web/src/panels/settings.tsx": "5b1fa3c70ccb2736"
+        },
+        "design": "d006d7c1cd79e155",
+        "files": [
+          "apps/web/src/panels/settings-agents.tsx",
+          "apps/web/src/panels/settings-group.tsx",
+          "apps/web/src/panels/settings.tsx"
+        ]
+      }
+    },
+    "settings/appearance.page.json": {
+      "implemented": {
+        "at": 1795454709894,
+        "code": {
+          "apps/web/src/panels/settings-appearance.tsx": "e333360862e35c74",
+          "apps/web/src/panels/settings-group.tsx": "5979019eb79fbf6e",
+          "apps/web/src/panels/settings.tsx": "5b1fa3c70ccb2736"
+        },
+        "design": "c4cb89b5e1219613",
+        "files": [
+          "apps/web/src/panels/settings-appearance.tsx",
+          "apps/web/src/panels/settings-group.tsx",
+          "apps/web/src/panels/settings.tsx"
+        ]
+      }
+    },
+    "settings/chats.page.json": {
+      "implemented": {
+        "at": 1795454710089,
+        "code": {
+          "apps/web/src/panels/settings-agents.tsx": "1f4823adf8911f0b",
+          "apps/web/src/panels/settings-group.tsx": "5979019eb79fbf6e",
+          "apps/web/src/panels/settings.tsx": "5b1fa3c70ccb2736"
+        },
+        "design": "52ec958005bddfff",
+        "files": [
+          "apps/web/src/panels/settings-agents.tsx",
+          "apps/web/src/panels/settings-group.tsx",
+          "apps/web/src/panels/settings.tsx"
+        ]
+      }
+    },
+    "settings/connections.page.json": {
+      "implemented": {
+        "at": 1795454711773,
+        "code": {
+          "apps/web/src/panels/settings-agents.tsx": "1f4823adf8911f0b",
+          "apps/web/src/panels/settings-group.tsx": "5979019eb79fbf6e",
+          "apps/web/src/panels/settings.tsx": "5b1fa3c70ccb2736"
+        },
+        "design": "29f9b5c5eb2475d3",
+        "files": [
+          "apps/web/src/panels/settings-agents.tsx",
+          "apps/web/src/panels/settings-group.tsx",
+          "apps/web/src/panels/settings.tsx"
+        ]
+      }
+    },
+    "settings/design-system.page.json": {
+      "implemented": {
+        "at": 1795454710814,
+        "code": {
+          "apps/web/src/panels/settings-group.tsx": "5979019eb79fbf6e",
+          "apps/web/src/panels/settings.tsx": "5b1fa3c70ccb2736"
+        },
+        "design": "abaed9b52abf4a33",
+        "files": [
+          "apps/web/src/panels/settings-group.tsx",
+          "apps/web/src/panels/settings.tsx"
+        ]
+      }
+    },
+    "settings/general-narrow.page.json": {
+      "implemented": {
+        "at": 1795454709646,
+        "code": {
+          "apps/web/src/panels/settings-general.tsx": "703d389e807433d1",
+          "apps/web/src/panels/settings-group.tsx": "5979019eb79fbf6e",
+          "apps/web/src/panels/settings-profile.tsx": "35c7d613fdbf0ad8",
+          "apps/web/src/panels/settings.tsx": "5b1fa3c70ccb2736"
+        },
+        "design": "5289207fffb13526",
+        "files": [
+          "apps/web/src/panels/settings-general.tsx",
+          "apps/web/src/panels/settings-group.tsx",
+          "apps/web/src/panels/settings-profile.tsx",
+          "apps/web/src/panels/settings.tsx"
+        ]
+      }
+    },
+    "settings/general.page.json": {
+      "implemented": {
+        "at": 1795454709395,
+        "code": {
+          "apps/web/src/panels/settings-general.tsx": "703d389e807433d1",
+          "apps/web/src/panels/settings-group.tsx": "5979019eb79fbf6e",
+          "apps/web/src/panels/settings-profile.tsx": "35c7d613fdbf0ad8",
+          "apps/web/src/panels/settings.tsx": "5b1fa3c70ccb2736"
+        },
+        "design": "325b42ce0c591cec",
+        "files": [
+          "apps/web/src/panels/settings-general.tsx",
+          "apps/web/src/panels/settings-group.tsx",
+          "apps/web/src/panels/settings-profile.tsx",
+          "apps/web/src/panels/settings.tsx"
+        ]
+      }
+    },
+    "settings/name-and-icon.page.json": {
+      "implemented": {
+        "at": 1795454710454,
+        "code": {
+          "apps/web/src/panels/settings-group.tsx": "5979019eb79fbf6e",
+          "apps/web/src/panels/settings-name-and-icon.tsx": "15c5e2c2741a11f2",
+          "apps/web/src/panels/settings.tsx": "5b1fa3c70ccb2736"
+        },
+        "design": "733af131f07dd512",
+        "files": [
+          "apps/web/src/panels/settings-group.tsx",
+          "apps/web/src/panels/settings-name-and-icon.tsx",
+          "apps/web/src/panels/settings.tsx"
+        ]
+      }
+    },
+    "settings/repository.page.json": {
+      "implemented": {
+        "at": 1795454710625,
+        "code": {
+          "apps/web/src/panels/settings-group.tsx": "5979019eb79fbf6e",
+          "apps/web/src/panels/settings.tsx": "5b1fa3c70ccb2736"
+        },
+        "design": "1a315af7083fe0db",
+        "files": [
+          "apps/web/src/panels/settings-group.tsx",
+          "apps/web/src/panels/settings.tsx"
+        ]
+      }
+    },
+    "settings/review.page.json": {
+      "implemented": {
+        "at": 1795454710999,
+        "code": {
+          "apps/web/src/panels/settings-group.tsx": "5979019eb79fbf6e",
+          "apps/web/src/panels/settings-review.tsx": "045e1739492187fa",
+          "apps/web/src/panels/settings.tsx": "5b1fa3c70ccb2736"
+        },
+        "design": "5bd627ffd498c971",
+        "files": [
+          "apps/web/src/panels/settings-group.tsx",
+          "apps/web/src/panels/settings-review.tsx",
+          "apps/web/src/panels/settings.tsx"
+        ]
+      }
+    },
+    "settings/shortcuts.page.json": {
+      "implemented": {
+        "at": 1795454710274,
+        "code": {
+          "apps/web/src/panels/settings-group.tsx": "5979019eb79fbf6e",
+          "apps/web/src/panels/settings-shortcuts.tsx": "ca1f28a2e4679053",
+          "apps/web/src/panels/settings.tsx": "5b1fa3c70ccb2736"
+        },
+        "design": "998f2f28b0bc353f",
+        "files": [
+          "apps/web/src/panels/settings-group.tsx",
+          "apps/web/src/panels/settings-shortcuts.tsx",
+          "apps/web/src/panels/settings.tsx"
+        ]
+      }
+    },
+    "settings/skills.page.json": {
+      "implemented": {
+        "at": 1795454711253,
+        "code": {
+          "apps/web/src/panels/settings-agents.tsx": "1f4823adf8911f0b",
+          "apps/web/src/panels/settings-group.tsx": "5979019eb79fbf6e",
+          "apps/web/src/panels/settings.tsx": "5b1fa3c70ccb2736"
+        },
+        "design": "fe2248d570fbdee8",
+        "files": [
+          "apps/web/src/panels/settings-agents.tsx",
+          "apps/web/src/panels/settings-group.tsx",
+          "apps/web/src/panels/settings.tsx"
+        ]
+      }
     }
   },
   "version": 1

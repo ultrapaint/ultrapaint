@@ -1,224 +1,241 @@
 {
   "root": {"type": "page", "id": "root", "align": "center", "crossAlign": "center", "direction": "column", "fill": "#0b0b0c", "padding": 0, "children": [
     {"type": "row", "id": "r_s99", "crossAlign": "start", "gap": 32, "children": [
-      {"type": "row", "id": "r_s8d", "name": "Settings dialog", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "stretch", "fill": "$color-rail", "minHeight": 720, "radius": 16, "shadow": "0 2px 6px rgba(0,0,0,0.35), 0 16px 40px -8px rgba(0,0,0,0.6)", "width": 1040, "children": [
-        {"type": "column", "id": "c_s85", "name": "Sections", "gap": 2, "padding": {"bottom": 12, "left": 12, "right": 12}, "width": 220, "children": [
-          {"type": "row", "id": "r_s83", "crossAlign": "center", "height": 48, "padding": {"left": 8}, "width": "fill", "children": [
-            {"type": "text", "id": "t_s82", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "level": 2, "lineHeight": "20px", "role": "heading", "size": 14, "text": "Settings", "tracking": "0.02em"}
+      {"type": "row", "id": "r_s8d", "name": "Settings dialog", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "stretch", "fill": "$color-rail", "minHeight": 720, "radius": "$radius-2xl", "shadow": "$shadow-overlay", "width": 960, "children": [
+        {"type": "column", "id": "c_2qv7v1da", "name": "Sections", "fill": "$color-rail", "width": 224, "children": [
+          {"type": "row", "id": "r_2qu6kt28", "crossAlign": "center", "height": 48, "padding": {"left": 20, "right": 20}, "width": "fill", "children": [
+            {"type": "text", "id": "t_2qu6jzxg", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Settings", "tracking": "0.02em", "weight": 400}
           ]},
-          {"type": "row", "id": "r_s70", "padding": {"bottom": 4, "left": 8, "right": 8, "top": 12}, "width": "fill", "children": [
-            {"type": "text", "id": "t_s6z", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "You", "weight": 500}
-          ]},
-          {"type": "row", "id": "r_s73", "name": "Nav · General", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-            {"type": "image", "id": "m_s71", "name": "sliders-horizontal", "height": 16, "src": "assets/icons/sliders-horizontal.svg", "tint": "$color-muted-foreground", "width": 16},
-            {"type": "text", "id": "t_s72", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "General", "weight": 500, "width": "fill"}
-          ]},
-          {"type": "row", "id": "r_s76", "name": "Nav · Appearance", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-sidebar", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-            {"type": "image", "id": "m_s74", "name": "palette", "height": 16, "src": "assets/icons/palette.svg", "tint": "$color-foreground", "width": 16},
-            {"type": "text", "id": "t_s75", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Appearance", "weight": 500, "width": "fill"}
-          ]},
-          {"type": "row", "id": "r_s79", "name": "Nav · Chats", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-            {"type": "image", "id": "m_s77", "name": "message-square", "height": 16, "src": "assets/icons/message-square.svg", "tint": "$color-muted-foreground", "width": 16},
-            {"type": "text", "id": "t_s78", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Chats", "weight": 500, "width": "fill"}
-          ]},
-          {"type": "row", "id": "r_s7c", "name": "Nav · Shortcuts", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-            {"type": "image", "id": "m_s7a", "name": "keyboard", "height": 16, "src": "assets/icons/keyboard.svg", "tint": "$color-muted-foreground", "width": 16},
-            {"type": "text", "id": "t_s7b", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Shortcuts", "weight": 500, "width": "fill"}
-          ]},
-          {"type": "row", "id": "r_s7e", "padding": {"bottom": 4, "left": 8, "right": 8, "top": 12}, "width": "fill", "children": [
-            {"type": "text", "id": "t_s7d", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Project · ultrapaint", "weight": 500}
-          ]},
-          {"type": "row", "id": "nai_00007", "name": "Nav · Name and icon", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-            {"type": "image", "id": "nai_00008", "name": "shapes", "height": 16, "src": "assets/icons/shapes.svg", "tint": "$color-muted-foreground", "width": 16},
-            {"type": "text", "id": "nai_00009", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Name and icon", "weight": 500, "width": "fill"}
-          ]},
-          {"type": "row", "id": "r_s7h", "name": "Nav · Repository", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-            {"type": "image", "id": "m_s7f", "name": "folder-git-2", "height": 16, "src": "assets/icons/folder-git-2.svg", "tint": "$color-muted-foreground", "width": 16},
-            {"type": "text", "id": "t_s7g", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Repository", "weight": 500, "width": "fill"}
-          ]},
-          {"type": "row", "id": "r_s7k", "name": "Nav · Design system", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-            {"type": "image", "id": "m_s7i", "name": "swatch-book", "height": 16, "src": "assets/icons/swatch-book.svg", "tint": "$color-muted-foreground", "width": 16},
-            {"type": "text", "id": "t_s7j", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Design system", "weight": 500, "width": "fill"}
-          ]},
-          {"type": "row", "id": "r_s7n", "name": "Nav · Review", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-            {"type": "image", "id": "m_s7l", "name": "message-square-check", "height": 16, "src": "assets/icons/message-square-check.svg", "tint": "$color-muted-foreground", "width": 16},
-            {"type": "text", "id": "t_s7m", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Review", "weight": 500, "width": "fill"}
-          ]},
-          {"type": "row", "id": "r_s7q", "name": "Nav · Skills", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-            {"type": "image", "id": "m_s7o", "name": "book-open", "height": 16, "src": "assets/icons/book-open.svg", "tint": "$color-muted-foreground", "width": 16},
-            {"type": "text", "id": "t_s7p", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Skills", "weight": 500, "width": "fill"}
-          ]},
-          {"type": "row", "id": "r_s7s", "padding": {"bottom": 4, "left": 8, "right": 8, "top": 12}, "width": "fill", "children": [
-            {"type": "text", "id": "t_s7r", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "This computer", "weight": 500}
-          ]},
-          {"type": "row", "id": "r_s7v", "name": "Nav · Agents", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-            {"type": "image", "id": "m_s7t", "name": "bot", "height": 16, "src": "assets/icons/bot.svg", "tint": "$color-muted-foreground", "width": 16},
-            {"type": "text", "id": "t_s7u", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Agents", "weight": 500, "width": "fill"}
-          ]},
-          {"type": "row", "id": "r_s7y", "name": "Nav · Connections", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-            {"type": "image", "id": "m_s7w", "name": "plug", "height": 16, "src": "assets/icons/plug.svg", "tint": "$color-muted-foreground", "width": 16},
-            {"type": "text", "id": "t_s7x", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Connections", "weight": 500, "width": "fill"}
-          ]},
-          {"type": "row", "id": "r_s81", "name": "Nav · About", "crossAlign": "center", "gap": 8, "height": 28, "padding": {"left": 8, "right": 8}, "radius": 6, "width": "fill", "children": [
-            {"type": "image", "id": "m_s7z", "name": "info", "height": 16, "src": "assets/icons/info.svg", "tint": "$color-muted-foreground", "width": 16},
-            {"type": "text", "id": "t_s80", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "About", "weight": 500, "width": "fill"}
-          ]},
-          {"type": "column", "id": "c_s84", "name": "Spacer", "height": "fill", "width": "fill", "children": []}
-        ]},
-        {"type": "column", "id": "c_s8c", "name": "Page", "border": {"color": "$color-border", "style": "solid", "width": "0 0 0 1px"}, "fill": "$color-sidebar", "radius": "0 16px 16px 0", "width": "fill", "children": [
-          {"type": "row", "id": "r_s8a", "name": "Header", "border": {"color": "$color-border", "style": "solid", "width": "0 0 1px 0"}, "crossAlign": "center", "gap": 8, "height": 48, "padding": {"left": 24, "right": 12}, "width": "fill", "children": [
-            {"type": "row", "id": "r_s87", "crossAlign": "center", "gap": 10, "width": "fill", "children": [
-              {"type": "text", "id": "t_s86", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "level": 2, "lineHeight": "20px", "role": "heading", "size": 14, "text": "Appearance", "tracking": "0.02em"}
-            ]},
-            {"type": "row", "id": "r_s89", "align": "center", "crossAlign": "center", "height": 28, "radius": 6, "width": 28, "children": [
-              {"type": "image", "id": "m_s88", "name": "x", "height": 16, "src": "assets/icons/x.svg", "tint": "$color-foreground", "width": 16}
+          {"type": "row", "id": "r_2qu6quv0", "padding": {"bottom": 8, "left": 12, "right": 12}, "width": "fill", "children": [
+            {"type": "row", "id": "r_2qu6p51l", "name": "Search", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)", "gap": 6, "height": 28, "padding": {"left": 8, "right": 6}, "radius": "$radius-md", "width": "fill", "children": [
+              {"type": "image", "id": "img_2qu6l5u9", "name": "search", "alt": "", "height": 14, "src": "assets/icons/search.svg", "tint": "$color-muted-foreground", "width": 14},
+              {"type": "text", "id": "t_2qu6mvia", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Search", "width": "fill"},
+              {"type": "row", "id": "r_2qu6onxu", "align": "center", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-muted", "height": 20, "padding": {"left": 5, "right": 5}, "radius": "$radius-sm", "children": [
+                {"type": "text", "id": "t_2qu6nssg", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "/"}
+              ]}
             ]}
           ]},
-          {"type": "column", "id": "c_s8b", "name": "Scroll", "gap": 32, "maxWidth": 820, "padding": 24, "width": "fill", "children": [
-            {"type": "column", "id": "c_s4w", "name": "Group · untitled", "gap": 8, "width": "fill", "children": [
-              {"type": "column", "id": "c_s4v", "border": {"color": "$color-border", "style": "solid", "width": 1}, "radius": 10, "width": "fill", "children": [
-                {"type": "column", "id": "c_s4u", "name": "Row · Theme", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
-                  {"type": "column", "id": "c_s4t", "gap": 2, "width": "fill", "children": [
-                    {"type": "text", "id": "t_s4r", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Theme", "weight": 600},
-                    {"type": "text", "id": "t_s4s", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "The editor’s light and dark. Designs keep their own themes."}
+          {"type": "column", "id": "c_2qv7uah8", "name": "Nav", "gap": 2, "padding": {"bottom": 12, "left": 12, "right": 12}, "width": "fill", "children": [
+            {"type": "text", "id": "t_2qu6rg0e", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "padding": {"bottom": 4, "left": 8, "top": 4}, "role": "paragraph", "size": 12, "text": "You"},
+            {"type": "row", "id": "r_2qu6ul2d", "name": "Nav · General", "crossAlign": "center", "gap": 8, "height": 30, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
+              {"type": "image", "id": "img_2qu6suk5", "name": "sliders-horizontal", "alt": "", "height": 16, "src": "assets/icons/sliders-horizontal.svg", "tint": "$color-muted-foreground", "width": 16},
+              {"type": "text", "id": "t_2qu6th4n", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "General"}
+            ]},
+            {"type": "row", "id": "r_2qu6xrtd", "name": "Nav · Appearance", "crossAlign": "center", "fill": "$color-accent", "gap": 8, "height": 30, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
+              {"type": "image", "id": "img_2qu6voz7", "name": "palette", "alt": "", "height": 16, "src": "assets/icons/palette.svg", "tint": "$color-foreground", "width": 16},
+              {"type": "text", "id": "t_2qu6w5o1", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Appearance"}
+            ]},
+            {"type": "row", "id": "r_2qu700w8", "name": "Nav · Chats", "crossAlign": "center", "gap": 8, "height": 30, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
+              {"type": "image", "id": "img_2qu6y4lo", "name": "message-square", "alt": "", "height": 16, "src": "assets/icons/message-square.svg", "tint": "$color-muted-foreground", "width": 16},
+              {"type": "text", "id": "t_2qu6zeim", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Chats"}
+            ]},
+            {"type": "row", "id": "r_2qu73npb", "name": "Nav · Shortcuts", "crossAlign": "center", "gap": 8, "height": 30, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
+              {"type": "image", "id": "img_2qu71slh", "name": "keyboard", "alt": "", "height": 16, "src": "assets/icons/keyboard.svg", "tint": "$color-muted-foreground", "width": 16},
+              {"type": "text", "id": "t_2qu72hqc", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Shortcuts"}
+            ]},
+            {"type": "text", "id": "t_2qu74kih", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "padding": {"bottom": 4, "left": 8, "top": 12}, "role": "paragraph", "size": 12, "text": "Project · ultrapaint"},
+            {"type": "row", "id": "r_2qu772yz", "name": "Nav · Name and icon", "crossAlign": "center", "gap": 8, "height": 30, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
+              {"type": "image", "id": "img_2qu758s2", "name": "shapes", "alt": "", "height": 16, "src": "assets/icons/shapes.svg", "tint": "$color-muted-foreground", "width": 16},
+              {"type": "text", "id": "t_2qu761u0", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Name and icon"}
+            ]},
+            {"type": "row", "id": "r_2qu7a8j6", "name": "Nav · Repository", "crossAlign": "center", "gap": 8, "height": 30, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
+              {"type": "image", "id": "img_2qu78oft", "name": "folder-git-2", "alt": "", "height": 16, "src": "assets/icons/folder-git-2.svg", "tint": "$color-muted-foreground", "width": 16},
+              {"type": "text", "id": "t_2qu79go5", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Repository"}
+            ]},
+            {"type": "row", "id": "r_2qu7dzu0", "name": "Nav · Design system", "crossAlign": "center", "gap": 8, "height": 30, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
+              {"type": "image", "id": "img_2qu7bd37", "name": "swatch-book", "alt": "", "height": 16, "src": "assets/icons/swatch-book.svg", "tint": "$color-muted-foreground", "width": 16},
+              {"type": "text", "id": "t_2qu7cvh6", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Design system"}
+            ]},
+            {"type": "row", "id": "r_2qu7ggvd", "name": "Nav · Review", "crossAlign": "center", "gap": 8, "height": 30, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
+              {"type": "image", "id": "img_2qu7enj4", "name": "message-square-check", "alt": "", "height": 16, "src": "assets/icons/message-square-check.svg", "tint": "$color-muted-foreground", "width": 16},
+              {"type": "text", "id": "t_2qu7fhyi", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Review"}
+            ]},
+            {"type": "row", "id": "r_2qu7j01d", "name": "Nav · Skills", "crossAlign": "center", "gap": 8, "height": 30, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
+              {"type": "image", "id": "img_2qu7h9p3", "name": "book-open", "alt": "", "height": 16, "src": "assets/icons/book-open.svg", "tint": "$color-muted-foreground", "width": 16},
+              {"type": "text", "id": "t_2qu7iybj", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Skills"}
+            ]},
+            {"type": "text", "id": "t_2qu7kfdb", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "padding": {"bottom": 4, "left": 8, "top": 12}, "role": "paragraph", "size": 12, "text": "This computer"},
+            {"type": "row", "id": "r_2qu7n4mb", "name": "Nav · Agents", "crossAlign": "center", "gap": 8, "height": 30, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
+              {"type": "image", "id": "img_2qu7lwvj", "name": "bot", "alt": "", "height": 16, "src": "assets/icons/bot.svg", "tint": "$color-muted-foreground", "width": 16},
+              {"type": "text", "id": "t_2qu7me6i", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Agents"}
+            ]},
+            {"type": "row", "id": "r_2qu7qtwn", "name": "Nav · Connections", "crossAlign": "center", "gap": 8, "height": 30, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
+              {"type": "image", "id": "img_2qu7ou2e", "name": "plug", "alt": "", "height": 16, "src": "assets/icons/plug.svg", "tint": "$color-muted-foreground", "width": 16},
+              {"type": "text", "id": "t_2qu7pv2s", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Connections"}
+            ]},
+            {"type": "row", "id": "r_2qu7tu2x", "name": "Nav · About", "crossAlign": "center", "gap": 8, "height": 30, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
+              {"type": "image", "id": "img_2qu7r73d", "name": "info", "alt": "", "height": 16, "src": "assets/icons/info.svg", "tint": "$color-muted-foreground", "width": 16},
+              {"type": "text", "id": "t_2qu7spcx", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "About"}
+            ]}
+          ]}
+        ]},
+        {"type": "column", "id": "c_2qv81r60", "name": "Page", "border": {"color": "$color-border", "style": "solid", "width": "0 0 0 1px"}, "fill": "$color-sidebar", "radius": "0 16px 16px 0", "width": "fill", "children": [
+          {"type": "row", "id": "r_2qv7z5b4", "name": "Header", "border": {"color": "$color-border", "style": "solid", "width": "0 0 1px 0"}, "crossAlign": "center", "gap": 12, "height": 48, "padding": {"left": 20, "right": 12}, "width": "fill", "children": [
+            {"type": "text", "id": "t_2qv7w7tb", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Appearance", "tracking": "0.02em", "weight": 400, "width": "fill"},
+            {"type": "instance", "id": "i_2qv7xs2z", "name": "Close", "component": "Button", "from": "@ultrapaint/system", "height": 24, "props": {"variant": "ghost", "size": "icon"}, "radius": "$radius-md", "width": 24, "children": [
+              {"type": "image", "id": "img_2qv7y43h", "name": "x", "alt": "", "height": 14, "src": "assets/icons/x.svg", "tint": "$color-foreground", "width": 14}
+            ]}
+          ]},
+          {"type": "column", "id": "c_2qv80rx3", "name": "Scroll", "gap": 32, "maxWidth": 768, "padding": 20, "width": "fill", "children": [
+            {"type": "column", "id": "c_2qu4jsul", "name": "Group · untitled", "gap": 8, "width": "fill", "children": [
+              {"type": "column", "id": "c_2qu4io7x", "name": "Rows", "border": {"color": "$color-border", "style": "solid", "width": 1}, "radius": "$radius-lg", "width": "fill", "children": [
+                {"type": "column", "id": "c_2qu44ohi", "name": "Row · Theme", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                  {"type": "column", "id": "c_2qt2i1r2", "gap": 2, "children": [
+                    {"type": "text", "id": "t_2qt2givx", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Theme", "tracking": "0.02em", "weight": 400},
+                    {"type": "text", "id": "t_2qt2h8gg", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "The editor’s light and dark. Designs keep their own themes."}
                   ]},
-                  {"type": "row", "id": "r_s1m", "gap": 12, "width": "fill", "children": [
-                    {"type": "column", "id": "c_sr", "name": "Theme · System", "gap": 8, "width": "fill", "children": [
-                      {"type": "column", "id": "c_sm", "border": {"color": "$color-primary", "style": "solid", "width": 2}, "height": 100, "padding": 3, "radius": 10, "width": "fill", "children": [
-                        {"type": "row", "id": "r_sl", "height": "fill", "radius": 7, "width": "fill", "children": [
-                          {"type": "row", "id": "r_sa", "fill": "#ebe9e4", "gap": 4, "height": "fill", "padding": 6, "radius": "7px 0 0 7px", "width": "fill", "children": [
-                            {"type": "column", "id": "c_s4", "fill": "#fdfcfa", "gap": 3, "height": "fill", "padding": 4, "radius": 3, "width": 34, "children": [
-                              {"type": "row", "id": "r_s1", "fill": "#d6d3cd", "height": 3, "radius": 2, "width": "fill", "children": []},
-                              {"type": "row", "id": "r_s2", "fill": "#d6d3cd", "height": 3, "radius": 2, "width": 18, "children": []},
-                              {"type": "row", "id": "r_s3", "fill": "#d6d3cd", "height": 3, "radius": 2, "width": 22, "children": []}
-                            ]},
-                            {"type": "column", "id": "c_s6", "align": "center", "crossAlign": "center", "height": "fill", "width": "fill", "children": [
-                              {"type": "row", "id": "r_s5", "fill": "$color-specimen", "height": 30, "radius": 2, "width": 44, "children": []}
-                            ]},
-                            {"type": "column", "id": "c_s9", "fill": "#fdfcfa", "gap": 3, "height": "fill", "padding": 4, "radius": 3, "width": 26, "children": [
-                              {"type": "row", "id": "r_s7", "fill": "#d6d3cd", "height": 3, "radius": 2, "width": "fill", "children": []},
-                              {"type": "row", "id": "r_s8", "fill": "#d6d3cd", "height": 3, "radius": 2, "width": 12, "children": []}
-                            ]}
+                  {"type": "row", "id": "r_2qu43m28", "gap": 16, "width": "fill", "children": [
+                    {"type": "column", "id": "c_2qu3809n", "name": "Theme · System", "gap": 8, "width": "fill", "children": [
+                      {"type": "row", "id": "r_2qu333y0", "border": {"color": "$color-primary", "style": "solid", "width": 2}, "height": 96, "padding": 4, "radius": "$radius-lg", "width": "fill", "children": [
+                        {"type": "row", "id": "r_2qu2s9w7", "crossAlign": "stretch", "fill": "#eeecea", "gap": 4, "height": "fill", "padding": 4, "radius": 4, "width": "fill", "children": [
+                          {"type": "column", "id": "c_2qu2m00z", "fill": "#ffffff", "gap": 3, "padding": 4, "radius": 2, "width": 22, "children": [
+                            {"type": "row", "id": "r_2qu2j0z6", "fill": "#9a948e", "height": 2, "width": 12, "children": []},
+                            {"type": "row", "id": "r_2qu2kilu", "fill": "#9a948e", "height": 2, "width": 10, "children": []},
+                            {"type": "row", "id": "r_2qu2lmta", "fill": "#9a948e", "height": 2, "width": 12, "children": []}
                           ]},
-                          {"type": "row", "id": "r_sk", "fill": "#121110", "gap": 4, "height": "fill", "padding": 6, "radius": "0 7px 7px 0", "width": "fill", "children": [
-                            {"type": "column", "id": "c_se", "fill": "#2c2b29", "gap": 3, "height": "fill", "padding": 4, "radius": 3, "width": 34, "children": [
-                              {"type": "row", "id": "r_sb", "fill": "#45433f", "height": 3, "radius": 2, "width": "fill", "children": []},
-                              {"type": "row", "id": "r_sc", "fill": "#45433f", "height": 3, "radius": 2, "width": 18, "children": []},
-                              {"type": "row", "id": "r_sd", "fill": "#45433f", "height": 3, "radius": 2, "width": 22, "children": []}
-                            ]},
-                            {"type": "column", "id": "c_sg", "align": "center", "crossAlign": "center", "height": "fill", "width": "fill", "children": [
-                              {"type": "row", "id": "r_sf", "fill": "$color-specimen", "height": 30, "radius": 2, "width": 44, "children": []}
-                            ]},
-                            {"type": "column", "id": "c_sj", "fill": "#2c2b29", "gap": 3, "height": "fill", "padding": 4, "radius": 3, "width": 26, "children": [
-                              {"type": "row", "id": "r_sh", "fill": "#45433f", "height": 3, "radius": 2, "width": "fill", "children": []},
-                              {"type": "row", "id": "r_si", "fill": "#45433f", "height": 3, "radius": 2, "width": 12, "children": []}
-                            ]}
+                          {"type": "row", "id": "r_2qu2oxuu", "align": "center", "crossAlign": "center", "width": "fill", "children": [
+                            {"type": "row", "id": "r_2qu2nfoc", "fill": "#ffffff", "height": 28, "radius": 2, "width": 40, "children": []}
+                          ]},
+                          {"type": "column", "id": "c_2qu2rda7", "fill": "#ffffff", "gap": 3, "padding": 4, "radius": 2, "width": 22, "children": [
+                            {"type": "row", "id": "r_2qu2p5rp", "fill": "#9a948e", "height": 2, "width": 10, "children": []},
+                            {"type": "row", "id": "r_2qu2qirj", "fill": "#9a948e", "height": 2, "width": 12, "children": []}
                           ]}
-                        ]}
-                      ]},
-                      {"type": "row", "id": "r_sq", "crossAlign": "center", "gap": 8, "padding": {"left": 2}, "children": [
-                        {"type": "row", "id": "r_so", "align": "center", "crossAlign": "center", "fill": "$color-primary", "height": 16, "radius": 999, "width": 16, "children": [
-                          {"type": "row", "id": "r_sn", "fill": "$color-primary-foreground", "height": 6, "radius": 999, "width": 6, "children": []}
                         ]},
-                        {"type": "text", "id": "t_sp", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "System", "weight": 500}
-                      ]}
-                    ]},
-                    {"type": "column", "id": "c_s16", "name": "Theme · Light", "gap": 8, "width": "fill", "children": [
-                      {"type": "column", "id": "c_s12", "border": {"color": "$color-border", "style": "solid", "width": 1}, "height": 100, "padding": 4, "radius": 10, "width": "fill", "children": [
-                        {"type": "row", "id": "r_s11", "fill": "#ebe9e4", "gap": 4, "height": "fill", "padding": 6, "radius": 7, "width": "fill", "children": [
-                          {"type": "column", "id": "c_sv", "fill": "#fdfcfa", "gap": 3, "height": "fill", "padding": 4, "radius": 3, "width": 34, "children": [
-                            {"type": "row", "id": "r_ss", "fill": "#d6d3cd", "height": 3, "radius": 2, "width": "fill", "children": []},
-                            {"type": "row", "id": "r_st", "fill": "#d6d3cd", "height": 3, "radius": 2, "width": 18, "children": []},
-                            {"type": "row", "id": "r_su", "fill": "#d6d3cd", "height": 3, "radius": 2, "width": 22, "children": []}
+                        {"type": "row", "id": "r_2qu32tvy", "crossAlign": "stretch", "fill": "#141312", "gap": 4, "height": "fill", "padding": 4, "radius": 4, "width": "fill", "children": [
+                          {"type": "column", "id": "c_2qu2wxti", "fill": "#232120", "gap": 3, "padding": 4, "radius": 2, "width": 22, "children": [
+                            {"type": "row", "id": "r_2qu2tsm2", "fill": "#9a948e", "height": 2, "width": 12, "children": []},
+                            {"type": "row", "id": "r_2qu2u8le", "fill": "#9a948e", "height": 2, "width": 10, "children": []},
+                            {"type": "row", "id": "r_2qu2vl28", "fill": "#9a948e", "height": 2, "width": 12, "children": []}
                           ]},
-                          {"type": "column", "id": "c_sx", "align": "center", "crossAlign": "center", "height": "fill", "width": "fill", "children": [
-                            {"type": "row", "id": "r_sw", "fill": "$color-specimen", "height": 30, "radius": 2, "width": 44, "children": []}
+                          {"type": "row", "id": "r_2qu2y0as", "align": "center", "crossAlign": "center", "width": "fill", "children": [
+                            {"type": "row", "id": "r_2qu2xyaz", "fill": "#ffffff", "height": 28, "radius": 2, "width": 40, "children": []}
                           ]},
-                          {"type": "column", "id": "c_s10", "fill": "#fdfcfa", "gap": 3, "height": "fill", "padding": 4, "radius": 3, "width": 26, "children": [
-                            {"type": "row", "id": "r_sy", "fill": "#d6d3cd", "height": 3, "radius": 2, "width": "fill", "children": []},
-                            {"type": "row", "id": "r_sz", "fill": "#d6d3cd", "height": 3, "radius": 2, "width": 12, "children": []}
+                          {"type": "column", "id": "c_2qu31znu", "fill": "#232120", "gap": 3, "padding": 4, "radius": 2, "width": 22, "children": [
+                            {"type": "row", "id": "r_2qu2zvgw", "fill": "#9a948e", "height": 2, "width": 10, "children": []},
+                            {"type": "row", "id": "r_2qu30z41", "fill": "#9a948e", "height": 2, "width": 12, "children": []}
                           ]}
                         ]}
                       ]},
-                      {"type": "row", "id": "r_s15", "crossAlign": "center", "gap": 8, "padding": {"left": 2}, "children": [
-                        {"type": "row", "id": "r_s13", "align": "center", "border": {"color": "$color-muted-foreground", "style": "solid", "width": 1}, "crossAlign": "center", "height": 16, "radius": 999, "width": 16, "children": []},
-                        {"type": "text", "id": "t_s14", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Light", "weight": 500}
+                      {"type": "row", "id": "r_2qu37gvu", "crossAlign": "center", "gap": 8, "children": [
+                        {"type": "row", "id": "r_2qu35etz", "align": "center", "border": {"color": "$color-primary", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-primary", "height": 16, "radius": 999, "width": 16, "children": [
+                          {"type": "row", "id": "r_2qu3494x", "fill": "#ffffff", "height": 6, "radius": 999, "width": 6, "children": []}
+                        ]},
+                        {"type": "text", "id": "t_2qu36xpg", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "System"}
                       ]}
                     ]},
-                    {"type": "column", "id": "c_s1l", "name": "Theme · Dark", "gap": 8, "width": "fill", "children": [
-                      {"type": "column", "id": "c_s1h", "border": {"color": "$color-border", "style": "solid", "width": 1}, "height": 100, "padding": 4, "radius": 10, "width": "fill", "children": [
-                        {"type": "row", "id": "r_s1g", "fill": "#121110", "gap": 4, "height": "fill", "padding": 6, "radius": 7, "width": "fill", "children": [
-                          {"type": "column", "id": "c_s1a", "fill": "#2c2b29", "gap": 3, "height": "fill", "padding": 4, "radius": 3, "width": 34, "children": [
-                            {"type": "row", "id": "r_s17", "fill": "#45433f", "height": 3, "radius": 2, "width": "fill", "children": []},
-                            {"type": "row", "id": "r_s18", "fill": "#45433f", "height": 3, "radius": 2, "width": 18, "children": []},
-                            {"type": "row", "id": "r_s19", "fill": "#45433f", "height": 3, "radius": 2, "width": 22, "children": []}
+                    {"type": "column", "id": "c_2qu3navw", "name": "Theme · Light", "gap": 8, "width": "fill", "children": [
+                      {"type": "row", "id": "r_2qu3jrb2", "border": {"color": "$color-border", "style": "solid", "width": 1}, "height": 96, "padding": 4, "radius": "$radius-lg", "width": "fill", "children": [
+                        {"type": "row", "id": "r_2qu3iy4z", "crossAlign": "stretch", "fill": "#eeecea", "gap": 4, "height": "fill", "padding": 4, "radius": 4, "width": "fill", "children": [
+                          {"type": "column", "id": "c_2qu3c9g3", "fill": "#ffffff", "gap": 3, "padding": 4, "radius": 2, "width": 22, "children": [
+                            {"type": "row", "id": "r_2qu39ey1", "fill": "#9a948e", "height": 2, "width": 12, "children": []},
+                            {"type": "row", "id": "r_2qu3atwo", "fill": "#9a948e", "height": 2, "width": 10, "children": []},
+                            {"type": "row", "id": "r_2qu3bnk4", "fill": "#9a948e", "height": 2, "width": 12, "children": []}
                           ]},
-                          {"type": "column", "id": "c_s1c", "align": "center", "crossAlign": "center", "height": "fill", "width": "fill", "children": [
-                            {"type": "row", "id": "r_s1b", "fill": "$color-specimen", "height": 30, "radius": 2, "width": 44, "children": []}
+                          {"type": "row", "id": "r_2qu3esv4", "align": "center", "crossAlign": "center", "width": "fill", "children": [
+                            {"type": "row", "id": "r_2qu3d3d9", "fill": "#ffffff", "height": 28, "radius": 2, "width": 40, "children": []}
                           ]},
-                          {"type": "column", "id": "c_s1f", "fill": "#2c2b29", "gap": 3, "height": "fill", "padding": 4, "radius": 3, "width": 26, "children": [
-                            {"type": "row", "id": "r_s1d", "fill": "#45433f", "height": 3, "radius": 2, "width": "fill", "children": []},
-                            {"type": "row", "id": "r_s1e", "fill": "#45433f", "height": 3, "radius": 2, "width": 12, "children": []}
+                          {"type": "column", "id": "c_2qu3h2lf", "fill": "#ffffff", "gap": 3, "padding": 4, "radius": 2, "width": 22, "children": [
+                            {"type": "row", "id": "r_2qu3fq9t", "fill": "#9a948e", "height": 2, "width": 10, "children": []},
+                            {"type": "row", "id": "r_2qu3gdco", "fill": "#9a948e", "height": 2, "width": 12, "children": []}
                           ]}
                         ]}
                       ]},
-                      {"type": "row", "id": "r_s1k", "crossAlign": "center", "gap": 8, "padding": {"left": 2}, "children": [
-                        {"type": "row", "id": "r_s1i", "align": "center", "border": {"color": "$color-muted-foreground", "style": "solid", "width": 1}, "crossAlign": "center", "height": 16, "radius": 999, "width": 16, "children": []},
-                        {"type": "text", "id": "t_s1j", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Dark", "weight": 500}
+                      {"type": "row", "id": "r_2qu3mcdt", "crossAlign": "center", "gap": 8, "children": [
+                        {"type": "row", "id": "r_2qu3kmwe", "align": "center", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-transparent", "height": 16, "radius": 999, "width": 16, "children": []},
+                        {"type": "text", "id": "t_2qu3lr85", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Light"}
+                      ]}
+                    ]},
+                    {"type": "column", "id": "c_2qu4261a", "name": "Theme · Dark", "gap": 8, "width": "fill", "children": [
+                      {"type": "row", "id": "r_2qu3ynkd", "border": {"color": "$color-border", "style": "solid", "width": 1}, "height": 96, "padding": 4, "radius": "$radius-lg", "width": "fill", "children": [
+                        {"type": "row", "id": "r_2qu3xagv", "crossAlign": "stretch", "fill": "#141312", "gap": 4, "height": "fill", "padding": 4, "radius": 4, "width": "fill", "children": [
+                          {"type": "column", "id": "c_2qu3rqd3", "fill": "#232120", "gap": 3, "padding": 4, "radius": 2, "width": 22, "children": [
+                            {"type": "row", "id": "r_2qu3ojo4", "fill": "#9a948e", "height": 2, "width": 12, "children": []},
+                            {"type": "row", "id": "r_2qu3pieh", "fill": "#9a948e", "height": 2, "width": 10, "children": []},
+                            {"type": "row", "id": "r_2qu3q6a6", "fill": "#9a948e", "height": 2, "width": 12, "children": []}
+                          ]},
+                          {"type": "row", "id": "r_2qu3tjr3", "align": "center", "crossAlign": "center", "width": "fill", "children": [
+                            {"type": "row", "id": "r_2qu3sd62", "fill": "#ffffff", "height": 28, "radius": 2, "width": 40, "children": []}
+                          ]},
+                          {"type": "column", "id": "c_2qu3w1sk", "fill": "#232120", "gap": 3, "padding": 4, "radius": 2, "width": 22, "children": [
+                            {"type": "row", "id": "r_2qu3uctf", "fill": "#9a948e", "height": 2, "width": 10, "children": []},
+                            {"type": "row", "id": "r_2qu3vww4", "fill": "#9a948e", "height": 2, "width": 12, "children": []}
+                          ]}
+                        ]}
+                      ]},
+                      {"type": "row", "id": "r_2qu41qpn", "crossAlign": "center", "gap": 8, "children": [
+                        {"type": "row", "id": "r_2qu3zm24", "align": "center", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-transparent", "height": 16, "radius": 999, "width": 16, "children": []},
+                        {"type": "text", "id": "t_2qu40z6i", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Dark"}
+                      ]}
+                    ]}
+                  ]}
+                ]},
+                {"type": "column", "id": "c_2qu4h12x", "name": "Row · Accent", "border": {"color": "$color-border", "style": "solid", "width": "1px 0 0 0"}, "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                  {"type": "row", "id": "r_2qu4g82s", "crossAlign": "center", "gap": 24, "width": "fill", "children": [
+                    {"type": "column", "id": "c_2qu4erms", "gap": 2, "padding": 0, "width": 240, "children": [
+                      {"type": "text", "id": "t_2qu4cd2u", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Accent", "tracking": "0.02em", "weight": 400},
+                      {"type": "text", "id": "t_2qu4dnv5", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "What you act on: the main button, a switch on, the focus ring."}
+                    ]},
+                    {"type": "row", "id": "r_2qu4f2m6", "align": "end", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+                      {"type": "row", "id": "r_2qu4be8s", "crossAlign": "center", "gap": 8, "children": [
+                        {"type": "row", "id": "r_2qu46jt7", "align": "center", "border": {"color": "$color-foreground", "style": "solid", "width": 2}, "crossAlign": "center", "fill": "#2563eb", "height": 24, "radius": 999, "width": 24, "children": [
+                          {"type": "image", "id": "img_2qu457av", "name": "check", "alt": "", "height": 12, "src": "assets/icons/check.svg", "tint": "#ffffff", "width": 12}
+                        ]},
+                        {"type": "row", "id": "r_2qu4781s", "align": "center", "crossAlign": "center", "fill": "#0f766e", "height": 24, "radius": 999, "width": 24, "children": []},
+                        {"type": "row", "id": "r_2qu4857e", "align": "center", "crossAlign": "center", "fill": "#15803d", "height": 24, "radius": 999, "width": 24, "children": []},
+                        {"type": "row", "id": "r_2qu49ajz", "align": "center", "crossAlign": "center", "fill": "#c2410c", "height": 24, "radius": 999, "width": 24, "children": []},
+                        {"type": "row", "id": "r_2qu4aple", "align": "center", "crossAlign": "center", "fill": "#f4f4f5", "height": 24, "radius": 999, "width": 24, "children": []}
                       ]}
                     ]}
                   ]}
                 ]}
               ]}
             ]},
-            {"type": "column", "id": "c_s5u", "name": "Group · Canvas", "gap": 8, "width": "fill", "children": [
-              {"type": "column", "id": "c_s5q", "gap": 2, "padding": {"left": 16, "right": 16}, "width": "fill", "children": [
-                {"type": "row", "id": "r_s5p", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
-                  {"type": "text", "id": "t_s5o", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "level": 3, "lineHeight": "20px", "role": "heading", "size": 14, "text": "Canvas", "tracking": "0.02em", "width": "fill"}
+            {"type": "column", "id": "c_2qu5ffbo", "name": "Group · Canvas", "gap": 8, "width": "fill", "children": [
+              {"type": "row", "id": "r_2qu5dtnp", "crossAlign": "start", "gap": 12, "padding": {"left": 16, "right": 16}, "width": "fill", "children": [
+                {"type": "column", "id": "c_2qu5cjqg", "gap": 2, "width": "fill", "children": [
+                  {"type": "text", "id": "t_2qu5ba1q", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Canvas", "tracking": "0.02em", "weight": 400}
                 ]}
               ]},
-              {"type": "column", "id": "c_s5t", "border": {"color": "$color-border", "style": "solid", "width": 1}, "radius": 10, "width": "fill", "children": [
-                {"type": "column", "id": "c_s54", "name": "Row · Grid", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
-                  {"type": "row", "id": "r_s53", "crossAlign": "center", "gap": 24, "width": "fill", "children": [
-                    {"type": "column", "id": "c_s51", "gap": 2, "width": 264, "children": [
-                      {"type": "text", "id": "t_s4z", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Grid", "weight": 600},
-                      {"type": "text", "id": "t_s50", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Shows 8px cells; what you place snaps to them."}
+              {"type": "column", "id": "c_2qu5eljx", "name": "Rows", "border": {"color": "$color-border", "style": "solid", "width": 1}, "radius": "$radius-lg", "width": "fill", "children": [
+                {"type": "column", "id": "c_2qu4r2y8", "name": "Row · Show the grid", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                  {"type": "row", "id": "r_2qu4qe78", "crossAlign": "center", "gap": 24, "width": "fill", "children": [
+                    {"type": "column", "id": "c_2qu4oisj", "gap": 2, "padding": 0, "width": 240, "children": [
+                      {"type": "text", "id": "t_2qu4m6ys", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Show the grid", "tracking": "0.02em", "weight": 400},
+                      {"type": "text", "id": "t_2qu4n2pm", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "Shows 8px cells; what you place snaps to them."}
                     ]},
-                    {"type": "row", "id": "r_s52", "align": "end", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
-                      {"type": "row", "id": "r_s4y", "name": "Switch · off", "align": "start", "border": {"color": "$color-muted-foreground", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "transparent", "height": 18, "padding": 2, "radius": 999, "width": 32, "children": [
-                        {"type": "row", "id": "r_s4x", "fill": "$color-muted-foreground", "height": 12, "margin": 1, "radius": 999, "width": 12, "children": []}
+                    {"type": "row", "id": "r_2qu4pn5r", "align": "end", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+                      {"type": "row", "id": "r_2qu4ltxk", "name": "Switch, off", "align": "start", "fill": "$color-input", "height": 16, "padding": 2, "radius": 999, "width": 28, "children": [
+                        {"type": "row", "id": "r_2qu4kw2i", "fill": "#ffffff", "height": 12, "radius": 999, "width": 12, "children": []}
                       ]}
                     ]}
                   ]}
                 ]},
-                {"type": "row", "id": "r_s5r", "name": "Hairline", "fill": "$color-border", "height": 1, "width": "fill", "children": []},
-                {"type": "column", "id": "c_s5c", "name": "Row · Comments", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
-                  {"type": "row", "id": "r_s5b", "crossAlign": "center", "gap": 24, "width": "fill", "children": [
-                    {"type": "column", "id": "c_s59", "gap": 2, "width": 264, "children": [
-                      {"type": "text", "id": "t_s57", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Comments", "weight": 600},
-                      {"type": "text", "id": "t_s58", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Pins on the designs they are left on."}
+                {"type": "column", "id": "c_2qu4z4be", "name": "Row · Show comments", "border": {"color": "$color-border", "style": "solid", "width": "1px 0 0 0"}, "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                  {"type": "row", "id": "r_2qu4y1lp", "crossAlign": "center", "gap": 24, "width": "fill", "children": [
+                    {"type": "column", "id": "c_2qu4wia9", "gap": 2, "padding": 0, "width": 240, "children": [
+                      {"type": "text", "id": "t_2qu4ujyp", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Show comments", "tracking": "0.02em", "weight": 400},
+                      {"type": "text", "id": "t_2qu4vsvd", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "Pins on the designs they’re left on."}
                     ]},
-                    {"type": "row", "id": "r_s5a", "align": "end", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
-                      {"type": "row", "id": "r_s56", "name": "Switch · on", "align": "end", "crossAlign": "center", "fill": "$color-primary", "height": 18, "padding": 2, "radius": 999, "width": 32, "children": [
-                        {"type": "row", "id": "r_s55", "fill": "$color-primary-foreground", "height": 14, "margin": 0, "radius": 999, "width": 14, "children": []}
+                    {"type": "row", "id": "r_2qu4xyem", "align": "end", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+                      {"type": "row", "id": "r_2qu4thyf", "name": "Switch, on", "align": "end", "fill": "$color-primary", "height": 16, "padding": 2, "radius": 999, "width": 28, "children": [
+                        {"type": "row", "id": "r_2qu4spj9", "fill": "#ffffff", "height": 12, "radius": 999, "width": 12, "children": []}
                       ]}
                     ]}
                   ]}
                 ]},
-                {"type": "row", "id": "r_s5s", "name": "Hairline", "fill": "$color-border", "height": 1, "width": "fill", "children": []},
-                {"type": "column", "id": "c_s5n", "name": "Row · Scroll wheel", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
-                  {"type": "row", "id": "r_s5m", "crossAlign": "center", "gap": 24, "width": "fill", "children": [
-                    {"type": "column", "id": "c_s5k", "gap": 2, "width": 264, "children": [
-                      {"type": "text", "id": "t_s5i", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Scroll wheel", "weight": 600},
-                      {"type": "text", "id": "t_s5j", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Pinch and ⌘/Ctrl+wheel always zoom."}
+                {"type": "column", "id": "c_2qu5aae6", "name": "Row · Scroll wheel", "border": {"color": "$color-border", "style": "solid", "width": "1px 0 0 0"}, "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                  {"type": "row", "id": "r_2qu592b0", "crossAlign": "center", "gap": 24, "width": "fill", "children": [
+                    {"type": "column", "id": "c_2qu57bi2", "gap": 2, "padding": 0, "width": 240, "children": [
+                      {"type": "text", "id": "t_2qu557bf", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Scroll wheel", "tracking": "0.02em", "weight": 400},
+                      {"type": "text", "id": "t_2qu56tfw", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "Pinch and ⌘/Ctrl+wheel always zoom."}
                     ]},
-                    {"type": "row", "id": "r_s5l", "align": "end", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
-                      {"type": "row", "id": "r_s5h", "name": "Segmented", "crossAlign": "center", "fill": "$color-muted", "gap": 2, "padding": 2, "radius": 6, "children": [
-                        {"type": "row", "id": "r_s5e", "align": "center", "crossAlign": "center", "fill": "$color-accent", "gap": 6, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 4, "children": [
-                          {"type": "text", "id": "t_s5d", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Pans", "weight": 500}
+                    {"type": "row", "id": "r_2qu58apj", "align": "end", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+                      {"type": "row", "id": "r_2qu54td9", "name": "Segmented", "crossAlign": "center", "fill": "$color-muted", "gap": 2, "height": 28, "padding": 2, "radius": "$radius-md", "children": [
+                        {"type": "row", "id": "r_2qu519pt", "crossAlign": "center", "fill": "$color-accent", "height": 24, "padding": {"left": 8, "right": 8}, "radius": "$radius-sm", "children": [
+                          {"type": "text", "id": "t_2qu504jj", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Pans"}
                         ]},
-                        {"type": "row", "id": "r_s5g", "align": "center", "crossAlign": "center", "gap": 6, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 4, "children": [
-                          {"type": "text", "id": "t_s5f", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Zooms", "weight": 500}
+                        {"type": "row", "id": "r_2qu53xc8", "crossAlign": "center", "height": 24, "padding": {"left": 8, "right": 8}, "radius": "$radius-sm", "children": [
+                          {"type": "text", "id": "t_2qu526xe", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Zooms"}
                         ]}
                       ]}
                     ]}
@@ -226,64 +243,63 @@
                 ]}
               ]}
             ]},
-            {"type": "column", "id": "c_s6y", "name": "Group · Interface", "gap": 8, "width": "fill", "children": [
-              {"type": "column", "id": "c_s6u", "gap": 2, "padding": {"left": 16, "right": 16}, "width": "fill", "children": [
-                {"type": "row", "id": "r_s6t", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
-                  {"type": "text", "id": "t_s6s", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "level": 3, "lineHeight": "20px", "role": "heading", "size": 14, "text": "Interface", "tracking": "0.02em", "width": "fill"}
+            {"type": "column", "id": "c_2qu6i6gd", "name": "Group · Interface", "gap": 8, "width": "fill", "children": [
+              {"type": "row", "id": "r_2qu6g8md", "crossAlign": "start", "gap": 12, "padding": {"left": 16, "right": 16}, "width": "fill", "children": [
+                {"type": "column", "id": "c_2qu6ffs0", "gap": 2, "width": "fill", "children": [
+                  {"type": "text", "id": "t_2qu6ew20", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Interface", "tracking": "0.02em", "weight": 400}
                 ]}
               ]},
-              {"type": "column", "id": "c_s6x", "border": {"color": "$color-border", "style": "solid", "width": 1}, "radius": 10, "width": "fill", "children": [
-                {"type": "column", "id": "c_s66", "name": "Row · Text size", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
-                  {"type": "row", "id": "r_s65", "crossAlign": "center", "gap": 24, "width": "fill", "children": [
-                    {"type": "column", "id": "c_s63", "gap": 2, "width": 264, "children": [
-                      {"type": "text", "id": "t_s62", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Text size", "weight": 600}
+              {"type": "column", "id": "c_2qu6h6x3", "name": "Rows", "border": {"color": "$color-border", "style": "solid", "width": 1}, "radius": "$radius-lg", "width": "fill", "children": [
+                {"type": "column", "id": "c_2qu5s499", "name": "Row · Text size", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                  {"type": "row", "id": "r_2qu5ratb", "crossAlign": "center", "gap": 24, "width": "fill", "children": [
+                    {"type": "column", "id": "c_2qu5ppm5", "gap": 2, "padding": 0, "width": 240, "children": [
+                      {"type": "text", "id": "t_2qu5n40e", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Text size", "tracking": "0.02em", "weight": 400},
+                      {"type": "text", "id": "t_2qu5o355", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "The panels’ text. The canvas keeps its own zoom."}
                     ]},
-                    {"type": "row", "id": "r_s64", "align": "end", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
-                      {"type": "row", "id": "r_s61", "name": "Segmented", "crossAlign": "center", "fill": "$color-muted", "gap": 2, "padding": 2, "radius": 6, "children": [
-                        {"type": "row", "id": "r_s5w", "align": "center", "crossAlign": "center", "gap": 6, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 4, "children": [
-                          {"type": "text", "id": "t_s5v", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Small", "weight": 500}
+                    {"type": "row", "id": "r_2qu5q7p3", "align": "end", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+                      {"type": "row", "id": "r_2qu5m9tf", "name": "Segmented", "crossAlign": "center", "fill": "$color-muted", "gap": 2, "height": 28, "padding": 2, "radius": "$radius-md", "children": [
+                        {"type": "row", "id": "r_2qu5h426", "crossAlign": "center", "height": 24, "padding": {"left": 8, "right": 8}, "radius": "$radius-sm", "children": [
+                          {"type": "text", "id": "t_2qu5gnlw", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Small"}
                         ]},
-                        {"type": "row", "id": "r_s5y", "align": "center", "crossAlign": "center", "fill": "$color-accent", "gap": 6, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 4, "children": [
-                          {"type": "text", "id": "t_s5x", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Default", "weight": 500}
+                        {"type": "row", "id": "r_2qu5j5p2", "crossAlign": "center", "fill": "$color-accent", "height": 24, "padding": {"left": 8, "right": 8}, "radius": "$radius-sm", "children": [
+                          {"type": "text", "id": "t_2qu5ir1t", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Default"}
                         ]},
-                        {"type": "row", "id": "r_s60", "align": "center", "crossAlign": "center", "gap": 6, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 4, "children": [
-                          {"type": "text", "id": "t_s5z", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Large", "weight": 500}
+                        {"type": "row", "id": "r_2qu5lh3m", "crossAlign": "center", "height": 24, "padding": {"left": 8, "right": 8}, "radius": "$radius-sm", "children": [
+                          {"type": "text", "id": "t_2qu5khir", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Large"}
                         ]}
                       ]}
                     ]}
                   ]}
                 ]},
-                {"type": "row", "id": "r_s6v", "name": "Hairline", "fill": "$color-border", "height": 1, "width": "fill", "children": []},
-                {"type": "column", "id": "c_s6e", "name": "Row · Increase contrast", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
-                  {"type": "row", "id": "r_s6d", "crossAlign": "center", "gap": 24, "width": "fill", "children": [
-                    {"type": "column", "id": "c_s6b", "gap": 2, "width": 264, "children": [
-                      {"type": "text", "id": "t_s69", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Increase contrast", "weight": 600},
-                      {"type": "text", "id": "t_s6a", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Darker muted text and firmer edges."}
+                {"type": "column", "id": "c_2qu60qn9", "name": "Row · Increase contrast", "border": {"color": "$color-border", "style": "solid", "width": "1px 0 0 0"}, "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                  {"type": "row", "id": "r_2qu5z9rt", "crossAlign": "center", "gap": 24, "width": "fill", "children": [
+                    {"type": "column", "id": "c_2qu5x64i", "gap": 2, "padding": 0, "width": 240, "children": [
+                      {"type": "text", "id": "t_2qu5vvv6", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Increase contrast", "tracking": "0.02em", "weight": 400},
+                      {"type": "text", "id": "t_2qu5w4ti", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "Darker muted text and firmer edges."}
                     ]},
-                    {"type": "row", "id": "r_s6c", "align": "end", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
-                      {"type": "row", "id": "r_s68", "name": "Switch · off", "align": "start", "border": {"color": "$color-muted-foreground", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "transparent", "height": 18, "padding": 2, "radius": 999, "width": 32, "children": [
-                        {"type": "row", "id": "r_s67", "fill": "$color-muted-foreground", "height": 12, "margin": 1, "radius": 999, "width": 12, "children": []}
+                    {"type": "row", "id": "r_2qu5yhay", "align": "end", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+                      {"type": "row", "id": "r_2qu5uocz", "name": "Switch, off", "align": "start", "fill": "$color-input", "height": 16, "padding": 2, "radius": 999, "width": 28, "children": [
+                        {"type": "row", "id": "r_2qu5txl7", "fill": "#ffffff", "height": 12, "radius": 999, "width": 12, "children": []}
                       ]}
                     ]}
                   ]}
                 ]},
-                {"type": "row", "id": "r_s6w", "name": "Hairline", "fill": "$color-border", "height": 1, "width": "fill", "children": []},
-                {"type": "column", "id": "c_s6r", "name": "Row · Motion", "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
-                  {"type": "row", "id": "r_s6q", "crossAlign": "center", "gap": 24, "width": "fill", "children": [
-                    {"type": "column", "id": "c_s6o", "gap": 2, "width": 264, "children": [
-                      {"type": "text", "id": "t_s6m", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Motion", "weight": 600},
-                      {"type": "text", "id": "t_s6n", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "System follows your computer’s Reduce motion."}
+                {"type": "column", "id": "c_2qu6dvyz", "name": "Row · Motion", "border": {"color": "$color-border", "style": "solid", "width": "1px 0 0 0"}, "gap": 12, "padding": {"bottom": 12, "left": 16, "right": 16, "top": 12}, "width": "fill", "children": [
+                  {"type": "row", "id": "r_2qu6cqkw", "crossAlign": "center", "gap": 24, "width": "fill", "children": [
+                    {"type": "column", "id": "c_2qu6a4fk", "gap": 2, "padding": 0, "width": 240, "children": [
+                      {"type": "text", "id": "t_2qu68ojd", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Motion", "tracking": "0.02em", "weight": 400},
+                      {"type": "text", "id": "t_2qu69xd5", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "System follows your computer’s Reduce motion setting."}
                     ]},
-                    {"type": "row", "id": "r_s6p", "align": "end", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
-                      {"type": "row", "id": "r_s6l", "name": "Segmented", "crossAlign": "center", "fill": "$color-muted", "gap": 2, "padding": 2, "radius": 6, "children": [
-                        {"type": "row", "id": "r_s6g", "align": "center", "crossAlign": "center", "fill": "$color-accent", "gap": 6, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 4, "children": [
-                          {"type": "text", "id": "t_s6f", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "System", "weight": 500}
+                    {"type": "row", "id": "r_2qu6b2d3", "align": "end", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+                      {"type": "row", "id": "r_2qu67gkd", "name": "Segmented", "crossAlign": "center", "fill": "$color-muted", "gap": 2, "height": 28, "padding": 2, "radius": "$radius-md", "children": [
+                        {"type": "row", "id": "r_2qu62z11", "crossAlign": "center", "fill": "$color-accent", "height": 24, "padding": {"left": 8, "right": 8}, "radius": "$radius-sm", "children": [
+                          {"type": "text", "id": "t_2qu61han", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "System"}
                         ]},
-                        {"type": "row", "id": "r_s6i", "align": "center", "crossAlign": "center", "gap": 6, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 4, "children": [
-                          {"type": "text", "id": "t_s6h", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Reduced", "weight": 500}
+                        {"type": "row", "id": "r_2qu642aw", "crossAlign": "center", "height": 24, "padding": {"left": 8, "right": 8}, "radius": "$radius-sm", "children": [
+                          {"type": "text", "id": "t_2qu63m4n", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Reduced"}
                         ]},
-                        {"type": "row", "id": "r_s6k", "align": "center", "crossAlign": "center", "gap": 6, "height": 24, "padding": {"left": 8, "right": 8}, "radius": 4, "children": [
-                          {"type": "text", "id": "t_s6j", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "20px", "role": "paragraph", "size": 14, "text": "Full", "weight": 500}
+                        {"type": "row", "id": "r_2qu66p0e", "crossAlign": "center", "height": 24, "padding": {"left": 8, "right": 8}, "radius": "$radius-sm", "children": [
+                          {"type": "text", "id": "t_2qu65r93", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Full"}
                         ]}
                       ]}
                     ]}
