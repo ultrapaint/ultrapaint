@@ -463,7 +463,7 @@ export interface RecallOptions {
   readonly skills: readonly string[];
 }
 
-/** The checkout's commit, short, and whether its apps or packages have uncommitted changes. */
+/** The checkout's commit, short, and whether its apps, packages or skills have uncommitted changes. */
 export const commitOf = Effect.gen(function* () {
   const { checkout } = yield* EvalsConfig;
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
@@ -475,7 +475,7 @@ export const commitOf = Effect.gen(function* () {
   const dirty = yield* spawner.string(
     ChildProcess.make(
       "git",
-      ["status", "--porcelain", "--", "apps", "packages"],
+      ["status", "--porcelain", "--", "apps", "packages", "skills"],
       {
         cwd: checkout,
       }
