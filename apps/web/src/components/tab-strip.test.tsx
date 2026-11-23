@@ -271,21 +271,30 @@ describe("the tab strip", () => {
 });
 
 describe("Ultrapaint Dev's tab strip", () => {
-  /** The blueprint Ultrapaint Dev draws (ADR 0113), as the strip marks it for the eye only. */
-  const blueprint = () => document.body.querySelector("[data-look=blueprint]");
+  /** Ultrapaint Dev's blueprint (ADR 0113): its paper, and its drawing, for the eye only. */
+  const paper = () => document.body.querySelector("[data-look=blueprint]");
+  const drawing = () =>
+    document.body.querySelector("[data-look=blueprint-drawing]");
 
-  it("draws its blueprint in the space past the +, hidden from a screen reader", async () => {
+  it("lays its blueprint under the whole strip from the window's left edge, hidden from a screen reader", async () => {
     await draw([SHOP, DOCS], { dev: true });
-    const drawn = blueprint();
-    expect(drawn?.getAttribute("aria-hidden")).toBe("true");
-    // After the +, never behind a tab.
+    const strip = byLabel("Open projects");
+    // The strip's first layer, under Home and the tabs.
+    expect(strip?.firstElementChild).toBe(paper());
+    expect(paper()?.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("draws its lines in the room past the +, never behind a tab", async () => {
+    await draw([SHOP, DOCS], { dev: true });
+    expect(drawing()?.getAttribute("aria-hidden")).toBe("true");
     expect(
-      drawn?.previousElementSibling?.contains(byLabel("Open a project"))
+      drawing()?.previousElementSibling?.contains(byLabel("Open a project"))
     ).toBe(true);
   });
 
   it("draws none in the release", async () => {
     await draw([SHOP, DOCS]);
-    expect(blueprint()).toBeNull();
+    expect(paper()).toBeNull();
+    expect(drawing()).toBeNull();
   });
 });

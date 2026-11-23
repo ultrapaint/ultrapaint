@@ -9,8 +9,8 @@
  * each with a × that takes it off the list), Open folder…, Open over SSH…, New project…; what is
  * chosen opens in a new tab. The strip is the window's title bar on a Mac, the room for its
  * buttons left at its start. It is a page of its own (`tabs.html`), in a view over the projects'
- * pages, that covers the window while a menu or dialog of its is open. Ultrapaint Dev draws its
- * blueprint in the room past the + (ADR 0113).
+ * pages, that covers the window while a menu or dialog of its is open. Ultrapaint Dev lays its
+ * blueprint under the strip and its drawing in the room past the + (ADR 0113).
  */
 import type { ShellTab } from "@ultrapaint/contracts/shell-bridge";
 import { House, LoaderCircle, Plus, X } from "lucide-react";
@@ -32,7 +32,7 @@ import { type PlatformProject, platform } from "../platform.ts";
 import { useShellTabs } from "../state/shell-tabs.ts";
 import { useWindowChrome } from "../state/window-controls.ts";
 import { CutPath } from "./cut-path.tsx";
-import { DevBlueprint } from "./dev-blueprint.tsx";
+import { DevBlueprint, DevBlueprintDrawing } from "./dev-blueprint.tsx";
 import { DialogHost, useDialogOpen } from "./dialogs.tsx";
 import { ProjectIcon } from "./project-icon.tsx";
 import {
@@ -293,6 +293,7 @@ export const TabStrip = () => {
   useEffect(() => {
     quietly(projects?.coverWindow(cover));
   }, [cover, projects]);
+  const dev = devCheckout() !== null;
   const home = !tabs.some((t) => t.shown);
   const shown = tabs.find((t) => t.shown)?.id;
   const scroller = useRef<HTMLDivElement>(null);
@@ -308,10 +309,11 @@ export const TabStrip = () => {
   return (
     <div
       aria-label="Open projects"
-      className="window-drag flex h-11 shrink-0 items-center gap-1 bg-canvas pr-2.5"
+      className="window-drag relative isolate flex h-11 shrink-0 items-center gap-1 bg-canvas pr-2.5"
       role="tablist"
       style={{ paddingLeft: inset > 0 ? inset : START }}
     >
+      {dev ? <DevBlueprint /> : null}
       <button
         aria-label="Home"
         aria-selected={home}
@@ -343,7 +345,7 @@ export const TabStrip = () => {
         ))}
       </div>
       <NewTab onOpenChange={setMenu} open={menu} />
-      {devCheckout() ? <DevBlueprint /> : null}
+      {dev ? <DevBlueprintDrawing /> : null}
     </div>
   );
 };

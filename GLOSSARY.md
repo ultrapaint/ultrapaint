@@ -656,8 +656,8 @@ refactor and the board view left.
   0113; `Edition` in `edition.ts`). Its own name, data folder (first filled with the release's
   projects, none open) and Keychain entry; each local project runs the checkout's `ultrapaint
   --dev` and opens in the editor that serves, live; its App update pulls `main`, through its runner
-  (`scripts/dev.ts`), which builds what changed and starts it again; the blueprint in the tab
-  strip and its icon tell it apart; it leaves the `ultrapaint` command to the release. The editor
+  (`scripts/dev.ts`), which builds what changed and starts it again; the blueprint under the
+  tab strip and its icon tell it apart; it leaves the `ultrapaint` command to the release. The editor
   learns it from the bridge's `dev`. _Avoid_: dev mode (`ultrapaint --dev`), nightly, the dev
   build.
 - **The person's folder**: what is the person's in every project, kept in a folder named

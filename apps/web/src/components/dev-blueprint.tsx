@@ -1,14 +1,17 @@
 /**
- * Ultrapaint Dev's look (ADR 0113): blueprint paper in the tab strip's empty space past the +,
- * a fine grid with a construction line, a dimension and a registration mark, as a drawing still
- * being worked out, and a line of its blue along the window's top edge. It fades in from the
- * left, takes only the room the tabs leave, and moves the window as the strip does. Drawn for the
- * eye only; nothing in it moves.
+ * Ultrapaint Dev's look (ADR 0113): blueprint paper under the whole tab strip from the window's
+ * left edge, fading out towards the right, a line of its blue along the window's top edge, and in
+ * the room past the + a drawing still being worked out. It moves the window as the strip does.
+ * Drawn for the eye only; nothing in it moves.
+ */
+/**
+ * The blueprint's paper: under the whole strip from the window's left edge, behind Home and the
+ * tabs, fading out towards the right, with a line of its blue along the window's top edge.
  */
 export const DevBlueprint = () => (
   <div
     aria-hidden="true"
-    className="relative -mr-2.5 min-w-0 flex-1 self-stretch overflow-hidden bg-blueprint [mask-image:linear-gradient(90deg,transparent,black_40%)]"
+    className="pointer-events-none absolute inset-0 -z-10 overflow-hidden bg-blueprint [mask-image:linear-gradient(90deg,black_30%,transparent)]"
     data-look="blueprint"
   >
     <svg className="absolute inset-0 size-full" role="presentation">
@@ -43,21 +46,33 @@ export const DevBlueprint = () => (
       <rect fill="url(#blueprint-minor)" height="100%" width="100%" />
       <rect fill="url(#blueprint-major)" height="100%" width="100%" />
     </svg>
-    {/* The drawing, at the window's right edge. */}
+    <div className="absolute inset-x-0 top-0 h-px bg-blueprint-line" />
+  </div>
+);
+
+/**
+ * The blueprint's drawing: a construction line, a dimension and a registration mark, in the
+ * room past the + and never behind a tab; many tabs take that room and it gives way.
+ */
+export const DevBlueprintDrawing = () => (
+  <div
+    aria-hidden="true"
+    className="relative min-w-0 flex-1 self-stretch overflow-hidden"
+    data-look="blueprint-drawing"
+  >
     <svg
-      className="absolute top-0 right-0 h-full w-[230px] fill-none stroke-blueprint-line"
+      className="absolute top-0 left-2 h-full w-[230px] fill-none stroke-blueprint-line"
       role="presentation"
       viewBox="0 0 230 44"
     >
-      <path d="M0 44C70 4 130 2 230 22" opacity="0.6" strokeDasharray="3 3" />
-      <path d="M28 30H208M28 26V34M208 26V34" />
-      <circle cx="178" cy="14" r="6" />
-      <path d="M168 14H188M178 4V24" />
+      <path d="M0 22C100 2 160 4 230 44" opacity="0.6" strokeDasharray="3 3" />
+      <path d="M22 30H202M22 26V34M202 26V34" />
+      <circle cx="52" cy="14" r="6" />
+      <path d="M42 14H62M52 4V24" />
       <path
         className="fill-blueprint-line stroke-none"
-        d="M38 30l6-3v6zM198 30l-6-3v6z"
+        d="M32 30l6-3v6zM192 30l-6-3v6z"
       />
     </svg>
-    <div className="absolute inset-x-0 top-0 h-px bg-blueprint-line" />
   </div>
 );
