@@ -1666,7 +1666,7 @@
                     "lineHeight": "16px",
                     "size": 12,
                     "role": "paragraph",
-                    "text": "Each folder opens in the file manager.",
+                    "text": "Your folder and This project’s data open in the file manager; New projects is changed with Change….",
                     "type": "text"
                   }
                 ],
