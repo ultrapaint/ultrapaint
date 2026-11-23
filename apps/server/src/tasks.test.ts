@@ -431,7 +431,7 @@ describe("bringing pages up to date from their code (ADR 0115)", () => {
     );
 
     it.effect(
-      "lists a state's page under its base page, once, when both are behind their code",
+      "lists a state's page on its own when it is behind its code too, its base naming it",
       () =>
         Effect.gen(function* () {
           yield* behindItsCode;
@@ -444,9 +444,10 @@ describe("bringing pages up to date from their code (ADR 0115)", () => {
           const text = yield* textOf({ _tag: "UpdateFromCode", targets: [""] });
           assert.include(
             text,
-            "Its states, drawn as pages of their own: empty (home@empty.page.json)."
+            "Its states, drawn as pages of their own and listed here on their own where they are behind too: empty (home@empty.page.json)."
           );
-          assert.notInclude(text, "- home@empty.page.json");
+          // The state's page is not linked yet, so it is behind too, and listed as itself.
+          assert.include(text, "- home@empty.page.json");
         })
     );
 
