@@ -384,7 +384,7 @@ const AppView = ({
   const editing = edited === node.id;
   // Around one edited inside it, it is the main component being edited a level out: its own
   // values, not this instance's (ADR 0114).
-  const around = edited?.startsWith(layerIdOf(node.id, "")) === true;
+  const around = scope.isolating?.enclosing?.includes(node.id) === true;
   // Edited in place, it draws the component's own values, at the variant being edited, under the
   // component's ids; otherwise its layers are named by the way to them from the instance (ADR
   // 0114). Its tree at the page's breakpoint, as the page is.

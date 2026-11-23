@@ -241,6 +241,20 @@ describe("an app component's instance overrides (ADR 0114)", () => {
     expect(twice).toContain('panelBTwoFill="blue"');
   });
 
+  it("keep a layer's field apart from its nested instance's prop of the same name", () => {
+    const both = toCode(
+      {
+        ...shell,
+        overrides: { i_9k2m1x: { props: { width: 120 }, width: 240 } },
+        props: {},
+      } as DesignNode,
+      none,
+      { fileOf: (name) => files[name] }
+    );
+    expect(both).toContain("navWidth={240}");
+    expect(both).toContain("navI9k2m1xWidth={120}");
+  });
+
   it("set at a breakpoint are written for that breakpoint", () => {
     expect(code()).toContain("sidebarHidden");
   });

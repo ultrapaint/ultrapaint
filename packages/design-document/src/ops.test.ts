@@ -545,6 +545,41 @@ describe("an instance's layers (ADR 0114)", () => {
     ).toEqual({ side: { type: "group" } });
   });
 
+  it("refuse turning a layer whose kind is not known, an instance inserted by the batch read as it is", () => {
+    const unknown = { ...options(), kindOf: () => undefined };
+    expect(() =>
+      applyOps(
+        shell(),
+        [{ id: "shell/side", op: "update", set: { type: "row" } }],
+        unknown
+      )
+    ).toThrow(DocumentOpError);
+    const fromTree = {
+      ...options(),
+      kindOf: (_: string, tree: DesignNode) =>
+        findNode(tree, "late") ? "text" : undefined,
+    };
+    expect(() =>
+      applyOps(
+        shell(),
+        [
+          {
+            node: {
+              component: "Shell",
+              from: "#app",
+              id: "late",
+              type: "instance",
+            },
+            op: "insert",
+            parent: "root",
+          },
+          { id: "late/title", op: "update", set: { type: "row" } },
+        ],
+        fromTree
+      )
+    ).toThrow("a text layer cannot become a row");
+  });
+
   it("leave a node of the document whose own id has a slash a node", () => {
     const slashed: PageNode = {
       children: [text("a/b", "Slashed")],

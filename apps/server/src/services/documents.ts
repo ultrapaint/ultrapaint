@@ -520,12 +520,20 @@ export class DocumentService extends Context.Service<
           }
           return file;
         });
+        // An instance the batch inserts is looked for among what it inserts too.
+        const inserted = ops.flatMap((op) =>
+          op.op === "insert" || op.op === "replace" ? [op.node] : []
+        );
+        const nodeNamed = (id: string) =>
+          findNode(tree, id) ??
+          inserted.map((n) => findNode(n, id)).find((n) => n !== null) ??
+          null;
         for (const op of ops) {
           if (!("id" in op && isInstanceLayer(op.id))) {
             continue;
           }
           const [first = "", ...rest] = op.id.split(LAYER_SEPARATOR);
-          let node: DesignNode | null = findNode(tree, first);
+          let node: DesignNode | null = nodeNamed(first);
           for (const id of rest) {
             if (node?.type !== "instance") {
               break;
@@ -591,8 +599,8 @@ export class DocumentService extends Context.Service<
                   {
                     canvas: canvas !== null,
                     // What a layer of an instance may be turned into is its own kind's to say.
-                    kindOf: (layer) =>
-                      findLayer(loaded.root, layer, fileOfLayer)?.type,
+                    kindOf: (layer, tree) =>
+                      findLayer(tree, layer, fileOfLayer)?.type,
                     next: makeIdGenerator(idsOf(loaded.root as DesignNode)),
                   }
                 ),

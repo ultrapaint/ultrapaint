@@ -65,6 +65,7 @@ const draw = async (
       readonly around?: Readonly<
         Record<string, Readonly<Record<string, string>>>
       >;
+      readonly enclosing?: readonly string[];
       readonly instance: string;
     };
   } = {}
@@ -474,11 +475,13 @@ describe("an app component (ADR 0041)", () => {
         components: [promo, outer],
         isolate: {
           around: { outer: { size: "lg" } },
+          enclosing: ["outer"],
           instance: "outer/o-promo",
         },
       }
     );
     // Only the large member has it: drawn at that member, it is there to edit.
+    expect(at("d-root")).not.toBeNull();
     expect(at("d-root")?.style.display).not.toBe("none");
   });
 
@@ -509,7 +512,10 @@ describe("an app component (ADR 0041)", () => {
           overrides: { "o-promo": { hidden: true } },
         }),
       ]),
-      { components: [promo, outer], isolate: { instance: "outer/o-promo" } }
+      {
+        components: [promo, outer],
+        isolate: { enclosing: ["outer"], instance: "outer/o-promo" },
+      }
     );
     // The page hides it; the main component, edited, does not.
     expect(at("d-root")).not.toBeNull();
