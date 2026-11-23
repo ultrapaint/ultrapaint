@@ -1,47 +1,46 @@
 {
-  "root": {"type": "page", "id": "root", "align": "center", "crossAlign": "center", "direction": "column", "fill": "oklch(0.945 0.004 80)", "children": [
-    {"type": "column", "id": "c_dt7b0q", "name": "Splash", "crossAlign": "center", "gap": 24, "width": 440, "children": [
-      {"type": "column", "id": "c_f1u5ni", "crossAlign": "center", "gap": 32, "width": "fill", "children": [
-        {"type": "image", "id": "img_7in6w2", "name": "Ultrapaint", "alt": "Ultrapaint", "height": 30, "src": "assets/icons/ultrapaint-lockup.svg", "tint": "oklch(0.21 0.006 60)", "width": 166},
-        {"type": "column", "id": "c_1a3lne", "crossAlign": "center", "gap": 4, "children": [
-          {"type": "text", "id": "t_a1eao1", "align": "center", "color": "oklch(0.21 0.006 60)", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.4, "role": "paragraph", "size": 20, "text": "Opening bike-shop", "tracking": "0.01em"},
-          {"type": "text", "id": "t_mxkdpg", "align": "center", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "~/Code/bike-shop"}
+  "root": {"type": "page", "id": "root", "align": "start", "crossAlign": "center", "direction": "column", "fill": "$color-canvas", "padding": {"bottom": 32, "top": 310}, "children": [
+    {"type": "column", "id": "c_7nucn1", "name": "Splash", "gap": 24, "width": 440, "children": [
+      {"type": "column", "id": "c_qsulx6", "name": "Header", "crossAlign": "center", "gap": 32, "width": "fill", "children": [
+        {"type": "image", "id": "img_shtx4g", "name": "Ultrapaint", "alt": "Ultrapaint", "height": 30, "src": "assets/icons/ultrapaint-lockup.svg", "tint": "$color-foreground", "width": 166},
+        {"type": "column", "id": "c_bt95lg", "crossAlign": "center", "gap": 4, "width": "fill", "children": [
+          {"type": "text", "id": "t_h7g84a", "align": "center", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "level": 1, "lineHeight": 1.2, "role": "heading", "size": 20, "text": "Opening bike-shop", "tracking": "0.01em", "weight": 400},
+          {"type": "text", "id": "t_ke86x4", "align": "center", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "~/Code/bike-shop"}
         ]}
       ]},
-      {"type": "column", "id": "c_0idzm7", "gap": 8, "width": "fill", "children": [
-        {"type": "row", "id": "r_rtwvo8", "name": "Progress", "fill": "oklch(0.21 0.006 60 / 10%)", "height": 4, "radius": 999, "width": "fill", "children": [
-          {"type": "row", "id": "r_xv71ek", "fill": "oklch(0.21 0.006 60)", "height": 4, "radius": 999, "width": 414, "children": []}
-        ]},
-        {"type": "row", "id": "r_27ajvx", "width": "fill", "children": [
-          {"type": "text", "id": "t_9hxwcs", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "Longer than last time (2 s)"}
-        ]}
-      ]},
-      {"type": "column", "id": "c_rq3eho", "name": "Steps", "gap": 2, "width": "fill", "children": [
-        {"type": "column", "id": "c_xthn04", "gap": 0, "width": "fill", "children": [
-          {"type": "row", "id": "r_59ibep", "name": "Step, now", "crossAlign": "center", "gap": 8, "height": 24, "width": "fill", "children": [
-            {"type": "image", "id": "img_2a2xkx", "name": "loader-circle", "height": 14, "src": "assets/icons/loader-circle.svg", "tint": "oklch(0.21 0.006 60)", "width": 14},
-            {"type": "text", "id": "t_s2alme", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Starting the server", "weight": 500},
-            {"type": "row", "id": "r_8gtost", "width": "fill", "children": []},
-            {"type": "text", "id": "t_66lszv", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "14 s"}
+      {"type": "column", "id": "c_cb316uw6", "name": "Progress", "gap": 24, "width": "fill", "children": [
+        {"type": "column", "id": "c_663hxy", "gap": 8, "width": "fill", "children": [
+          {"type": "column", "id": "c_cb3p9op", "name": "Bar", "height": 14, "width": "fill", "children": [
+            {"type": "row", "id": "r_cb3l3rr", "name": "Track", "fill": "$color-border", "height": 6, "margin": {"top": 4}, "radius": 999, "width": "fill", "children": []},
+            {"type": "row", "id": "r_cb3o3pr", "name": "Paint", "crossAlign": "start", "height": 6, "margin": {"top": -6}, "width": "fill", "children": [
+              {"type": "row", "id": "r_cb3mimy", "name": "Stroke", "fill": "$color-foreground", "height": 6, "radius": 999, "width": 422, "children": []},
+              {"type": "image", "id": "img_cb3ndin", "name": "Brush", "alt": "", "height": 34, "margin": {"left": -13, "top": -22}, "src": "assets/icons/splash-brush.svg", "tint": "$color-foreground", "width": 27}
+            ]}
           ]},
-          {"type": "row", "id": "r_ac0211", "padding": {"left": 22}, "width": "fill", "children": [
-            {"type": "text", "id": "t_rsuj7y", "color": "oklch(0.53 0.01 65)", "font": "'Geist Mono Variable', monospace", "lineHeight": 1.67, "role": "paragraph", "size": 12, "text": "pnpm install · 214 packages", "width": "fill"}
+          {"type": "text", "id": "t_rd3cxa", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "Longer than last time (2 s)"}
+        ]},
+        {"type": "column", "id": "c_pkddh6", "name": "Steps", "width": "fill", "children": [
+          {"type": "column", "id": "c_cb3vbkr", "name": "Step, now", "width": "fill", "children": [
+            {"type": "row", "id": "r_cb3t0go", "name": "Row", "crossAlign": "center", "gap": 8, "height": 28, "width": "fill", "children": [
+              {"type": "image", "id": "img_cb3qcgz", "name": "loader-circle", "alt": "", "height": 14, "src": "assets/icons/loader-circle.svg", "tint": "$color-foreground", "width": 14},
+              {"type": "text", "id": "t_cb3rnu5", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Starting the server", "weight": 500, "width": "fill"},
+              {"type": "text", "id": "t_cb3s1wy", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "14.0 s"}
+            ]},
+            {"type": "text", "id": "t_cb3u1b4", "color": "$color-muted-foreground", "font": "'Geist Mono Variable', ui-monospace, monospace", "lineHeight": 1.667, "padding": {"left": 22}, "role": "paragraph", "size": 12, "text": "pnpm install · 214 packages"}
+          ]},
+          {"type": "row", "id": "r_cb3yjjh", "name": "Step, next", "crossAlign": "center", "gap": 8, "height": 28, "width": "fill", "children": [
+            {"type": "image", "id": "img_cb3wwsd", "name": "circle", "alt": "", "height": 14, "src": "assets/icons/circle.svg", "tint": "$color-muted-foreground", "width": 14},
+            {"type": "text", "id": "t_cb3xw5i", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Reading the project", "width": "fill"}
+          ]},
+          {"type": "row", "id": "r_cb311b05", "name": "Step, next", "crossAlign": "center", "gap": 8, "height": 28, "width": "fill", "children": [
+            {"type": "image", "id": "img_cb3zgot", "name": "circle", "alt": "", "height": 14, "src": "assets/icons/circle.svg", "tint": "$color-muted-foreground", "width": 14},
+            {"type": "text", "id": "t_cb310zfc", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Drawing the canvas", "width": "fill"}
           ]}
         ]},
-        {"type": "row", "id": "r_07x5u1", "name": "Step, next", "crossAlign": "center", "gap": 8, "height": 24, "width": "fill", "children": [
-          {"type": "image", "id": "img_xecej3", "name": "circle", "height": 14, "src": "assets/icons/circle.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
-          {"type": "text", "id": "t_i94pf0", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Reading the project"},
-          {"type": "row", "id": "r_dyhw7g", "width": "fill", "children": []}
-        ]},
-        {"type": "row", "id": "r_ayc6ki", "name": "Step, next", "crossAlign": "center", "gap": 8, "height": 24, "width": "fill", "children": [
-          {"type": "image", "id": "img_x437jh", "name": "circle", "height": 14, "src": "assets/icons/circle.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
-          {"type": "text", "id": "t_t52mps", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Drawing the canvas"},
-          {"type": "row", "id": "r_qd0jd5", "width": "fill", "children": []}
+        {"type": "row", "id": "r_cb3154m6", "name": "Footer", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+          {"type": "row", "id": "r_cb312baz", "width": "fill", "children": []},
+          {"type": "instance", "id": "i_cb3135a4", "border": {"color": "$color-border", "style": "solid", "width": 1}, "component": "Button", "fill": "transparent", "from": "@ultrapaint/system", "height": 28, "padding": {"left": 10, "right": 10}, "props": {"variant": "outline", "size": "sm"}, "radius": "$radius-md", "text": "Cancel"}
         ]}
-      ]},
-      {"type": "row", "id": "r_cqmhgo", "align": "center", "gap": 8, "width": "fill", "children": [
-        {"type": "row", "id": "r_0795e7", "width": "fill", "children": []},
-        {"type": "instance", "id": "i_pla9bu", "component": "Button", "from": "@ultrapaint/system", "props": {"variant": "outline", "size": "sm"}, "text": "Cancel"}
       ]}
     ]}
   ]},

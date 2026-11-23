@@ -1,0 +1,105 @@
+{
+  "items": {
+    "loading/1a-opening.page.json": {
+      "implemented": {
+        "at": 1795452815993,
+        "code": {
+          "apps/web/src/components/opening-splash.tsx": "7a6380444df8299f",
+          "packages/contracts/src/opening.ts": "e507fe4294d19c7e"
+        },
+        "design": "0975147c72fb8519",
+        "files": [
+          "apps/web/src/components/opening-splash.tsx",
+          "packages/contracts/src/opening.ts"
+        ]
+      }
+    },
+    "loading/1b-taking-longer.page.json": {
+      "implemented": {
+        "at": 1795452816326,
+        "code": {
+          "apps/web/src/components/opening-splash.tsx": "7a6380444df8299f",
+          "packages/contracts/src/opening.ts": "e507fe4294d19c7e"
+        },
+        "design": "f0f6da5592f36694",
+        "files": [
+          "apps/web/src/components/opening-splash.tsx",
+          "packages/contracts/src/opening.ts"
+        ]
+      }
+    },
+    "loading/2a-switching.page.json": {
+      "implemented": {
+        "at": 1795452816653,
+        "code": {
+          "apps/web/src/components/opening-splash.tsx": "7a6380444df8299f",
+          "packages/contracts/src/opening.ts": "e507fe4294d19c7e"
+        },
+        "design": "111d9cc808956699",
+        "files": [
+          "apps/web/src/components/opening-splash.tsx",
+          "packages/contracts/src/opening.ts"
+        ]
+      }
+    },
+    "loading/3a-ssh.page.json": {
+      "implemented": {
+        "at": 1795452817055,
+        "code": {
+          "apps/web/src/components/opening-splash.tsx": "7a6380444df8299f",
+          "packages/contracts/src/opening.ts": "e507fe4294d19c7e"
+        },
+        "design": "3c4bd4c5221a44a3",
+        "files": [
+          "apps/web/src/components/opening-splash.tsx",
+          "packages/contracts/src/opening.ts"
+        ]
+      }
+    },
+    "loading/3b-ssh-log.page.json": {
+      "implemented": {
+        "at": 1795452817373,
+        "code": {
+          "apps/web/src/components/opening-splash.tsx": "7a6380444df8299f",
+          "packages/contracts/src/opening.ts": "e507fe4294d19c7e"
+        },
+        "design": "6a64a0b31a0cb1aa",
+        "files": [
+          "apps/web/src/components/opening-splash.tsx",
+          "packages/contracts/src/opening.ts"
+        ]
+      }
+    },
+    "loading/3c-ssh-failed.page.json": {
+      "implemented": {
+        "at": 1795452817740,
+        "code": {
+          "apps/web/src/components/opening-splash.tsx": "7a6380444df8299f",
+          "packages/contracts/src/opening.ts": "e507fe4294d19c7e"
+        },
+        "design": "2c47070e3d39d5ba",
+        "files": [
+          "apps/web/src/components/opening-splash.tsx",
+          "packages/contracts/src/opening.ts"
+        ]
+      }
+    },
+    "loading/4a-in-the-browser.page.json": {
+      "implemented": {
+        "at": 1795452818017,
+        "code": {
+          "apps/web/src/components/opening-splash.tsx": "7a6380444df8299f",
+          "apps/web/src/state/editor-opening.ts": "5a34099e4500a98f",
+          "packages/contracts/src/opening.ts": "e507fe4294d19c7e"
+        },
+        "design": "5554dc3c407023ba",
+        "files": [
+          "apps/web/src/components/opening-splash.tsx",
+          "apps/web/src/state/editor-opening.ts",
+          "packages/contracts/src/opening.ts"
+        ]
+      }
+    }
+  },
+  "version": 1
+}

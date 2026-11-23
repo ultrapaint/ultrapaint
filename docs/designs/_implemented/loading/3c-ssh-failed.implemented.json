@@ -1,0 +1,355 @@
+{
+  "kind": "page",
+  "notes": [],
+  "root": {
+    "fill": "$color-canvas",
+    "id": "root",
+    "padding": {
+      "bottom": 32,
+      "top": 310
+    },
+    "align": "start",
+    "crossAlign": "center",
+    "children": [
+      {
+        "id": "c_7nucn1",
+        "name": "Splash",
+        "width": 440,
+        "gap": 24,
+        "children": [
+          {
+            "id": "c_qsulx6",
+            "name": "Header",
+            "width": "fill",
+            "crossAlign": "center",
+            "gap": 32,
+            "children": [
+              {
+                "height": 30,
+                "id": "img_shtx4g",
+                "name": "Ultrapaint",
+                "width": 166,
+                "alt": "Ultrapaint",
+                "tint": "$color-foreground",
+                "src": "assets/icons/ultrapaint-lockup.svg",
+                "type": "image"
+              },
+              {
+                "id": "c_bt95lg",
+                "width": "fill",
+                "crossAlign": "center",
+                "gap": 4,
+                "children": [
+                  {
+                    "id": "t_h7g84a",
+                    "align": "center",
+                    "color": "$color-foreground",
+                    "font": "'Cal Sans', system-ui, sans-serif",
+                    "lineHeight": 1.2,
+                    "size": 20,
+                    "tracking": "0.01em",
+                    "weight": 400,
+                    "level": 1,
+                    "role": "heading",
+                    "text": "bike-shop didn’t open",
+                    "type": "text"
+                  },
+                  {
+                    "id": "t_ke86x4",
+                    "align": "center",
+                    "color": "$color-muted-foreground",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": 1.333,
+                    "size": 12,
+                    "role": "paragraph",
+                    "text": "naf-mini:~/Code/bike-shop",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "column"
+          },
+          {
+            "id": "c_cb43u0sz",
+            "name": "Progress",
+            "width": "fill",
+            "gap": 24,
+            "children": [
+              {
+                "id": "c_pkddh6",
+                "name": "Steps",
+                "width": "fill",
+                "children": [
+                  {
+                    "id": "c_cb43csno",
+                    "name": "Step, failed",
+                    "width": "fill",
+                    "children": [
+                      {
+                        "height": 28,
+                        "id": "r_cb4386zd",
+                        "name": "Row",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 14,
+                            "id": "img_cb435h97",
+                            "name": "circle-alert",
+                            "width": 14,
+                            "alt": "",
+                            "tint": "$color-destructive",
+                            "src": "assets/icons/circle-alert.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_cb436vkn",
+                            "width": "fill",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "weight": 500,
+                            "role": "paragraph",
+                            "text": "Connecting to naf-mini",
+                            "type": "text"
+                          },
+                          {
+                            "id": "t_cb437n0u",
+                            "color": "$color-muted-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "1.4 s",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "fill": "color-mix(in oklch, var(--color-destructive) 10%, transparent)",
+                        "id": "c_cb43bdnu",
+                        "margin": {
+                          "bottom": 8,
+                          "top": 4
+                        },
+                        "name": "Why it failed",
+                        "padding": 12,
+                        "radius": "$radius-lg",
+                        "width": "fill",
+                        "gap": 2,
+                        "children": [
+                          {
+                            "id": "t_cb439pc0",
+                            "color": "$color-destructive",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "weight": 500,
+                            "role": "paragraph",
+                            "text": "naf-mini accepted none of your keys.",
+                            "type": "text"
+                          },
+                          {
+                            "id": "t_cb43aadu",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Add your key with ssh-add, then try again.",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "column"
+                  },
+                  {
+                    "height": 28,
+                    "id": "r_cb43f2is",
+                    "name": "Step, next",
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 8,
+                    "children": [
+                      {
+                        "height": 14,
+                        "id": "img_cb43dl1u",
+                        "name": "circle",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-muted-foreground",
+                        "src": "assets/icons/circle.svg",
+                        "type": "image"
+                      },
+                      {
+                        "id": "t_cb43eoel",
+                        "width": "fill",
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "Starting ultrapaint there",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "height": 28,
+                    "id": "r_cb43i20q",
+                    "name": "Step, next",
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 8,
+                    "children": [
+                      {
+                        "height": 14,
+                        "id": "img_cb43g7vz",
+                        "name": "circle",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-muted-foreground",
+                        "src": "assets/icons/circle.svg",
+                        "type": "image"
+                      },
+                      {
+                        "id": "t_cb43h8hp",
+                        "width": "fill",
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "Loading the editor",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "height": 28,
+                    "id": "r_cb43lc8g",
+                    "name": "Step, next",
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 8,
+                    "children": [
+                      {
+                        "height": 14,
+                        "id": "img_cb43j4ln",
+                        "name": "circle",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-muted-foreground",
+                        "src": "assets/icons/circle.svg",
+                        "type": "image"
+                      },
+                      {
+                        "id": "t_cb43kkwz",
+                        "width": "fill",
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "Reading the project",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "r_cb43tlyv",
+                "name": "Footer",
+                "width": "fill",
+                "crossAlign": "center",
+                "gap": 8,
+                "children": [
+                  {
+                    "height": 28,
+                    "id": "i_cb43miqm",
+                    "padding": {
+                      "left": 10,
+                      "right": 10
+                    },
+                    "radius": "$radius-md",
+                    "props": {
+                      "variant": "ghost",
+                      "size": "sm"
+                    },
+                    "text": "Show log",
+                    "component": "Button",
+                    "from": "@ultrapaint/system",
+                    "type": "instance"
+                  },
+                  {
+                    "id": "r_cb43omk2",
+                    "width": "fill",
+                    "children": [],
+                    "type": "row"
+                  },
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "fill": "transparent",
+                    "height": 28,
+                    "id": "i_cb43pxue",
+                    "padding": {
+                      "left": 10,
+                      "right": 10
+                    },
+                    "radius": "$radius-md",
+                    "props": {
+                      "variant": "outline",
+                      "size": "sm"
+                    },
+                    "text": "Cancel",
+                    "component": "Button",
+                    "from": "@ultrapaint/system",
+                    "type": "instance"
+                  },
+                  {
+                    "height": 28,
+                    "id": "i_cb43rrrt",
+                    "padding": {
+                      "left": 10,
+                      "right": 10
+                    },
+                    "radius": "$radius-md",
+                    "props": {
+                      "variant": "primary",
+                      "size": "sm"
+                    },
+                    "text": "Try again",
+                    "component": "Button",
+                    "from": "@ultrapaint/system",
+                    "type": "instance"
+                  }
+                ],
+                "type": "row"
+              }
+            ],
+            "type": "column"
+          }
+        ],
+        "type": "column"
+      }
+    ],
+    "direction": "column",
+    "type": "page"
+  }
+}

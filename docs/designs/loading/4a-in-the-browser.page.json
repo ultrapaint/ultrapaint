@@ -1,38 +1,39 @@
 {
-  "root": {"type": "page", "id": "root", "align": "center", "crossAlign": "center", "direction": "column", "fill": "oklch(0.945 0.004 80)", "children": [
-    {"type": "column", "id": "c_yyavic", "name": "Splash", "crossAlign": "center", "gap": 24, "width": 440, "children": [
-      {"type": "column", "id": "c_cnyjsh", "crossAlign": "center", "gap": 32, "width": "fill", "children": [
-        {"type": "image", "id": "img_85l5xz", "name": "Ultrapaint", "alt": "Ultrapaint", "height": 30, "src": "assets/icons/ultrapaint-lockup.svg", "tint": "oklch(0.21 0.006 60)", "width": 166},
-        {"type": "column", "id": "c_61ftfl", "crossAlign": "center", "gap": 4, "children": [
-          {"type": "text", "id": "t_tbgucp", "align": "center", "color": "oklch(0.21 0.006 60)", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.4, "role": "paragraph", "size": 20, "text": "Opening bike-shop", "tracking": "0.01em"},
-          {"type": "text", "id": "t_l2y8yv", "align": "center", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "~/Code/bike-shop"}
+  "root": {"type": "page", "id": "root", "align": "start", "crossAlign": "center", "direction": "column", "fill": "$color-canvas", "padding": {"bottom": 32, "top": 310}, "children": [
+    {"type": "column", "id": "c_7nucn1", "name": "Splash", "gap": 24, "width": 440, "children": [
+      {"type": "column", "id": "c_qsulx6", "name": "Header", "crossAlign": "center", "gap": 32, "width": "fill", "children": [
+        {"type": "image", "id": "img_shtx4g", "name": "Ultrapaint", "alt": "Ultrapaint", "height": 30, "src": "assets/icons/ultrapaint-lockup.svg", "tint": "$color-foreground", "width": 166},
+        {"type": "column", "id": "c_bt95lg", "crossAlign": "center", "gap": 4, "width": "fill", "children": [
+          {"type": "text", "id": "t_h7g84a", "align": "center", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "level": 1, "lineHeight": 1.2, "role": "heading", "size": 20, "text": "Opening bike-shop", "tracking": "0.01em", "weight": 400},
+          {"type": "text", "id": "t_ke86x4", "align": "center", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "~/Code/bike-shop"}
         ]}
       ]},
-      {"type": "column", "id": "c_inl7bg", "gap": 8, "width": "fill", "children": [
-        {"type": "row", "id": "r_tpu832", "name": "Progress", "fill": "oklch(0.21 0.006 60 / 10%)", "height": 4, "radius": 999, "width": "fill", "children": [
-          {"type": "row", "id": "r_fw6l9r", "fill": "oklch(0.21 0.006 60)", "height": 4, "radius": 999, "width": 273, "children": []}
+      {"type": "column", "id": "c_cb44b8th", "name": "Progress", "gap": 24, "width": "fill", "children": [
+        {"type": "column", "id": "c_663hxy", "gap": 8, "width": "fill", "children": [
+          {"type": "column", "id": "c_cb43zuy7", "name": "Bar", "height": 14, "width": "fill", "children": [
+            {"type": "row", "id": "r_cb43v7mr", "name": "Track", "fill": "$color-border", "height": 6, "margin": {"top": 4}, "radius": 999, "width": "fill", "children": []},
+            {"type": "row", "id": "r_cb43yto0", "name": "Paint", "crossAlign": "start", "height": 6, "margin": {"top": -6}, "width": "fill", "children": [
+              {"type": "row", "id": "r_cb43wp33", "name": "Stroke", "fill": "$color-foreground", "height": 6, "radius": 999, "width": 145, "children": []},
+              {"type": "image", "id": "img_cb43x55y", "name": "Brush", "alt": "", "height": 34, "margin": {"left": -13, "top": -22}, "src": "assets/icons/splash-brush.svg", "tint": "$color-foreground", "width": 27}
+            ]}
+          ]},
+          {"type": "text", "id": "t_rd3cxa", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "About 1 s left"}
         ]},
-        {"type": "row", "id": "r_2w2cy0", "width": "fill", "children": [
-          {"type": "text", "id": "t_qm6onq", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "About 1 s left"}
-        ]}
-      ]},
-      {"type": "column", "id": "c_xl1wzt", "name": "Steps", "gap": 2, "width": "fill", "children": [
-        {"type": "row", "id": "r_5cqwi0", "name": "Step, done", "crossAlign": "center", "gap": 8, "height": 24, "width": "fill", "children": [
-          {"type": "image", "id": "img_b5an3k", "name": "circle-check", "height": 14, "src": "assets/icons/circle-check.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
-          {"type": "text", "id": "t_mngki4", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Loading the editor"},
-          {"type": "row", "id": "r_sj3w9e", "width": "fill", "children": []},
-          {"type": "text", "id": "t_kreid2", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "0.3 s"}
-        ]},
-        {"type": "row", "id": "r_keqpjq", "name": "Step, now", "crossAlign": "center", "gap": 8, "height": 24, "width": "fill", "children": [
-          {"type": "image", "id": "img_f9c48c", "name": "loader-circle", "height": 14, "src": "assets/icons/loader-circle.svg", "tint": "oklch(0.21 0.006 60)", "width": 14},
-          {"type": "text", "id": "t_qrzgth", "color": "oklch(0.21 0.006 60)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Reading the project", "weight": 500},
-          {"type": "row", "id": "r_njnv07", "width": "fill", "children": []},
-          {"type": "text", "id": "t_zftklz", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "0.2 s"}
-        ]},
-        {"type": "row", "id": "r_xhezzb", "name": "Step, next", "crossAlign": "center", "gap": 8, "height": 24, "width": "fill", "children": [
-          {"type": "image", "id": "img_egkq8e", "name": "circle", "height": 14, "src": "assets/icons/circle.svg", "tint": "oklch(0.53 0.01 65)", "width": 14},
-          {"type": "text", "id": "t_ncoywc", "color": "oklch(0.53 0.01 65)", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.43, "role": "paragraph", "size": 14, "text": "Drawing the canvas"},
-          {"type": "row", "id": "r_gnsg1r", "width": "fill", "children": []}
+        {"type": "column", "id": "c_pkddh6", "name": "Steps", "width": "fill", "children": [
+          {"type": "row", "id": "r_cb443z30", "name": "Step, done", "crossAlign": "center", "gap": 8, "height": 28, "width": "fill", "children": [
+            {"type": "image", "id": "img_cb440uiz", "name": "circle-check", "alt": "", "height": 14, "src": "assets/icons/circle-check.svg", "tint": "$color-muted-foreground", "width": 14},
+            {"type": "text", "id": "t_cb441nz3", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Loading the editor", "width": "fill"},
+            {"type": "text", "id": "t_cb442hby", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "0.3 s"}
+          ]},
+          {"type": "row", "id": "r_cb447uts", "name": "Step, now", "crossAlign": "center", "gap": 8, "height": 28, "width": "fill", "children": [
+            {"type": "image", "id": "img_cb444sw8", "name": "loader-circle", "alt": "", "height": 14, "src": "assets/icons/loader-circle.svg", "tint": "$color-foreground", "width": 14},
+            {"type": "text", "id": "t_cb445m2c", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Reading the project", "weight": 500, "width": "fill"},
+            {"type": "text", "id": "t_cb446nhh", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "0.2 s"}
+          ]},
+          {"type": "row", "id": "r_cb44ax7n", "name": "Step, next", "crossAlign": "center", "gap": 8, "height": 28, "width": "fill", "children": [
+            {"type": "image", "id": "img_cb448rgj", "name": "circle", "alt": "", "height": 14, "src": "assets/icons/circle.svg", "tint": "$color-muted-foreground", "width": 14},
+            {"type": "text", "id": "t_cb449ieq", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Drawing the canvas", "width": "fill"}
+          ]}
         ]}
       ]}
     ]}
