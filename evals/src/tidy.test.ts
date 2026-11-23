@@ -132,15 +132,37 @@ describe("changesOf", () => {
     assert.isTrue(changesOf(diff)[0]?.unread);
   });
 
-  it("keeps a path git quotes as it is, so it is never found on main", () => {
-    const diff = [
+  it("reads a path git quotes as a change that is not one of lines, deleted or edited", () => {
+    const edited = [
       'diff --git "a/odd\\tname.md" "b/odd\\tname.md"',
       '--- "a/odd\\tname.md"',
       '+++ "b/odd\\tname.md"',
-      "@@ -1 +1 @@",
-      "+line",
+      "@@ -1 +0,0 @@",
+      "-line",
     ].join("\n");
-    assert.strictEqual(changesOf(diff)[0]?.file, '"b/odd\\tname.md"');
+    const deleted = [
+      'diff --git "a/odd\\tname.md" "b/odd\\tname.md"',
+      "deleted file mode 100644",
+      '--- "a/odd\\tname.md"',
+      "+++ /dev/null",
+      "@@ -1 +0,0 @@",
+      "-line",
+    ].join("\n");
+    assert.isTrue(changesOf(edited)[0]?.unread);
+    assert.isTrue(changesOf(deleted)[0]?.unread);
+  });
+
+  it("reads a mode changed with the lines as a change that is not one of lines", () => {
+    const diff = [
+      "diff --git a/scripts/run.sh b/scripts/run.sh",
+      "old mode 100644",
+      "new mode 100755",
+      "--- a/scripts/run.sh",
+      "+++ b/scripts/run.sh",
+      "@@ -1 +1 @@",
+      "+echo hi",
+    ].join("\n");
+    assert.isTrue(changesOf(diff)[0]?.unread);
   });
 });
 
