@@ -383,6 +383,19 @@ export const Thread = Schema.Struct({
 });
 export type Thread = typeof Thread.Type;
 
+/**
+ * Whether this computer can run agents in the operating system's sandbox (ADR 0013, 0119), as
+ * the server found when it started: what Settings › Agents says beside the person's switch.
+ */
+export const SandboxStatus = Schema.Struct({
+  available: Schema.Boolean,
+  /** The server's platform (`linux`, `darwin`, `win32`), which says what would give it one. */
+  platform: Schema.String,
+  /** Why the sandbox it has would not start: bubblewrap refused by the kernel, say. */
+  problem: Schema.optional(Schema.String),
+});
+export type SandboxStatus = typeof SandboxStatus.Type;
+
 /** What an agent's sessions offer, as the last one it started reported it. */
 export const AgentOptions = Schema.Struct({
   agentId: Schema.String,

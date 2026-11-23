@@ -1,5 +1,12 @@
 import type { UserProfile } from "@ultrapaint/contracts/settings";
-import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import type { SandboxStatus } from "@ultrapaint/contracts/threads";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -149,7 +156,9 @@ export const ProfileRow = () => {
 
 /**
  * A switch over one of the person's own settings, in every project, saved at once with the rest
- * of the profile: `read` says it from the profile, `write` is what saves a change.
+ * of the profile: `read` says it from the profile, `write` is what saves a change. While
+ * `unavailable` says why the setting can't take effect here, the switch shows it off and waits,
+ * the person's choice kept for when it can.
  */
 const ProfileSwitchRow = ({
   description,
@@ -157,6 +166,7 @@ const ProfileSwitchRow = ({
   read,
   setting,
   title,
+  unavailable,
   write,
 }: {
   description: string;
@@ -164,6 +174,7 @@ const ProfileSwitchRow = ({
   read: (profile: UserProfile) => boolean;
   setting: string;
   title: string;
+  unavailable?: ReactNode;
   write: (on: boolean) => UserProfile;
 }) => {
   const [on, setOn] = useState<boolean | null>(null);
@@ -188,17 +199,23 @@ const ProfileSwitchRow = ({
         setFailed(`Couldn’t save it (${error.message}). Try again.`);
       });
   };
+  let rowMessage: ReactNode = null;
+  if (failed) {
+    rowMessage = <RowMessage kind="error">{failed}</RowMessage>;
+  } else if (unavailable) {
+    rowMessage = <RowMessage kind="notice">{unavailable}</RowMessage>;
+  }
   return (
     <Row
       description={description}
       htmlFor={id}
-      message={failed ? <RowMessage kind="error">{failed}</RowMessage> : null}
+      message={rowMessage}
       setting={setting}
       title={title}
     >
       <Switch
-        checked={on === true}
-        disabled={on === null}
+        checked={on === true && !unavailable}
+        disabled={on === null || Boolean(unavailable)}
         id={id}
         onCheckedChange={change}
       />
@@ -230,16 +247,52 @@ const sandboxed = (profile: UserProfile) => profile.sandbox !== false;
 const writeSandbox = (on: boolean): UserProfile => ({ sandbox: on });
 
 /**
- * Whether the agents the editor starts on this computer run in its sandbox (ADR 0119): the
- * person's, never a project's, and on until they turn it off.
+ * Why agents run unconfined on this computer whatever the switch says, or nothing when they
+ * can be confined (ADR 0119). The server finds out once, as it starts.
  */
-export const SandboxRow = () => (
-  <ProfileSwitchRow
-    description="Agents reach only this project, their own files and the tools they need. Off, they can read and change anything you can. Agents already running stay as they started."
-    id="settings-sandbox"
-    read={sandboxed}
-    setting="sandbox"
-    title="Run agents in a sandbox"
-    write={writeSandbox}
-  />
-);
+export const sandboxUnavailable = (status: SandboxStatus): ReactNode => {
+  if (status.available) {
+    return null;
+  }
+  const lead =
+    "This computer can’t run agents in a sandbox, so they run without one";
+  if (status.problem) {
+    return `${lead}: ${status.problem}. Once it can start, restart Ultrapaint.`;
+  }
+  if (status.platform === "linux") {
+    return (
+      <>
+        {lead}. Install bubblewrap (<code className="font-code">bwrap</code>)
+        and restart Ultrapaint.
+      </>
+    );
+  }
+  return `${lead}: Ultrapaint has a sandbox for macOS and Linux only.`;
+};
+
+/**
+ * Whether the agents the editor starts on this computer run in its sandbox (ADR 0119): the
+ * person's, never a project's, and on until they turn it off. Where this computer has none,
+ * it says so and why.
+ */
+export const SandboxRow = () => {
+  const [status, setStatus] = useState<SandboxStatus | null>(null);
+  useEffect(() => {
+    api()
+      .request("agents.sandbox", undefined)
+      .then(setStatus)
+      // Not knowing, the switch says what the person chose.
+      .catch(() => setStatus(null));
+  }, []);
+  return (
+    <ProfileSwitchRow
+      description="Agents reach only this project, their own files and the tools they need. Off, they can read and change anything you can. Agents already running stay as they started."
+      id="settings-sandbox"
+      read={sandboxed}
+      setting="sandbox"
+      title="Run agents in a sandbox"
+      unavailable={status ? sandboxUnavailable(status) : null}
+      write={writeSandbox}
+    />
+  );
+};

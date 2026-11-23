@@ -19,6 +19,12 @@ agents unconfined. On 2026-11-23 the person asked for the sandbox to be their ch
   project that could turn the sandbox off would turn it off for whoever opens it.
 - **Settings › Agents has its switch**, *Run agents in a sandbox*, under the agents. It is found
   by the settings search as `sandbox`.
+- **The switch says when this computer can't confine.** `agents.sandbox` gives what the server
+  found as it started: whether it can, its platform and, when the sandbox it has would not start,
+  why. Where it can't, the switch shows off and is disabled. Its note says agents run without a
+  sandbox, and why: bubblewrap refused to start, bubblewrap not installed on Linux (install it
+  and restart Ultrapaint), or a system with no sandbox (macOS and Linux only). The person's
+  choice is kept for when it can.
 - **It is asked at each launch.** `AgentSandbox.confines` is true when the machine can confine an
   agent and the person has not turned the sandbox off. A session's launch, the `_meta` that stops
   an agent from starting its own sandbox, the thread's `sandboxed` and the briefing's note on
@@ -32,5 +38,5 @@ agents unconfined. On 2026-11-23 the person asked for the sandbox to be their ch
 
 - With the sandbox off, nothing but the agent's own judgement keeps it out of the home directory
   and `.git`. The switch's description says so.
-- A machine that cannot confine (no bubblewrap, or one the kernel refuses) still runs agents
-  unconfined with the switch on; the switch does not say so yet.
+- Whether the computer can confine is found once, as the server starts: installing bubblewrap
+  takes a restart to show.

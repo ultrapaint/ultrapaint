@@ -35,6 +35,7 @@ import { SetupSteps } from "./services/setup-steps.ts";
 import { SkillsService } from "./services/skills.ts";
 import { AgentConfigs } from "./services/threads/agent-configs.ts";
 import { AgentDiscovery } from "./services/threads/agent-discovery.ts";
+import { AgentSandbox } from "./services/threads/agent-sandbox.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
 import { SlashCommands } from "./services/threads/commands.ts";
 import {
@@ -60,6 +61,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const store = yield* ThreadStore;
     const preferences = yield* ChatPreferences;
     const discovery = yield* AgentDiscovery;
+    const sandbox = yield* AgentSandbox;
     const threads = yield* ThreadSessions;
     /** What a thread's session does. */
     const thread = <A, E>(
@@ -112,6 +114,12 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "agents.discover": ({ agentId }) => discovery.discover(agentId),
       "agents.list": () => agents.list,
       "agents.options": () => preferences.options,
+      "agents.sandbox": () =>
+        Effect.succeed({
+          available: sandbox.available,
+          platform: process.platform,
+          ...(sandbox.problem !== undefined && { problem: sandbox.problem }),
+        }),
       "assets.upload": (input) => documents((d) => d.upload(input)),
       "canvas.get": ({ canvas }) => pages((s) => s.readCanvas(canvas)),
       "canvas.set": ({ canvas, frames }) =>
