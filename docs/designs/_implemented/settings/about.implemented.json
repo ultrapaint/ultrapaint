@@ -1666,7 +1666,7 @@
                     "lineHeight": "16px",
                     "size": 12,
                     "role": "paragraph",
-                    "text": "Your folder and Logs open in the file manager; a bug report needs both.",
+                    "text": "Each folder opens in the file manager.",
                     "type": "text"
                   }
                 ],

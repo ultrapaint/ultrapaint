@@ -1071,7 +1071,7 @@
                     "lineHeight": "16px",
                     "size": 12,
                     "role": "paragraph",
-                    "text": "Choose icon opens an icon in a colour; Choose file, the images found in the project (a favicon, an app icon) or any other. The arrow goes back to the default: the project’s favicon when it has one, else its initial in a colour.",
+                    "text": "Choose icon opens an icon in a colour; Choose file, the images found in the project (a favicon, an app icon) or any other.",
                     "type": "text"
                   }
                 ],

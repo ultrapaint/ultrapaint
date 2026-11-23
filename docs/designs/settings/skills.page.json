@@ -216,7 +216,7 @@
             {"type": "row", "id": "r_sy1", "fill": "#3d7bff", "height": 8, "radius": 999, "width": 8, "children": []},
             {"type": "text", "id": "t_sy2", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Changed", "weight": 500}
           ]},
-          {"type": "text", "id": "t_sy4", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "View becomes Open, as everywhere; a project skill’s file is what Open opens."}
+          {"type": "text", "id": "t_sy4", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Read shows a skill's file, and Hide puts it away."}
         ]}
       ]}
     ]}

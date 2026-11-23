@@ -124,7 +124,7 @@
             {"type": "row", "id": "np_00071", "fill": "#22c55e", "height": 8, "radius": 999, "width": 8, "children": []},
             {"type": "text", "id": "np_00072", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "New", "weight": 500}
           ]},
-          {"type": "text", "id": "np_00073", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Choose icon opens an icon in a colour; Choose file, the images found in the project (a favicon, an app icon) or any other. The arrow goes back to the default: the project’s favicon when it has one, else its initial in a colour."}
+          {"type": "text", "id": "np_00073", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Choose icon opens an icon in a colour; Choose file, the images found in the project (a favicon, an app icon) or any other."}
         ]},
         {"type": "column", "id": "np_00074", "gap": 4, "width": "fill", "children": [
           {"type": "row", "id": "np_00075", "crossAlign": "center", "gap": 6, "children": [
