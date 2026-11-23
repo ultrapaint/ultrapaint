@@ -451,6 +451,29 @@ describe("bringing pages up to date from their code (ADR 0115)", () => {
         })
     );
 
+    it.effect(
+      "names no sibling states for a state's page named on its own",
+      () =>
+        Effect.gen(function* () {
+          yield* behindItsCode;
+          const project = yield* OpenProject;
+          yield* project.use(
+            Effect.flatMap(PagesService, (pages) =>
+              Effect.andThen(
+                pages.createState("home.page.json", "Empty"),
+                pages.createState("home.page.json", "Loading")
+              )
+            )
+          );
+          const text = yield* textOf({
+            _tag: "UpdateFromCode",
+            targets: ["home@empty.page.json"],
+          });
+          assert.include(text, "- home@empty.page.json");
+          assert.notInclude(text, "home@loading.page.json");
+        })
+    );
+
     it.effect("refuses when every page named is up to date with its code", () =>
       Effect.gen(function* () {
         yield* behindItsCode;
