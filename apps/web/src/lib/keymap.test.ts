@@ -341,8 +341,9 @@ describe("Escape, one step back at a time", () => {
     });
     useIsolation.setState({
       isolated: {
+        around: null,
         component: "Promo",
-        entered: "title",
+        drawn: "title",
         frame: HOME,
         instance: "title",
         variant: null,

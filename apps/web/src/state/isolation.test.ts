@@ -9,9 +9,18 @@ import {
   editVariant,
   isolate,
   leaveIsolation,
+  leaveTo,
+  levelsOf,
   startIsolation,
   useIsolation,
 } from "./isolation.ts";
+
+/** The instance a frame is told to draw edited in place, as it names it. */
+const isolatedDrawn = (frame: string) => {
+  const { isolated } = useIsolation.getState();
+  return isolated?.frame === frame ? isolated.drawn : undefined;
+};
+
 import { frameBreakpoint } from "./selection.ts";
 import { surfaceNow } from "./surface.ts";
 
@@ -165,7 +174,7 @@ describe("an app component edited in place", () => {
     );
   });
 
-  it("leaves an app component edited inside another's tree for the page's instance it was entered from", () => {
+  it("is left one level at a time, a component edited inside another's going back to it (ADR 0114)", () => {
     const badge = {
       component: "Badge2",
       from: "#app",
@@ -188,10 +197,45 @@ describe("an app component edited in place", () => {
     isolate(HOME, PROMO);
     expect(isolate(HOME, badge)).toBe(true);
     expect(docOfFrame(HOME, "")).toBe("component:Badge2");
+    // The page draws the inner instance by the way to it from its own.
+    expect(isolatedDrawn(HOME)).toBe("promo/p-badge");
+    expect(levelsOf(useIsolation.getState().isolated)).toEqual([
+      "Promo",
+      "Badge2",
+    ]);
     leaveIsolation();
+    expect(docOfFrame(HOME, "")).toBe("component:Promo");
+    expect(useEditor.getState().selection).toEqual({
+      frame: HOME,
+      nodeId: "p-badge",
+    });
+    leaveIsolation();
+    expect(docOfFrame(HOME, "")).toBe(HOME);
     expect(useEditor.getState().selection).toEqual({
       frame: HOME,
       nodeId: "promo",
+    });
+  });
+
+  it("goes back to any level the breadcrumb names, the page's at none", () => {
+    isolate(HOME, PROMO);
+    isolate(HOME, { ...PROMO, component: "Promo", id: "p-again" });
+    leaveTo(0);
+    expect(useIsolation.getState().isolated).toBeNull();
+    expect(useEditor.getState().selection).toEqual({
+      frame: HOME,
+      nodeId: "promo",
+    });
+  });
+
+  it("is entered on a layer of the page's instance, as the page draws it, and left selecting it", () => {
+    const layer = { ...PROMO, id: "shell/promo" };
+    expect(isolate(HOME, layer)).toBe(true);
+    expect(isolatedDrawn(HOME)).toBe("shell/promo");
+    leaveIsolation();
+    expect(useEditor.getState().selection).toEqual({
+      frame: HOME,
+      nodeId: "shell/promo",
     });
   });
 

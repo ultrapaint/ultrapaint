@@ -438,6 +438,40 @@ describe("the Library's boards", () => {
     expect(appComponentBoards(plain).map((b) => b.name)).toEqual(["component"]);
   });
 
+  it("draws a component that fills a page at a page's size: the first page placing it, else 1440×900 (ADR 0114)", () => {
+    const shell: AppComponentFile = {
+      name: "Shell",
+      origin: "app",
+      properties: [],
+      slots: [],
+      tree: {
+        children: [],
+        height: "fill",
+        id: "shell",
+        type: "row",
+        width: "fill",
+      },
+      version: 1,
+    };
+    const [alone] = appComponentBoards(shell);
+    expect(alone?.root).toMatchObject({ height: 948, width: 1488 });
+    expect(
+      alone?.root.type === "column" && alone.root.children?.[0]
+    ).toMatchObject({
+      height: "fill",
+      id: "instance",
+      width: "fill",
+    });
+    const [placed] = libraryBoards(
+      "Shell",
+      catalogue,
+      () => shell,
+      {},
+      () => ({ height: 800, width: 1200 })
+    ).boards;
+    expect(placed?.root).toMatchObject({ height: 848, width: 1248 });
+  });
+
   it("scales an app component wider than a tile down to it on the Overview, measured once drawn", () => {
     const header: AppComponentFile = {
       name: "Header",
