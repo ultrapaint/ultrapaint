@@ -11,6 +11,8 @@
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import { tokenKindOf, tokenOf } from "@ultrapaint/contracts/token-table";
+import { newInstance } from "@ultrapaint/design-document/factories";
+import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { Ellipsis, LayoutGrid, Palette, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,12 +39,13 @@ import {
   useBoard,
 } from "../state/board.ts";
 import { useComponents } from "../state/components.ts";
+import { showMenu } from "../state/context-menu.ts";
 import { commitEdits, useDesignSystem } from "../state/design-system.ts";
-import { AppInspector, AppMenu } from "./app-inspector.tsx";
+import { AppInspector } from "./app-inspector.tsx";
 import { ComponentImplementation } from "./code-implementation.tsx";
 import { GuidelineEditor } from "./guideline-editor.tsx";
 import { InspectedKey } from "./inspector-fields.tsx";
-import { LookInspector, SystemMenu } from "./look-inspector.tsx";
+import { LookInspector } from "./look-inspector.tsx";
 import {
   FoundationActions,
   GroupInspector,
@@ -231,11 +234,9 @@ const LibraryBody = ({ open }: { open: BoardPlace }) => {
 
 /** The "…" of the item open: a pick's on Design system, a component's on the Library. */
 const HeaderMenu = ({
-  kind,
   open,
   picked,
 }: {
-  kind: string;
   open: BoardPlace;
   picked: Picked | null;
 }) => {
@@ -246,10 +247,37 @@ const HeaderMenu = ({
   if (open.item === OVERVIEW) {
     return null;
   }
-  return kind === "App component" ? (
-    <AppMenu name={open.item} />
-  ) : (
-    <SystemMenu name={open.item} />
+  return <ComponentMenu name={open.item} />;
+};
+
+/**
+ * The "…" of a component's board: the menu its row in the Library opens on a right-click, so the
+ * two hold the same entries (ADR 0102).
+ */
+const ComponentMenu = ({ name }: { name: string }) => {
+  const meta = useComponents((s) => s.catalogue.find((c) => c.name === name));
+  if (!meta) {
+    return null;
+  }
+  return (
+    <Button
+      aria-label="More"
+      className="text-muted-foreground"
+      onClick={(e) =>
+        showMenu(
+          {
+            kind: "component",
+            make: () => newInstance(meta, makeIdGenerator()),
+            name,
+          },
+          e.currentTarget
+        )
+      }
+      size="icon"
+      variant="ghost"
+    >
+      <Ellipsis />
+    </Button>
   );
 };
 
@@ -276,7 +304,7 @@ export const BoardInspector = ({ open }: { open: BoardPlace }) => {
           </span>
         </div>
         {chip ? <BoardChatButton chip={chip} /> : null}
-        <HeaderMenu kind={kind} open={open} picked={picked} />
+        <HeaderMenu open={open} picked={picked} />
         <HideRightPanel />
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-auto">

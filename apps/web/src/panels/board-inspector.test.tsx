@@ -10,12 +10,14 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type Pick, pickId } from "../boards/pick.ts";
+import { menuFor } from "../lib/menu-actions.ts";
 import {
   type BoardPlace,
   openBoard,
   pickOnBoard,
   useBoard,
 } from "../state/board.ts";
+import { useContextMenu } from "../state/context-menu.ts";
 import { draftEdits, useDesignSystem } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
 import { useImplementation } from "../state/implementation.ts";
@@ -130,13 +132,15 @@ const buttonImplemented = (codeChanged: boolean) =>
   });
 
 /** The board's ⋯ menu, opened: its items' names. */
+/** The board's "…" opened: the labels of the menu it shows, the Library row's own (ADR 0102). */
 const boardMenuItems = () => {
   act(() =>
     container.querySelector<HTMLElement>('[aria-label="More"]')?.click()
   );
-  return [...document.body.querySelectorAll("[role=menuitem]")].map(
-    (i) => i.textContent
-  );
+  const { request } = useContextMenu.getState();
+  return (request ? (menuFor(request.target) ?? []) : [])
+    .filter((e) => e.kind === "item")
+    .map((e) => e.label);
 };
 
 describe("a component's Update from code (ADR 0122)", () => {

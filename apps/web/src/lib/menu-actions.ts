@@ -30,6 +30,7 @@ import {
   updateComment,
   useComments,
 } from "../state/comments.ts";
+import { useComponents } from "../state/components.ts";
 import { api } from "../state/connection.ts";
 import type { MenuTarget, Point } from "../state/context-menu.ts";
 import { nodeIn, rootOfFrame, useDocuments } from "../state/documents.ts";
@@ -74,6 +75,11 @@ import {
   useClipboard,
 } from "./clipboard.ts";
 import { runCommand } from "./commands.ts";
+import {
+  deleteAppComponent,
+  removeComponent,
+  takeOverLook,
+} from "./component-actions.ts";
 import { linkToPage } from "./links.ts";
 import {
   type CanvasAction,
@@ -138,6 +144,7 @@ import {
   zoomToPage,
 } from "./page-actions.ts";
 import { reveal } from "./reveal.ts";
+import { startTask } from "./start-thread.ts";
 import { deleteThread, openChat, stopThread } from "./thread-actions.ts";
 
 // ---- An action, bound to what it acts on ----
@@ -343,6 +350,7 @@ export const menuFor = (target: MenuTarget): MenuEntry[] | null => {
         "component",
         target,
         componentEntries({
+          ...componentOrigin(target.name),
           codeChanged: componentCodeChanged(target.name),
           name: target.name,
           // Inserted on the page canvas: not from a board view, whose ground is no document.
@@ -724,6 +732,18 @@ const insertOnCanvas = (node: DesignNode) => {
   return insertNodesAt({ at: placeOnCanvas(at), kind: "canvas" }, [node]);
 };
 
+/**
+ * Whether a component is an app component, and whether a system component's look is the
+ * project's own: what its menu ends on.
+ */
+const componentOrigin = (name: string) => {
+  const file = useComponents.getState().components.find((c) => c.name === name);
+  return {
+    app: file?.origin === "app",
+    ownLook: file?.origin === "system",
+  };
+};
+
 const runComponent = (
   target: TargetOf<"component">,
   act: ComponentAction
@@ -739,10 +759,18 @@ const runComponent = (
     }
     case "openBoard":
       return openBoard({ item: target.name, view: "library" });
+    case "implement":
+      return startTask({ _tag: "Implement", target: target.name });
     case "updateFromCode":
       return updateComponentFromCode(target.name);
     case "copyName":
       return copyText(target.name);
+    case "takeOver":
+      return takeOverLook(target.name);
+    case "resetLook":
+      return removeComponent(target.name);
+    case "delete":
+      return deleteAppComponent(target.name);
     default:
       return unhandled(act);
   }

@@ -30,18 +30,12 @@ import {
 } from "@ultrapaint/design-document/look-places";
 import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
-import { Brush, Code2, Ellipsis, RotateCcw, X } from "lucide-react";
+import { X } from "lucide-react";
 import type * as React from "react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   NativeSelect,
   NativeSelectOption,
@@ -57,8 +51,8 @@ import { IconButton } from "../components/icon-button.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import type { StyleOption } from "../components/style-combobox.tsx";
 import { displayOf, ValueField } from "../components/value-field.tsx";
+import { takeOverLook } from "../lib/component-actions.ts";
 import { nodesOf } from "../lib/node-actions.ts";
-import { startTask } from "../lib/start-thread.ts";
 import {
   type FieldTokenKind,
   Swatch,
@@ -72,11 +66,8 @@ import {
   useBoard,
 } from "../state/board.ts";
 import { changeFile, useComponents } from "../state/components.ts";
-import { api } from "../state/connection.ts";
 import { boardFrameOf } from "../state/frame-ref.ts";
 import { commitStyle, draftStyle } from "../state/look.ts";
-import { reportError } from "../state/project.ts";
-import { UpdateComponentItem } from "./code-implementation.tsx";
 import { Notes } from "./component-notes.tsx";
 import { ComponentUsedIn } from "./component-used-in.tsx";
 import { OPACITY_OPTIONS, opacityOf } from "./inspector-appearance.tsx";
@@ -88,28 +79,6 @@ const partsOf = (name: string) =>
     label: s.label,
     name: s.name,
   })) ?? [{ label: "The component", name: ROOT_SLOT }];
-
-/** Removes a component's file, without asking: one undo step brings it back. True when it went. */
-export const removeComponent = async (name: string) => {
-  try {
-    await api().request("components.remove", { name });
-    return true;
-  } catch (error) {
-    reportError(error);
-    return false;
-  }
-};
-
-/** Starts a system component's file from its default look, so the design edits real values. */
-const takeOver = async (name: string) => {
-  try {
-    await api().request("components.fromDefault", { name });
-    return true;
-  } catch (error) {
-    reportError(error);
-    return false;
-  }
-};
 
 /** What a field left empty shows: the value it takes, and where from. */
 const inheritedText = (inherited: Inherited | undefined) =>
@@ -693,53 +662,6 @@ const useSystemFile = (name: string) =>
     return file?.origin === "system" ? file : undefined;
   });
 
-/**
- * The "…" of a component's board: implement it, update it from its code (ADR 0122), and take its
- * look over or reset it.
- */
-export const SystemMenu = ({ name }: { name: string }) => {
-  const file = useSystemFile(name);
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label="More"
-            className="text-muted-foreground"
-            size="icon"
-            variant="ghost"
-          >
-            <Ellipsis />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end" className="w-52">
-        <DropdownMenuItem
-          onClick={() => startTask({ _tag: "Implement", target: name })}
-        >
-          <Code2 />
-          Implement
-        </DropdownMenuItem>
-        <UpdateComponentItem name={name} />
-        {file ? (
-          <DropdownMenuItem
-            onClick={() => removeComponent(name)}
-            variant="destructive"
-          >
-            <RotateCcw />
-            Reset to default look
-          </DropdownMenuItem>
-        ) : (
-          <DropdownMenuItem onClick={() => takeOver(name)}>
-            <Brush />
-            Take the look over
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-};
-
 /** A select's value for a member, and back: `variant=outline`, empty for every variant. */
 const memberKey = (place: LookPlace) =>
   place.variant ? `${place.variant.axis}=${place.variant.member}` : "";
@@ -896,7 +818,11 @@ export const LookInspector = ({
             {name} is drawn in its default look, over your tokens. Take the look
             over to change any part of it.
           </p>
-          <Button disabled={!fallback} onClick={() => takeOver(name)} size="sm">
+          <Button
+            disabled={!fallback}
+            onClick={() => takeOverLook(name)}
+            size="sm"
+          >
             Take the look over
           </Button>
         </div>

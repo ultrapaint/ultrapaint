@@ -702,18 +702,34 @@ export type ComponentAction =
   | { kind: "insert" }
   | { kind: "insertCanvas" }
   | { kind: "openBoard" }
+  | { kind: "implement" }
   | { kind: "updateFromCode" }
-  | { kind: "copyName" };
+  | { kind: "copyName" }
+  /** A system component's look started from its default, to edit. */
+  | { kind: "takeOver" }
+  /** A system component's own look taken away: it draws its default again. */
+  | { kind: "resetLook" }
+  /** An app component's file taken away. */
+  | { kind: "delete" };
 
 interface ComponentFacts {
+  /** An app component; else a system component. */
+  app: boolean;
   /** Its code changed since it was implemented: its board's menu offers Update from code too (ADR 0122). */
   codeChanged: boolean;
   name: string;
   onCanvas: boolean;
+  /** A system component whose look the project made its own; an app component's is always. */
+  ownLook: boolean;
   /** Where Insert puts it, as the Library says it: `the page`, `Card`; null when nowhere. */
   target: string | null;
 }
 
+/**
+ * A component's menu, the same from its row in the Library (a right-click) and from its board's
+ * "…" (ADR 0102): insert it, open its board, implement it or update it from its code (ADR 0122),
+ * copy its name, and take its look over, reset it or delete it.
+ */
 export const componentEntries = (f: ComponentFacts): Entry<ComponentAction>[] =>
   tidy<ComponentAction>([
     item({ kind: "insert" }, f.target ? `Insert into ${f.target}` : "Insert", {
@@ -722,9 +738,24 @@ export const componentEntries = (f: ComponentFacts): Entry<ComponentAction>[] =>
     f.onCanvas && item({ kind: "insertCanvas" }, "Insert on the canvas"),
     separator,
     item({ kind: "openBoard" }, "Open board"),
+    item({ kind: "implement" }, "Implement"),
     f.codeChanged && item({ kind: "updateFromCode" }, "Update from code"),
     item({ kind: "copyName" }, `Copy ${f.name}`),
+    separator,
+    lastEntry(f),
   ]);
+
+/** What a component's menu ends on: an app component deleted, a system component's look reset or taken over. */
+const lastEntry = (f: ComponentFacts): Entry<ComponentAction> => {
+  if (f.app) {
+    return item({ kind: "delete" }, "Delete component", { destructive: true });
+  }
+  return f.ownLook
+    ? item({ kind: "resetLook" }, "Reset to default look", {
+        destructive: true,
+      })
+    : item({ kind: "takeOver" }, "Take the look over");
+};
 
 // ---- Threads ----
 

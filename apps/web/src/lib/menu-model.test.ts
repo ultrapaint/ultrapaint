@@ -492,9 +492,11 @@ describe("the comment menu", () => {
 describe("the Library's menu", () => {
   it("inserts only where there is somewhere to insert", () => {
     const got = componentEntries({
+      app: true,
       codeChanged: false,
       name: "Card",
       onCanvas: true,
+      ownLook: true,
       target: null,
     });
     expect(find(got, "insert")).toMatchObject({ disabled: true });
@@ -503,21 +505,58 @@ describe("the Library's menu", () => {
 
   it("opens the component's board, as its row's chevron does under the pointer", () => {
     const got = componentEntries({
+      app: true,
       codeChanged: false,
       name: "Card",
       onCanvas: false,
+      ownLook: true,
       target: "the page",
     });
     expect(find(got, "openBoard")).toMatchObject({ label: "Open board" });
   });
 
   it("offers Update from code for a component whose code changed, as its board's menu does (ADR 0122)", () => {
-    const card = { name: "Card", onCanvas: false, target: "the page" };
+    const card = {
+      app: true,
+      name: "Card",
+      onCanvas: false,
+      ownLook: true,
+      target: "the page",
+    };
     expect(
       find(componentEntries({ ...card, codeChanged: true }), "updateFromCode")
     ).toMatchObject({ label: "Update from code" });
     expect(
       find(componentEntries({ ...card, codeChanged: false }), "updateFromCode")
     ).toBeUndefined();
+  });
+
+  it("is the board's menu too, with Implement, and ends on deleting an app component or the look a system component keeps (ADR 0102)", () => {
+    const base = {
+      codeChanged: false,
+      name: "Button",
+      onCanvas: false,
+      target: "the page",
+    };
+    const app = componentEntries({ ...base, app: true, ownLook: true });
+    expect(find(app, "implement")).toMatchObject({ label: "Implement" });
+    expect(find(app, "delete")).toMatchObject({
+      destructive: true,
+      label: "Delete component",
+    });
+    const ownLook = componentEntries({ ...base, app: false, ownLook: true });
+    expect(find(ownLook, "resetLook")).toMatchObject({
+      label: "Reset to default look",
+    });
+    expect(find(ownLook, "delete")).toBeUndefined();
+    const defaultLook = componentEntries({
+      ...base,
+      app: false,
+      ownLook: false,
+    });
+    expect(find(defaultLook, "takeOver")).toMatchObject({
+      label: "Take the look over",
+    });
+    expect(find(defaultLook, "resetLook")).toBeUndefined();
   });
 });

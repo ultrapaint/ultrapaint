@@ -14,13 +14,11 @@ import {
 } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { findNode, nodeLabel, walk } from "@ultrapaint/design-document/tree";
-import { Code2, Component, Ellipsis, Plus, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Component, Plus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
@@ -33,12 +31,9 @@ import {
   appBoardName,
   appInPlace,
   appVariantsOf,
-  OVERVIEW,
 } from "../boards/library-boards.ts";
 import { promptDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
-import { startTask } from "../lib/start-thread.ts";
-import { openBoard } from "../state/board.ts";
 import {
   appComponentOf,
   changeFile,
@@ -47,7 +42,6 @@ import {
 import { useEditor } from "../state/editor.ts";
 import { boardFrameOf } from "../state/frame-ref.ts";
 import { isolate, useIsolation } from "../state/isolation.ts";
-import { UpdateComponentItem } from "./code-implementation.tsx";
 import { Notes } from "./component-notes.tsx";
 import { ComponentUsedIn } from "./component-used-in.tsx";
 import { Inspector } from "./inspector.tsx";
@@ -59,7 +53,6 @@ import {
 } from "./inspector-component.tsx";
 import { EmptyState, Section } from "./inspector-fields.tsx";
 import { VariationsSection } from "./inspector-variations.tsx";
-import { removeComponent } from "./look-inspector.tsx";
 
 /** The app component's file, by name. */
 const useAppFile = (name: string) =>
@@ -74,40 +67,6 @@ const overridesOf = (tree: DesignNode, key: string) => {
   }
   return count;
 };
-
-/** The "…" of an app component's board: implement it, update it from its code, delete it. */
-export const AppMenu = ({ name }: { name: string }) => (
-  <DropdownMenu>
-    <DropdownMenuTrigger
-      render={
-        <Button aria-label="More" size="icon" variant="ghost">
-          <Ellipsis />
-        </Button>
-      }
-    />
-    <DropdownMenuContent align="end" className="w-52">
-      <DropdownMenuItem
-        onClick={() => startTask({ _tag: "Implement", target: name })}
-      >
-        <Code2 />
-        Implement
-      </DropdownMenuItem>
-      <UpdateComponentItem name={name} />
-      <DropdownMenuItem
-        onClick={async () => {
-          const removed = await removeComponent(name);
-          if (removed) {
-            openBoard({ item: OVERVIEW, view: "library" }, "replace");
-          }
-        }}
-        variant="destructive"
-      >
-        <Trash2 />
-        Delete component
-      </DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>
-);
 
 /** Adds a property of a kind, from the section's +. */
 const AddProperty = ({ file }: { file: AppComponentFile }) => (

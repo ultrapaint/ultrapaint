@@ -793,9 +793,13 @@ const EVERY_ACTION = {
   },
   component: {
     copyName: true,
+    delete: true,
+    implement: true,
     insert: true,
     insertCanvas: true,
     openBoard: true,
+    resetLook: true,
+    takeOver: true,
     updateFromCode: true,
   },
   node: {
@@ -870,6 +874,9 @@ const everyTarget = (): MenuTarget[] => [
     make: () => text("made"),
     name: "Card",
   },
+  // An app component, deleted; a system component whose look is the project's, reset.
+  { kind: "component", make: () => text("made"), name: "Promo" },
+  { kind: "component", make: () => text("made"), name: "Button" },
   { kind: "thread", threadId: "t1" },
 ];
 
@@ -898,6 +905,19 @@ const setUpForEvery = () => {
     },
   } as never);
   useAgents.setState({ threads: [{ ...thread, status: "running" }] });
+  useComponents.setState((s) => ({
+    components: [
+      ...s.components,
+      {
+        base: { root: { radius: 4 } },
+        name: "Button",
+        origin: "system",
+        states: {},
+        variants: {},
+        version: 1,
+      },
+    ],
+  }));
 };
 
 describe("every action", () => {
