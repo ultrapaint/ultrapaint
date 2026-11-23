@@ -686,14 +686,14 @@
     },
     "settings/about.page.json": {
       "implemented": {
-        "at": 1795457156329,
+        "at": 1795457421863,
         "code": {
           "apps/web/src/panels/settings-about.tsx": "21ba728e86ab4d41",
           "apps/web/src/panels/settings-folders.tsx": "4a06948a5bfd5193",
           "apps/web/src/panels/settings-group.tsx": "5979019eb79fbf6e",
           "apps/web/src/panels/settings.tsx": "5b1fa3c70ccb2736"
         },
-        "design": "d8632ac37a221ce8",
+        "design": "07a1730b4e0d60f4",
         "files": [
           "apps/web/src/panels/settings-about.tsx",
           "apps/web/src/panels/settings-folders.tsx",
