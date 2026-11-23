@@ -95,8 +95,20 @@ describe("a root given as an element or a shadow root", () => {
       stress: false,
     });
     assert.deepStrictEqual(
-      inFrame.findings.map((f) => [f.check, f.label.slice(0, 8), f.box]),
-      [["touching-rows", "Row 40-1", { height: 112, width: 200, x: 10, y: 40 }]]
+      inFrame.findings.map((f) => [
+        f.check,
+        f.label.slice(0, 8),
+        f.value,
+        f.box,
+      ]),
+      [
+        [
+          "touching-rows",
+          "Row 40-1",
+          28,
+          { height: 112, width: 200, x: 10, y: 40 },
+        ],
+      ]
     );
     // By a selector, the window is the page's: the frame is off it, and nothing is seen.
     assert.deepStrictEqual(

@@ -2,7 +2,7 @@
  * Pictures of single nodes, drawn in a frame of the editor's page nobody sees (ADR 0034): the
  * Library's thumbnails, the threads' pictures, the toolbar's options and the screenshots
  * agents ask for. One node at a time, in the design's look and the system components as every
- * frame draws them (ADR 0040), then captured.
+ * frame draws them (ADR 0040), then captured; for the review's picture, measured too (ADR 0081).
  */
 
 import type { ComponentFile } from "@ultrapaint/contracts/components";
@@ -10,6 +10,7 @@ import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { PageDefaults } from "@ultrapaint/contracts/pages";
 import type { RenderMode } from "@ultrapaint/contracts/preview";
+import type { RenderedFinding } from "@ultrapaint/contracts/screenshots";
 import {
   breakpointAt,
   breakpointsOf,
@@ -17,6 +18,7 @@ import {
 } from "@ultrapaint/design-document/breakpoints";
 import { frameOf, type OpenedFrame } from "./editor-frame.ts";
 import { thePreview } from "./preview-module.ts";
+import { renderedChecks } from "./rendered-checks.ts";
 
 const FRAME = "specimen";
 const WIDTH = 1200;
@@ -107,14 +109,39 @@ interface SpecimenOptions {
   readonly width?: number;
 }
 
-/** A PNG of the node as the preview draws it, or null when it could not be drawn. */
-export const drawSpecimen = (
+/** A picture of a node, and what the checks measured on the page drawn. */
+export interface MeasuredPicture {
+  /** Absent when the checks could not run: the picture stands alone. */
+  readonly findings?: readonly RenderedFinding[];
+  /** A PNG data URL, or null when it could not be drawn. */
+  readonly picture: string | null;
+}
+
+/** The checks on the frame as it is drawn; none when they could not run. */
+const measured = (
+  host: HTMLElement
+): readonly RenderedFinding[] | undefined => {
+  const frame = host.shadowRoot;
+  if (!frame) {
+    return undefined;
+  }
+  try {
+    return renderedChecks(frame);
+  } catch {
+    // A measuring that failed costs the review its findings, never its picture.
+    return undefined;
+  }
+};
+
+/** The node drawn in the frame nobody sees, captured, and measured when `measure` says so. */
+const draw = (
   node: DesignNode,
   designSystem: DesignSystem | null,
-  options: SpecimenOptions = {}
-): Promise<string | null> => {
-  const task = queue.then(async () => {
-    open(
+  options: SpecimenOptions,
+  measure: boolean
+): Promise<MeasuredPicture> => {
+  const task = queue.then(async (): Promise<MeasuredPicture> => {
+    const { host } = open(
       options.canvas ?? "",
       options.width ?? WIDTH,
       options.height ?? HEIGHT
@@ -137,15 +164,35 @@ export const drawSpecimen = (
       root: resolveAtBreakpoint(node, breakpoints, at ?? null),
     });
     if (!(await rendered(id, 8000))) {
-      return null;
+      return { picture: null };
     }
     await settle();
-    return await frameOf(FRAME).screenshot(options.nodeId);
+    const picture = await frameOf(FRAME).screenshot(options.nodeId);
+    const findings = measure && picture !== null ? measured(host) : undefined;
+    return findings === undefined ? { picture } : { findings, picture };
   });
   // A picture that failed fails alone; the next one in line is still drawn.
   queue = task.catch(() => null);
   return task;
 };
+
+/** A PNG of the node as the preview draws it, or null when it could not be drawn. */
+export const drawSpecimen = (
+  node: DesignNode,
+  designSystem: DesignSystem | null,
+  options: SpecimenOptions = {}
+): Promise<string | null> =>
+  draw(node, designSystem, options, false).then(({ picture }) => picture);
+
+/**
+ * A PNG of a page for the review, and what the groups-apart and touching-rows checks measured
+ * on it once its frame settled (ADR 0081); the picture alone when they could not run.
+ */
+export const drawMeasuredSpecimen = (
+  node: DesignNode,
+  designSystem: DesignSystem | null,
+  options: SpecimenOptions = {}
+): Promise<MeasuredPicture> => draw(node, designSystem, options, true);
 
 /** A short, stable key for what thumbnails were drawn from. */
 export const hashOf = (text: string) => {

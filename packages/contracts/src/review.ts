@@ -83,6 +83,21 @@ export const SEVERITIES = ["blocker", "major", "minor", "nit"] as const;
 export const Severity = Schema.Literals(SEVERITIES);
 export type Severity = typeof Severity.Type;
 
+/**
+ * The checks whose findings go to the designer beside the reviewers' (ADR 0081): the kinds the
+ * person rated real at 80% or more. On the rendered page, groups set closer than the skill's
+ * ratio (`groups-apart`) and rounded or filled rows touching (`touching-rows`); in the document,
+ * values set by hand where the design system has a token (`off-system`). A check's finding is
+ * minor and never holds back approval.
+ */
+export const CHECK_KINDS = [
+  "groups-apart",
+  "touching-rows",
+  "off-system",
+] as const;
+export const CheckKind = Schema.Literals(CHECK_KINDS);
+export type CheckKind = typeof CheckKind.Type;
+
 /** What a finding of each severity takes off its category. */
 const PENALTY: Readonly<Record<Severity, number>> = {
   blocker: 40,
@@ -407,6 +422,8 @@ export const LoggedFinding = Schema.Struct({
   /** The other reviewers that found the same problem. */
   agreedBy: Schema.Array(Schema.String),
   at: Schema.String,
+  /** The check that measured it (ADR 0081); none for a reviewer's. */
+  check: Schema.optional(CheckKind),
   /** The section's picture the reviewer saw, an absolute path. */
   crop: Schema.optional(Schema.String),
   designer: Schema.Struct({

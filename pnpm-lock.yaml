@@ -187,6 +187,9 @@ importers:
       '@ultrapaint/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@ultrapaint/design-checks':
+        specifier: workspace:*
+        version: link:../../packages/design-checks
       '@ultrapaint/design-document':
         specifier: workspace:*
         version: link:../../packages/design-document

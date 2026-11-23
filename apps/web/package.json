@@ -17,6 +17,7 @@
     "@shadcn/react": "^0.3.1",
     "@ultrapaint/client-runtime": "workspace:*",
     "@ultrapaint/contracts": "workspace:*",
+    "@ultrapaint/design-checks": "workspace:*",
     "@ultrapaint/design-document": "workspace:*",
     "@ultrapaint/preview-core": "workspace:*",
     "@ultrapaint/renderer-react": "workspace:*",

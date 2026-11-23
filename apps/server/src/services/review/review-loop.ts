@@ -3,7 +3,9 @@
  * ends, the round's review models look at them, each in a fresh session that can only look
  * (`reviewer.ts`); each answers with findings and whether it approves, which contracts' `review`
  * scores; and unless the review ends there, the findings go to the designer as its next prompt,
- * marked as the review's, and the next round looks at what that turn changed.
+ * marked as the review's, and the next round looks at what that turn changed. The checks'
+ * findings (ADR 0081), measured on the pages the reviewers are shown, go to the designer with the
+ * round's outcome, never to the reviewers, and never hold back approval.
  *
  * A review **run** starts at the person's last prompt, and its rounds are the `review` items after
  * it, each written when the round starts and updated as its reviewers answer. The pages a turn
@@ -51,6 +53,7 @@ import { RepoPaths } from "../repo-paths.ts";
 import { AgentConfigs } from "../threads/agent-configs.ts";
 import { ChatPreferences } from "../threads/chat-preferences.ts";
 import { ThreadStore } from "../threads/thread-store.ts";
+import { checkFindings } from "./check-findings.ts";
 import { makeFindingsLog } from "./findings-log.ts";
 import { makePageViews } from "./page-views.ts";
 import {
@@ -61,6 +64,7 @@ import {
 import {
   answeredRound,
   bySeverity,
+  declinedChecksOf,
   declinedOf,
   endedRound,
   type Found,
@@ -68,6 +72,8 @@ import {
   isPageFile,
   isSent,
   keptOnSecondLook,
+  listedInRound,
+  notDeclined,
   REVIEW_TIMEOUT,
   type ReviewItem,
   reviewerResult,
@@ -84,6 +90,8 @@ import { makeReviewer, ReviewerFailure } from "./reviewer.ts";
 
 /** A round the thread's review is due: the pages it looks at, and where the run stands. */
 export interface DueRound {
+  /** The titles of the checks' findings the designer declined in the run: not sent again. */
+  readonly declinedChecks: readonly string[];
   /** The round's number, from 1. */
   readonly number: number;
   /**
@@ -181,6 +189,8 @@ interface RoundState {
 
 /** What every round of one review shares. */
 interface Review {
+  /** The checks' findings on its pages (ADR 0081), sent with the round's outcome. */
+  readonly checks: readonly Found[];
   /** The round under way, which a stop ends. */
   current: string | null;
   readonly maxRounds: number;
@@ -291,6 +301,7 @@ export class ReviewLoop extends Context.Service<
             ...f.finding,
             agreedBy: [],
             at,
+            ...(f.check !== undefined && { check: f.check }),
             designer: did(i),
             page: f.page,
             project: entry.project,
@@ -427,9 +438,12 @@ export class ReviewLoop extends Context.Service<
         lastPages.set(threadId, pages);
         const last = run.rounds.at(-1);
         const round: DueRound = {
+          declinedChecks: declinedChecksOf(run.rounds),
           number: run.rounds.length + 1,
+          // The reviewers' findings only: a second look is never shown the checks' (ADR 0081).
           open: (last?.findings ?? []).filter(
-            (f) => isSent(f) && f.declined === undefined
+            (f) =>
+              isSent(f) && f.check === undefined && f.declined === undefined
           ),
           pages,
           previous: run.rounds.map(roundOf),
@@ -598,6 +612,54 @@ export class ReviewLoop extends Context.Service<
       });
 
       /**
+       * How a round that hands nothing to every model ends (ADR 0063, 0081): its end written,
+       * and what the designer is sent. The reviewers' blockers and majors when the round sends
+       * them; the checks' findings beside them, or alone once the review is over (approved, or
+       * at a cap), holding nothing back. Null when nothing goes.
+       */
+      const outcome = Effect.fnUntraced(function* (
+        review: Review,
+        state: RoundState,
+        round: {
+          readonly logged: Logged;
+          readonly sent: readonly Found[];
+          readonly verdict: ReturnType<typeof verdictOf>;
+        }
+      ): Effect.fn.Return<ToDesigner | null> {
+        const { logged, sent, verdict } = round;
+        const { end, send } = outcomeOf(sent.length, verdict);
+        // A review no model could score sends nothing, the checks' findings included.
+        const checks = end?.reason === "no-scores" ? [] : review.checks;
+        const listed = listedInRound(state.found, checks, send);
+        if (end !== undefined || checks.length > 0) {
+          yield* patchRound(review.threadId, state.id, (item) => ({
+            ...item,
+            ...(end !== undefined && { end }),
+            findings: listed.map(toRoundFinding),
+          }));
+        }
+        if (!send && checks.length === 0) {
+          // Findings the designer is not asked about are logged as such.
+          if (review.settings.findingsLog) {
+            yield* logFindings(logged, () => ({ did: "unanswered" }));
+          }
+          return null;
+        }
+        if (review.settings.findingsLog) {
+          // In the round's order, which the designer's declines are numbered in.
+          unanswered.set(state.id, { ...logged, found: listed });
+        }
+        return {
+          review: state.id,
+          text: findingsPrompt(
+            review.views,
+            [...(send ? sent : []), ...checks].map(toRoundFinding),
+            send ? state.left : []
+          ),
+        };
+      });
+
+      /**
        * One round by `who`, a first look or, with `open`, a second; then the closing one or the
        * end, or the findings to send.
        */
@@ -664,28 +726,7 @@ export class ReviewLoop extends Context.Service<
               []
             );
           }
-          const { end, send } = outcomeOf(sent.length, verdict);
-          if (end !== undefined) {
-            yield* patchRound(review.threadId, state.id, (item) => ({
-              ...item,
-              end,
-            }));
-          }
-          if (!send) {
-            yield* unsent;
-            return null;
-          }
-          if (review.settings.findingsLog) {
-            unanswered.set(state.id, logged);
-          }
-          return {
-            review: state.id,
-            text: findingsPrompt(
-              review.views,
-              sent.map(toRoundFinding),
-              state.left
-            ),
-          };
+          return yield* outcome(review, state, { logged, sent, verdict });
         });
 
       /** The round under way ends, its reviewers still looking stopped with it. */
@@ -717,6 +758,7 @@ export class ReviewLoop extends Context.Service<
           return null;
         }
         const started: Review = {
+          checks: notDeclined(checkFindings(views), round.declinedChecks),
           current: null,
           maxRounds: settings.goal?.maxRounds ?? MAX_ROUNDS,
           models,

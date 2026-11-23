@@ -3,14 +3,20 @@
  * (`testing/threads.ts`): a design turn that changed a page is reviewed by fresh review models,
  * whose answers become the round's scores; the findings go back to the designer, who fixes or
  * declines them; a model that doesn't answer hands the round on; Stop stops it; the findings log
- * is kept when asked. No editor is open, so the reviewers get the page's document and no picture.
+ * is kept when asked. No editor is open, so the reviewers get the page's document and no picture,
+ * unless the test plays one: then it draws each page and answers what its checks measured, which
+ * go to the designer and never to the reviewers (ADR 0081).
  */
 import path from "node:path";
 import { assert, describe } from "@effect/vitest";
 import { MAX_ROUNDS, type ReviewSettings } from "@ultrapaint/contracts/review";
+import type {
+  RenderedFinding,
+  ScreenshotRequest,
+} from "@ultrapaint/contracts/screenshots";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import type { ThreadItem } from "@ultrapaint/contracts/threads";
-import { Effect, FileSystem } from "effect";
+import { Effect, FileSystem, Ref, Stream } from "effect";
 import { TestClock } from "effect/testing";
 import { ProfileService } from "./services/profile.ts";
 import { STOPPED } from "./services/review/review-loop.ts";
@@ -19,6 +25,7 @@ import {
   REVIEWER_RULES,
 } from "./services/review/review-prompts.ts";
 import { TIMED_OUT, UNREADABLE } from "./services/review/review-rounds.ts";
+import { Screenshots } from "./services/screenshots.ts";
 import { ThreadSessions } from "./services/threads/thread-session.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
 import { perTest } from "./testing/each-test.ts";
@@ -33,7 +40,7 @@ import {
   threadTest,
   threadWhen,
 } from "./testing/threads.ts";
-import { turnEnded } from "./testing/turns.ts";
+import { turnEnded, turnsEnded } from "./testing/turns.ts";
 
 /**
  * A test on its own thread services, on a project with `settings`, on the test clock from
@@ -45,6 +52,15 @@ const test = <A, E>(
   settings?: Partial<Settings>
 ) =>
   perTest(settings ? threadTest({ settings }) : ThreadTest).effect(name, body);
+
+/**
+ * A test whose project has every service, as the composition root builds it: an editor the test
+ * plays draws its pages, which the review reads and their documents.
+ */
+const drawnTest = <A, E>(
+  name: string,
+  body: () => Effect.Effect<A, E, ThreadTestServices>
+) => perTest(threadTest({ fullProject: true })).effect(name, body);
 
 const PAGE = "designs/home.page.json";
 const REQUEST = "A calm settings page";
@@ -69,11 +85,13 @@ const answer = (findings: readonly object[], done: boolean) =>
 
 /**
  * A design thread, its review settings `review`, whose first turn wrote `file`: the designer.
- * `purpose` makes it an implement thread.
+ * `purpose` makes it an implement thread. Its page's padding is `padding`, 16 by default, a step
+ * of the spacing scale; 13 is off it.
  */
 const designed = Effect.fnUntraced(function* (
   options: {
     readonly file?: string;
+    readonly padding?: number;
     readonly purpose?: "implement";
     readonly review?: ReviewSettings;
     readonly skills?: readonly string[];
@@ -95,9 +113,7 @@ const designed = Effect.fnUntraced(function* (
   const designer = yield* agents.next;
   const turn = yield* designer.nextTurn;
   yield* designer.host.writeTextFile({
-    // A page with one value set by hand: 13px is off the spacing scale.
-    content:
-      '{ "version": 1, "root": { "id": "c_1", "type": "page", "padding": 13, "children": [] } }\n',
+    content: `{ "version": 1, "root": { "id": "c_1", "type": "page", "padding": ${options.padding ?? 16}, "children": [] } }\n`,
     path: path.join(repo, options.file ?? PAGE),
     sessionId: turn.sessionId,
   });
@@ -121,6 +137,19 @@ const reviewEnded = (
   thread: { readonly status: string },
   items: readonly ThreadItem[]
 ) => reviewsOf(items).at(-1)?.end !== undefined && thread.status === "idle";
+
+/** The findings log's lines, as they were written. */
+const logged = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  const { home, repo } = yield* ThreadFixture;
+  const text = yield* fs.readFileString(
+    path.join(home, "findings", `${path.basename(repo)}.jsonl`)
+  );
+  return text
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line) as Record<string, unknown>);
+});
 
 describe("a design's review", () => {
   test("runs in a chat that chose no design skill when its own review is on", () =>
@@ -177,9 +206,8 @@ describe("a design's review", () => {
       assert.include(said, PAGE);
       assert.include(said, "no editor is open to draw it");
       assert.include(said, '"type":"page"');
-      // The checks on its document, as facts (ADR 0061).
-      assert.include(said, "What the checks measured on its document");
-      assert.include(said, "1 values are set by hand");
+      // Nothing the checks measured (ADR 0081).
+      assert.notInclude(said, "What the checks measured");
       yield* turn.say(answer([], true));
       yield* turn.end();
       yield* reviewer.stopped;
@@ -447,19 +475,6 @@ describe("a design's review", () => {
       });
     }));
 
-  /** The findings log's lines, as they were written. */
-  const logged = Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const { home, repo } = yield* ThreadFixture;
-    const text = yield* fs.readFileString(
-      path.join(home, "findings", `${path.basename(repo)}.jsonl`)
-    );
-    return text
-      .trim()
-      .split("\n")
-      .map((line) => JSON.parse(line) as Record<string, unknown>);
-  });
-
   /** A design whose first round sent "Uneven gap" to the designer, the findings log kept. */
   const sentToDesigner = Effect.gen(function* () {
     const { designer, threadId } = yield* designed({
@@ -519,6 +534,252 @@ describe("a design's review", () => {
       yield* threadWhen(kept.threadId, reviewEnded);
       assert.isTrue(yield* fs.exists(logFile));
     }));
+});
+
+/** A 1×1 PNG, as an editor would deliver it. */
+const PNG =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+/**
+ * An editor open on the project, which draws every picture it is asked for and answers with
+ * `findings`, what its checks measured on it (none: an editor that does not measure); open once
+ * the screenshots count it. Gives the requests it was asked.
+ */
+const anEditor = (findings?: readonly RenderedFinding[]) =>
+  Effect.gen(function* () {
+    const screenshots = yield* Screenshots;
+    const asked = yield* Ref.make<readonly ScreenshotRequest[]>([]);
+    yield* screenshots.requests.pipe(
+      Stream.runForEach((request) =>
+        Effect.andThen(
+          Ref.update(asked, (all) => [...all, request]),
+          screenshots.deliver({
+            dataUrl: `data:image/png;base64,${PNG}`,
+            requestId: request.requestId,
+            ...(findings !== undefined && { findings }),
+          })
+        )
+      ),
+      Effect.forkScoped
+    );
+    yield* Stream.runHead(Stream.filter(screenshots.editors, (n) => n > 0));
+    return asked;
+  });
+
+/** The Components panel's two groups, 27px apart over rows 10px apart: under 3×. */
+const GROUPS: RenderedFinding = {
+  above: "App components",
+  below: "System components",
+  between: 27,
+  box: { height: 287, width: 200, x: 0, y: 259 },
+  kind: "groups-apart",
+  ratio: 3,
+  within: 10,
+};
+
+/** The Files list's filled rows, touching. */
+const TOUCHING: RenderedFinding = {
+  box: { height: 112, width: 240, x: 8, y: 40 },
+  kind: "touching-rows",
+  list: "Files",
+  rowHeight: 28,
+};
+
+describe("the checks' findings", () => {
+  drawnTest(
+    "go to the designer after the reviewers', each marked as a check's with what it measured",
+    () =>
+      Effect.gen(function* () {
+        yield* anEditor([GROUPS, TOUCHING]);
+        const { designer } = yield* designed({ padding: 13 });
+        const reviewing = yield* nextReviewer;
+        yield* reviewing.turn.say(answer([finding("Loud title")], false));
+        yield* reviewing.turn.end();
+        const told = (yield* designer.nextTurn).texts.join("\n");
+        assert.include(
+          told,
+          "1. **Loud title** (the settings groups; spacing, major)"
+        );
+        assert.include(
+          told,
+          "2. **“System components” too close to “App components”** (“App components” and “System components”; a check's, spacing): groups: 27px between “App components” and “System components”, 10px between the lines below: under 3×"
+        );
+        assert.include(
+          told,
+          "3. **Rows touching in “Files”** (the rows of “Files”; a check's, spacing): touching rows: rows of 28px"
+        );
+        assert.include(
+          told,
+          "4. **13px spacing off the system** (c_1 (`padding`); a check's, spacing): off the system: 13px spacing, 1 place"
+        );
+      }).pipe(Effect.scoped)
+  );
+
+  drawnTest(
+    "are measured on the review's picture and shown to no reviewer",
+    () =>
+      Effect.gen(function* () {
+        const asked = yield* anEditor([GROUPS, TOUCHING]);
+        yield* designed({ padding: 13 });
+        const reviewing = yield* nextReviewer;
+        const shown = reviewing.turn.texts.join("\n");
+        for (const measured of [
+          "App components",
+          "Files",
+          "27px",
+          "off the system",
+          "What the checks measured",
+        ]) {
+          assert.notInclude(shown, measured);
+        }
+        assert.deepStrictEqual(
+          (yield* Ref.get(asked)).map((r) => r.checks),
+          [true]
+        );
+        yield* reviewing.turn.say(answer([], true));
+        yield* reviewing.turn.end();
+      }).pipe(Effect.scoped)
+  );
+
+  drawnTest(
+    "are sent alone when the reviewers approve, the review still ending approved",
+    () =>
+      Effect.gen(function* () {
+        yield* anEditor([TOUCHING]);
+        const { designer, threadId } = yield* designed();
+        const reviewing = yield* nextReviewer;
+        yield* reviewing.turn.say(answer([], true));
+        yield* reviewing.turn.end();
+        const fixing = yield* designer.nextTurn;
+        const told = fixing.texts.join("\n");
+        assert.include(told, "is over");
+        assert.include(told, "1. **Rows touching in “Files”**");
+        yield* fixing.end();
+        const { items } = yield* threadWhen(threadId, turnsEnded(2));
+        const rounds = reviewsOf(items);
+        assert.strictEqual(rounds.length, 1);
+        assert.strictEqual(rounds[0]?.end?.reason, "approved");
+      }).pipe(Effect.scoped)
+  );
+
+  drawnTest(
+    "keep a decline on the round and in the findings log with the check's kind",
+    () =>
+      Effect.gen(function* () {
+        yield* anEditor([TOUCHING]);
+        const { designer, threadId } = yield* designed({
+          review: { findingsLog: true },
+        });
+        const reviewing = yield* nextReviewer;
+        yield* reviewing.turn.say(answer([], true));
+        yield* reviewing.turn.end();
+        const fixing = yield* designer.nextTurn;
+        yield* fixing.say(
+          "Declined: Rows touching in “Files” — the rows are one strip by design"
+        );
+        yield* fixing.end();
+        const { items } = yield* threadWhen(threadId, turnsEnded(2));
+        assert.deepStrictEqual(
+          reviewsOf(items)[0]?.findings.map((f) => [
+            f.title,
+            f.check,
+            f.reviewer,
+            f.severity,
+            f.declined,
+          ]),
+          [
+            [
+              "Rows touching in “Files”",
+              "touching-rows",
+              "check",
+              "minor",
+              "the rows are one strip by design",
+            ],
+          ]
+        );
+        const lines = yield* logged;
+        assert.strictEqual(lines.length, 1);
+        assert.deepInclude(lines[0], {
+          check: "touching-rows",
+          designer: {
+            did: "declined",
+            reason: "the rows are one strip by design",
+          },
+          title: "Rows touching in “Files”",
+        });
+      }).pipe(Effect.scoped)
+  );
+
+  drawnTest(
+    "leave a design approved with a declined one left, which is not sent again",
+    () =>
+      Effect.gen(function* () {
+        yield* anEditor([TOUCHING]);
+        const { designer, threadId } = yield* designed();
+        const first = yield* nextReviewer;
+        yield* first.turn.say(answer([finding("Uneven gap")], false));
+        yield* first.turn.end();
+        const fixing = yield* designer.nextTurn;
+        yield* fixing.say(
+          "Evened the gap.\n\nDeclined: Rows touching in “Files” — one strip by design"
+        );
+        yield* fixing.end();
+        const second = yield* nextReviewer;
+        yield* second.turn.say(answer([], true));
+        yield* second.turn.end();
+        const { items } = yield* threadWhen(threadId, reviewEnded);
+        const rounds = reviewsOf(items);
+        assert.strictEqual(rounds[1]?.end?.reason, "approved");
+        assert.deepStrictEqual(rounds[1]?.findings, []);
+        // The person's request and the first round's findings: nothing more is asked.
+        assert.strictEqual(items.filter((i) => i.kind === "user").length, 2);
+      }).pipe(Effect.scoped)
+  );
+
+  drawnTest("go nowhere when no review model could score the design", () =>
+    Effect.gen(function* () {
+      yield* anEditor([TOUCHING]);
+      const { threadId } = yield* designed();
+      const reviewing = yield* nextReviewer;
+      yield* reviewing.turn.say("Looks great to me!");
+      yield* reviewing.turn.end();
+      const { items } = yield* threadWhen(threadId, reviewEnded);
+      assert.strictEqual(reviewsOf(items)[0]?.end?.reason, "no-scores");
+      assert.strictEqual(items.filter((i) => i.kind === "user").length, 1);
+    }).pipe(Effect.scoped)
+  );
+
+  drawnTest(
+    "leave the round as it was when the editor answers with no findings: the reviewers' and the document's go on",
+    () =>
+      Effect.gen(function* () {
+        yield* anEditor();
+        const { designer } = yield* designed({ padding: 13 });
+        const reviewing = yield* nextReviewer;
+        yield* reviewing.turn.say(answer([finding("Uneven gap")], false));
+        yield* reviewing.turn.end();
+        const told = (yield* designer.nextTurn).texts.join("\n");
+        assert.include(told, "1. **Uneven gap**");
+        assert.include(told, "2. **13px spacing off the system**");
+        assert.notInclude(told, "3. ");
+      }).pipe(Effect.scoped)
+  );
+
+  drawnTest(
+    "are none on a page with neither fault: an approval asks the designer nothing",
+    () =>
+      Effect.gen(function* () {
+        yield* anEditor([]);
+        const { threadId } = yield* designed();
+        const reviewing = yield* nextReviewer;
+        yield* reviewing.turn.say(answer([], true));
+        yield* reviewing.turn.end();
+        const { items } = yield* threadWhen(threadId, reviewEnded);
+        assert.strictEqual(reviewsOf(items)[0]?.end?.reason, "approved");
+        assert.deepStrictEqual(reviewsOf(items)[0]?.findings, []);
+        assert.strictEqual(items.filter((i) => i.kind === "user").length, 1);
+      }).pipe(Effect.scoped)
+  );
 });
 
 describe("no review", () => {

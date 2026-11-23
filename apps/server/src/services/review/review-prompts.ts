@@ -14,11 +14,15 @@ import {
 } from "@ultrapaint/contracts/review";
 import type { RoundFinding } from "@ultrapaint/contracts/threads";
 import { coreText, skillFiles } from "../../skills/index.ts";
+import type { PageChecks } from "./check-findings.ts";
 
 /** A page as a review model is shown it. */
 export interface PageView {
-  /** What the checks measured on its document, as facts (ADR 0061); none when it wasn't read. */
-  readonly checks?: string | undefined;
+  /**
+   * What the checks measured on it, for the designer: never shown to a review model (ADR 0081).
+   * None when it wasn't read.
+   */
+  readonly checks?: PageChecks | undefined;
   /** Its design document, compact JSON. */
   readonly document: string;
   readonly file: string;
@@ -120,14 +124,6 @@ export const reviewerPrompt = (
       text: `Its design document (\`${page.file}\`):\n\n\`\`\`json\n${page.document}\n\`\`\``,
       type: "text",
     },
-    ...(page.checks === undefined
-      ? []
-      : [
-          {
-            text: `What the checks measured on its document, as facts: a finding of yours may rest on them, and none needs repeating them one by one.\n\n${page.checks}`,
-            type: "text" as const,
-          },
-        ]),
   ]),
   ...(open === undefined
     ? []
@@ -136,7 +132,9 @@ export const reviewerPrompt = (
 
 /**
  * A round's findings, as the designer is asked to fix or decline each, with what the review
- * models still want of the pages where it isn't in a finding.
+ * models still want of the pages where it isn't in a finding. The checks' findings come after the
+ * reviewers', each marked as a check's (ADR 0081); with none of the reviewers', the review is over
+ * and the checks' are all there is.
  */
 export const findingsPrompt = (
   pages: readonly {
@@ -146,15 +144,27 @@ export const findingsPrompt = (
   findings: readonly RoundFinding[],
   left: readonly string[]
 ) => {
-  const listed = findings.map(
-    (f, i) =>
-      `${i + 1}. **${f.title}** (${f.where}; ${f.category}, ${f.severity}): ${f.problem} Fix: ${f.fix}`
+  const listed = findings.map((f, i) =>
+    f.check === undefined
+      ? `${i + 1}. **${f.title}** (${f.where}; ${f.category}, ${f.severity}): ${f.problem} Fix: ${f.fix}`
+      : `${i + 1}. **${f.title}** (${f.where}; a check's, ${f.category}): ${f.problem} Fix: ${f.fix}`
   );
+  const named = pages.map(pageName).join(", ");
+  const reviewed = findings.some((f) => f.check === undefined);
+  const checked = findings.some((f) => f.check !== undefined);
+  const one = pages.length === 1;
   return [
-    `The review models looked at ${pages.map(pageName).join(", ")}.`,
+    reviewed || left.length > 0
+      ? `The review models looked at ${named}.`
+      : `The review of ${named} is over.`,
+    ...(checked
+      ? [
+          `The checks measured ${one ? "it" : "them"}${reviewed ? " too" : ""}, ${one ? "on the page the editor drew and in its document" : "on the pages the editor drew and in their documents"}: their findings are marked as a check's, with what each measured. A check's finding is minor, and doesn't hold back approval.`,
+        ]
+      : []),
     ...(listed.length > 0
       ? [
-          "Fix each finding below, or decline it when fixing it would go against what was asked, with your reason.",
+          `Fix each finding below, or decline it when fixing it would go against what was asked${checked ? " or, for a check's, when the design means it" : ""}, with your reason.`,
           listed.join("\n"),
         ]
       : []),

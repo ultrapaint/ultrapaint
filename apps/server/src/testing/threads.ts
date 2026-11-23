@@ -29,7 +29,7 @@ import {
   Scope,
   Stream,
 } from "effect";
-import { Foundation, ThreadsLayer } from "../composition.ts";
+import { Foundation, projectLayer, ThreadsLayer } from "../composition.ts";
 import { ServerConfig } from "../config.ts";
 import { EventBus } from "../events.ts";
 import { ListenPort } from "../listen-port.ts";
@@ -80,26 +80,31 @@ export class FixtureProject extends Context.Service<
 /**
  * The project as threads use it: the fixture's paths, its working tree and what changed in its
  * designs (only what the threads tell, no watcher), open from the start;
- * `FixtureProject` closes and reopens it. A project service threads do not use is not there.
+ * `FixtureProject` closes and reopens it. A project service threads do not use is not there,
+ * unless `full` asks for every one, as the composition root builds them: a review that draws its
+ * pages reads them and their documents.
  */
-const projectOf = (repo: string, settings: Partial<Settings>) =>
+const projectOf = (repo: string, settings: Partial<Settings>, full: boolean) =>
   Layer.effectContext(
     Effect.gen(function* () {
       const managerScope = yield* Effect.scope;
-      const services = yield* Layer.build(
-        Layer.mergeAll(WorkingTree.layer, History.layer).pipe(
-          // The history, which a turn tells as it begins and ends (ADR 0087), on its journal.
-          Layer.provideMerge(EditService.layer),
-          Layer.provideMerge(DesignFiles.layerTest),
-          Layer.provideMerge(
-            RepoPaths.layer({
-              ...defaultSettings(repo),
-              designsDir: "designs",
-              ...settings,
-            })
+      const fixtureSettings = {
+        ...defaultSettings(repo),
+        designsDir: "designs",
+        ...settings,
+      };
+      const services = full
+        ? yield* Layer.build(
+            projectLayer(fixtureSettings, DesignFiles.layerTest)
           )
-        )
-      );
+        : yield* Layer.build(
+            Layer.mergeAll(WorkingTree.layer, History.layer).pipe(
+              // The history, which a turn tells as it begins and ends (ADR 0087), on its journal.
+              Layer.provideMerge(EditService.layer),
+              Layer.provideMerge(DesignFiles.layerTest),
+              Layer.provideMerge(RepoPaths.layer(fixtureSettings))
+            )
+          );
       let current: Scope.Closeable | null = yield* Scope.fork(managerScope);
       const notConfigured = new NotConfigured({
         message: "no target repository configured",
@@ -230,10 +235,12 @@ export const SCRIPTED_SANDBOX_META = { scripted: { sandbox: false } };
  * `sandboxed` says the machine confines its agents: nothing is wrapped, but the agents are told
  * what their configuration says to a confined one. `mcp` gives them the editor's MCP server, at
  * the address of a server that says it listens on `TEST_PORT`, where nothing does. `settings`
- * are the project's, over the fixture's.
+ * are the project's, over the fixture's. `fullProject` opens the project with every service, as
+ * the composition root does, for a test whose threads reach past what they use themselves.
  */
 export const threadTest = (
   options: {
+    readonly fullProject?: boolean;
     readonly mcp?: boolean;
     readonly sandboxed?: boolean;
     readonly settings?: Partial<Settings>;
@@ -277,7 +284,9 @@ export const threadTest = (
               : AgentSandbox.layerTest
           )
         ),
-        Layer.provideMerge(projectOf(repo, options.settings ?? {})),
+        Layer.provideMerge(
+          projectOf(repo, options.settings ?? {}, options.fullProject === true)
+        ),
         Layer.provideMerge(Foundation),
         Layer.provideMerge(
           ServerConfig.layerTest({

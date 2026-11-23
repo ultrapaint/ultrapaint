@@ -7,6 +7,7 @@
  * says why, and the request fails only once every editor asked has said so.
  */
 import type {
+  RenderedFinding,
   ScreenshotRequest,
   ScreenshotResult,
 } from "@ultrapaint/contracts/screenshots";
@@ -28,8 +29,14 @@ class ScreenshotFailure extends Schema.TaggedError<ScreenshotFailure>()(
   { message: Schema.String }
 ) {}
 
+/** A picture, and what the checks measured on it when they were asked for (ADR 0081). */
+export interface CheckedPicture {
+  readonly findings: readonly RenderedFinding[];
+  readonly png: Uint8Array;
+}
+
 interface Pending {
-  readonly deferred: Deferred.Deferred<Uint8Array, ScreenshotFailure>;
+  readonly deferred: Deferred.Deferred<CheckedPicture, ScreenshotFailure>;
   readonly problems: string[];
   /** Editors asked that have not answered yet. */
   waiting: number;
@@ -40,8 +47,15 @@ export class Screenshots extends Context.Service<
   {
     /** A PNG of the node, drawn by one of the open editors. */
     readonly capture: (
-      request: Omit<ScreenshotRequest, "requestId">
+      request: Omit<ScreenshotRequest, "requestId" | "checks">
     ) => Effect.Effect<Uint8Array, ScreenshotFailure>;
+    /**
+     * A PNG of the page for the review, with what the editor's checks measured on the page it
+     * drew (ADR 0081): none from an editor that does not measure, or whose measuring failed.
+     */
+    readonly captureChecked: (
+      request: Omit<ScreenshotRequest, "requestId" | "checks">
+    ) => Effect.Effect<CheckedPicture, ScreenshotFailure>;
     /** An editor's answer to a request. One that nobody waits for any more is dropped. */
     readonly deliver: (result: ScreenshotResult) => Effect.Effect<void>;
     /** How many editors can draw, now and whenever that changes. */
@@ -67,7 +81,7 @@ export class Screenshots extends Context.Service<
         )
       );
 
-      const capture = Effect.fn("Screenshots.capture")(function* (
+      const ask = Effect.fnUntraced(function* (
         request: Omit<ScreenshotRequest, "requestId">
       ) {
         const listening = yield* SubscriptionRef.get(editors);
@@ -78,7 +92,10 @@ export class Screenshots extends Context.Service<
           });
         }
         const requestId = yield* makeId("shot");
-        const deferred = yield* Deferred.make<Uint8Array, ScreenshotFailure>();
+        const deferred = yield* Deferred.make<
+          CheckedPicture,
+          ScreenshotFailure
+        >();
         pending.set(requestId, { deferred, problems: [], waiting: listening });
         yield* events.publish("screenshot", { ...request, requestId });
         return yield* Deferred.await(deferred).pipe(
@@ -96,8 +113,21 @@ export class Screenshots extends Context.Service<
         );
       });
 
+      const capture = Effect.fn("Screenshots.capture")(function* (
+        request: Omit<ScreenshotRequest, "requestId" | "checks">
+      ) {
+        return (yield* ask(request)).png;
+      });
+
+      const captureChecked = Effect.fn("Screenshots.captureChecked")(function* (
+        request: Omit<ScreenshotRequest, "requestId" | "checks">
+      ) {
+        return yield* ask({ ...request, checks: true });
+      });
+
       const deliver = Effect.fn("Screenshots.deliver")(function* ({
         dataUrl,
+        findings,
         problem,
         requestId,
       }: ScreenshotResult) {
@@ -110,7 +140,10 @@ export class Screenshots extends Context.Service<
             dataUrl.slice(PNG_DATA_URL.length),
             "base64"
           );
-          yield* Deferred.succeed(entry.deferred, new Uint8Array(bytes));
+          yield* Deferred.succeed(entry.deferred, {
+            findings: findings ?? [],
+            png: new Uint8Array(bytes),
+          });
           return;
         }
         entry.problems.push(problem ?? "the editor answered without a picture");
@@ -127,6 +160,7 @@ export class Screenshots extends Context.Service<
 
       return Screenshots.of({
         capture,
+        captureChecked,
         deliver,
         editors: SubscriptionRef.changes(editors),
         requests,

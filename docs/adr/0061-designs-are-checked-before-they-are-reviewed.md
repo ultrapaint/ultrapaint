@@ -2,12 +2,18 @@
 
 Status: accepted, 2026-11-10, as far as it is built: the checks (the lab's `measure`, the
 `design-checks` package since 2026-11-10) and the council's rounds (`eachRound`, `signOff`), which
-0063 took to the editor; since 2026-11-11 the review models are told the checks on each page's
-document as facts (values set by hand where the design system has a token, `offSystemValues`);
-the outline step, the checks at each edit and the checks on the rendered page are not built yet.
+0063 took to the editor; since 2026-11-23 (0081) the checks' findings go to the designer, not
+the review models: the values each page's document sets by hand where the design system has a
+token (`offSystemValues`), and two checks on the rendered page the editor draws for the review
+(groups apart, touching rows); the outline step and the checks at each edit are not built yet.
 Proposed 2026-11-05. Amends ADR 0060, whose council stays. A design round compares this
 with the council every round (step 4 of `docs/plans/PLAN-review-loop.md`) before the editor is
 built for it.
+
+> Amended by [0081](0081-checks-are-findings-for-the-designer.md), 2026-11-23: the third layer's
+> reviewers are not given the checks' results. The checks' findings go to the designer as
+> findings of their own, beside the reviewers' and marked as a check's, minor and never holding
+> back approval; the kinds that go are those the person rated real at 80% or more.
 
 > Amended by [0063](0063-the-design-chat-runs-the-method.md), 2026-11-06: in the editor the
 > settings are a review level (Off, Quick, Standard, Thorough, Custom) per project and per

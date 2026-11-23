@@ -20,9 +20,10 @@
  * the prompt. Comparing them says what giving the rules to the editor's review models is worth.
  *
  * `checks` shows the pictures and code with what the lab's checks measured on the section
- * (`checks.json`, written by `measure --section`) as facts, as the editor shows its review models
- * what the checks measured on a document (ADR 0061): whether a measurement makes a reviewer name
- * what it misses by eye (groups as close as their rows, a divider off its line).
+ * (`checks.json`, written by `measure --section`) as facts, as the editor showed its review models
+ * what the checks measured on a document until ADR 0081 sent the checks' findings to the designer
+ * instead: whether a measurement makes a reviewer name what it misses by eye (groups as close as
+ * their rows, a divider off its line).
  *
  * It resumes: a review, a judgement or a grouping already made is kept. It ends on
  * `runs/<round>/report.md`, and writes each gap's line under **Result.** in its file, its status

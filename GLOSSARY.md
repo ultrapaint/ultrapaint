@@ -288,8 +288,14 @@ refactor and the board view left.
 - **Design checks**: what a program decides of a rendered page with no model and no judgement
   (ADR 0061), each with a threshold from the skill or the design system: the package
   `design-checks` (`in-page.ts` runs in the page, `findings.ts` reads what it gave). The lab runs
-  them with `pnpm evals measure`; a check reaches an agent only once its false alarms were
-  counted on sections a person rated.
+  them with `pnpm evals measure`, and the editor on the page it draws for the review (ADR 0081);
+  a check reaches an agent only once its false alarms were counted on sections a person rated.
+- **Check's finding**: a finding a check measured, not one a review model judged (ADR 0081;
+  contracts' `CheckKind`, the server's `review/check-findings.ts`): groups set too close and
+  rounded or filled rows touching, measured by the editor on the page it draws for the review,
+  and the values a page's document sets **off the system**, one finding a value. It goes to the
+  designer after the reviewers' findings, marked as a check's, and never to a review model; it
+  is minor, never holds back approval, and is declined as any finding is.
 - **Skeptic**: in the lab, a model that did not write a review and tries to knock down each of
   its findings, keeping one only where it can point at what shows it (evals' `verify.ts`). It is
   measured on what it costs (gap findings refuted) and buys (rated noise refuted) before any

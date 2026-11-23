@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 import { FileId, Json } from "./base.ts";
 import { LookPlace } from "./components.ts";
-import { Category, ReviewSettings, Severity } from "./review.ts";
+import { Category, CheckKind, ReviewSettings, Severity } from "./review.ts";
 
 /**
  * The agents that ship built in, each declared once by its descriptor in acp's `built-in`
@@ -560,11 +560,16 @@ export type RoundReviewer = typeof RoundReviewer.Type;
 /** A finding as the transcript shows it, with the designer's answer once it has one. */
 export const RoundFinding = Schema.Struct({
   category: Category,
+  /**
+   * The check that measured it (ADR 0081), sent to the designer beside the reviewers' and never
+   * shown to them; none for a reviewer's.
+   */
+  check: Schema.optional(CheckKind),
   /** The designer's reason when it declined it. */
   declined: Schema.optional(Schema.String),
   fix: Schema.String,
   problem: Schema.String,
-  /** Who found it, by `RoundReviewer.key`. */
+  /** Who found it, by `RoundReviewer.key`; `check` for a check's. */
   reviewer: Schema.String,
   severity: Severity,
   title: Schema.String,
