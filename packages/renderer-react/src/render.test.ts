@@ -453,3 +453,16 @@ describe("the look's components", () => {
     ).toHaveLength(1);
   });
 });
+
+describe("a page in its frame", () => {
+  const page = (fields: Partial<DesignNode> = {}): DesignNode =>
+    ({ children: [], id: "root", type: "page", ...fields }) as DesignNode;
+
+  it("is at least as tall as the frame, and taller where its own minimum is (ADR 0075)", async () => {
+    const { at, redraw } = await draw(page());
+    expect(at("root")?.style.minHeight).toBe("100cqh");
+    // A minimum shorter than the frame leaves no strip under the page.
+    await redraw(page({ minHeight: 1024 }));
+    expect(at("root")?.style.minHeight).toBe("max(1024px, 100cqh)");
+  });
+});

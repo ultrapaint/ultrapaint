@@ -670,6 +670,37 @@ const componentPartsOf = (
 
 const NO_COMPONENTS: readonly ComponentFile[] = [];
 
+/**
+ * The screen a page is at least as tall as, by how the frame draws: a page frame is the page's
+ * window, so its height is the frame's (`@container ed-frame`); drawn at its content's size
+ * (`fit`), a page has no screen but what holds it.
+ */
+const SCREEN_OF: Record<Drawing["mode"], string> = {
+  fit: "100%",
+  page: "100cqh",
+};
+
+/** A design system's style context with the screen of each way of drawing, made once. */
+const screenStyles = new WeakMap<
+  StyleContext,
+  Record<Drawing["mode"], StyleContext>
+>();
+
+const stylesFor = (
+  styles: StyleContext,
+  mode: Drawing["mode"]
+): StyleContext => {
+  let known = screenStyles.get(styles);
+  if (!known) {
+    known = {
+      fit: { ...styles, screen: SCREEN_OF.fit },
+      page: { ...styles, screen: SCREEN_OF.page },
+    };
+    screenStyles.set(styles, known);
+  }
+  return known[mode];
+};
+
 export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   const root = createRoot(canvas, {
     onUncaughtError: (error) =>
@@ -702,6 +733,7 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   let lastScope: Scope | null = null;
   const scopeOf = (request: Drawing): Scope => {
     const at = request.at ?? null;
+    const drawnStyles = stylesFor(styles, request.mode);
     const was = lastScope;
     if (
       was &&
@@ -710,7 +742,7 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
       was.breakpoints === breakpoints &&
       was.catalogue === catalogue &&
       was.isolating === request.isolate &&
-      was.styles === styles &&
+      was.styles === drawnStyles &&
       was.systems === systems
     ) {
       return was;
@@ -729,25 +761,10 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
       navigate: setup.navigate,
       nodeAttribute: pageAttribute,
       pageAttribute,
-      styles,
+      styles: drawnStyles,
       systems,
     };
     return lastScope;
-  };
-
-  /** A page's root as a frame draws it, the same object while the page's is. */
-  const framed = new WeakMap<DesignNode, DesignNode>();
-  const framedPage = (node: DesignNode): DesignNode => {
-    let known = framed.get(node);
-    if (!known) {
-      // A frame is the page's window: what fills the window's height fills the frame's.
-      known = {
-        ...node,
-        minHeight: node.minHeight ?? "100cqh",
-      } as DesignNode;
-      framed.set(node, known);
-    }
-    return known;
   };
 
   const draw = (request: Drawing) => {
@@ -758,11 +775,6 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
     if (request.message !== undefined || node === null) {
       body = createElement(Message, {
         text: request.message ?? "Nothing to show",
-      });
-    } else if (request.mode === "page" && node.type === "page") {
-      body = createElement(NodeView, {
-        node: framedPage(node),
-        parent: "free",
       });
     } else {
       body = createElement(NodeView, { node, parent: "free" });

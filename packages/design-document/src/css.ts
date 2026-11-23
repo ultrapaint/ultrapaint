@@ -40,6 +40,11 @@ export interface StyleContext {
   /** Where the node sits: inside a row, a column, a group, or free (the root of a render). */
   readonly parent: ParentLayout;
   readonly resolver: TokenResolver;
+  /**
+   * How tall the screen is, which a page is at least as tall as: the window's (`100vh`) when
+   * left out, as in the code; a frame's own height on the canvas.
+   */
+  readonly screen?: string | undefined;
   readonly textStyles: ReadonlyMap<string, TextStyle>;
 }
 
@@ -114,8 +119,20 @@ export const runsInRow = (
 
 type Declared = Record<string, DeclaredValue>;
 
-/** A page as tall as the screen: `min-h-screen` in the code, its frame on the canvas. */
+/** The window's height, which a page in the code is at least as tall as (`min-h-screen`). */
 const SCREEN_HEIGHT = "100vh";
+
+/**
+ * A page's minimum height: the screen's, or its own where that is taller, never less (ADR 0075).
+ * A page's `minHeight` can raise it, never lower it: a minimum shorter than the screen would leave
+ * the page short of the screen's bottom.
+ */
+const pageMinHeight = (node: DesignNode, ctx: StyleContext): DeclaredValue => {
+  const screen = ctx.screen ?? SCREEN_HEIGHT;
+  return node.minHeight === undefined
+    ? screen
+    : `max(${ctx.resolver.css(node.minHeight)}, ${screen})`;
+};
 
 /** Padding or margin, on every side at once or side by side. */
 const sidesDeclared = (
@@ -177,7 +194,7 @@ const sizeDeclared = (
 };
 
 /** How a node lays out its children: a stack's flex, a tinted image's block. */
-const layoutDeclared = (node: DesignNode): Declared => {
+const layoutDeclared = (node: DesignNode, ctx: StyleContext): Declared => {
   if (node.type === "image") {
     // A span, which the reset leaves inline, unlike an image.
     return node.tint === undefined
@@ -191,8 +208,8 @@ const layoutDeclared = (node: DesignNode): Declared => {
     display: "flex",
     flexDirection: layoutOf(node) === "row" ? "row" : "column",
   };
-  if (node.type === "page" && node.minHeight === undefined) {
-    out.minHeight = SCREEN_HEIGHT;
+  if (node.type === "page") {
+    out.minHeight = pageMinHeight(node, ctx);
   }
   if (node.wrap) {
     out.flexWrap = "wrap";
@@ -221,7 +238,8 @@ const boxDeclared = (node: DesignNode, parent: ParentLayout): Declared => {
   if (node.maxWidth !== undefined) {
     out.maxWidth = node.maxWidth;
   }
-  if (node.minHeight !== undefined) {
+  // A page's is the screen's at least (`pageMinHeight`).
+  if (node.minHeight !== undefined && node.type !== "page") {
     out.minHeight = node.minHeight;
   }
   if (node.maxHeight !== undefined) {
@@ -358,7 +376,7 @@ export const declarationsOf = (
   node: DesignNode,
   ctx: StyleContext
 ): Declarations => ({
-  ...layoutDeclared(node),
+  ...layoutDeclared(node, ctx),
   ...boxDeclared(node, ctx.parent),
   ...(node.type === "text" ? textDeclared(node, ctx) : {}),
   ...appearanceDeclared(node),
@@ -427,16 +445,10 @@ const resolved = (declarations: Declarations, resolver: TokenResolver): Style =>
   );
 
 /** The inline style a node is drawn with: its declarations over what the canvas draws besides. */
-export const nodeStyle = (node: DesignNode, ctx: StyleContext): Style => {
-  const style = {
-    ...baseStyle(node),
-    ...resolved(declarationsOf(node, ctx), ctx.resolver),
-  };
-  // A page's frame stands for the screen: as tall as the screen is as tall as the frame.
-  return node.type === "page" && style.minHeight === SCREEN_HEIGHT
-    ? { ...style, minHeight: "100%" }
-    : style;
-};
+export const nodeStyle = (node: DesignNode, ctx: StyleContext): Style => ({
+  ...baseStyle(node),
+  ...resolved(declarationsOf(node, ctx), ctx.resolver),
+});
 
 /** The mask a tinted image is drawn with: its file, as a CSS image. */
 export const maskOf = (url: string): Style => {
