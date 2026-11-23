@@ -3,7 +3,7 @@ name: up-implement
 description: Builds one story on one branch — test-first, validated, reviewed, committed. Use when an issue is ready to build.
 metadata:
   pack: epicparty/skills
-  version: 0.4.0
+  version: 0.5.0
 ---
 
 # Implement
@@ -109,7 +109,7 @@ Done when your work is committed and `git status` shows nothing of yours left be
 
 ## Hand off
 
-Report the branch, the issue, what you built, the validation result, the proof — each story's evidence, and each inconclusive or manual one —, the blast radius `/up-code-review` named with its evidence, every **small fix** you committed, every larger finding, and every **open question** you are leaving — the calls you made *for* the user. Then [`/up-to-pr`](../up-to-pr/SKILL.md) opens the pull request, carrying the proof, the blast radius, the findings and the questions into its body, and [`/up-ship`](../up-ship/SKILL.md) carries it to merged and into production.
+Report the branch, the issue, what you built, the validation result, the proof — each story's evidence, and each inconclusive or manual one —, the blast radius `/up-code-review` named with its evidence, every **small fix** you committed, every larger finding, and every **open question** you are leaving — the calls that are the user's. Then [`/up-to-pr`](../up-to-pr/SKILL.md) opens the pull request, carrying the proof, the blast radius, the findings and the questions into its body, and [`/up-ship`](../up-ship/SKILL.md) carries it to merged and into production.
 
 ## Guardrails
 

@@ -4,7 +4,7 @@ description: Looks back over a session — the current one, a named one, or the 
 disable-model-invocation: true
 metadata:
   pack: epicparty/skills
-  version: 0.2.0
+  version: 0.2.1
 ---
 
 # Retro
@@ -19,7 +19,7 @@ A retro reads until § 4, and every proposal is the user's to take.
 
 The argument names what to look back on: a thread, a transcript, a PR, a story, or a `/up-deliver` run. With none, the current session. After a `/up-deliver` run, the stories it **parked** come first, because something went wrong there, then about one in five of the rest.
 
-Read **primary sources**: the transcript, where the harness keeps one on this machine (Claude Code under `~/.claude/projects/`, Codex under `~/.codex/sessions/`); the PR's checks, review threads and findings; the issue's comments; the commits. A summary of a session — a hand-off document, a report — is a secondary source: use it where it is all there is, and say so.
+Read **primary sources**: the transcript, where the harness keeps one on this machine (Claude Code under `~/.claude/projects/`, Codex under `~/.codex/sessions/`) — only the log of each session named, the current one when none is, and never another project's logs unless the user asks; the PR's checks, review threads and findings; the issue's comments; the commits. A summary of a session — a hand-off document, a report — is a secondary source: use it where it is all there is, and say so.
 
 In each session, mark the **moments** it went slow, wrong or expensive: a correction from the user, a red check, a review finding, a re-route, a park, a long search for something that had an address, an expensive tool call, a guess at a fact the agent could not reach.
 
