@@ -12,6 +12,11 @@ the server's instructions), 0015 (`/implement`), 0019 (page states beside varian
 > `component:<Name>`, its design as implemented kept in `_implemented/components/`, and its
 > behaviour notes are in its file.
 
+> Amended by [0115](0115-a-design-is-brought-up-to-date-from-its-code.md), 2026-11-23: a page
+> whose code changed, or not linked yet, can be brought up to date from its code by an agent the
+> person sends (`/update-from-code`); reading code back into a design, and looking at the running
+> app to do it, are allowed for that task. *Code changed* is still never acted on by itself.
+
 ## Context
 
 `/implement` put a page's whole tree in a prompt and kept nothing: the next change to the design

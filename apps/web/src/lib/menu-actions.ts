@@ -130,6 +130,7 @@ import {
   setPagesReady,
   setPageUrl,
   unlinkImplementation,
+  updatePagesFromCode,
   zoomToPage,
 } from "./page-actions.ts";
 import { reveal } from "./reveal.ts";
@@ -586,6 +587,8 @@ const runPage = (target: TargetOf<"page">, act: PageAction): unknown => {
       return implementPage(page);
     case "adopt":
       return adoptPages(pagesActedOn(page.id));
+    case "updateFromCode":
+      return updatePagesFromCode(pagesActedOn(page.id));
     case "ready":
       return setPageReady(page, act.ready);
     case "readyAll":
@@ -636,6 +639,8 @@ const runCanvasEntry = (
       );
     case "adopt":
       return adoptPages([canvas.id]);
+    case "updateFromCode":
+      return updatePagesFromCode([canvas.id]);
     case "move":
       return moveCanvas(canvas, act.by);
     case "delete":

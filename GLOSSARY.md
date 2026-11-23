@@ -228,6 +228,13 @@ refactor and the board view left.
   (written through a tool, with no **spot**, `hasSpot`, they are not pinned on the canvas: ADR
   0085), and listed in the inspector's Behaviour section of what they are on (ADR 0086);
   a component's are in its file, deleted when done.
+- **Update from code**: a page brought up to date from the code that draws it (ADR 0115), by an
+  agent the person sends: rewritten in place to show what the code draws now, its old version
+  kept in the history, and marked implemented with its files (the implementation link, ADR 0030).
+  It takes the pages whose code changed and those not linked yet, by their canonical targets or
+  a canvas; its task request is `UpdateFromCode`, its command `/update-from-code`, its text the
+  page tasks' (`updateFromCode`). Offered in the Code tab's Implementation section, a canvas's
+  menu and the menu of several pages picked; never run on its own.
 - **Agent ways**: how an agent does what a task or the briefing asks of it, with the editor's MCP
   tools or without them (`agent-ways`), decided per session: the server offers its tools and the
   agent said it takes them (`mcpHttp`). Each capability is worded both ways (ask the user, save

@@ -349,6 +349,16 @@ export const adoptPages = (targets: readonly string[]) =>
   startTask({ _tag: "Adopt", targets });
 
 /**
+ * Has an agent bring pages up to date from the code that draws them (ADR 0115): each rewritten in
+ * place to show what the code draws now, its version before kept in the history, and linked to
+ * its files again; a page not linked yet has its files found first. Drafted in a new chat, for
+ * the person to send (ADR 0074). The targets are canvases (`""` for the designs directory's own)
+ * or pages, by id.
+ */
+export const updatePagesFromCode = (targets: readonly string[]) =>
+  startTask({ _tag: "UpdateFromCode", targets });
+
+/**
  * Marks a design implemented by the files the user names, as it is now (ADR 0030): the next
  * implementation is told what changed since.
  */

@@ -60,6 +60,7 @@ import {
   Plus,
   Pointer,
   Redo2,
+  RefreshCw,
   Rows3,
   Scan,
   Scissors,
@@ -159,6 +160,7 @@ const ICONS: Partial<Record<ActKind, LucideIcon>> = {
   stop: Square,
   unlink: Unlink,
   unwrap: Ungroup,
+  updateFromCode: RefreshCw,
   viewCode: FileCode,
   zoomTo: Focus,
 };

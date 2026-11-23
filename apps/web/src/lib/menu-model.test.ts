@@ -346,6 +346,12 @@ describe("the page menu", () => {
     expect(kinds(several)).not.toContain("implement");
     expect(kinds(several)).not.toContain("markImplemented");
   });
+
+  it("updates several pages from their code, beside finding it (ADR 0115)", () => {
+    expect(
+      find(pageEntries({ ...base, count: 3 }), "updateFromCode")
+    ).toMatchObject({ label: "Update 3 pages from code" });
+  });
 });
 
 describe("the menu of a canvas in the list", () => {
@@ -369,6 +375,12 @@ describe("the menu of a canvas in the list", () => {
     });
     expect(find(canvasListEntries(base), "adopt")).toMatchObject({
       label: "Find the pages' code with an agent",
+    });
+  });
+
+  it("updates its pages from their code (ADR 0115)", () => {
+    expect(find(canvasListEntries(base), "updateFromCode")).toMatchObject({
+      label: "Update its pages from code",
     });
   });
 

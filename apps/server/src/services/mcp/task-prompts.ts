@@ -47,6 +47,16 @@ export const TaskPrompts = Layer.effectDiscard(
               })
             )
             .pipe(Effect.orElseSucceed(() => []));
+        case "update-from-code":
+          return project
+            .use(Effect.flatMap(PagesService, (pages) => pages.list))
+            .pipe(
+              Effect.map((list) => [
+                ...list.canvases.map((c) => canvasWord(c.id)),
+                ...list.pages.map((p) => p.id),
+              ]),
+              Effect.orElseSucceed(() => [])
+            );
         case "redraw":
           return project
             .use(Effect.flatMap(PagesService, (pages) => pages.list))

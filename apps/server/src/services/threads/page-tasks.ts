@@ -1,7 +1,7 @@
 /**
  * The tasks that draw or implement pages: implement a page or a component in the
- * application's code, link pages built already to their code, an uploaded Figma file as pages, and a
- * canvas redrawn another way. The components in every variant and state are the Library's boards
+ * application's code, link pages built already to their code, bring pages up to date from their
+ * code, an uploaded Figma file as pages, and a canvas redrawn another way. The components in every variant and state are the Library's boards
  * (ADR 0045), which no agent draws.
  */
 import { familyOf } from "@ultrapaint/contracts/canvas-layout";
@@ -15,17 +15,25 @@ import {
 } from "@ultrapaint/contracts/components";
 import type { TextStyle } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import { componentTarget } from "@ultrapaint/contracts/implementation";
-import type { Page } from "@ultrapaint/contracts/pages";
+import {
+  componentTarget,
+  type ImplementationItem,
+  implementedFileOf,
+} from "@ultrapaint/contracts/implementation";
+import {
+  type FrameLayout,
+  type Page,
+  presetSize,
+} from "@ultrapaint/contracts/pages";
 import { baselineKey, type TokenDiff } from "@ultrapaint/contracts/sync";
 import type {
   ImplementTask,
   ImportFigmaTask,
   RedrawTask,
 } from "@ultrapaint/contracts/tasks";
-import { walk } from "@ultrapaint/design-document/tree";
+import { nodeLabel, walk } from "@ultrapaint/design-document/tree";
 import { plural } from "@ultrapaint/shared/text";
-import { Effect, FileSystem } from "effect";
+import { Effect, FileSystem, Option } from "effect";
 import { OpenProject } from "../../project.ts";
 import { ComponentService } from "../components.ts";
 import { DesignSystemService } from "../design-system.ts";
@@ -105,6 +113,55 @@ const pagesOf = (
   }
   return { picked, unknown };
 };
+
+/** A page as a task about several lists it: its id, its name, its state and its URL. */
+const pageLine = (p: Page) =>
+  `- ${p.id}: ${p.name}${p.state ? ` in the ${p.state} state` : ""}, ${p.route ?? "no URL"}`;
+
+/** Whether a design is bound to the files that implement it: implemented, or changed since. */
+const isBound = (
+  item: ImplementationItem | undefined
+): item is ImplementationItem =>
+  item?.status === "implemented" || item?.status === "changed";
+
+/**
+ * Whether a page has fallen behind its code (ADR 0115): the code that implements it changed, or
+ * it is not linked to any yet. A page implemented with nothing changed, or whose design alone
+ * changed, is not.
+ */
+const behindItsCode = (item: ImplementationItem | undefined) =>
+  !isBound(item) || item.codeChanged;
+
+/** What a task says of the names it was given that name no canvas or page. */
+const leftOut = (unknown: readonly string[]) =>
+  unknown.length > 0
+    ? `
+(There is no canvas or page ${unknown.join(", ")}; they are left out.)`
+    : "";
+
+/** How a task that links pages to their code finds the screen that draws each (ADR 0030). */
+const FIND_THE_SCREEN = `Find where the application's pages live and how its routes are declared, and the screen
+   that serves each page's URL; a page without a URL is matched by its name and what it shows.
+   Ask the user where you cannot tell, a few pages at a time.`;
+
+/**
+ * The widths a page is drawn at: its frame's, then its views'. A page the canvas has no frame
+ * for yet is drawn at the desktop size, as its picture is.
+ */
+const widthsOf = (frame: FrameLayout | undefined) =>
+  frame
+    ? [frame.width, ...(frame.views ?? []).map((v) => v.width)]
+    : [presetSize.desktop.width];
+
+/** The nodes of a page that lead somewhere in the prototype, and where. */
+const linksOf = (root: DesignNode | null | undefined) =>
+  root
+    ? [...walk(root)].flatMap((node) =>
+        "link" in node && typeof node.link === "string"
+          ? [`${nodeLabel(node)} (${node.id}) → ${node.link}`]
+          : []
+      )
+    : [];
 
 /** What a system component's implementation is: its look on the application's own component. */
 const systemIntro = (
@@ -239,6 +296,14 @@ export const makePageTasks = Effect.fnUntraced(function* (deps: {
 }) {
   const { ways } = deps;
   const project = yield* OpenProject;
+  const { tools } = ways;
+
+  /** What a page refused a mark is to do: marking checks the tokens only through the tool. */
+  const markRefused = tools
+    ? `If marking is refused because tokens the page uses have not reached the code, the design's
+   values are newer than the stylesheet's: ask the user whether to export them (${handoffCall("export")}
+   and their names) before marking, or to leave the page unlinked.`
+    : null;
   const fs = yield* FileSystem.FileSystem;
 
   /**
@@ -304,40 +369,177 @@ export const makePageTasks = Effect.fnUntraced(function* (deps: {
     );
 
   const adoptTask = (chosen: readonly Page[], unknown: readonly string[]) => {
-    const { tools } = ways;
-    const lines = chosen.map(
-      (p) =>
-        `- ${p.id}: ${p.name}${p.state ? ` in the ${p.state} state` : ""}, ${p.route ?? "no URL"}`
-    );
+    const lines = chosen.map(pageLine);
     return `<ultrapaint-task command="implement">
 These pages of the design are built in the application already, and the editor does not know by
 which files. Find the code that implements each one and link them, so that from now on the editor
 tells what changed on either side. Do not change the application's code, and do not change the
-designs.${
-      unknown.length > 0
-        ? `
-(There is no canvas or page ${unknown.join(", ")}; they are left out.)`
-        : ""
-    }
+designs.${leftOut(unknown)}
 
 The pages, by id:
 ${lines.join("\n")}
 
 ${numbered([
-  `Find where the application's pages live and how its routes are declared. For each page above,
-   find the screen that serves its URL; a page without a URL is matched by its name and what it
-   shows. Ask the user where you cannot tell, a few pages at a time.`,
+  FIND_THE_SCREEN,
   `Where the code draws the same screen (${tools ? `${tools.read_page} and ${tools.get_screenshot} show the design` : "its file is the design"}; the
    layout, the sections and the components match, not every pixel), ${ways.linkBuilt}`,
   `Where the code draws something else, or nothing, leave the page unlinked: it is a design still
    to implement.`,
-  // Marking checks the tokens only through the tool.
-  tools
-    ? `If marking is refused because tokens the page uses have not reached the code, the design's
-   values are newer than the stylesheet's: ask the user whether to export them (${handoffCall("export")}
-   and their names) before marking, or to leave the page unlinked.`
-    : null,
+  markRefused,
   "End with a table: each page, the files that implement it or why it is left unlinked.",
+])}
+</ultrapaint-task>`;
+  };
+
+  /**
+   * Update from code (ADR 0115): pages brought up to date from the code that draws them, each
+   * rewritten in place and linked to its files again; a page not linked yet has its files found
+   * first. Named by nothing, every page whose code changed or that is not linked yet; one up to
+   * date with its code is left out, and a state's page whose base page is taken goes with it.
+   */
+  const updateFromCode = (words: readonly string[]) =>
+    project.use(
+      Effect.gen(function* () {
+        const { canvases, pages } = yield* (yield* PagesService).list;
+        const { items } = yield* (yield* ImplementationService).list;
+        const itemByTarget = new Map(items.map((i) => [i.target, i]));
+        const { picked, unknown } = pagesOf(words, canvases, pages);
+        const behind = pages.filter(
+          (p) =>
+            (words.length === 0 || picked.has(p.id)) &&
+            behindItsCode(itemByTarget.get(p.id))
+        );
+        const taken = new Set(behind.map((p) => p.id));
+        const chosen = behind.filter(
+          (p) =>
+            p.state === undefined ||
+            !familyOf(pages, p).some(
+              (base) => base.state === undefined && taken.has(base.id)
+            )
+        );
+        if (chosen.length === 0) {
+          return yield* taskFailure(
+            "update-from-code",
+            `${unknown.length > 0 ? `there is no canvas or page ${unknown.join(", ")}, and ` : ""}every page ${words.length > 0 ? "named " : ""}is up to date with its code`,
+            "Say so, and stop."
+          );
+        }
+        const entries = yield* Effect.forEach(chosen, (page) =>
+          behindEntry(page, pages, itemByTarget.get(page.id))
+        );
+        return updateTask(
+          chosen,
+          entries,
+          unknown,
+          chosen.some((p) => !isBound(itemByTarget.get(p.id)))
+        );
+      })
+    );
+
+  /**
+   * A page behind its code, as the update lists it: what draws it and what changed, the widths it
+   * is drawn at, and what it keeps (its states, links and behaviour notes).
+   */
+  const behindEntry = Effect.fnUntraced(function* (
+    page: Page,
+    pages: readonly Page[],
+    item: ImplementationItem | undefined
+  ) {
+    const { settings } = yield* RepoPaths;
+    const notes = yield* (yield* DesignTargets).notes({ _tag: "Page", page });
+    const layout = yield* Effect.option(
+      (yield* PagesService).readCanvas(page.canvas)
+    );
+    const widths = widthsOf(Option.getOrUndefined(layout)?.frames[page.path]);
+    const state = yield* Effect.orElseSucceed(
+      (yield* DocumentService).get(page.id),
+      () => null
+    );
+    const lines = [pageLine(page), `  Its file: ${page.file}.`];
+    if (isBound(item)) {
+      lines.push(
+        `  It is implemented in ${item.files.join(", ")}. These files changed since: ${item.changedFiles.join(", ")}.`,
+        `  The design as it was implemented: ${settings.designsDir}/${implementedFileOf(page.id)}.`
+      );
+      if (item.designChanged) {
+        const changes = yield* Effect.orElseSucceed(
+          (yield* ImplementationService).changes(page.id),
+          () => null
+        );
+        lines.push(
+          `  The design changed since it was implemented too, and those changes never reached the code: they will be replaced by what the code draws.${changes?.text ? `\n  What changed in the design:\n${changes.text.replace(/^/gm, "  ")}` : ""}`
+        );
+      }
+    } else {
+      lines.push("  It is not linked to its code yet.");
+    }
+    lines.push(`  It is drawn at ${widths.join(", ")} px wide.`);
+    const states = familyOf(pages, page).filter(
+      (p) => p.state !== undefined && p.id !== page.id
+    );
+    if (states.length > 0) {
+      lines.push(
+        `  Its states, drawn as pages of their own: ${states.map((p) => `${p.state} (${p.id})`).join(", ")}.`
+      );
+    }
+    const links = linksOf(state?.root);
+    if (links.length > 0) {
+      lines.push(`  Its links: ${links.join("; ")}.`);
+    }
+    for (const note of notes) {
+      lines.push(
+        `  Behaviour note${note.element ? ` on ${note.element}${note.nodeId ? ` (${note.nodeId})` : ""}` : ""}: ${note.text}`
+      );
+    }
+    return lines.join("\n");
+  });
+
+  const updateTask = (
+    chosen: readonly Page[],
+    entries: readonly string[],
+    unknown: readonly string[],
+    unlinked: boolean
+  ) => {
+    const canvasIds = [...new Set(chosen.map((p) => p.canvas))];
+    const [onlyCanvas] = canvasIds;
+    const canvas =
+      onlyCanvas !== undefined && canvasIds.length === 1
+        ? named(onlyCanvas)
+        : `each page's own (${canvasIds.map(named).join(", ")})`;
+    return `<ultrapaint-task command="update-from-code">
+These pages of the design have fallen behind the application's code, or were never linked to it.
+Bring each one up to date: rewrite it in place to show what the code draws now, and link it to
+the files that draw it. Change the designs only, never the application's code. Each page's
+version from before stays in the designs' history, where the user can restore it.${leftOut(unknown)}
+
+The pages, by id:
+${entries.join("\n")}
+
+${ways.editPages(canvas)}
+
+${numbered([
+  unlinked
+    ? `For each page not linked yet, find the code that draws it. ${FIND_THE_SCREEN}`
+    : null,
+  `Read the files that draw each page, starting with the files that changed since it was
+   implemented, and the design as it was implemented, to see what moved and what still holds.`,
+  ways.seeRunningScreen,
+  `Rewrite each page in place to show what the code draws now: the same page and the same URL,
+   the ids of the nodes you keep, its states, its links to other pages and its behaviour notes
+   where they still hold. Draw with the design system's components and tokens, each of the
+   application's components as the component of the design that stands for it. Bring a page's
+   states up to date the same way.`,
+  `Where no code draws a page (an exploration, a board of options), leave it as it is, unlinked,
+   and name it in your last message.`,
+  tools
+    ? `Look at each page with ${tools.get_screenshot} when it is done and fix what is off: overlaps,
+   clipped text, empty instances.`
+    : null,
+  `Once a page is up to date, ${ways.linkBuilt}`,
+  markRefused,
+  `End with a table: each page, what you changed and the files that draw it, or why it is left
+   as it is. Say whether you saw the running screen; where you could not see the running screen,
+   say so: the page was updated from the code alone and not checked against the application.`,
 ])}
 </ultrapaint-task>`;
   };
@@ -512,7 +714,6 @@ ${userAdds(extra)}</ultrapaint-task>`;
             'Tell them to use "Import a Figma file…" under the canvases, which takes a .fig file, and stop.'
           );
         }
-        const { tools } = ways;
         if (!tools) {
           return yield* needsTools(
             "import-figma",
@@ -616,5 +817,5 @@ ${ways.editPages(named(id))}
       })
     );
 
-  return { adopt, implement, importFigma, redraw };
+  return { adopt, implement, importFigma, redraw, updateFromCode };
 });

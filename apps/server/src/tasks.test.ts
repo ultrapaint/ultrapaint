@@ -8,6 +8,7 @@ import { OpenProject, ProjectManager } from "./project.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { DesignSystemSetupService } from "./services/design-system-setup.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
+import { ImplementationService } from "./services/implementation.ts";
 import { AskUser } from "./services/mcp/ask-user.ts";
 import { EditorTools, MCP_INSTRUCTIONS } from "./services/mcp/route.ts";
 import { GetScreenshot } from "./services/mcp/screenshot.ts";
@@ -18,7 +19,7 @@ import { SlashCommands } from "./services/threads/commands.ts";
 import { AgentTasks } from "./services/threads/tasks.ts";
 import { writeComponentFile } from "./testing/components.ts";
 import { eachTest } from "./testing/each-test.ts";
-import { ProjectFixture, ProjectTest } from "./testing/project.ts";
+import { heardOf, ProjectFixture, ProjectTest } from "./testing/project.ts";
 
 const task = (request: TaskRequest) =>
   Effect.flatMap(AgentTasks, (tasks) => tasks.task(request));
@@ -279,6 +280,215 @@ describe("tasks, with the editor's MCP server", () => {
   });
 });
 
+/**
+ * Home, whose heading leads to About, linked to src/home.tsx, which someone changed since; About
+ * linked to src/about.tsx, which nobody did; Pricing not linked to its code.
+ */
+const behindItsCode = Effect.gen(function* () {
+  const { repo } = yield* ProjectFixture;
+  const fs = yield* FileSystem.FileSystem;
+  const home = path.join(repo, "designs/home.page.json");
+  yield* fs.writeFileString(
+    home,
+    (yield* fs.readFileString(home)).replace(
+      '"id": "heading",',
+      '"id": "heading",\n          "link": "about.page.json",'
+    )
+  );
+  yield* heardOf("designs/home.page.json");
+  const project = yield* OpenProject;
+  yield* project.use(
+    Effect.gen(function* () {
+      const pages = yield* PagesService;
+      yield* pages.create("", { name: "About", route: "/about" });
+      yield* pages.create("", { name: "Pricing", route: "/pricing" });
+      const implementation = yield* ImplementationService;
+      yield* implementation.mark("home.page.json", ["src/home.tsx"]);
+      yield* implementation.mark("about.page.json", ["src/about.tsx"]);
+    })
+  );
+  yield* fs.writeFileString(
+    path.join(repo, "src/home.tsx"),
+    "export const Home = () => <h1>Hi</h1>;\n"
+  );
+});
+
+const CODE = {
+  "src/about.tsx": "export const About = () => null;\n",
+  "src/home.tsx": "export const Home = () => null;\n",
+};
+
+describe("bringing pages up to date from their code (ADR 0115)", () => {
+  eachTest(ProjectTest({ files: CODE, mcp: true }))((it) => {
+    it.effect(
+      "gives a linked page whose code changed its changed files, the design as implemented, and the mark",
+      () =>
+        Effect.gen(function* () {
+          yield* behindItsCode;
+          const update = yield* task({
+            _tag: "UpdateFromCode",
+            targets: ["home.page.json"],
+          });
+          // It writes the designs only.
+          assert.strictEqual(update.purpose, "design");
+          assert.include(
+            update.text,
+            '<ultrapaint-task command="update-from-code">'
+          );
+          assert.include(update.text, "- home.page.json: Home, /home");
+          assert.include(
+            update.text,
+            "It is implemented in src/home.tsx. These files changed since: src/home.tsx."
+          );
+          assert.include(
+            update.text,
+            "designs/_implemented/home.implemented.json"
+          );
+          // It reads what changed first, and keeps what still holds.
+          assert.include(update.text, "starting with the files that changed");
+          assert.include(update.text, "in place");
+          assert.include(
+            update.text,
+            "its states, its links to other pages and its behaviour notes"
+          );
+          // What it keeps, and the widths it looks at the screen at.
+          assert.include(
+            update.text,
+            "Its links: Hello (heading) → about.page.json."
+          );
+          assert.include(update.text, "It is drawn at 1440 px wide.");
+          // The running screen where it can see it, the code alone where it cannot.
+          assert.include(update.text, "a view at a width");
+          assert.include(update.text, "a browser");
+          assert.include(update.text, "could not see the running screen");
+          // What no code draws stays as it is.
+          assert.include(update.text, "leave it as it is");
+          assert.include(update.text, "history");
+          assert.include(
+            update.text,
+            `mark it implemented: handoff with action "mark", target the page's id`
+          );
+          assert.notInclude(update.text, "Pricing");
+          assert.notInclude(update.text, "About");
+        })
+    );
+
+    it.effect(
+      "says the design's changes not implemented yet are replaced, when the design changed too",
+      () =>
+        Effect.gen(function* () {
+          yield* behindItsCode;
+          const before = yield* textOf({
+            _tag: "UpdateFromCode",
+            targets: ["home.page.json"],
+          });
+          assert.notInclude(before, "will be replaced");
+          // The page's heading changed in the design, past the editor.
+          const { repo } = yield* ProjectFixture;
+          const fs = yield* FileSystem.FileSystem;
+          const file = path.join(repo, "designs/home.page.json");
+          yield* fs.writeFileString(
+            file,
+            (yield* fs.readFileString(file)).replace("Hello", "Welcome")
+          );
+          yield* heardOf("designs/home.page.json");
+          assert.include(
+            yield* textOf({
+              _tag: "UpdateFromCode",
+              targets: ["home.page.json"],
+            }),
+            "The design changed since it was implemented too"
+          );
+        })
+    );
+
+    it.effect("has an unlinked page's files found first", () =>
+      Effect.gen(function* () {
+        yield* behindItsCode;
+        const text = yield* textOf({
+          _tag: "UpdateFromCode",
+          targets: ["pricing.page.json"],
+        });
+        assert.include(text, "- pricing.page.json: Pricing, /pricing");
+        assert.include(text, "It is not linked to its code yet.");
+        assert.include(
+          text,
+          "1. For each page not linked yet, find the code that draws it"
+        );
+      })
+    );
+
+    it.effect(
+      "covers a canvas's pages whose code changed or that are not linked, and skips those implemented",
+      () =>
+        Effect.gen(function* () {
+          yield* behindItsCode;
+          const text = yield* textOf({ _tag: "UpdateFromCode", targets: [""] });
+          assert.include(text, "- home.page.json: Home, /home");
+          assert.include(text, "- pricing.page.json: Pricing, /pricing");
+          assert.notInclude(text, "- about.page.json");
+        })
+    );
+
+    it.effect(
+      "lists a state's page under its base page, once, when both are behind their code",
+      () =>
+        Effect.gen(function* () {
+          yield* behindItsCode;
+          const project = yield* OpenProject;
+          yield* project.use(
+            Effect.flatMap(PagesService, (pages) =>
+              pages.createState("home.page.json", "Empty")
+            )
+          );
+          const text = yield* textOf({ _tag: "UpdateFromCode", targets: [""] });
+          assert.include(
+            text,
+            "Its states, drawn as pages of their own: empty (home@empty.page.json)."
+          );
+          assert.notInclude(text, "- home@empty.page.json");
+        })
+    );
+
+    it.effect("refuses when every page named is up to date with its code", () =>
+      Effect.gen(function* () {
+        yield* behindItsCode;
+        assert.deepStrictEqual(
+          yield* failureOf({
+            _tag: "UpdateFromCode",
+            targets: ["about.page.json", "nowhere"],
+          }),
+          {
+            command: "update-from-code",
+            message:
+              "there is no canvas or page nowhere, and every page named is up to date with its code",
+            next: "Say so, and stop.",
+          }
+        );
+      })
+    );
+  });
+
+  eachTest(ProjectTest({ files: CODE, mcp: false }))((it) => {
+    it.effect(
+      "says how to link a page by hand without the editor's tools",
+      () =>
+        Effect.gen(function* () {
+          yield* behindItsCode;
+          const text = yield* textOf({
+            _tag: "UpdateFromCode",
+            targets: ["home.page.json"],
+          });
+          assert.include(
+            text,
+            "note its files: without the editor's MCP server"
+          );
+          assert.include(text, "Edit the files above directly");
+        })
+    );
+  });
+});
+
 describe("tasks, without the editor's MCP server", () => {
   eachTest(ProjectTest({ mcp: false }))((it) => {
     it.effect("says how to do each thing by hand", () =>
@@ -382,6 +592,7 @@ describe("the editor's tools in what an agent is told", () => {
       { _tag: "Sync", source: "design" },
       { _tag: "Sync", source: "code" },
     ],
+    UpdateFromCode: [{ _tag: "UpdateFromCode", targets: [] }],
     Variations: [
       { _tag: "Variations", count: 2, target: "home.page.json#heading" },
     ],

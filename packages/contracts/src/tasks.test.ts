@@ -88,6 +88,27 @@ describe("parseCommand", () => {
     });
   });
 
+  it('reads /update-from-code as a page, several pages or a canvas, the designs directory\'s as "" (ADR 0115)', () => {
+    expect(requestOf("/update-from-code orders.page.json")).toEqual({
+      _tag: "UpdateFromCode",
+      targets: ["orders.page.json"],
+    });
+    expect(
+      requestOf("/update-from-code orders.page.json redesign/home.page.json")
+    ).toEqual({
+      _tag: "UpdateFromCode",
+      targets: ["orders.page.json", "redesign/home.page.json"],
+    });
+    expect(requestOf('/update-from-code ""')).toEqual({
+      _tag: "UpdateFromCode",
+      targets: [""],
+    });
+    expect(requestOf("/update-from-code redesign")).toEqual({
+      _tag: "UpdateFromCode",
+      targets: ["redesign"],
+    });
+  });
+
   it("takes Define's mode, and only Define's", () => {
     expect(requestOf("/design-system define propose a calm one")).toEqual({
       _tag: "SetupStep",
@@ -186,6 +207,10 @@ describe("the slash commands", () => {
       { _tag: "Sync", source: "design" },
       { _tag: "Sync", extra: "only colours", source: "figma" },
     ],
+    UpdateFromCode: [
+      { _tag: "UpdateFromCode", targets: [] },
+      { _tag: "UpdateFromCode", targets: ["", "redesign", "orders.page.json"] },
+    ],
     Variations: [
       { _tag: "Variations", count: 3, target: "notes.page.json#c_1" },
       {
@@ -215,6 +240,7 @@ describe("the slash commands", () => {
       "setup",
       "init",
       "implement",
+      "update-from-code",
       "import-figma",
       "redraw",
       "design-system",
@@ -242,6 +268,8 @@ describe("taskPurpose", () => {
       "implement"
     );
     expect(taskPurpose({ _tag: "Adopt", targets: [] })).toBe("design");
+    // Bringing a design up to date from its code writes the designs only (ADR 0115).
+    expect(taskPurpose({ _tag: "UpdateFromCode", targets: [] })).toBe("design");
     expect(taskPurpose({ _tag: "Sync", source: "code" })).toBe("design");
   });
 });

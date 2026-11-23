@@ -790,6 +790,7 @@ describe("the editor's requests on a project", () => {
             "setup",
             "init",
             "implement",
+            "update-from-code",
             "import-figma",
             "redraw",
             "design-system",

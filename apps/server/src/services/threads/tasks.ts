@@ -156,6 +156,8 @@ ${userAdds(extra)}</ultrapaint-task>`
               return yield* pageTasks.implement(request);
             case "Adopt":
               return yield* pageTasks.adopt(request.targets);
+            case "UpdateFromCode":
+              return yield* pageTasks.updateFromCode(request.targets);
             case "ImportFigma":
               return yield* pageTasks.importFigma(request);
             case "Redraw":

@@ -2,6 +2,10 @@
 
 Status: accepted, 2026-11-17. Amends 0030 (where the inspector shows a page's binding).
 
+> Amended by [0115](0115-a-design-is-brought-up-to-date-from-its-code.md), 2026-11-23: a page
+> whose code changed has an Update from code button beside Implement, and a page not linked yet
+> has it in the ⋯ menu.
+
 ## Context
 
 The right panel has two tabs, Design and Code. A page's link to the code that implements it (its

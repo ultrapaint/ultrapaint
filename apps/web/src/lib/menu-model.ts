@@ -403,6 +403,8 @@ export type PageAction =
   | { canvas: string | null; kind: "copyTo"; move: boolean }
   | { kind: "implement" }
   | { kind: "adopt" }
+  /** Has an agent bring the pages up to date from their code (ADR 0115). */
+  | { kind: "updateFromCode" }
   | { kind: "ready"; ready: boolean }
   | { kind: "readyAll" }
   | { kind: "markImplemented" }
@@ -468,7 +470,8 @@ const drawingEntries = (f: PageFacts): Entry<PageAction>[] =>
 
 /**
  * The page and the code that implements it (ADR 0030); several pages picked, all of them at once:
- * marked ready, or linked by an agent to the code that already implements them.
+ * marked ready, linked by an agent to the code that already implements them, or brought up to
+ * date from it (ADR 0115).
  */
 const codeEntries = (f: PageFacts): (Entry<PageAction> | false)[] => {
   if (f.count > 1) {
@@ -478,6 +481,7 @@ const codeEntries = (f: PageFacts): (Entry<PageAction> | false)[] => {
         { kind: "adopt" },
         `Find the code of ${f.count} pages with an agent`
       ),
+      item({ kind: "updateFromCode" }, `Update ${f.count} pages from code`),
     ];
   }
   const bound =
@@ -561,6 +565,7 @@ export type CanvasEntryAction =
   | { kind: "duplicateWithAgent" }
   | { kind: "readyAll" }
   | { kind: "adopt" }
+  | { kind: "updateFromCode" }
   /** Up (-1) or down (1) the list. */
   | { by: -1 | 1; kind: "move" }
   | { kind: "delete" };
@@ -585,6 +590,7 @@ export const canvasListEntries = (
     separator,
     item({ kind: "readyAll" }, "Mark every page ready to implement"),
     item({ kind: "adopt" }, "Find the pages' code with an agent"),
+    item({ kind: "updateFromCode" }, "Update its pages from code"),
     separator,
     item({ by: -1, kind: "move" }, "Move up", { disabled: f.first }),
     item({ by: 1, kind: "move" }, "Move down", { disabled: f.last }),
