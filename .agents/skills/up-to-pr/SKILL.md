@@ -3,7 +3,7 @@ name: up-to-pr
 description: Opens a pull request from a committed branch, carrying its suite report and issue link. Use when a branch is ready for review.
 metadata:
   pack: epicparty/skills
-  version: 0.3.0
+  version: 0.4.0
 ---
 
 # To PR
@@ -56,7 +56,7 @@ Read the **Scopes** setting when it is set, and the **Merge strategy** setting n
 
 - **Why this exists** — the problem, in the reviewer's terms. One or two sentences; the issue holds the long version.
 - **What it does** — the change, at the level of behaviour rather than file-by-file. A reviewer reads this to know where to look. Where the change has a shape — a call path, a component tree, a file layout — show it in the smallest picture that makes the point ([`PICTURES.md`](PICTURES.md)).
-- **What to look at** — the decision you are least sure of, the trade-off you made, the file that carries the risk. This is the section that gets you a useful review instead of an approval. Label as **Open question** each call you made *for* the user and would change on their word (`/up` `## Vocabulary`); `/up-babysit` holds the merge until each has an answer, so one left unlabelled ships as decided.
+- **What to look at** — the decision you are least sure of, the trade-off you made, the file that carries the risk. This is the section that gets you a useful review instead of an approval. Label as **Open question** each call that is the user's (`/up` `## Vocabulary`) — one you made for them and would change on their word, or one you left to them; `/up-babysit` holds the merge until each has an answer, so one left unlabelled ships as decided.
 - **Merge danger** — two lines. **Door**: **two-way** when a revert undoes the merge, **one-way** when it cannot — a migration that drops or rewrites data, mail or a charge to real users, a public API or stored format others will build on in the meantime; name what makes it one-way. **Blast radius**: the one fact this change is safe because of, with its evidence, from `/up-code-review`'s Spec report, and what breaks, for whom, if that fact is false.
 - **Found in passing** — each **small fix** the branch carries, named by commit, and each larger finding left for the user to make a story of (`/up` `## Vocabulary`). Leave the heading out when there is neither.
 - **The suite report** — the command you ran, the SHA, and the result. Say plainly when it could not run. Leave it out when CI runs the suite.
