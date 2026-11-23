@@ -48,7 +48,7 @@ every character.
 
 - Dials: neutral, compact, sharp, restrained, neo-grotesque, no imagery, terse.
 - Density: rows `32–40px`, navigation items `32–36px`, tables first.
-- Type: a neo-grotesque sans; a mono for code, ids and figures that line up.
+- Type: a neo-grotesque sans, its tabular figures where numbers line up; a mono for code only.
 - Shape: radius `4–8px`; hairline borders; shadows only on menus and dialogs.
 - Imagery: none. Icons small. Charts plain.
 - Tone: terse, exact; the noun and the number.

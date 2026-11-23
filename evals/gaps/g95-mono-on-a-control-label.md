@@ -2,10 +2,10 @@
 id: g95
 title: Mono on a control's label because its text is an id
 kind: missing
-status: testing
+status: done
 found: 2026-11-23
 source: the person, on fx-opus-new23 (decisions/new23)
-skill: [references/typography.md]
+skill: [references/typography.md, references/character.md, references/system/foundations.md]
 sections: []
 ---
 
@@ -35,3 +35,14 @@ item in the mono; ids in the incident text may stay in it.
   candidate (`candidates/g95-wide`: the mono for code only, ids, times, figures, labels, tabs,
   buttons, captions and cells in the sans, its tabular figures in a column) is tested on
   `fresh-status-page`, `fresh-audit-log` and `fresh-docs-webhooks`.
+- `fx-opus-g95wide`: 2026-11-23, `candidates/g95-wide` (the skill on main with g75's border rule, and
+  the mono for code only: a code block, a command, a key or a token copied; ids, times, figures,
+  labels, tabs, buttons, captions and cells in the sans, its tabular figures in a column),
+  `fresh-status-page` and `fresh-audit-log`, 2 runs each, Opus in Claude Code designing. The mono
+  outside code: none in 4 runs, apart from one event id in run 1's detail panel; on main, 3 of 4
+  runs of these briefs (`fx-opus-new23`, `fx-opus-new23b`) set times, IP addresses, before and after
+  values or tabs in it. `fresh-docs-webhooks`, where code needs the mono, did not run: the week
+  reached its limit.
+- Decision of 2026-11-23 (`decisions/g95-wide`): ship, as the agent called it. Shipped in
+  `references/typography.md` (the type voice, the small labels, the Check row),
+  `references/character.md` and `references/system/foundations.md`.

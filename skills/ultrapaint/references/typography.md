@@ -8,8 +8,9 @@ text styles leave open.
 The type voice of the character picks it when the product has none:
 
 - **Technical**: a neo-grotesque, Inter or a face like it (Inter Display for display sizes), or
-  Geist. A mono beside it for code, ids, timers and small uppercase labels; headings and body stay
-  in the sans.
+  Geist. A mono only for code: a code block, a command, a key or a token the reader copies. Ids,
+  times, figures, labels, tabs, buttons, captions and table cells stay in the sans, its tabular
+  figures where numbers line up in a column.
 - **Humanistic**: a friendly geometric or humanist sans for the interface (DM Sans, Figtree,
   Inter); headlines may take a serif display or a friendly display face over that plain sans body.
 - **Expressive**: the brand's face. Headings range from a neo-grotesque to a serif display, a
@@ -41,7 +42,7 @@ the page. Weights under `300` are for display sizes, `28px` and up.
   headline carries the rank alone.
 - **The subhead**: one line in muted, `18–20px` under the hero's headline, `16–18px` under a
   section's heading.
-- **Small labels**: `11–12px` uppercase, tracked `0.05em` in a technical mono, `0.1em` and up
+- **Small labels**: `11–12px` uppercase, tracked `0.05em` in a technical sans, `0.1em` and up
   for a humanistic or brand page. Wide tracking belongs to small capitals and spaced wordmarks,
   never to a running headline.
 - **One device in a headline, or none**: the second sentence in muted at the same size and
@@ -66,7 +67,7 @@ the page. Weights under `300` are for display sizes, `28px` and up.
 | A face named in the tokens and not loaded, or rendered in the fallback | Load it, or the nearest free face, and say which |
 | A paid face the product does not load and the user holds no licence for | The nearest free face of its kind |
 | Three or more families | One, two at most |
-| Mono headings or mono body text | The sans; mono for code, ids and labels |
+| The mono on anything but code: a heading, body, an id, a time, a figure, a label, a tab, a button, a cell | The sans, tabular figures in a column; the mono for code and what is copied as code |
 | A public page with two hero sizes | One hero size; the rest plainly smaller |
 | A headline with two or more accents | One, or none |
 | A small uppercase label above a heading | Remove it, unless it states a fact the heading cannot |
