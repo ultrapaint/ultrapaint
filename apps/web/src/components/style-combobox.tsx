@@ -20,6 +20,8 @@ import { CutText } from "./cut-text.tsx";
 export interface StyleOption {
   /** Muted text after the label, e.g. the size the step resolves to. */
   description?: string;
+  /** Its value is the editor's own (Clear's), so the list neither shows it nor searches it. */
+  internal?: boolean;
   label: string;
   preview?: React.ReactNode;
   /** The value the option sets, e.g. `$color-primary` or `16`. */
@@ -71,8 +73,17 @@ const emptyText = (typed: boolean, query: string) => {
   return query ? "Not a value this field takes" : "Type a value";
 };
 
-const matches = (o: StyleOption, q: string) =>
-  `${o.label} ${o.value} ${o.description ?? ""}`.toLowerCase().includes(q);
+/** Whether a query finds an option: by its label, its description, or a value the list shows. */
+export const matches = (o: StyleOption, q: string) =>
+  `${o.label} ${o.internal ? "" : o.value} ${o.description ?? ""}`
+    .toLowerCase()
+    .includes(q);
+
+/** The muted text after an option's label: its description, then its value when that says more. */
+export const hintsOf = (o: StyleOption): string[] => [
+  ...(o.description ? [o.description] : []),
+  ...(o.internal || o.description === o.value ? [] : [o.value]),
+];
 
 interface StyleComboboxProps {
   /** Opens the list as soon as it is drawn: the field was just added, to be given a value. */
@@ -351,8 +362,9 @@ const Option = ({ item }: { item: StyleOption }) => (
     {item.preview}
     <span className="truncate">{item.label}</span>
     <span className="ml-auto flex items-center gap-1.5 pl-3 font-code text-muted-foreground">
-      {item.description ? <span>{item.description}</span> : null}
-      {item.description === item.value ? null : <span>{item.value}</span>}
+      {hintsOf(item).map((hint) => (
+        <span key={hint}>{hint}</span>
+      ))}
     </span>
   </>
 );
