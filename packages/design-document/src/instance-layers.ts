@@ -11,14 +11,17 @@
 
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
-import type { AppComponentFile } from "@ultrapaint/contracts/components";
+import type {
+  AppComponentFile,
+  ComponentProperty,
+} from "@ultrapaint/contracts/components";
 import type {
   DesignNode,
   DocOp,
   InstanceNode,
 } from "@ultrapaint/contracts/document";
 import { expandAppInstance } from "./app-components.ts";
-import { childrenOf, findPath, isRecord } from "./tree.ts";
+import { childrenOf, findNode, findPath, isRecord } from "./tree.ts";
 
 /** What separates an instance from its layer in a layer's id. */
 export const LAYER_SEPARATOR = "/";
@@ -168,6 +171,42 @@ export const asPropertyValue = (kind: string, value: JsonValue): JsonValue => {
   return kind === "boolean" ? value !== true : value;
 };
 
+/** The property of `file` that sets `field` of its layer `layer`, when one does. */
+const propertyOfField = (
+  file: AppComponentFile,
+  layer: string,
+  field: string
+): ComponentProperty | undefined =>
+  file.properties.find(
+    (p) =>
+      FIELD_OF_KIND[p.kind] === field &&
+      p.targets?.some((t) => t.node === layer && t.prop === undefined)
+  );
+
+/**
+ * A layer's fields set apart: those a property of the component sets, as that property's values,
+ * and the rest, the layer's instance override's. A null gives back what the instance override
+ * holds (`held`), set before the field was a property: it is the override's to clear.
+ */
+const splitByProperty = (
+  file: AppComponentFile,
+  layer: string,
+  given: Readonly<Record<string, JsonValue>>,
+  held: Readonly<Record<string, unknown>> | undefined
+) => {
+  const props: Record<string, JsonValue> = {};
+  const set: Record<string, JsonValue> = {};
+  for (const [key, value] of Object.entries(given)) {
+    const property = propertyOfField(file, layer, key);
+    if (property && !(value === null && held?.[key] !== undefined)) {
+      props[property.name] = asPropertyValue(property.kind, value);
+    } else {
+      set[key] = value;
+    }
+  }
+  return { props, set };
+};
+
 /** An instance's props set, from a breakpoint on when one is named. */
 const setPropsOp = (
   id: string,
@@ -186,6 +225,24 @@ export const throughProperties = (
   root: DesignNode | null | undefined,
   fileOf: AppFileOf
 ): DocOp[] => {
+  /**
+   * What the page's instance's override of a layer holds, a breakpoint's when one is named: the
+   * fields set on the layer itself, which a property exposed since does not hold.
+   */
+  const heldOverride = (id: string, at: string | undefined) => {
+    const way = instanceLayerOf(id);
+    const instance = way ? findNode(root, way.instance) : null;
+    const over =
+      way && instance?.type === "instance"
+        ? instance.overrides?.[way.layer]
+        : undefined;
+    if (at === undefined) {
+      return over;
+    }
+    const byBreakpoint = over?.at;
+    const atOver = isRecord(byBreakpoint) ? byBreakpoint[at] : undefined;
+    return isRecord(atOver) ? (atOver as Record<string, JsonValue>) : undefined;
+  };
   /** The instance drawing a layer, and the component it places, when it is an app component's. */
   const ownerOf = (id: string) => {
     const owner = layerOwner(root, id, fileOf);
@@ -204,11 +261,14 @@ export const throughProperties = (
     const layer = componentLayerOf(id);
     const outer: Record<string, JsonValue> = {};
     const own: Record<string, JsonValue> = {};
+    const heldProps = heldOverride(id, at)?.props;
     for (const [key, value] of Object.entries(props)) {
       const property = found.file.properties.find((p) =>
         p.targets?.some((t) => t.node === layer && t.prop === key)
       );
-      if (property) {
+      const held =
+        value === null && isRecord(heldProps) && heldProps[key] !== undefined;
+      if (property && !held) {
         outer[property.name] = value;
       } else {
         own[key] = value;
@@ -241,21 +301,12 @@ export const throughProperties = (
     if (!found) {
       return [op];
     }
-    const layer = componentLayerOf(op.id);
-    const props: Record<string, JsonValue> = {};
-    const set: Record<string, JsonValue> = {};
-    for (const [key, value] of Object.entries(op.set)) {
-      const property = found.file.properties.find(
-        (p) =>
-          FIELD_OF_KIND[p.kind] === key &&
-          p.targets?.some((t) => t.node === layer && t.prop === undefined)
-      );
-      if (property) {
-        props[property.name] = asPropertyValue(property.kind, value);
-      } else {
-        set[key] = value;
-      }
-    }
+    const { props, set } = splitByProperty(
+      found.file,
+      componentLayerOf(op.id),
+      op.set,
+      heldOverride(op.id, op.at)
+    );
     return [
       ...(Object.keys(props).length > 0
         ? setProps(found.owner.id, props, op.at)
