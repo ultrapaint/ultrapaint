@@ -45,11 +45,13 @@ left running, but it had to be started by hand in each project's folder first.
   pulled code, which builds what changed (the editor when its sources differ from the commit it was
   built from, or were built while not committed) and starts the app again. A checkout on another
   branch, with changes not committed or commits of its own, is offered nothing to click
-  (`manual`), with why. When the install fails, the checkout goes back to the commit it was at,
-  unless a commit landed there meanwhile, and that commit's dependencies are installed again; that
-  install can fail too (offline, say), leaving them partly changed, and Pull and restart installs
-  again. The app then starts on that commit, says why the update failed and offers Pull and
-  restart again. A fetch that fails shows nothing on the item, and About says it couldn't check,
+  (`manual`), with why. When the install fails, the checkout goes back to the commit it was at
+  (`git reset --keep`), unless a commit landed there meanwhile, and that commit's dependencies are
+  installed again; that install can fail too (offline, say), leaving them partly changed, and Pull
+  and restart installs again. Going back can also be refused, when a file the pull changed was
+  edited meanwhile: the checkout then stays on the pulled commit, its edits kept, and nothing is
+  installed again. Either way the app then starts on the commit the checkout is at, says why the
+  update failed and offers Pull and restart again, or says why it cannot. A fetch that fails shows nothing on the item, and About says it couldn't check,
   as the release does. The app only reads git; the runner writes.
 - **It looks like Dev: "E · Blueprint"**, chosen by the maintainer from drawn directions, then
   moved to start from the window's left edge as T3 Code's night sky does. Blueprint paper with a
