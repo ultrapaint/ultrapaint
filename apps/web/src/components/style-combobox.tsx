@@ -85,6 +85,28 @@ export const hintsOf = (o: StyleOption): string[] => [
   ...(o.internal || o.description === o.value ? [] : [o.value]),
 ];
 
+/**
+ * The list for a query: the options it finds, and the value it types, when it can be one,
+ * first. An internal value typed is neither an option found nor a value of its own.
+ */
+export const itemsFor = (
+  options: readonly StyleOption[],
+  query: string,
+  custom?: (query: string) => string | null
+): Item[] => {
+  const typed = query.trim();
+  const q = typed.toLowerCase();
+  const found: Item[] = q ? options.filter((o) => matches(o, q)) : [...options];
+  const value = q && custom ? custom(typed) : null;
+  if (!value || options.some((o) => o.internal && o.value === value)) {
+    return found;
+  }
+  const known = options.find((o) => o.value === value);
+  return known
+    ? [known, ...found.filter((o) => o !== known)]
+    : [...found, { custom: true, label: typed, value }];
+};
+
 interface StyleComboboxProps {
   /** Opens the list as soon as it is drawn: the field was just added, to be given a value. */
   autoOpen?: boolean;
@@ -239,15 +261,7 @@ const ActiveCombobox = ({
   const selected = options.find((o) => o.value === current) ?? null;
   const arbitrary = current ? (outside?.(current) ?? false) : false;
 
-  const q = query.trim().toLowerCase();
-  let items: Item[] = q ? options.filter((o) => matches(o, q)) : [...options];
-  const customClass = q && custom ? custom(query.trim()) : null;
-  if (customClass) {
-    const known = options.find((o) => o.value === customClass);
-    items = known
-      ? [known, ...items.filter((o) => o !== known)]
-      : [...items, { custom: true, label: query.trim(), value: customClass }];
-  }
+  const items = itemsFor(options, query, custom);
 
   const onOpenChange = (next: boolean) => {
     setOpen(next);
@@ -330,7 +344,9 @@ const ActiveCombobox = ({
         </InputGroup>
       </NamedGroup>
       <ComboboxContent className="w-auto min-w-[max(10rem,var(--anchor-width))]">
-        <ComboboxEmpty>{emptyText(custom !== undefined, q)}</ComboboxEmpty>
+        <ComboboxEmpty>
+          {emptyText(custom !== undefined, query.trim().toLowerCase())}
+        </ComboboxEmpty>
         <ComboboxList>
           {(item: Item) => (
             <ComboboxItem
