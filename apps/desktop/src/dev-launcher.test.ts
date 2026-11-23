@@ -11,8 +11,13 @@ import {
   devPlist,
   launcherScript,
   needsRemaking,
+  runnerOptions,
   runScript,
 } from "./dev-launcher.ts";
+
+/** The folder's name, to read, then a hash of the checkout's whole path. */
+const BUNDLE_ID_RE =
+  /^dev\.ultrapaint\.desktop\.dev\.ultrapaint2\.[0-9a-f]{8}$/;
 
 const STAMP: DevAppStamp = {
   bundleId: "dev.ultrapaint.desktop.dev.ultrapaint",
@@ -29,8 +34,10 @@ describe("Ultrapaint Dev's Mac app", () => {
     expect(devAppPath("/Users/a/Code/ultra paint")).toBe(
       "/Users/a/Code/ultra paint/apps/desktop/.dev-app/Ultrapaint Dev.app"
     );
-    expect(devBundleId("/Users/a/Code/Ultra-Paint 2")).toBe(
-      "dev.ultrapaint.desktop.dev.ultrapaint2"
+    expect(devBundleId("/Users/a/Code/Ultra-Paint 2")).toMatch(BUNDLE_ID_RE);
+    // Two checkouts in folders of one name are two apps.
+    expect(devBundleId("/work/first/ultrapaint")).not.toBe(
+      devBundleId("/work/second/ultrapaint")
     );
     expect(devBundleId("/Users/a/Code/ultrapaint")).not.toBe(
       devBundleId("/Users/a/.t3/worktrees/ultrapaint/t3-0a1b")
@@ -127,5 +134,29 @@ describe("its launcher", () => {
       ULTRAPAINT_DESKTOP_DEV_RUN: '{"commit":"newer"}',
     });
     expect(out).toContain('{"commit":"newer"}');
+  });
+});
+
+describe("the runner's arguments", () => {
+  it("gives the app every argument it does not take, a folder first among them", () => {
+    expect(runnerOptions(["/work/a", "--web", "--x"])).toEqual({
+      after: undefined,
+      appArgs: ["/work/a", "--x"],
+      buildOnly: false,
+      forceWeb: true,
+      pullFirst: false,
+    });
+  });
+
+  it("takes the app to wait for after --after, and gives the app neither", () => {
+    expect(
+      runnerOptions(["--pull-first", "--after", "4242", "/work/a"])
+    ).toEqual({
+      after: 4242,
+      appArgs: ["/work/a"],
+      buildOnly: false,
+      forceWeb: false,
+      pullFirst: true,
+    });
   });
 });

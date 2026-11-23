@@ -69,7 +69,7 @@ left running, but it had to be started by hand in each project's folder first.
   Dev.app` in the checkout (ignored by git) from the checkout's Electron, and makes it again only
   when its stamp changes (a launcher version, the checkout, the Electron app, the icon, the bundle
   id). It carries Ultrapaint Dev's name and icon, a bundle id per checkout
-  (`dev.ultrapaint.desktop.dev.<folder>`), helper apps named after it, and is signed ad hoc and
+  (`dev.ultrapaint.desktop.dev.<folder>.<hash of its path>`), helper apps named after it, and is signed ad hoc and
   registered with LaunchServices, so Spotlight finds it and it can be kept in the Dock. Its
   executable is a launcher script that reads the run the runner saved last (`.dev-app/run.sh`)
   and opens the checkout's last build in the bundle's Electron, which keeps its own name: Electron

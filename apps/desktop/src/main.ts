@@ -957,17 +957,16 @@ const handOverToRunner = (checkout: string) => {
   // Left open: the app exits right after, which closes it.
   const out = openSync(path.join(logs, "runner.log"), "a");
   // Outlives the app on purpose: it waits for it to exit, then starts it again.
+  // No shell syntax but a word list any login shell reads alike (sh, zsh, fish): the folder is the
+  // process's, and the pid a number.
   spawn(
     process.env.SHELL || "/bin/sh",
     [
       "-l",
       "-c",
-      'cd "$1" && exec node apps/desktop/scripts/dev.ts --pull-first --after "$2"',
-      "ultrapaint-dev",
-      checkout,
-      String(process.pid),
+      `exec node apps/desktop/scripts/dev.ts --pull-first --after ${process.pid}`,
     ],
-    { detached: true, stdio: ["ignore", out, out] }
+    { cwd: checkout, detached: true, stdio: ["ignore", out, out] }
   ).unref();
 };
 
