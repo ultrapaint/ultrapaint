@@ -446,6 +446,8 @@ export class EditorFrame {
       size: (size) => tell("size", (l) => l.size?.(size)),
       textCommit: (nodeId, text) =>
         tell("textCommit", (l) => l.textCommit?.(nodeId, text)),
+      textEditing: (nodeId) =>
+        tell("textEditing", (l) => l.textEditing?.(nodeId)),
     };
   }
 
@@ -713,6 +715,7 @@ export const forwardTo = (
   rendered: (renderId) => latest().rendered?.(renderId),
   size: (size) => latest().size?.(size),
   textCommit: (nodeId, text) => latest().textCommit?.(nodeId, text),
+  textEditing: (nodeId) => latest().textEditing?.(nodeId),
 });
 
 /**

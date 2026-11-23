@@ -162,6 +162,8 @@ export interface FrameEvents {
   }) => void;
   /** An inline text edit was committed. */
   readonly textCommit?: (nodeId: string, text: string) => void;
+  /** The text being edited in place, from its start; null as the edit ends, however it ends. */
+  readonly textEditing?: (nodeId: string | null) => void;
 }
 
 /** One frame, drawn in a shadow root of the editor's page (ADR 0034). */

@@ -7,6 +7,7 @@ import {
 import { themeSelector } from "@ultrapaint/contracts/themes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FrameRuntime, FrameShown } from "./preview.ts";
+import { NODE_ATTRIBUTE } from "./preview.ts";
 import { BODY_ATTRIBUTE } from "./styles.ts";
 import { scriptedPreview } from "./testing.ts";
 
@@ -117,6 +118,38 @@ describe("a frame's host", () => {
       document.removeEventListener("keydown", hear);
     }
     expect(fromFrame).toEqual([true, false, false]);
+  });
+});
+
+describe("a text edited in place", () => {
+  it("takes the pointer and no focus ring until the edit ends, and says what is edited", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const textEditing = vi.fn();
+    const runtime = preview.mountFrame(host, {
+      canvas: "canvas",
+      events: { textEditing },
+      frame: "a",
+      shown: {},
+    });
+    opened.push(runtime);
+    const title = document.createElement("h1");
+    title.setAttribute(NODE_ATTRIBUTE, "t");
+    title.style.outline = "1px solid red";
+    title.textContent = "Awaiting your decision";
+    host.shadowRoot?.querySelector(`[${BODY_ATTRIBUTE}]`)?.append(title);
+    expect(host.style.pointerEvents).toBe("none");
+    const own = title.style.outline;
+
+    runtime.editText("t");
+    expect(textEditing).toHaveBeenLastCalledWith("t");
+    expect(host.style.pointerEvents).toBe("auto");
+    expect(title.style.outlineStyle).toBe("none");
+
+    title.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(textEditing).toHaveBeenLastCalledWith(null);
+    expect(host.style.pointerEvents).toBe("none");
+    expect(title.style.outline).toBe(own);
   });
 });
 
