@@ -98,8 +98,8 @@ export class AgentSandbox extends Context.Service<
       readonly root: string;
       readonly tmpDir: string;
       /**
-       * The only part of the repository the agent may write, when not all of it: a design
-       * thread's designs directory (ADR 0030).
+       * The only part of the repository the agent may write, when not all of it: a reviewer's
+       * scratch directory; a thread's agent writes the repository (ADR 0118).
        */
       readonly writable?: string | undefined;
     }) => Effect.Effect<AgentSandboxSession, never, Scope.Scope>;
@@ -328,7 +328,8 @@ export class AgentSandbox extends Context.Service<
              * symlink (`/tmp/app` is `/private/tmp/app`) needs its real name allowed as well.
              */
             const [, ...rootAliases] = yield* bothNames(root);
-            // A design thread writes its designs only: the repository is read-only around them.
+            // An agent that writes one directory only (a reviewer's scratch): the repository is
+            // read-only around it.
             const confined =
               writable !== undefined &&
               path.resolve(writable) !== path.resolve(root)
@@ -339,8 +340,8 @@ export class AgentSandbox extends Context.Service<
              * there outside the sandbox, and a `core.fsmonitor` in it would run too. Seatbelt
              * denies making it; bubblewrap seals it with an empty read-only directory, whose
              * mount point is made in the repository and taken away after. An empty `.git` is no
-             * repository to git, which looks further up as it would without it. A design
-             * thread's repository is read-only around its designs, `.git` and all.
+             * repository to git, which looks further up as it would without it. A repository
+             * read-only around one directory is read-only `.git` and all.
              */
             const sealed =
               confined || tools.platform !== "linux"

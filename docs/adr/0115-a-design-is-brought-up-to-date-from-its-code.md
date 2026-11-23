@@ -3,6 +3,9 @@
 Status: accepted, 2026-11-23. Amends 0030 (no reading code back into designs) and 0102 (Implement
 is the Implementation section's one button). Story: UP-110.
 
+> Amended by [0118](0118-every-thread-writes-the-repository.md), 2026-11-23: its design thread writes the
+> repository as every thread does.
+
 ## Context
 
 0030 made *code changed* "only a flag: the tool does not redraw the design from it", and ruled

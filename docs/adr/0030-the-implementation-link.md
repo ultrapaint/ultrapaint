@@ -17,6 +17,10 @@ the server's instructions), 0015 (`/implement`), 0019 (page states beside varian
 > person sends (`/update-from-code`); reading code back into a design, and looking at the running
 > app to do it, are allowed for that task. *Code changed* is still never acted on by itself.
 
+> Amended by [0118](0118-every-thread-writes-the-repository.md), 2026-11-23: every thread's agent
+> writes the repository, a design thread's too; the purpose decides the briefing and the review,
+> and `/implement` in a running design thread runs the task.
+
 ## Context
 
 `/implement` put a page's whole tree in a prompt and kept nothing: the next change to the design

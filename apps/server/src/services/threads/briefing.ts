@@ -152,8 +152,9 @@ const pagesListOf = (pages: PageList) => {
 };
 
 /**
- * What the thread is for (ADR 0030): the design leads and the code follows it. A design thread
- * writes the designs only; behaviour the design cannot show is written down, not coded. An
+ * What the thread is for (ADR 0030): the design leads and the code follows it. A design thread's
+ * work is the designs, and it writes the rest of the repository when the user asks (ADR 0118);
+ * behaviour the design cannot show is written down unless the user asks for its code. An
  * implement thread writes the application from a design.
  */
 const roleOf = (purpose: ThreadPurpose, designsDir: string, ways: AgentWays) =>
@@ -161,12 +162,14 @@ const roleOf = (purpose: ThreadPurpose, designsDir: string, ways: AgentWays) =>
     ? `This thread implements: it turns designs into the application's code, and may write the
 whole repository. The design is what the UI looks like and which states it has; what it does is
 the code's. Token values are the design's: to bring one the code does not have yet over, ${ways.exportTokens("named")}; never the other way without asking. When a design is implemented, ${ways.markImplemented("the page, or component:<Name>")}`
-    : `This thread designs: it may write ${designsDir} only, not the application's code. The design is
-what the UI looks like and which states it has (an empty, loading or error state is a page of
-its own, orders@empty.page.json); what it does — data, permissions, validation, what a button
-calls — is the code's. When the user asks for behaviour, ${ways.noteBehaviour}, and
-tell them it goes to the code when the design is implemented (the Implement button). Token values
-are the design's: change them in the design system, never in a stylesheet.`;
+    : `This thread designs: its work is the design, in ${designsDir}. It may write the rest of the
+repository too (the application's code, its docs, its configuration) when the user asks for it.
+The design is what the UI looks like and which states it has (an empty, loading or error state is
+a page of its own, orders@empty.page.json); what it does — data, permissions, validation, what a
+button calls — is the code's. When the user asks for behaviour and not for its code,
+${ways.noteBehaviour}, and tell them it goes to the code when the design is implemented (the
+Implement button). Token values are the design's: change them in the design system, never in a
+stylesheet.`;
 
 /**
  * What a design thread is told of the editor's review loop (ADR 0063), when its turns are

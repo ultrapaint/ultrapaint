@@ -212,7 +212,7 @@ refactor and the board view left.
   `BuiltInAgentId`; any other agent is a JSON file of the user's.
 - **Task**: what the editor asks an agent to do (implement a page, a setup step, a sync), named
   by a typed **task request**; a **slash command** is a request written as text. A thread's purpose
-  (design or implement, which its sandbox follows) is read from the request before its session
+  (design or implement, which its briefing and review follow; both write the repository) is read from the request before its session
   opens (`purposeFor`), and the task's text is written once the session says what the agent
   takes. The agent's own
   slash commands are offered after the editor's (`agentCommands`). What a prompt carries to the

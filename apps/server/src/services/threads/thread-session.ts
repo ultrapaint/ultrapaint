@@ -387,9 +387,6 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
 
       const scope = yield* Scope.fork(projectScope);
       opened.scope = scope;
-      // A design thread writes its designs only; an implement thread, the repository (ADR 0030).
-      const writable =
-        thread.purpose === "implement" ? undefined : paths.designsDir;
       // An agent names a file by absolute path; the editor knows it by its path in the
       // repository, and a path outside it is left as it came.
       const relative = (file: string) =>
@@ -417,8 +414,8 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
                 )
                 .pipe(Effect.catchTag("NotConfigured", () => Effect.void)),
           },
+          // Every thread writes the repository, a design thread too (ADR 0118).
           root: paths.root,
-          writable,
         })
         .pipe(
           Scope.provide(scope),

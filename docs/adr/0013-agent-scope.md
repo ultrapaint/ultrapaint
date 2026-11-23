@@ -4,6 +4,9 @@ Status: accepted, 2026-09-19.
 
 > Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: the agent is spawned by Effect's spawner in a process group of its own, with the terminals' kill policy and an environment `ServerConfig` gives; the sandbox's `_meta` goes on a reopened session too.
 
+> Amended by [0118](0118-every-thread-writes-the-repository.md), 2026-11-23: a thread's sandbox is this one again whatever
+> its purpose; only a reviewer is kept to one directory (`rewritable`).
+
 > Amended by [0030](0030-the-implementation-link.md), 2026-10-25: a design thread's sandbox makes
 > the repository read-only but for the designs directory (`rewritable`), and the editor refuses
 > its ACP writes outside it.

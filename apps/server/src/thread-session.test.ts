@@ -1032,21 +1032,17 @@ describe("a turn", () => {
       ]);
     }));
 
-  test("confines a design thread's agent to the designs; /implement makes an implement thread", () =>
+  test("lets a design thread's agent write the repository; /implement makes an implement thread", () =>
     Effect.gen(function* () {
-      const { repo } = yield* ThreadFixture;
       const store = yield* ThreadStore;
       const design = yield* started();
-      assert.strictEqual(design.agent.writable, path.join(repo, "designs"));
-      // Its agent is running: it is told to send the user to an implement thread (ADR 0030).
+      assert.isUndefined(design.agent.writable);
+      // Its agent is running: it keeps its purpose and runs the task itself (ADR 0118).
       yield* design.turn.end();
       yield* threadWhen(design.threadId, turnEnded);
       yield* send(design.threadId, "/implement /home");
-      const refused = yield* design.agent.nextTurn;
-      assert.include(
-        refused.texts.join("\n"),
-        "The user ran /implement in a thread that designs"
-      );
+      const asked = yield* design.agent.nextTurn;
+      assert.deepStrictEqual(asked.texts, [taskFor("implement", "/home")]);
       assert.isUndefined((yield* store.get(design.threadId))?.purpose);
 
       // A thread that starts with /implement implements: its agent may write the repository.
@@ -1068,7 +1064,7 @@ describe("a turn", () => {
       );
     }));
 
-  test("writes for the agent in the designs, attributes the file, and refuses the rest", () =>
+  test("writes for the agent in the repository, attributes the file, and refuses .git", () =>
     Effect.gen(function* () {
       const { repo } = yield* ThreadFixture;
       const fs = yield* FileSystem.FileSystem;
@@ -1078,14 +1074,11 @@ describe("a turn", () => {
         path: path.join(repo, "designs/agent.tsx"),
         sessionId: turn.sessionId,
       });
-      const outside = yield* Effect.flip(
-        agent.host.writeTextFile({
-          content: "x",
-          path: path.join(repo, "ui/button.tsx"),
-          sessionId: turn.sessionId,
-        })
-      );
-      assert.include(outside.message, "outside the designs directory");
+      yield* agent.host.writeTextFile({
+        content: "export default function Button() {}\n",
+        path: path.join(repo, "ui/button.tsx"),
+        sessionId: turn.sessionId,
+      });
       const git = yield* Effect.flip(
         agent.host.writeTextFile({
           content: "x",
@@ -1099,10 +1092,15 @@ describe("a turn", () => {
       const end = items.at(-1);
       assert.deepStrictEqual(end?.kind === "turn_end" && end.changedFiles, [
         "designs/agent.tsx",
+        "ui/button.tsx",
       ]);
       assert.include(
         yield* fs.readFileString(path.join(repo, "designs/agent.tsx")),
         "function Agent"
+      );
+      assert.include(
+        yield* fs.readFileString(path.join(repo, "ui/button.tsx")),
+        "function Button"
       );
     }));
 

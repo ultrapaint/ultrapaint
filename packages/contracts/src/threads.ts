@@ -280,8 +280,10 @@ export const ThreadScope = Schema.Struct({
 export type ThreadScope = typeof ThreadScope.Type;
 
 /**
- * What a thread is for (ADR 0030): `design` writes the designs directory only, `implement` the
- * repository. Threads written before there was a purpose are design threads.
+ * What a thread is for (ADR 0030): `design` makes the designs, `implement` turns them into the
+ * application's code. Both write the repository (ADR 0118); the purpose decides the briefing and
+ * whether the review looks at its turns. Threads written before there was a purpose are design
+ * threads.
  */
 export const ThreadPurpose = Schema.Literals(["design", "implement"]);
 export type ThreadPurpose = typeof ThreadPurpose.Type;

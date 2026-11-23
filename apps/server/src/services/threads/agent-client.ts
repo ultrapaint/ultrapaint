@@ -54,8 +54,9 @@ export const makeAgentClient = Effect.fnUntraced(function* () {
    * What the editor does for an agent of `agentName`, for as long as the scope: a command the
    * agent asks it to run goes through `confine`, so that it reaches no further than one the
    * agent runs itself, and `writable`, when not the whole repository, is the only directory it
-   * writes for the agent: a design thread's designs directory (ADR 0030). The sandbox closes the
-   * rest to the agent's own tools; this closes it to the writes the editor makes for it.
+   * writes for the agent: a reviewer's scratch directory (a thread's agent writes the repository,
+   * ADR 0118). The sandbox closes the rest to the agent's own tools; this closes it to the writes
+   * the editor makes for it.
    */
   const handlersFor = Effect.fnUntraced(function* (
     host: AgentHost,
@@ -161,7 +162,7 @@ export const makeAgentClient = Effect.fnUntraced(function* () {
           !abs.startsWith(`${writable}${path.sep}`)
         ) {
           return yield* new ForbiddenPath({
-            message: `${paths.relative(abs)} is outside the designs directory: this thread designs, and writes only ${paths.relative(writable)}. The application's code is an implement thread's (the Implement button).`,
+            message: `${paths.relative(abs)} is outside ${writable}, the only directory this agent writes.`,
           });
         }
         yield* writeAtomic(abs, request.content);
