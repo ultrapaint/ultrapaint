@@ -55,6 +55,7 @@ export const TaskPrompts = Layer.effectDiscard(
                 ...list.canvases.map((c) => canvasWord(c.id)),
                 ...list.pages.map((p) => p.id),
               ]),
+              // A completion that can't list the pages offers none; the prompt still takes any name.
               Effect.orElseSucceed(() => [])
             );
         case "redraw":

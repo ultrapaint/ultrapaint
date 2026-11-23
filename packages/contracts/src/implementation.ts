@@ -110,6 +110,18 @@ export const ImplementationItem = Schema.Struct({
 });
 export type ImplementationItem = typeof ImplementationItem.Type;
 
+/** Whether a status is a binding's: implemented, or changed since (ADR 0030). */
+export const isBound = (status: ImplementationItem["status"] | undefined) =>
+  status === "implemented" || status === "changed";
+
+/**
+ * Whether a design has fallen behind its code (ADR 0115): the code that implements it changed,
+ * or it is not linked to any yet. One implemented with nothing changed, or whose design alone
+ * changed, is not.
+ */
+export const behindItsCode = (item: ImplementationItem | undefined) =>
+  !(item && isBound(item.status)) || item.codeChanged;
+
 export const ImplementationList = Schema.Struct({
   items: Schema.Array(ImplementationItem),
 });

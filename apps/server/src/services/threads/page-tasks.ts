@@ -16,9 +16,11 @@ import {
 import type { TextStyle } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import {
+  behindItsCode,
   componentTarget,
   type ImplementationItem,
   implementedFileOf,
+  isBound,
 } from "@ultrapaint/contracts/implementation";
 import {
   type FrameLayout,
@@ -118,20 +120,6 @@ const pagesOf = (
 const pageLine = (p: Page) =>
   `- ${p.id}: ${p.name}${p.state ? ` in the ${p.state} state` : ""}, ${p.route ?? "no URL"}`;
 
-/** Whether a design is bound to the files that implement it: implemented, or changed since. */
-const isBound = (
-  item: ImplementationItem | undefined
-): item is ImplementationItem =>
-  item?.status === "implemented" || item?.status === "changed";
-
-/**
- * Whether a page has fallen behind its code (ADR 0115): the code that implements it changed, or
- * it is not linked to any yet. A page implemented with nothing changed, or whose design alone
- * changed, is not.
- */
-const behindItsCode = (item: ImplementationItem | undefined) =>
-  !isBound(item) || item.codeChanged;
-
 /** What a task says of the names it was given that name no canvas or page. */
 const leftOut = (unknown: readonly string[]) =>
   unknown.length > 0
@@ -139,7 +127,18 @@ const leftOut = (unknown: readonly string[]) =>
 (There is no canvas or page ${unknown.join(", ")}; they are left out.)`
     : "";
 
-/** How a task that links pages to their code finds the screen that draws each (ADR 0030). */
+/**
+ * Why a task that takes pages has none to take: the names it did not know, and why the pages it
+ * was given, or every page, are left.
+ */
+const noneLeft = (
+  unknown: readonly string[],
+  givenNames: boolean,
+  why: string
+) =>
+  `${unknown.length > 0 ? `there is no canvas or page ${unknown.join(", ")}, and ` : ""}every page ${givenNames ? "named " : ""}${why}`;
+
+/** How the update finds the screen that draws a page not linked yet (ADR 0115). */
 const FIND_THE_SCREEN = `Find where the application's pages live and how its routes are declared, and the screen
    that serves each page's URL; a page without a URL is matched by its name and what it shows.
    Ask the user where you cannot tell, a few pages at a time.`;
@@ -360,7 +359,7 @@ export const makePageTasks = Effect.fnUntraced(function* (deps: {
         if (chosen.length === 0) {
           return yield* taskFailure(
             "implement",
-            `${unknown.length > 0 ? `there is no canvas or page ${unknown.join(", ")}, and ` : ""}every page ${words.length > 0 ? "named " : ""}is linked already`,
+            noneLeft(unknown, words.length > 0, "is linked already"),
             "Say so, and stop."
           );
         }
@@ -380,7 +379,9 @@ The pages, by id:
 ${lines.join("\n")}
 
 ${numbered([
-  FIND_THE_SCREEN,
+  `Find where the application's pages live and how its routes are declared. For each page above,
+   find the screen that serves its URL; a page without a URL is matched by its name and what it
+   shows. Ask the user where you cannot tell, a few pages at a time.`,
   `Where the code draws the same screen (${tools ? `${tools.read_page} and ${tools.get_screenshot} show the design` : "its file is the design"}; the
    layout, the sections and the components match, not every pixel), ${ways.linkBuilt}`,
   `Where the code draws something else, or nothing, leave the page unlinked: it is a design still
@@ -409,18 +410,12 @@ ${numbered([
             (words.length === 0 || picked.has(p.id)) &&
             behindItsCode(itemByTarget.get(p.id))
         );
-        const taken = new Set(behind.map((p) => p.id));
-        const chosen = behind.filter(
-          (p) =>
-            p.state === undefined ||
-            !familyOf(pages, p).some(
-              (base) => base.state === undefined && taken.has(base.id)
-            )
-        );
+        // A state is a page of its own: it is taken when it is behind, and only then.
+        const chosen = behind;
         if (chosen.length === 0) {
           return yield* taskFailure(
             "update-from-code",
-            `${unknown.length > 0 ? `there is no canvas or page ${unknown.join(", ")}, and ` : ""}every page ${words.length > 0 ? "named " : ""}is up to date with its code`,
+            noneLeft(unknown, words.length > 0, "is up to date with its code"),
             "Say so, and stop."
           );
         }
@@ -431,7 +426,7 @@ ${numbered([
           chosen,
           entries,
           unknown,
-          chosen.some((p) => !isBound(itemByTarget.get(p.id)))
+          chosen.some((p) => !isBound(itemByTarget.get(p.id)?.status))
         );
       })
     );
@@ -447,21 +442,24 @@ ${numbered([
   ) {
     const { settings } = yield* RepoPaths;
     const notes = yield* (yield* DesignTargets).notes({ _tag: "Page", page });
+    // A canvas whose layout can't be read has no frames: its pages are drawn at the desktop size.
     const layout = yield* Effect.option(
       (yield* PagesService).readCanvas(page.canvas)
     );
     const widths = widthsOf(Option.getOrUndefined(layout)?.frames[page.path]);
-    const state = yield* Effect.orElseSucceed(
+    // A page that can't be read lists no links; the agent reads the page itself.
+    const doc = yield* Effect.orElseSucceed(
       (yield* DocumentService).get(page.id),
       () => null
     );
     const lines = [pageLine(page), `  Its file: ${page.file}.`];
-    if (isBound(item)) {
+    if (item && isBound(item.status)) {
       lines.push(
         `  It is implemented in ${item.files.join(", ")}. These files changed since: ${item.changedFiles.join(", ")}.`,
         `  The design as it was implemented: ${settings.designsDir}/${implementedFileOf(page.id)}.`
       );
       if (item.designChanged) {
+        // What changed in the design is shown when it can be read; the task stands without it.
         const changes = yield* Effect.orElseSucceed(
           (yield* ImplementationService).changes(page.id),
           () => null
@@ -479,10 +477,10 @@ ${numbered([
     );
     if (states.length > 0) {
       lines.push(
-        `  Its states, drawn as pages of their own: ${states.map((p) => `${p.state} (${p.id})`).join(", ")}.`
+        `  Its states, drawn as pages of their own and listed here on their own where they are behind too: ${states.map((p) => `${p.state} (${p.id})`).join(", ")}.`
       );
     }
-    const links = linksOf(state?.root);
+    const links = linksOf(doc?.root);
     if (links.length > 0) {
       lines.push(`  Its links: ${links.join("; ")}.`);
     }
@@ -527,14 +525,10 @@ ${numbered([
   `Rewrite each page in place to show what the code draws now: the same page and the same URL,
    the ids of the nodes you keep, its states, its links to other pages and its behaviour notes
    where they still hold. Draw with the design system's components and tokens, each of the
-   application's components as the component of the design that stands for it. Bring a page's
-   states up to date the same way.`,
+   application's components as the component of the design that stands for it. A state listed
+   with its page but not on its own is up to date: leave it.`,
   `Where no code draws a page (an exploration, a board of options), leave it as it is, unlinked,
    and name it in your last message.`,
-  tools
-    ? `Look at each page with ${tools.get_screenshot} when it is done and fix what is off: overlaps,
-   clipped text, empty instances.`
-    : null,
   `Once a page is up to date, ${ways.linkBuilt}`,
   markRefused,
   `End with a table: each page, what you changed and the files that draw it, or why it is left
