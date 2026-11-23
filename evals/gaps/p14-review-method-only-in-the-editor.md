@@ -40,7 +40,9 @@ job where a line holds it): what to judge first, the scope, one finding per prob
 severities and the sign-off, the second look. `REVIEWER_ROLE` keeps only what is the editor's: the
 JSON answer and its fields, the categories and `reached`, the read-only sandbox, and how each page
 is shown (its picture, its document, the checks' measures). The editor's reviewers are told the
-skill's review job with the rules, so they review as an agent outside the editor does; so are the
+skill's review job with the rules and `references/review.md`, the steps an agent outside the
+editor follows. They open no file, and are told so: the kind's file and the files it names are not
+given to them, as before; so are the
 lab's `told` reviewers, through the same `toldRules`. The lab's own section reviewer
 (`evals/prompts/review-section.md`, for a round's review loop and `panel`) already reads the
 version under test; its severities and sign-off become the skill's too, and it keeps the lab's
