@@ -1,0 +1,1094 @@
+{
+  "kind": "page",
+  "notes": [],
+  "root": {
+    "fill": "$color-canvas",
+    "id": "root",
+    "padding": 0,
+    "align": "center",
+    "crossAlign": "center",
+    "children": [
+      {
+        "fill": "$color-canvas",
+        "height": "fill",
+        "id": "r_siq",
+        "name": "Stage",
+        "padding": 20,
+        "width": "fill",
+        "align": "center",
+        "crossAlign": "start",
+        "children": [
+          {
+            "border": {
+              "color": "$color-border",
+              "style": "solid",
+              "width": 1
+            },
+            "fill": "$color-sidebar",
+            "height": 860,
+            "id": "c_sip",
+            "name": "Chat panel",
+            "radius": "$radius-xl",
+            "width": 340,
+            "children": [
+              {
+                "border": {
+                  "color": "$color-border",
+                  "style": "solid",
+                  "width": "0 0 1px 0"
+                },
+                "height": 44,
+                "id": "r_sgf",
+                "name": "Header",
+                "padding": {
+                  "left": 6,
+                  "right": 8
+                },
+                "width": "fill",
+                "crossAlign": "center",
+                "gap": 4,
+                "children": [
+                  {
+                    "height": 24,
+                    "id": "i_dov5klmd",
+                    "name": "Back",
+                    "radius": "$radius-md",
+                    "width": 24,
+                    "props": {
+                      "variant": "ghost",
+                      "size": "icon"
+                    },
+                    "children": [
+                      {
+                        "height": 14,
+                        "id": "img_dov5l6ix",
+                        "name": "chevron-left",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-foreground",
+                        "src": "assets/icons/chevron-left.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "component": "Button",
+                    "from": "@ultrapaint/system",
+                    "type": "instance"
+                  },
+                  {
+                    "id": "t_dov5mlwh",
+                    "width": "fill",
+                    "color": "$color-foreground",
+                    "font": "'Cal Sans', system-ui, sans-serif",
+                    "lineHeight": 1.429,
+                    "size": 14,
+                    "tracking": "0.02em",
+                    "weight": 400,
+                    "role": "paragraph",
+                    "text": "Redesign the pricing page",
+                    "type": "text"
+                  },
+                  {
+                    "height": 24,
+                    "id": "i_dov5n35d",
+                    "name": "More",
+                    "radius": "$radius-md",
+                    "width": 24,
+                    "props": {
+                      "variant": "ghost",
+                      "size": "icon"
+                    },
+                    "children": [
+                      {
+                        "height": 14,
+                        "id": "img_dov5o9es",
+                        "name": "ellipsis",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-foreground",
+                        "src": "assets/icons/ellipsis.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "component": "Button",
+                    "from": "@ultrapaint/system",
+                    "type": "instance"
+                  }
+                ],
+                "type": "row"
+              },
+              {
+                "height": "fill",
+                "id": "c_sin",
+                "name": "Transcript",
+                "padding": 12,
+                "width": "fill",
+                "gap": 12,
+                "children": [
+                  {
+                    "id": "c_dov3c05a",
+                    "name": "Your message",
+                    "padding": {
+                      "left": 48
+                    },
+                    "width": "fill",
+                    "crossAlign": "end",
+                    "children": [
+                      {
+                        "fill": "$color-secondary",
+                        "id": "c_dov3biz7",
+                        "padding": {
+                          "bottom": 8,
+                          "left": 12,
+                          "right": 12,
+                          "top": 8
+                        },
+                        "radius": "$radius-xl",
+                        "children": [
+                          {
+                            "id": "t_dov3au3b",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Make the pricing page feel calmer: three plans, the middle one recommended, and a short FAQ under them.",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "column"
+                  },
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "id": "c_dov4wt3x",
+                    "name": "Turn card",
+                    "radius": "$radius-lg",
+                    "width": "fill",
+                    "children": [
+                      {
+                        "id": "c_dov3oa8w",
+                        "name": "Page",
+                        "width": "fill",
+                        "children": [
+                          {
+                            "id": "r_dov3n9ai",
+                            "padding": {
+                              "bottom": 10,
+                              "left": 12,
+                              "right": 8,
+                              "top": 10
+                            },
+                            "width": "fill",
+                            "crossAlign": "center",
+                            "gap": 10,
+                            "children": [
+                              {
+                                "fill": "$color-muted",
+                                "height": 40,
+                                "id": "r_dov3gkme",
+                                "name": "Picture",
+                                "radius": "$radius-md",
+                                "width": 56,
+                                "align": "center",
+                                "crossAlign": "center",
+                                "children": [
+                                  {
+                                    "fill": "#ffffff",
+                                    "height": 30,
+                                    "id": "c_dov3fwrs",
+                                    "padding": {
+                                      "top": 4
+                                    },
+                                    "radius": 2,
+                                    "width": 24,
+                                    "crossAlign": "center",
+                                    "gap": 3,
+                                    "children": [
+                                      {
+                                        "fill": "#1a1816",
+                                        "height": 2,
+                                        "id": "r_dov3dn31",
+                                        "width": 10,
+                                        "children": [],
+                                        "type": "row"
+                                      },
+                                      {
+                                        "fill": "$color-brand",
+                                        "height": 12,
+                                        "id": "r_dov3ehx6",
+                                        "radius": 1,
+                                        "width": 8,
+                                        "children": [],
+                                        "type": "row"
+                                      }
+                                    ],
+                                    "type": "column"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "id": "c_dov3jimt",
+                                "width": "fill",
+                                "children": [
+                                  {
+                                    "id": "t_dov3hqvb",
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "weight": 500,
+                                    "role": "paragraph",
+                                    "text": "Pricing",
+                                    "type": "text"
+                                  },
+                                  {
+                                    "id": "t_dov3i0kv",
+                                    "color": "$color-muted-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.333,
+                                    "size": 12,
+                                    "role": "paragraph",
+                                    "text": "1 file changed",
+                                    "type": "text"
+                                  }
+                                ],
+                                "type": "column"
+                              },
+                              {
+                                "height": 24,
+                                "id": "i_dov3kueb",
+                                "padding": {
+                                  "left": 8,
+                                  "right": 8
+                                },
+                                "radius": "$radius-md",
+                                "props": {
+                                  "variant": "ghost",
+                                  "size": "sm"
+                                },
+                                "children": [
+                                  {
+                                    "height": 14,
+                                    "id": "img_dov3lrry",
+                                    "name": "locate-fixed",
+                                    "width": 14,
+                                    "alt": "",
+                                    "tint": "$color-foreground",
+                                    "src": "assets/icons/locate-fixed.svg",
+                                    "type": "image"
+                                  },
+                                  {
+                                    "id": "t_dov3m2rb",
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "weight": 500,
+                                    "role": "paragraph",
+                                    "text": "Show",
+                                    "type": "text"
+                                  }
+                                ],
+                                "component": "Button",
+                                "from": "@ultrapaint/system",
+                                "type": "instance"
+                              }
+                            ],
+                            "type": "row"
+                          }
+                        ],
+                        "type": "column"
+                      },
+                      {
+                        "border": {
+                          "color": "$color-border",
+                          "style": "solid",
+                          "width": "1px 0 0 0"
+                        },
+                        "id": "c_dov4rv20",
+                        "width": "fill",
+                        "children": [
+                          {
+                            "height": 36,
+                            "id": "r_dov3tesw",
+                            "padding": {
+                              "left": 12,
+                              "right": 12
+                            },
+                            "width": "fill",
+                            "crossAlign": "center",
+                            "gap": 8,
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_dov3pyj9",
+                                "name": "scan-eye",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-muted-foreground",
+                                "src": "assets/icons/scan-eye.svg",
+                                "type": "image"
+                              },
+                              {
+                                "id": "t_dov3qb6r",
+                                "width": "fill",
+                                "color": "$color-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.429,
+                                "size": 14,
+                                "weight": 500,
+                                "role": "paragraph",
+                                "text": "Approved by all 3 · 2 rounds",
+                                "type": "text"
+                              },
+                              {
+                                "id": "t_dov3rlbd",
+                                "color": "$color-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.333,
+                                "size": 12,
+                                "role": "paragraph",
+                                "text": "91–94",
+                                "type": "text"
+                              },
+                              {
+                                "height": 14,
+                                "id": "img_dov3sbth",
+                                "name": "chevron-down",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-muted-foreground",
+                                "src": "assets/icons/chevron-down.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "type": "row"
+                          },
+                          {
+                            "id": "c_dov4q7hs",
+                            "name": "Rounds",
+                            "padding": {
+                              "bottom": 12,
+                              "left": 26,
+                              "right": 12
+                            },
+                            "width": "fill",
+                            "gap": 2,
+                            "children": [
+                              {
+                                "id": "t_dov3ump6",
+                                "padding": {
+                                  "bottom": 2
+                                },
+                                "color": "$color-muted-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.333,
+                                "size": 12,
+                                "role": "paragraph",
+                                "text": "Round 1",
+                                "type": "text"
+                              },
+                              {
+                                "height": 24,
+                                "id": "r_dov3ygkk",
+                                "width": "fill",
+                                "crossAlign": "center",
+                                "gap": 8,
+                                "children": [
+                                  {
+                                    "id": "t_dov3vgv8",
+                                    "width": "fill",
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "role": "paragraph",
+                                    "text": "Opus 5.5",
+                                    "type": "text"
+                                  },
+                                  {
+                                    "id": "t_dov3w13q",
+                                    "color": "$color-muted-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.333,
+                                    "size": 12,
+                                    "role": "paragraph",
+                                    "text": "2 findings",
+                                    "type": "text"
+                                  },
+                                  {
+                                    "id": "t_dov3xggc",
+                                    "width": 22,
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "weight": 600,
+                                    "role": "paragraph",
+                                    "text": "86",
+                                    "type": "text"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "height": 24,
+                                "id": "r_dov42qmk",
+                                "width": "fill",
+                                "crossAlign": "center",
+                                "gap": 8,
+                                "children": [
+                                  {
+                                    "id": "t_dov3z9tj",
+                                    "width": "fill",
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "role": "paragraph",
+                                    "text": "GPT-6.1 Sol",
+                                    "type": "text"
+                                  },
+                                  {
+                                    "id": "t_dov40flq",
+                                    "color": "$color-muted-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.333,
+                                    "size": 12,
+                                    "role": "paragraph",
+                                    "text": "3 findings",
+                                    "type": "text"
+                                  },
+                                  {
+                                    "id": "t_dov41ssg",
+                                    "width": 22,
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "weight": 600,
+                                    "role": "paragraph",
+                                    "text": "81",
+                                    "type": "text"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "height": 24,
+                                "id": "r_dov46djf",
+                                "width": "fill",
+                                "crossAlign": "center",
+                                "gap": 8,
+                                "children": [
+                                  {
+                                    "id": "t_dov43ep1",
+                                    "width": "fill",
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "role": "paragraph",
+                                    "text": "Gemini 3.5 Pro",
+                                    "type": "text"
+                                  },
+                                  {
+                                    "id": "t_dov44z76",
+                                    "color": "$color-muted-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.333,
+                                    "size": 12,
+                                    "role": "paragraph",
+                                    "text": "1 finding",
+                                    "type": "text"
+                                  },
+                                  {
+                                    "id": "t_dov458fw",
+                                    "width": 22,
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "weight": 600,
+                                    "role": "paragraph",
+                                    "text": "88",
+                                    "type": "text"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "id": "t_dov47bdn",
+                                "padding": {
+                                  "bottom": 4,
+                                  "top": 4
+                                },
+                                "color": "$color-muted-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.333,
+                                "size": 12,
+                                "role": "paragraph",
+                                "text": "5 fixed · 1 declined",
+                                "type": "text"
+                              },
+                              {
+                                "id": "t_dov487yh",
+                                "color": "$color-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.429,
+                                "size": 14,
+                                "weight": 500,
+                                "role": "paragraph",
+                                "text": "FAQ answers sit closer to the next question",
+                                "type": "text"
+                              },
+                              {
+                                "id": "t_dov49m5e",
+                                "color": "$color-muted-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.333,
+                                "size": 12,
+                                "role": "paragraph",
+                                "text": "Declined: the gap is the FAQ component’s own; changing it is the design system’s job.",
+                                "type": "text"
+                              },
+                              {
+                                "id": "t_dov4av8w",
+                                "padding": {
+                                  "bottom": 2,
+                                  "top": 10
+                                },
+                                "color": "$color-muted-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.333,
+                                "size": 12,
+                                "role": "paragraph",
+                                "text": "Round 2",
+                                "type": "text"
+                              },
+                              {
+                                "height": 24,
+                                "id": "r_dov4fvq7",
+                                "width": "fill",
+                                "crossAlign": "center",
+                                "gap": 8,
+                                "children": [
+                                  {
+                                    "id": "t_dov4b3a0",
+                                    "width": "fill",
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "role": "paragraph",
+                                    "text": "Opus 5.5",
+                                    "type": "text"
+                                  },
+                                  {
+                                    "height": 14,
+                                    "id": "img_dov4czbf",
+                                    "name": "check",
+                                    "width": 14,
+                                    "alt": "",
+                                    "tint": "$color-muted-foreground",
+                                    "src": "assets/icons/check.svg",
+                                    "type": "image"
+                                  },
+                                  {
+                                    "id": "t_dov4dk7j",
+                                    "color": "$color-muted-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.333,
+                                    "size": 12,
+                                    "role": "paragraph",
+                                    "text": "Approved",
+                                    "type": "text"
+                                  },
+                                  {
+                                    "id": "t_dov4evd0",
+                                    "width": 22,
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "weight": 600,
+                                    "role": "paragraph",
+                                    "text": "93",
+                                    "type": "text"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "height": 24,
+                                "id": "r_dov4kvm8",
+                                "width": "fill",
+                                "crossAlign": "center",
+                                "gap": 8,
+                                "children": [
+                                  {
+                                    "id": "t_dov4gpem",
+                                    "width": "fill",
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "role": "paragraph",
+                                    "text": "GPT-6.1 Sol",
+                                    "type": "text"
+                                  },
+                                  {
+                                    "height": 14,
+                                    "id": "img_dov4h3b1",
+                                    "name": "check",
+                                    "width": 14,
+                                    "alt": "",
+                                    "tint": "$color-muted-foreground",
+                                    "src": "assets/icons/check.svg",
+                                    "type": "image"
+                                  },
+                                  {
+                                    "id": "t_dov4i7xh",
+                                    "color": "$color-muted-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.333,
+                                    "size": 12,
+                                    "role": "paragraph",
+                                    "text": "Approved",
+                                    "type": "text"
+                                  },
+                                  {
+                                    "id": "t_dov4jbhw",
+                                    "width": 22,
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "weight": 600,
+                                    "role": "paragraph",
+                                    "text": "91",
+                                    "type": "text"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "height": 24,
+                                "id": "r_dov4p75d",
+                                "width": "fill",
+                                "crossAlign": "center",
+                                "gap": 8,
+                                "children": [
+                                  {
+                                    "id": "t_dov4lugc",
+                                    "width": "fill",
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "role": "paragraph",
+                                    "text": "Gemini 3.5 Pro",
+                                    "type": "text"
+                                  },
+                                  {
+                                    "height": 14,
+                                    "id": "img_dov4mt0s",
+                                    "name": "check",
+                                    "width": 14,
+                                    "alt": "",
+                                    "tint": "$color-muted-foreground",
+                                    "src": "assets/icons/check.svg",
+                                    "type": "image"
+                                  },
+                                  {
+                                    "id": "t_dov4neug",
+                                    "color": "$color-muted-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.333,
+                                    "size": 12,
+                                    "role": "paragraph",
+                                    "text": "Approved",
+                                    "type": "text"
+                                  },
+                                  {
+                                    "id": "t_dov4opva",
+                                    "width": 22,
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "weight": 600,
+                                    "role": "paragraph",
+                                    "text": "94",
+                                    "type": "text"
+                                  }
+                                ],
+                                "type": "row"
+                              }
+                            ],
+                            "type": "column"
+                          }
+                        ],
+                        "type": "column"
+                      },
+                      {
+                        "border": {
+                          "color": "$color-border",
+                          "style": "solid",
+                          "width": "1px 0 0 0"
+                        },
+                        "id": "c_dov4vboh",
+                        "width": "fill",
+                        "children": [
+                          {
+                            "height": 36,
+                            "id": "r_dov4unl6",
+                            "padding": {
+                              "left": 12,
+                              "right": 12
+                            },
+                            "width": "fill",
+                            "crossAlign": "center",
+                            "gap": 8,
+                            "children": [
+                              {
+                                "id": "t_dov4sct5",
+                                "width": "fill",
+                                "color": "$color-muted-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.333,
+                                "size": 12,
+                                "role": "paragraph",
+                                "text": "Worked 2m 46s · 4 steps",
+                                "type": "text"
+                              },
+                              {
+                                "height": 14,
+                                "id": "img_dov4t7ui",
+                                "name": "chevron-right",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-muted-foreground",
+                                "src": "assets/icons/chevron-right.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "type": "row"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "column"
+                  },
+                  {
+                    "id": "t_dov4xpi5",
+                    "name": "Agent’s answer",
+                    "width": "fill",
+                    "color": "$color-foreground",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": 1.429,
+                    "size": 14,
+                    "role": "paragraph",
+                    "text": "Three plans now, with Pro raised as the one most teams pick, a five-question FAQ and a shorter footer. All three review models approved it after one round of fixes.",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "c_sio",
+                "name": "Bottom",
+                "padding": {
+                  "bottom": 8,
+                  "left": 8,
+                  "right": 8
+                },
+                "width": "fill",
+                "children": [
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "fill": "$color-card",
+                    "id": "c_dov59bhp",
+                    "name": "Composer",
+                    "radius": "$radius-xl",
+                    "width": "fill",
+                    "children": [
+                      {
+                        "height": 52,
+                        "id": "t_dov50vcj",
+                        "padding": {
+                          "left": 12,
+                          "right": 12,
+                          "top": 10
+                        },
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "Describe a change, or type / for commands…",
+                        "type": "text"
+                      },
+                      {
+                        "id": "r_dov58en4",
+                        "padding": {
+                          "bottom": 8,
+                          "left": 8,
+                          "right": 8
+                        },
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 4,
+                        "children": [
+                          {
+                            "height": 24,
+                            "id": "i_dov51nmn",
+                            "name": "Attach",
+                            "radius": "$radius-md",
+                            "width": 24,
+                            "props": {
+                              "variant": "ghost",
+                              "size": "icon"
+                            },
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_dov528nm",
+                                "name": "paperclip",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-muted-foreground",
+                                "src": "assets/icons/paperclip.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "component": "Button",
+                            "from": "@ultrapaint/system",
+                            "type": "instance"
+                          },
+                          {
+                            "id": "r_dov53yyv",
+                            "width": "fill",
+                            "children": [],
+                            "type": "row"
+                          },
+                          {
+                            "height": 28,
+                            "id": "r_dov578he",
+                            "name": "Model",
+                            "padding": {
+                              "left": 8,
+                              "right": 8
+                            },
+                            "crossAlign": "center",
+                            "gap": 6,
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_dov54207",
+                                "name": "agent-claude",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "#d97757",
+                                "src": "assets/icons/agent-claude.svg",
+                                "type": "image"
+                              },
+                              {
+                                "id": "t_dov55ger",
+                                "color": "$color-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.429,
+                                "size": 14,
+                                "role": "paragraph",
+                                "text": "Opus 5.5",
+                                "type": "text"
+                              },
+                              {
+                                "height": 14,
+                                "id": "img_dov56fev",
+                                "name": "chevron-down",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-muted-foreground",
+                                "src": "assets/icons/chevron-down.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "type": "row"
+                          },
+                          {
+                            "height": 24,
+                            "id": "i_dov4yrlz",
+                            "name": "Send",
+                            "radius": "$radius-md",
+                            "width": 24,
+                            "props": {
+                              "variant": "primary",
+                              "size": "icon"
+                            },
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_dov4zhrg",
+                                "name": "arrow-up",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-primary-foreground",
+                                "src": "assets/icons/arrow-up.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "component": "Button",
+                            "from": "@ultrapaint/system",
+                            "type": "instance"
+                          }
+                        ],
+                        "type": "row"
+                      }
+                    ],
+                    "type": "column"
+                  },
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": "0 1px 1px 1px"
+                    },
+                    "height": 32,
+                    "id": "r_dov5jhkr",
+                    "margin": {
+                      "left": 8,
+                      "right": 8
+                    },
+                    "name": "Tray",
+                    "padding": {
+                      "left": 4,
+                      "right": 4
+                    },
+                    "radius": "0 0 10px 10px",
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "height": 24,
+                        "id": "r_dov5dgxb",
+                        "padding": {
+                          "left": 6,
+                          "right": 6
+                        },
+                        "radius": "$radius-md",
+                        "crossAlign": "center",
+                        "gap": 4,
+                        "children": [
+                          {
+                            "id": "t_dov5ad2k",
+                            "color": "$color-muted-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "Skills",
+                            "type": "text"
+                          },
+                          {
+                            "id": "t_dov5bg2g",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "Ultrapaint",
+                            "type": "text"
+                          },
+                          {
+                            "height": 12,
+                            "id": "img_dov5cm9y",
+                            "name": "chevron-down",
+                            "width": 12,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/chevron-down.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "id": "r_dov5ez96",
+                        "width": "fill",
+                        "children": [],
+                        "type": "row"
+                      },
+                      {
+                        "height": 24,
+                        "id": "r_dov5iwx5",
+                        "padding": {
+                          "left": 6,
+                          "right": 6
+                        },
+                        "radius": "$radius-md",
+                        "crossAlign": "center",
+                        "gap": 4,
+                        "children": [
+                          {
+                            "id": "t_dov5fnm1",
+                            "color": "$color-muted-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "Review",
+                            "type": "text"
+                          },
+                          {
+                            "id": "t_dov5grcg",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "Standard",
+                            "type": "text"
+                          },
+                          {
+                            "height": 12,
+                            "id": "img_dov5h1ek",
+                            "name": "chevron-down",
+                            "width": 12,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/chevron-down.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "type": "row"
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "column"
+          }
+        ],
+        "type": "row"
+      }
+    ],
+    "direction": "column",
+    "type": "page"
+  }
+}

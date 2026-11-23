@@ -1,0 +1,730 @@
+{
+  "kind": "page",
+  "notes": [],
+  "root": {
+    "fill": "$color-canvas",
+    "id": "root",
+    "padding": 0,
+    "align": "center",
+    "crossAlign": "center",
+    "children": [
+      {
+        "fill": "$color-canvas",
+        "height": "fill",
+        "id": "r_siq",
+        "name": "Stage",
+        "padding": 20,
+        "width": "fill",
+        "align": "center",
+        "crossAlign": "start",
+        "children": [
+          {
+            "border": {
+              "color": "$color-border",
+              "style": "solid",
+              "width": 1
+            },
+            "fill": "$color-sidebar",
+            "height": 860,
+            "id": "c_sip",
+            "name": "Chat panel",
+            "radius": "$radius-xl",
+            "width": 340,
+            "children": [
+              {
+                "border": {
+                  "color": "$color-border",
+                  "style": "solid",
+                  "width": "0 0 1px 0"
+                },
+                "height": 44,
+                "id": "r_sgf",
+                "name": "Header",
+                "padding": {
+                  "left": 6,
+                  "right": 8
+                },
+                "width": "fill",
+                "crossAlign": "center",
+                "gap": 4,
+                "children": [
+                  {
+                    "height": 24,
+                    "id": "i_zoi350h3",
+                    "name": "Back",
+                    "radius": "$radius-md",
+                    "width": 24,
+                    "props": {
+                      "variant": "ghost",
+                      "size": "icon"
+                    },
+                    "children": [
+                      {
+                        "height": 14,
+                        "id": "img_zoi360nv",
+                        "name": "chevron-left",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-foreground",
+                        "src": "assets/icons/chevron-left.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "component": "Button",
+                    "from": "@ultrapaint/system",
+                    "type": "instance"
+                  },
+                  {
+                    "id": "t_zoi3776v",
+                    "width": "fill",
+                    "color": "$color-foreground",
+                    "font": "'Cal Sans', system-ui, sans-serif",
+                    "lineHeight": 1.429,
+                    "size": 14,
+                    "tracking": "0.02em",
+                    "weight": 400,
+                    "role": "paragraph",
+                    "text": "Redesign the pricing page",
+                    "type": "text"
+                  },
+                  {
+                    "height": 24,
+                    "id": "i_zoi38svb",
+                    "name": "More",
+                    "radius": "$radius-md",
+                    "width": 24,
+                    "props": {
+                      "variant": "ghost",
+                      "size": "icon"
+                    },
+                    "children": [
+                      {
+                        "height": 14,
+                        "id": "img_zoi392si",
+                        "name": "ellipsis",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-foreground",
+                        "src": "assets/icons/ellipsis.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "component": "Button",
+                    "from": "@ultrapaint/system",
+                    "type": "instance"
+                  }
+                ],
+                "type": "row"
+              },
+              {
+                "height": "fill",
+                "id": "c_sin",
+                "name": "Transcript",
+                "padding": 12,
+                "width": "fill",
+                "gap": 12,
+                "children": [
+                  {
+                    "id": "c_zoh1uh6q",
+                    "name": "Your message",
+                    "padding": {
+                      "left": 48
+                    },
+                    "width": "fill",
+                    "crossAlign": "end",
+                    "children": [
+                      {
+                        "fill": "$color-secondary",
+                        "id": "c_zoh1tf0e",
+                        "padding": {
+                          "bottom": 8,
+                          "left": 12,
+                          "right": 12,
+                          "top": 8
+                        },
+                        "radius": "$radius-xl",
+                        "children": [
+                          {
+                            "id": "t_zoh1s99b",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Make the pricing page feel calmer: three plans, the middle one recommended, and a short FAQ under them.",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "column"
+                  },
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "id": "c_zoi2hh28",
+                    "name": "Turn card",
+                    "radius": "$radius-lg",
+                    "width": "fill",
+                    "children": [
+                      {
+                        "id": "c_zoi26huk",
+                        "name": "Page",
+                        "width": "fill",
+                        "children": [
+                          {
+                            "id": "r_zoi25uwf",
+                            "padding": {
+                              "bottom": 10,
+                              "left": 12,
+                              "right": 8,
+                              "top": 10
+                            },
+                            "width": "fill",
+                            "crossAlign": "center",
+                            "gap": 10,
+                            "children": [
+                              {
+                                "fill": "$color-muted",
+                                "height": 40,
+                                "id": "r_zoi1y0rg",
+                                "name": "Picture",
+                                "radius": "$radius-md",
+                                "width": 56,
+                                "align": "center",
+                                "crossAlign": "center",
+                                "children": [
+                                  {
+                                    "fill": "#ffffff",
+                                    "height": 30,
+                                    "id": "c_zoh1x3l2",
+                                    "padding": {
+                                      "top": 4
+                                    },
+                                    "radius": 2,
+                                    "width": 24,
+                                    "crossAlign": "center",
+                                    "gap": 3,
+                                    "children": [
+                                      {
+                                        "fill": "#1a1816",
+                                        "height": 2,
+                                        "id": "r_zoh1volr",
+                                        "width": 10,
+                                        "children": [],
+                                        "type": "row"
+                                      },
+                                      {
+                                        "fill": "$color-brand",
+                                        "height": 12,
+                                        "id": "r_zoh1wcty",
+                                        "radius": 1,
+                                        "width": 8,
+                                        "children": [],
+                                        "type": "row"
+                                      }
+                                    ],
+                                    "type": "column"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "id": "c_zoi2131v",
+                                "width": "fill",
+                                "children": [
+                                  {
+                                    "id": "t_zoi1zbm9",
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "weight": 500,
+                                    "role": "paragraph",
+                                    "text": "Pricing",
+                                    "type": "text"
+                                  },
+                                  {
+                                    "id": "t_zoi20aet",
+                                    "color": "$color-muted-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.333,
+                                    "size": 12,
+                                    "role": "paragraph",
+                                    "text": "1 file changed",
+                                    "type": "text"
+                                  }
+                                ],
+                                "type": "column"
+                              },
+                              {
+                                "height": 24,
+                                "id": "i_zoi22nob",
+                                "padding": {
+                                  "left": 8,
+                                  "right": 8
+                                },
+                                "radius": "$radius-md",
+                                "props": {
+                                  "variant": "ghost",
+                                  "size": "sm"
+                                },
+                                "children": [
+                                  {
+                                    "height": 14,
+                                    "id": "img_zoi23mfc",
+                                    "name": "locate-fixed",
+                                    "width": 14,
+                                    "alt": "",
+                                    "tint": "$color-foreground",
+                                    "src": "assets/icons/locate-fixed.svg",
+                                    "type": "image"
+                                  },
+                                  {
+                                    "id": "t_zoi243rn",
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "weight": 500,
+                                    "role": "paragraph",
+                                    "text": "Show",
+                                    "type": "text"
+                                  }
+                                ],
+                                "component": "Button",
+                                "from": "@ultrapaint/system",
+                                "type": "instance"
+                              }
+                            ],
+                            "type": "row"
+                          }
+                        ],
+                        "type": "column"
+                      },
+                      {
+                        "border": {
+                          "color": "$color-border",
+                          "style": "solid",
+                          "width": "1px 0 0 0"
+                        },
+                        "id": "c_zoi2c9ul",
+                        "width": "fill",
+                        "children": [
+                          {
+                            "height": 36,
+                            "id": "r_zoi2bzhl",
+                            "padding": {
+                              "left": 12,
+                              "right": 12
+                            },
+                            "width": "fill",
+                            "crossAlign": "center",
+                            "gap": 8,
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_zoi27vmg",
+                                "name": "scan-eye",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-muted-foreground",
+                                "src": "assets/icons/scan-eye.svg",
+                                "type": "image"
+                              },
+                              {
+                                "id": "t_zoi28fgf",
+                                "width": "fill",
+                                "color": "$color-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.429,
+                                "size": 14,
+                                "weight": 500,
+                                "role": "paragraph",
+                                "text": "Approved by all 3 · 2 rounds",
+                                "type": "text"
+                              },
+                              {
+                                "id": "t_zoi295jv",
+                                "color": "$color-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.333,
+                                "size": 12,
+                                "role": "paragraph",
+                                "text": "91–94",
+                                "type": "text"
+                              },
+                              {
+                                "height": 14,
+                                "id": "img_zoi2amb9",
+                                "name": "chevron-right",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-muted-foreground",
+                                "src": "assets/icons/chevron-right.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "type": "row"
+                          }
+                        ],
+                        "type": "column"
+                      },
+                      {
+                        "border": {
+                          "color": "$color-border",
+                          "style": "solid",
+                          "width": "1px 0 0 0"
+                        },
+                        "id": "c_zoi2gqo7",
+                        "width": "fill",
+                        "children": [
+                          {
+                            "height": 36,
+                            "id": "r_zoi2f2bg",
+                            "padding": {
+                              "left": 12,
+                              "right": 12
+                            },
+                            "width": "fill",
+                            "crossAlign": "center",
+                            "gap": 8,
+                            "children": [
+                              {
+                                "id": "t_zoi2dva6",
+                                "width": "fill",
+                                "color": "$color-muted-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.333,
+                                "size": 12,
+                                "role": "paragraph",
+                                "text": "Worked 2m 46s · 4 steps",
+                                "type": "text"
+                              },
+                              {
+                                "height": 14,
+                                "id": "img_zoi2emce",
+                                "name": "chevron-right",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-muted-foreground",
+                                "src": "assets/icons/chevron-right.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "type": "row"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "column"
+                  },
+                  {
+                    "id": "t_zoi2i6ct",
+                    "name": "Agent’s answer",
+                    "width": "fill",
+                    "color": "$color-foreground",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": 1.429,
+                    "size": 14,
+                    "role": "paragraph",
+                    "text": "Three plans now, with Pro raised as the one most teams pick, a five-question FAQ and a shorter footer. All three review models approved it after one round of fixes.",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "c_sio",
+                "name": "Bottom",
+                "padding": {
+                  "bottom": 8,
+                  "left": 8,
+                  "right": 8
+                },
+                "width": "fill",
+                "children": [
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "fill": "$color-card",
+                    "id": "c_zoi2uy1u",
+                    "name": "Composer",
+                    "radius": "$radius-xl",
+                    "width": "fill",
+                    "children": [
+                      {
+                        "height": 52,
+                        "id": "t_zoi2luja",
+                        "padding": {
+                          "left": 12,
+                          "right": 12,
+                          "top": 10
+                        },
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "Describe a change, or type / for commands…",
+                        "type": "text"
+                      },
+                      {
+                        "id": "r_zoi2t61n",
+                        "padding": {
+                          "bottom": 8,
+                          "left": 8,
+                          "right": 8
+                        },
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 4,
+                        "children": [
+                          {
+                            "height": 24,
+                            "id": "i_zoi2m7fl",
+                            "name": "Attach",
+                            "radius": "$radius-md",
+                            "width": 24,
+                            "props": {
+                              "variant": "ghost",
+                              "size": "icon"
+                            },
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_zoi2n291",
+                                "name": "paperclip",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-muted-foreground",
+                                "src": "assets/icons/paperclip.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "component": "Button",
+                            "from": "@ultrapaint/system",
+                            "type": "instance"
+                          },
+                          {
+                            "id": "r_zoi2oc8e",
+                            "width": "fill",
+                            "children": [],
+                            "type": "row"
+                          },
+                          {
+                            "height": 28,
+                            "id": "r_zoi2swfz",
+                            "name": "Model",
+                            "padding": {
+                              "left": 8,
+                              "right": 8
+                            },
+                            "crossAlign": "center",
+                            "gap": 6,
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_zoi2p77r",
+                                "name": "agent-claude",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "#d97757",
+                                "src": "assets/icons/agent-claude.svg",
+                                "type": "image"
+                              },
+                              {
+                                "id": "t_zoi2qksx",
+                                "color": "$color-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.429,
+                                "size": 14,
+                                "role": "paragraph",
+                                "text": "Opus 5.5",
+                                "type": "text"
+                              },
+                              {
+                                "height": 14,
+                                "id": "img_zoi2rnxp",
+                                "name": "chevron-down",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-muted-foreground",
+                                "src": "assets/icons/chevron-down.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "type": "row"
+                          },
+                          {
+                            "height": 24,
+                            "id": "i_zoi2jqyi",
+                            "name": "Send",
+                            "radius": "$radius-md",
+                            "width": 24,
+                            "props": {
+                              "variant": "primary",
+                              "size": "icon"
+                            },
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_zoi2kbms",
+                                "name": "arrow-up",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-primary-foreground",
+                                "src": "assets/icons/arrow-up.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "component": "Button",
+                            "from": "@ultrapaint/system",
+                            "type": "instance"
+                          }
+                        ],
+                        "type": "row"
+                      }
+                    ],
+                    "type": "column"
+                  },
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": "0 1px 1px 1px"
+                    },
+                    "height": 32,
+                    "id": "r_zoi3444t",
+                    "margin": {
+                      "left": 8,
+                      "right": 8
+                    },
+                    "name": "Tray",
+                    "padding": {
+                      "left": 4,
+                      "right": 4
+                    },
+                    "radius": "0 0 10px 10px",
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "height": 24,
+                        "id": "r_zoi2yfi2",
+                        "padding": {
+                          "left": 6,
+                          "right": 6
+                        },
+                        "radius": "$radius-md",
+                        "crossAlign": "center",
+                        "gap": 4,
+                        "children": [
+                          {
+                            "id": "t_zoi2vv04",
+                            "color": "$color-muted-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "Skills",
+                            "type": "text"
+                          },
+                          {
+                            "id": "t_zoi2w5y6",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "Ultrapaint",
+                            "type": "text"
+                          },
+                          {
+                            "height": 12,
+                            "id": "img_zoi2xjdq",
+                            "name": "chevron-down",
+                            "width": 12,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/chevron-down.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "id": "r_zoi2zckd",
+                        "width": "fill",
+                        "children": [],
+                        "type": "row"
+                      },
+                      {
+                        "height": 24,
+                        "id": "r_zoi33cdo",
+                        "padding": {
+                          "left": 6,
+                          "right": 6
+                        },
+                        "radius": "$radius-md",
+                        "crossAlign": "center",
+                        "gap": 4,
+                        "children": [
+                          {
+                            "id": "t_zoi30xr0",
+                            "color": "$color-muted-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "Review",
+                            "type": "text"
+                          },
+                          {
+                            "id": "t_zoi31o27",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "Standard",
+                            "type": "text"
+                          },
+                          {
+                            "height": 12,
+                            "id": "img_zoi32zq3",
+                            "name": "chevron-down",
+                            "width": 12,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/chevron-down.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "type": "row"
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "column"
+          }
+        ],
+        "type": "row"
+      }
+    ],
+    "direction": "column",
+    "type": "page"
+  }
+}

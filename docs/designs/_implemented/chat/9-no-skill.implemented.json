@@ -1,0 +1,530 @@
+{
+  "kind": "page",
+  "notes": [],
+  "root": {
+    "fill": "$color-canvas",
+    "id": "root",
+    "padding": 0,
+    "align": "center",
+    "crossAlign": "center",
+    "children": [
+      {
+        "fill": "$color-canvas",
+        "height": "fill",
+        "id": "r_siq",
+        "name": "Stage",
+        "padding": 20,
+        "width": "fill",
+        "align": "center",
+        "crossAlign": "start",
+        "children": [
+          {
+            "border": {
+              "color": "$color-border",
+              "style": "solid",
+              "width": 1
+            },
+            "fill": "$color-sidebar",
+            "height": 860,
+            "id": "c_sip",
+            "name": "Chat panel",
+            "radius": "$radius-xl",
+            "width": 340,
+            "children": [
+              {
+                "border": {
+                  "color": "$color-border",
+                  "style": "solid",
+                  "width": "0 0 1px 0"
+                },
+                "height": 44,
+                "id": "r_sgf",
+                "name": "Header",
+                "padding": {
+                  "left": 6,
+                  "right": 8
+                },
+                "width": "fill",
+                "crossAlign": "center",
+                "gap": 4,
+                "children": [
+                  {
+                    "height": 24,
+                    "id": "i_zoqh0t9i",
+                    "name": "Back",
+                    "radius": "$radius-md",
+                    "width": 24,
+                    "props": {
+                      "variant": "ghost",
+                      "size": "icon"
+                    },
+                    "children": [
+                      {
+                        "height": 14,
+                        "id": "img_zoqh1v1n",
+                        "name": "chevron-left",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-foreground",
+                        "src": "assets/icons/chevron-left.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "component": "Button",
+                    "from": "@ultrapaint/system",
+                    "type": "instance"
+                  },
+                  {
+                    "id": "t_zoqh2z8x",
+                    "width": "fill",
+                    "color": "$color-foreground",
+                    "font": "'Cal Sans', system-ui, sans-serif",
+                    "lineHeight": 1.429,
+                    "size": 14,
+                    "tracking": "0.02em",
+                    "weight": 400,
+                    "role": "paragraph",
+                    "text": "Why is the footer cut off?",
+                    "type": "text"
+                  },
+                  {
+                    "height": 24,
+                    "id": "i_zoqh37it",
+                    "name": "More",
+                    "radius": "$radius-md",
+                    "width": 24,
+                    "props": {
+                      "variant": "ghost",
+                      "size": "icon"
+                    },
+                    "children": [
+                      {
+                        "height": 14,
+                        "id": "img_zoqh4pxt",
+                        "name": "ellipsis",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-foreground",
+                        "src": "assets/icons/ellipsis.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "component": "Button",
+                    "from": "@ultrapaint/system",
+                    "type": "instance"
+                  }
+                ],
+                "type": "row"
+              },
+              {
+                "height": "fill",
+                "id": "c_sin",
+                "name": "Transcript",
+                "padding": 12,
+                "width": "fill",
+                "gap": 12,
+                "children": [
+                  {
+                    "id": "c_zoqg6jet",
+                    "name": "Your message",
+                    "padding": {
+                      "left": 48
+                    },
+                    "width": "fill",
+                    "crossAlign": "end",
+                    "children": [
+                      {
+                        "fill": "$color-secondary",
+                        "id": "c_zoqg5nl8",
+                        "padding": {
+                          "bottom": 8,
+                          "left": 12,
+                          "right": 12,
+                          "top": 8
+                        },
+                        "radius": "$radius-xl",
+                        "children": [
+                          {
+                            "id": "t_zoqg4yk6",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Why is the footer cut off on the phone view?",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "column"
+                  },
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "id": "c_zoqgbw9t",
+                    "name": "Steps",
+                    "radius": "$radius-lg",
+                    "width": "fill",
+                    "children": [
+                      {
+                        "id": "c_zoqgacmh",
+                        "width": "fill",
+                        "children": [
+                          {
+                            "height": 36,
+                            "id": "r_zoqg9zw8",
+                            "padding": {
+                              "left": 12,
+                              "right": 12
+                            },
+                            "width": "fill",
+                            "crossAlign": "center",
+                            "gap": 8,
+                            "children": [
+                              {
+                                "id": "t_zoqg769p",
+                                "width": "fill",
+                                "color": "$color-muted-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.333,
+                                "size": 12,
+                                "role": "paragraph",
+                                "text": "Worked 24s · 1 step",
+                                "type": "text"
+                              },
+                              {
+                                "height": 14,
+                                "id": "img_zoqg8hx5",
+                                "name": "chevron-right",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-muted-foreground",
+                                "src": "assets/icons/chevron-right.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "type": "row"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "column"
+                  },
+                  {
+                    "id": "t_zoqgc3mt",
+                    "name": "Agent’s answer",
+                    "width": "fill",
+                    "color": "$color-foreground",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": 1.429,
+                    "size": 14,
+                    "role": "paragraph",
+                    "text": "The footer’s row doesn’t wrap: its four links and the copyright line are one row 412px wide, wider than the 390px view. Letting the row wrap, or stacking it under 640px, fixes it.",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "c_sio",
+                "name": "Bottom",
+                "padding": {
+                  "bottom": 8,
+                  "left": 8,
+                  "right": 8
+                },
+                "width": "fill",
+                "children": [
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "fill": "$color-card",
+                    "id": "c_zoqgopmc",
+                    "name": "Composer",
+                    "radius": "$radius-xl",
+                    "width": "fill",
+                    "children": [
+                      {
+                        "height": 52,
+                        "id": "t_zoqgfwxk",
+                        "padding": {
+                          "left": 12,
+                          "right": 12,
+                          "top": 10
+                        },
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "Describe a change, or type / for commands…",
+                        "type": "text"
+                      },
+                      {
+                        "id": "r_zoqgnt5d",
+                        "padding": {
+                          "bottom": 8,
+                          "left": 8,
+                          "right": 8
+                        },
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 4,
+                        "children": [
+                          {
+                            "height": 24,
+                            "id": "i_zoqggm7c",
+                            "name": "Attach",
+                            "radius": "$radius-md",
+                            "width": 24,
+                            "props": {
+                              "variant": "ghost",
+                              "size": "icon"
+                            },
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_zoqghmqn",
+                                "name": "paperclip",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-muted-foreground",
+                                "src": "assets/icons/paperclip.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "component": "Button",
+                            "from": "@ultrapaint/system",
+                            "type": "instance"
+                          },
+                          {
+                            "id": "r_zoqgig2x",
+                            "width": "fill",
+                            "children": [],
+                            "type": "row"
+                          },
+                          {
+                            "height": 28,
+                            "id": "r_zoqgm92s",
+                            "name": "Model",
+                            "padding": {
+                              "left": 8,
+                              "right": 8
+                            },
+                            "crossAlign": "center",
+                            "gap": 6,
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_zoqgjuvf",
+                                "name": "agent-claude",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "#d97757",
+                                "src": "assets/icons/agent-claude.svg",
+                                "type": "image"
+                              },
+                              {
+                                "id": "t_zoqgkl0a",
+                                "color": "$color-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.429,
+                                "size": 14,
+                                "role": "paragraph",
+                                "text": "Opus 5.5",
+                                "type": "text"
+                              },
+                              {
+                                "height": 14,
+                                "id": "img_zoqglufo",
+                                "name": "chevron-down",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-muted-foreground",
+                                "src": "assets/icons/chevron-down.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "type": "row"
+                          },
+                          {
+                            "height": 24,
+                            "id": "i_zoqgd4w3",
+                            "name": "Send",
+                            "radius": "$radius-md",
+                            "width": 24,
+                            "props": {
+                              "variant": "primary",
+                              "size": "icon"
+                            },
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_zoqge0ed",
+                                "name": "arrow-up",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-primary-foreground",
+                                "src": "assets/icons/arrow-up.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "component": "Button",
+                            "from": "@ultrapaint/system",
+                            "type": "instance"
+                          }
+                        ],
+                        "type": "row"
+                      }
+                    ],
+                    "type": "column"
+                  },
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": "0 1px 1px 1px"
+                    },
+                    "height": 32,
+                    "id": "r_zoqgz0fr",
+                    "margin": {
+                      "left": 8,
+                      "right": 8
+                    },
+                    "name": "Tray",
+                    "padding": {
+                      "left": 4,
+                      "right": 4
+                    },
+                    "radius": "0 0 10px 10px",
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "height": 24,
+                        "id": "r_zoqgsdox",
+                        "padding": {
+                          "left": 6,
+                          "right": 6
+                        },
+                        "radius": "$radius-md",
+                        "crossAlign": "center",
+                        "gap": 4,
+                        "children": [
+                          {
+                            "id": "t_zoqgpl4f",
+                            "color": "$color-muted-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "Skills",
+                            "type": "text"
+                          },
+                          {
+                            "id": "t_zoqgqojf",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "None",
+                            "type": "text"
+                          },
+                          {
+                            "height": 12,
+                            "id": "img_zoqgrpaf",
+                            "name": "chevron-down",
+                            "width": 12,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/chevron-down.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "id": "r_zoqgt5bn",
+                        "width": "fill",
+                        "children": [],
+                        "type": "row"
+                      },
+                      {
+                        "height": 24,
+                        "id": "r_zoqgygew",
+                        "padding": {
+                          "left": 6,
+                          "right": 6
+                        },
+                        "crossAlign": "center",
+                        "gap": 4,
+                        "children": [
+                          {
+                            "id": "t_zoqgu6wc",
+                            "color": "$color-muted-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "Review",
+                            "type": "text"
+                          },
+                          {
+                            "id": "t_zoqgv2aa",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "Off",
+                            "type": "text"
+                          },
+                          {
+                            "fill": "$color-foreground",
+                            "height": 4,
+                            "id": "r_zoqgwkre",
+                            "radius": 999,
+                            "width": 4,
+                            "children": [],
+                            "type": "row"
+                          },
+                          {
+                            "height": 12,
+                            "id": "img_zoqgxedp",
+                            "name": "chevron-down",
+                            "width": 12,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/chevron-down.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "type": "row"
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "column"
+          }
+        ],
+        "type": "row"
+      }
+    ],
+    "direction": "column",
+    "type": "page"
+  }
+}

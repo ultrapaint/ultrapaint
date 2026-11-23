@@ -1,0 +1,1198 @@
+{
+  "kind": "page",
+  "notes": [],
+  "root": {
+    "fill": "$color-canvas",
+    "id": "root",
+    "padding": 0,
+    "align": "center",
+    "crossAlign": "center",
+    "children": [
+      {
+        "fill": "$color-canvas",
+        "height": "fill",
+        "id": "r_siq",
+        "name": "Stage",
+        "padding": 20,
+        "width": "fill",
+        "align": "center",
+        "crossAlign": "start",
+        "children": [
+          {
+            "border": {
+              "color": "$color-border",
+              "style": "solid",
+              "width": 1
+            },
+            "fill": "$color-sidebar",
+            "height": 860,
+            "id": "c_sip",
+            "name": "Chat panel",
+            "radius": "$radius-xl",
+            "width": 340,
+            "children": [
+              {
+                "border": {
+                  "color": "$color-border",
+                  "style": "solid",
+                  "width": "0 0 1px 0"
+                },
+                "height": 44,
+                "id": "r_sgf",
+                "name": "Header",
+                "padding": {
+                  "left": 6,
+                  "right": 8
+                },
+                "width": "fill",
+                "crossAlign": "center",
+                "gap": 4,
+                "children": [
+                  {
+                    "height": 24,
+                    "id": "i_zoka3x5n",
+                    "name": "Back",
+                    "radius": "$radius-md",
+                    "width": 24,
+                    "props": {
+                      "variant": "ghost",
+                      "size": "icon"
+                    },
+                    "children": [
+                      {
+                        "height": 14,
+                        "id": "img_zoka49tt",
+                        "name": "chevron-left",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-foreground",
+                        "src": "assets/icons/chevron-left.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "component": "Button",
+                    "from": "@ultrapaint/system",
+                    "type": "instance"
+                  },
+                  {
+                    "id": "t_zoka5dtg",
+                    "width": "fill",
+                    "color": "$color-foreground",
+                    "font": "'Cal Sans', system-ui, sans-serif",
+                    "lineHeight": 1.429,
+                    "size": 14,
+                    "tracking": "0.02em",
+                    "weight": 400,
+                    "role": "paragraph",
+                    "text": "Redesign the pricing page",
+                    "type": "text"
+                  },
+                  {
+                    "height": 24,
+                    "id": "i_zoka6u0n",
+                    "name": "More",
+                    "radius": "$radius-md",
+                    "width": 24,
+                    "props": {
+                      "variant": "ghost",
+                      "size": "icon"
+                    },
+                    "children": [
+                      {
+                        "height": 14,
+                        "id": "img_zoka7l3o",
+                        "name": "ellipsis",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-foreground",
+                        "src": "assets/icons/ellipsis.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "component": "Button",
+                    "from": "@ultrapaint/system",
+                    "type": "instance"
+                  }
+                ],
+                "type": "row"
+              },
+              {
+                "height": "fill",
+                "id": "c_sin",
+                "name": "Transcript",
+                "padding": 12,
+                "width": "fill",
+                "gap": 12,
+                "children": [
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "id": "c_zoj864ix",
+                    "name": "Turn card",
+                    "radius": "$radius-lg",
+                    "width": "fill",
+                    "children": [
+                      {
+                        "id": "c_zoj7voht",
+                        "name": "Page",
+                        "width": "fill",
+                        "children": [
+                          {
+                            "id": "r_zoj7uyxd",
+                            "padding": {
+                              "bottom": 10,
+                              "left": 12,
+                              "right": 8,
+                              "top": 10
+                            },
+                            "width": "fill",
+                            "crossAlign": "center",
+                            "gap": 10,
+                            "children": [
+                              {
+                                "fill": "$color-muted",
+                                "height": 40,
+                                "id": "r_zoj7n6z4",
+                                "name": "Picture",
+                                "radius": "$radius-md",
+                                "width": 56,
+                                "align": "center",
+                                "crossAlign": "center",
+                                "children": [
+                                  {
+                                    "fill": "#ffffff",
+                                    "height": 30,
+                                    "id": "c_zoj7m5l2",
+                                    "padding": {
+                                      "top": 4
+                                    },
+                                    "radius": 2,
+                                    "width": 24,
+                                    "crossAlign": "center",
+                                    "gap": 3,
+                                    "children": [
+                                      {
+                                        "fill": "#1a1816",
+                                        "height": 2,
+                                        "id": "r_zoj7kcft",
+                                        "width": 10,
+                                        "children": [],
+                                        "type": "row"
+                                      },
+                                      {
+                                        "fill": "$color-brand",
+                                        "height": 12,
+                                        "id": "r_zoj7lfow",
+                                        "radius": 1,
+                                        "width": 8,
+                                        "children": [],
+                                        "type": "row"
+                                      }
+                                    ],
+                                    "type": "column"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "id": "c_zoj7qp2i",
+                                "width": "fill",
+                                "children": [
+                                  {
+                                    "id": "t_zoj7oepo",
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "weight": 500,
+                                    "role": "paragraph",
+                                    "text": "Pricing",
+                                    "type": "text"
+                                  },
+                                  {
+                                    "id": "t_zoj7p3yp",
+                                    "color": "$color-muted-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.333,
+                                    "size": 12,
+                                    "role": "paragraph",
+                                    "text": "1 file changed",
+                                    "type": "text"
+                                  }
+                                ],
+                                "type": "column"
+                              },
+                              {
+                                "height": 24,
+                                "id": "i_zoj7rqbo",
+                                "padding": {
+                                  "left": 8,
+                                  "right": 8
+                                },
+                                "radius": "$radius-md",
+                                "props": {
+                                  "variant": "ghost",
+                                  "size": "sm"
+                                },
+                                "children": [
+                                  {
+                                    "height": 14,
+                                    "id": "img_zoj7sar9",
+                                    "name": "locate-fixed",
+                                    "width": 14,
+                                    "alt": "",
+                                    "tint": "$color-foreground",
+                                    "src": "assets/icons/locate-fixed.svg",
+                                    "type": "image"
+                                  },
+                                  {
+                                    "id": "t_zoj7t2yt",
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "weight": 500,
+                                    "role": "paragraph",
+                                    "text": "Show",
+                                    "type": "text"
+                                  }
+                                ],
+                                "component": "Button",
+                                "from": "@ultrapaint/system",
+                                "type": "instance"
+                              }
+                            ],
+                            "type": "row"
+                          }
+                        ],
+                        "type": "column"
+                      },
+                      {
+                        "border": {
+                          "color": "$color-border",
+                          "style": "solid",
+                          "width": "1px 0 0 0"
+                        },
+                        "id": "c_zoj81k6k",
+                        "width": "fill",
+                        "children": [
+                          {
+                            "height": 36,
+                            "id": "r_zoj80i7q",
+                            "padding": {
+                              "left": 12,
+                              "right": 12
+                            },
+                            "width": "fill",
+                            "crossAlign": "center",
+                            "gap": 8,
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_zoj7wy97",
+                                "name": "scan-eye",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-muted-foreground",
+                                "src": "assets/icons/scan-eye.svg",
+                                "type": "image"
+                              },
+                              {
+                                "id": "t_zoj7xrqy",
+                                "width": "fill",
+                                "color": "$color-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.429,
+                                "size": 14,
+                                "weight": 500,
+                                "role": "paragraph",
+                                "text": "Approved by all 3 · 2 rounds",
+                                "type": "text"
+                              },
+                              {
+                                "id": "t_zoj7ynmp",
+                                "color": "$color-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.333,
+                                "size": 12,
+                                "role": "paragraph",
+                                "text": "91–94",
+                                "type": "text"
+                              },
+                              {
+                                "height": 14,
+                                "id": "img_zoj7zme6",
+                                "name": "chevron-right",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-muted-foreground",
+                                "src": "assets/icons/chevron-right.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "type": "row"
+                          }
+                        ],
+                        "type": "column"
+                      },
+                      {
+                        "border": {
+                          "color": "$color-border",
+                          "style": "solid",
+                          "width": "1px 0 0 0"
+                        },
+                        "id": "c_zoj858m9",
+                        "width": "fill",
+                        "children": [
+                          {
+                            "height": 36,
+                            "id": "r_zoj844ge",
+                            "padding": {
+                              "left": 12,
+                              "right": 12
+                            },
+                            "width": "fill",
+                            "crossAlign": "center",
+                            "gap": 8,
+                            "children": [
+                              {
+                                "id": "t_zoj821kc",
+                                "width": "fill",
+                                "color": "$color-muted-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.333,
+                                "size": 12,
+                                "role": "paragraph",
+                                "text": "Worked 2m 46s · 4 steps",
+                                "type": "text"
+                              },
+                              {
+                                "height": 14,
+                                "id": "img_zoj83gwp",
+                                "name": "chevron-right",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-muted-foreground",
+                                "src": "assets/icons/chevron-right.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "type": "row"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "column"
+                  },
+                  {
+                    "id": "t_zoj8779y",
+                    "name": "Agent’s answer",
+                    "width": "fill",
+                    "color": "$color-foreground",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": 1.429,
+                    "size": 14,
+                    "role": "paragraph",
+                    "text": "Three plans now, with Pro raised as the one most teams pick, a five-question FAQ and a shorter footer. All three review models approved it after one round of fixes.",
+                    "type": "text"
+                  },
+                  {
+                    "id": "c_zoj8a2dc",
+                    "name": "Your message",
+                    "padding": {
+                      "left": 48
+                    },
+                    "width": "fill",
+                    "crossAlign": "end",
+                    "children": [
+                      {
+                        "fill": "$color-secondary",
+                        "id": "c_zoj89g96",
+                        "padding": {
+                          "bottom": 8,
+                          "left": 12,
+                          "right": 12,
+                          "top": 8
+                        },
+                        "radius": "$radius-xl",
+                        "children": [
+                          {
+                            "id": "t_zoj88hf8",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "role": "paragraph",
+                            "text": "Can you add a yearly toggle?",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "column"
+                  },
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "id": "c_zoj8uhz8",
+                    "name": "Turn card",
+                    "radius": "$radius-lg",
+                    "width": "fill",
+                    "children": [
+                      {
+                        "id": "c_zoj8mq6u",
+                        "name": "Page",
+                        "width": "fill",
+                        "children": [
+                          {
+                            "id": "r_zoj8lzjf",
+                            "padding": {
+                              "bottom": 10,
+                              "left": 12,
+                              "right": 8,
+                              "top": 10
+                            },
+                            "width": "fill",
+                            "crossAlign": "center",
+                            "gap": 10,
+                            "children": [
+                              {
+                                "fill": "$color-muted",
+                                "height": 40,
+                                "id": "r_zoj8eh0v",
+                                "name": "Picture",
+                                "radius": "$radius-md",
+                                "width": 56,
+                                "align": "center",
+                                "crossAlign": "center",
+                                "children": [
+                                  {
+                                    "fill": "#ffffff",
+                                    "height": 30,
+                                    "id": "c_zoj8ddel",
+                                    "padding": {
+                                      "top": 4
+                                    },
+                                    "radius": 2,
+                                    "width": 24,
+                                    "crossAlign": "center",
+                                    "gap": 3,
+                                    "children": [
+                                      {
+                                        "fill": "#1a1816",
+                                        "height": 2,
+                                        "id": "r_zoj8bna3",
+                                        "width": 10,
+                                        "children": [],
+                                        "type": "row"
+                                      },
+                                      {
+                                        "fill": "$color-brand",
+                                        "height": 12,
+                                        "id": "r_zoj8c958",
+                                        "radius": 1,
+                                        "width": 8,
+                                        "children": [],
+                                        "type": "row"
+                                      }
+                                    ],
+                                    "type": "column"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "id": "c_zoj8hfts",
+                                "width": "fill",
+                                "children": [
+                                  {
+                                    "id": "t_zoj8flo9",
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "weight": 500,
+                                    "role": "paragraph",
+                                    "text": "Pricing",
+                                    "type": "text"
+                                  },
+                                  {
+                                    "id": "t_zoj8grby",
+                                    "color": "$color-muted-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.333,
+                                    "size": 12,
+                                    "role": "paragraph",
+                                    "text": "Being edited",
+                                    "type": "text"
+                                  }
+                                ],
+                                "type": "column"
+                              },
+                              {
+                                "height": 24,
+                                "id": "i_zoj8i3zb",
+                                "padding": {
+                                  "left": 8,
+                                  "right": 8
+                                },
+                                "radius": "$radius-md",
+                                "props": {
+                                  "variant": "ghost",
+                                  "size": "sm"
+                                },
+                                "children": [
+                                  {
+                                    "height": 14,
+                                    "id": "img_zoj8jlq7",
+                                    "name": "crosshair",
+                                    "width": 14,
+                                    "alt": "",
+                                    "tint": "$color-foreground",
+                                    "src": "assets/icons/crosshair.svg",
+                                    "type": "image"
+                                  },
+                                  {
+                                    "id": "t_zoj8kbhw",
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.429,
+                                    "size": 14,
+                                    "weight": 500,
+                                    "role": "paragraph",
+                                    "text": "Follow",
+                                    "type": "text"
+                                  }
+                                ],
+                                "component": "Button",
+                                "from": "@ultrapaint/system",
+                                "type": "instance"
+                              }
+                            ],
+                            "type": "row"
+                          }
+                        ],
+                        "type": "column"
+                      },
+                      {
+                        "border": {
+                          "color": "$color-border",
+                          "style": "solid",
+                          "width": "1px 0 0 0"
+                        },
+                        "id": "c_zoj8t6r7",
+                        "width": "fill",
+                        "children": [
+                          {
+                            "height": 32,
+                            "id": "r_zoj8sd4w",
+                            "padding": {
+                              "left": 12,
+                              "right": 12
+                            },
+                            "width": "fill",
+                            "crossAlign": "center",
+                            "gap": 8,
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_zoj8nt47",
+                                "name": "agent-claude",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-agent",
+                                "src": "assets/icons/agent-claude.svg",
+                                "type": "image"
+                              },
+                              {
+                                "id": "r_zoj8qunt",
+                                "width": "fill",
+                                "gap": 4,
+                                "children": [
+                                  {
+                                    "id": "t_zoj8ocii",
+                                    "color": "$color-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.333,
+                                    "size": 12,
+                                    "role": "paragraph",
+                                    "text": "Waiting",
+                                    "type": "text"
+                                  },
+                                  {
+                                    "id": "t_zoj8pg0b",
+                                    "color": "$color-muted-foreground",
+                                    "font": "'Figtree Variable', system-ui, sans-serif",
+                                    "lineHeight": 1.333,
+                                    "size": 12,
+                                    "role": "paragraph",
+                                    "text": "for your answer",
+                                    "type": "text"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "id": "t_zoj8rqjx",
+                                "color": "$color-muted-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.333,
+                                "size": 12,
+                                "role": "paragraph",
+                                "text": "12s",
+                                "type": "text"
+                              }
+                            ],
+                            "type": "row"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "column"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "c_sio",
+                "name": "Bottom",
+                "padding": {
+                  "bottom": 8,
+                  "left": 8,
+                  "right": 8
+                },
+                "width": "fill",
+                "children": [
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "fill": "$color-card",
+                    "id": "c_zok9si8k",
+                    "name": "Composer",
+                    "radius": "$radius-xl",
+                    "width": "fill",
+                    "children": [
+                      {
+                        "border": {
+                          "color": "$color-border",
+                          "style": "solid",
+                          "width": "0 0 1px 0"
+                        },
+                        "id": "c_zok9eept",
+                        "name": "Question",
+                        "padding": {
+                          "bottom": 10,
+                          "left": 12,
+                          "right": 12,
+                          "top": 12
+                        },
+                        "width": "fill",
+                        "gap": 6,
+                        "children": [
+                          {
+                            "id": "r_zok8yu2r",
+                            "width": "fill",
+                            "crossAlign": "center",
+                            "gap": 6,
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_zoj8vqr8",
+                                "name": "circle-help",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-warning",
+                                "src": "assets/icons/circle-help.svg",
+                                "type": "image"
+                              },
+                              {
+                                "id": "t_zoj8wowc",
+                                "width": "fill",
+                                "color": "$color-muted-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.333,
+                                "size": 12,
+                                "role": "paragraph",
+                                "text": "The agent asks",
+                                "type": "text"
+                              },
+                              {
+                                "height": 14,
+                                "id": "img_zoj8xqin",
+                                "name": "chevron-down",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-muted-foreground",
+                                "src": "assets/icons/chevron-down.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "type": "row"
+                          },
+                          {
+                            "id": "t_zok8zkav",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "weight": 600,
+                            "role": "paragraph",
+                            "text": "Where should the yearly price show?",
+                            "type": "text"
+                          },
+                          {
+                            "id": "c_zok9ci0g",
+                            "width": "fill",
+                            "children": [
+                              {
+                                "id": "r_zok95jwc",
+                                "padding": {
+                                  "bottom": 6,
+                                  "left": 6,
+                                  "right": 6,
+                                  "top": 6
+                                },
+                                "radius": "$radius-md",
+                                "width": "fill",
+                                "crossAlign": "center",
+                                "gap": 8,
+                                "children": [
+                                  {
+                                    "id": "c_zok92e35",
+                                    "width": "fill",
+                                    "children": [
+                                      {
+                                        "id": "t_zok90zrg",
+                                        "color": "$color-foreground",
+                                        "font": "'Figtree Variable', system-ui, sans-serif",
+                                        "lineHeight": 1.429,
+                                        "size": 14,
+                                        "role": "paragraph",
+                                        "text": "On each card, under the monthly price",
+                                        "type": "text"
+                                      },
+                                      {
+                                        "id": "t_zok910xk",
+                                        "color": "$color-muted-foreground",
+                                        "font": "'Figtree Variable', system-ui, sans-serif",
+                                        "lineHeight": 1.333,
+                                        "size": 12,
+                                        "role": "paragraph",
+                                        "text": "Both prices in view",
+                                        "type": "text"
+                                      }
+                                    ],
+                                    "type": "column"
+                                  },
+                                  {
+                                    "border": {
+                                      "color": "$color-border",
+                                      "style": "solid",
+                                      "width": 1
+                                    },
+                                    "height": 20,
+                                    "id": "r_zok94k5w",
+                                    "radius": "$radius-sm",
+                                    "width": 20,
+                                    "align": "center",
+                                    "crossAlign": "center",
+                                    "children": [
+                                      {
+                                        "id": "t_zok933fd",
+                                        "color": "$color-muted-foreground",
+                                        "font": "'Figtree Variable', system-ui, sans-serif",
+                                        "lineHeight": 1.333,
+                                        "size": 12,
+                                        "role": "paragraph",
+                                        "text": "1",
+                                        "type": "text"
+                                      }
+                                    ],
+                                    "type": "row"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "id": "r_zok9b3sq",
+                                "padding": {
+                                  "bottom": 6,
+                                  "left": 6,
+                                  "right": 6,
+                                  "top": 6
+                                },
+                                "radius": "$radius-md",
+                                "width": "fill",
+                                "crossAlign": "center",
+                                "gap": 8,
+                                "children": [
+                                  {
+                                    "id": "c_zok98iub",
+                                    "width": "fill",
+                                    "children": [
+                                      {
+                                        "id": "t_zok966jc",
+                                        "color": "$color-foreground",
+                                        "font": "'Figtree Variable', system-ui, sans-serif",
+                                        "lineHeight": 1.429,
+                                        "size": 14,
+                                        "role": "paragraph",
+                                        "text": "A toggle above the plans",
+                                        "type": "text"
+                                      },
+                                      {
+                                        "id": "t_zok97ind",
+                                        "color": "$color-muted-foreground",
+                                        "font": "'Figtree Variable', system-ui, sans-serif",
+                                        "lineHeight": 1.333,
+                                        "size": 12,
+                                        "role": "paragraph",
+                                        "text": "One price at a time",
+                                        "type": "text"
+                                      }
+                                    ],
+                                    "type": "column"
+                                  },
+                                  {
+                                    "border": {
+                                      "color": "$color-border",
+                                      "style": "solid",
+                                      "width": 1
+                                    },
+                                    "height": 20,
+                                    "id": "r_zok9a647",
+                                    "radius": "$radius-sm",
+                                    "width": 20,
+                                    "align": "center",
+                                    "crossAlign": "center",
+                                    "children": [
+                                      {
+                                        "id": "t_zok99x93",
+                                        "color": "$color-muted-foreground",
+                                        "font": "'Figtree Variable', system-ui, sans-serif",
+                                        "lineHeight": 1.333,
+                                        "size": 12,
+                                        "role": "paragraph",
+                                        "text": "2",
+                                        "type": "text"
+                                      }
+                                    ],
+                                    "type": "row"
+                                  }
+                                ],
+                                "type": "row"
+                              }
+                            ],
+                            "type": "column"
+                          },
+                          {
+                            "id": "t_zok9d2uy",
+                            "color": "$color-muted-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "The answers go once the agent’s turn ends.",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "column"
+                      },
+                      {
+                        "height": 52,
+                        "id": "t_zok9fjkd",
+                        "padding": {
+                          "left": 12,
+                          "right": 12,
+                          "top": 10
+                        },
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "Pick an option, or type your own answer…",
+                        "type": "text"
+                      },
+                      {
+                        "id": "r_zok9r3ip",
+                        "padding": {
+                          "bottom": 8,
+                          "left": 8,
+                          "right": 8
+                        },
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 4,
+                        "children": [
+                          {
+                            "height": 24,
+                            "id": "i_zok9gceh",
+                            "name": "Attach",
+                            "radius": "$radius-md",
+                            "width": 24,
+                            "props": {
+                              "variant": "ghost",
+                              "size": "icon"
+                            },
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_zok9hwlb",
+                                "name": "paperclip",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-muted-foreground",
+                                "src": "assets/icons/paperclip.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "component": "Button",
+                            "from": "@ultrapaint/system",
+                            "type": "instance"
+                          },
+                          {
+                            "id": "r_zok9iztl",
+                            "width": "fill",
+                            "children": [],
+                            "type": "row"
+                          },
+                          {
+                            "height": 28,
+                            "id": "r_zok9mlc8",
+                            "name": "Model",
+                            "padding": {
+                              "left": 8,
+                              "right": 8
+                            },
+                            "crossAlign": "center",
+                            "gap": 6,
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_zok9j034",
+                                "name": "agent-claude",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "#d97757",
+                                "src": "assets/icons/agent-claude.svg",
+                                "type": "image"
+                              },
+                              {
+                                "id": "t_zok9kk7y",
+                                "color": "$color-foreground",
+                                "font": "'Figtree Variable', system-ui, sans-serif",
+                                "lineHeight": 1.429,
+                                "size": 14,
+                                "role": "paragraph",
+                                "text": "Opus 5.5",
+                                "type": "text"
+                              },
+                              {
+                                "height": 14,
+                                "id": "img_zok9lw0a",
+                                "name": "chevron-down",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-muted-foreground",
+                                "src": "assets/icons/chevron-down.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "type": "row"
+                          },
+                          {
+                            "fill": "$color-foreground",
+                            "height": 24,
+                            "id": "i_zok9ns2r",
+                            "name": "Stop",
+                            "radius": "$radius-md",
+                            "width": 24,
+                            "props": {
+                              "variant": "secondary",
+                              "size": "icon"
+                            },
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_zok9ol6b",
+                                "name": "square",
+                                "width": 14,
+                                "alt": "",
+                                "tint": "$color-background",
+                                "src": "assets/icons/square.svg",
+                                "type": "image"
+                              }
+                            ],
+                            "component": "Button",
+                            "from": "@ultrapaint/system",
+                            "type": "instance"
+                          },
+                          {
+                            "height": 24,
+                            "id": "i_zok9pljl",
+                            "opacity": 0.5,
+                            "padding": {
+                              "left": 8,
+                              "right": 8
+                            },
+                            "radius": "$radius-md",
+                            "props": {
+                              "variant": "primary",
+                              "size": "sm"
+                            },
+                            "text": "Send answers",
+                            "component": "Button",
+                            "from": "@ultrapaint/system",
+                            "type": "instance"
+                          }
+                        ],
+                        "type": "row"
+                      }
+                    ],
+                    "type": "column"
+                  },
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": "0 1px 1px 1px"
+                    },
+                    "height": 32,
+                    "id": "r_zoka299n",
+                    "margin": {
+                      "left": 8,
+                      "right": 8
+                    },
+                    "name": "Tray",
+                    "padding": {
+                      "left": 4,
+                      "right": 4
+                    },
+                    "radius": "0 0 10px 10px",
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "height": 24,
+                        "id": "r_zok9wxsr",
+                        "padding": {
+                          "left": 6,
+                          "right": 6
+                        },
+                        "radius": "$radius-md",
+                        "crossAlign": "center",
+                        "gap": 4,
+                        "children": [
+                          {
+                            "id": "t_zok9tc7w",
+                            "color": "$color-muted-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "Skills",
+                            "type": "text"
+                          },
+                          {
+                            "id": "t_zok9ulet",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "Ultrapaint",
+                            "type": "text"
+                          },
+                          {
+                            "height": 12,
+                            "id": "img_zok9ved3",
+                            "name": "chevron-down",
+                            "width": 12,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/chevron-down.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "id": "r_zok9x3we",
+                        "width": "fill",
+                        "children": [],
+                        "type": "row"
+                      },
+                      {
+                        "height": 24,
+                        "id": "r_zoka1v28",
+                        "padding": {
+                          "left": 6,
+                          "right": 6
+                        },
+                        "radius": "$radius-md",
+                        "crossAlign": "center",
+                        "gap": 4,
+                        "children": [
+                          {
+                            "id": "t_zok9yv42",
+                            "color": "$color-muted-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "Review",
+                            "type": "text"
+                          },
+                          {
+                            "id": "t_zok9zrzq",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "Standard",
+                            "type": "text"
+                          },
+                          {
+                            "height": 12,
+                            "id": "img_zoka00sd",
+                            "name": "chevron-down",
+                            "width": 12,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/chevron-down.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "type": "row"
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "column"
+          }
+        ],
+        "type": "row"
+      }
+    ],
+    "direction": "column",
+    "type": "page"
+  }
+}
