@@ -472,9 +472,11 @@ ${numbered([
       lines.push("  It is not linked to its code yet.");
     }
     lines.push(`  It is drawn at ${widths.join(", ")} px wide.`);
-    const states = familyOf(pages, page).filter(
-      (p) => p.state !== undefined && p.id !== page.id
-    );
+    // A base page names its states; a state named alone names no siblings, which it does not own.
+    const states =
+      page.state === undefined
+        ? familyOf(pages, page).filter((p) => p.state !== undefined)
+        : [];
     if (states.length > 0) {
       lines.push(
         `  Its states, drawn as pages of their own and listed here on their own where they are behind too: ${states.map((p) => `${p.state} (${p.id})`).join(", ")}.`
