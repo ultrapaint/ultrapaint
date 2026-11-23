@@ -1124,6 +1124,20 @@ const tidyCommand = Command.make(
   },
   Effect.fn(function* (input) {
     const { data } = yield* EvalsConfig;
+    if (input.apply) {
+      // Asked first, so what is listed is what goes; a check that fails removes nothing.
+      const running = yield* runningLabJobs.pipe(
+        Effect.catch(() => Effect.succeed(undefined))
+      );
+      if (running === undefined || running.length > 0) {
+        yield* Console.log(
+          running === undefined
+            ? "Nothing removed: systemd could not say whether a lab job runs."
+            : `Nothing removed: ${running.join(", ")} may be reading them. Run it again once they end.`
+        );
+        return;
+      }
+    }
     const found = yield* findScratch();
     const show = (file: string) => `  ${data.fromData(file)}`;
     const lines = [
@@ -1139,13 +1153,6 @@ const tidyCommand = Command.make(
     yield* Console.log(lines.join("\n"));
     if (!input.apply) {
       yield* Console.log("Nothing removed: --apply removes them.");
-      return;
-    }
-    const running = yield* runningLabJobs;
-    if (running.length > 0) {
-      yield* Console.log(
-        `Nothing removed: ${running.join(", ")} may be reading them. Run it again once they end.`
-      );
       return;
     }
     yield* removeScratch(found);

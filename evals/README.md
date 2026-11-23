@@ -37,7 +37,9 @@ Everything outside `.work/` is a result, or what a result reads, and stays. `.wo
 (ADR 0112): a finished outside run's own install of its packages, a lab checkout whose every change
 is on `main`, and a job's log after 30 days go once nothing reads them. The thread that made a
 checkout removes it when the round's results land; `pnpm evals tidy` lists what is left to go, and
-`--apply` removes it, refusing while a `lab-*` unit runs:
+`--apply` removes it, refusing while a `lab-*` unit runs or when systemd cannot say. A checkout
+on a branch, at a commit not on `main`, with files git does not track or with a change `main`
+lacks is kept, with why:
 
 ```sh
 pnpm evals tidy            # what would go, and each checkout it keeps with why
