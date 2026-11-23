@@ -1090,6 +1090,15 @@ describe("a turn", () => {
         })
       );
       assert.include(git.message, "is git's own");
+      // Where names ignore case, `.GIT` is the same directory.
+      const upper = yield* Effect.flip(
+        agent.host.writeTextFile({
+          content: "x",
+          path: path.join(repo, ".GIT/hooks/pre-commit"),
+          sessionId: turn.sessionId,
+        })
+      );
+      assert.include(upper.message, "is git's own");
       yield* turn.end();
       const { items } = yield* threadWhen(threadId, turnEnded);
       const end = items.at(-1);

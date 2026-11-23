@@ -150,8 +150,14 @@ export const makeAgentClient = Effect.fnUntraced(function* () {
       ) {
         const abs = yield* paths.resolve(request.path);
         // The editor writes this file, outside the sandbox that keeps `.git` read-only: an agent
-        // asking it to write a git configuration or a hook would escape through git (0013).
-        if (paths.relative(abs).split(path.sep).includes(".git")) {
+        // asking it to write a git configuration or a hook would escape through git (0013). The
+        // path is POSIX whatever the platform, and `.GIT` is `.git` where names ignore case.
+        if (
+          paths
+            .relative(abs)
+            .split("/")
+            .some((name) => name.toLowerCase() === ".git")
+        ) {
           return yield* new ForbiddenPath({
             message: `${paths.relative(abs)} is git's own: agents do not write in .git.`,
           });
