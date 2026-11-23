@@ -46,7 +46,7 @@ const quietly = (call: Promise<unknown> | undefined) => {
 };
 
 const TAB =
-  "window-no-drag group/tab flex h-8 shrink-0 items-center gap-2 rounded-lg px-2.5 font-body-medium outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring/25";
+  "window-no-drag group/tab flex h-8 cursor-pointer shrink-0 items-center gap-2 rounded-lg px-2.5 font-body-medium outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring/25";
 
 /**
  * What a tab says past its name: the dot while an agent there waits on the person, the spinner
@@ -86,7 +86,7 @@ const ProjectTab = ({ tab }: { tab: ShellTab }) => {
       aria-selected={tab.shown}
       className={cn(
         TAB,
-        "w-48 min-w-24 shrink cursor-default pr-1.5",
+        "w-48 min-w-24 shrink pr-1.5",
         tab.shown
           ? "bg-accent text-foreground"
           : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
@@ -120,7 +120,7 @@ const ProjectTab = ({ tab }: { tab: ShellTab }) => {
         <button
           aria-label={`Close ${tab.name}`}
           className={cn(
-            "absolute inset-0 flex items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-foreground/8 hover:text-foreground focus-visible:visible focus-visible:ring-2 focus-visible:ring-ring/25",
+            "absolute inset-0 flex cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-foreground/8 hover:text-foreground focus-visible:visible focus-visible:ring-2 focus-visible:ring-ring/25",
             !tab.shown && "invisible group-hover/tab:visible"
           )}
           onClick={(event) => {
@@ -231,7 +231,7 @@ const NewTab = ({
     >
       <DropdownMenuTrigger
         aria-label="Open a project"
-        className="window-no-drag flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25 data-popup-open:bg-accent data-popup-open:text-foreground"
+        className="window-no-drag flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25 data-popup-open:bg-accent data-popup-open:text-foreground"
       >
         <Plus className="size-4" />
       </DropdownMenuTrigger>
