@@ -5,9 +5,10 @@
  * installs it again), a lab checkout whose results are on `main`, and a job's log after 30 days.
  */
 import path from "node:path";
-import { Clock, Effect, FileSystem, Option } from "effect";
+import { Clock, Effect, FileSystem, Option, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { EvalsConfig } from "./config.ts";
+import { EvalsError } from "./errors.ts";
 
 /** A run's directory in a round: `run-1`. */
 const RUN_DIR_RE = /^run-\d+$/;
@@ -46,57 +47,212 @@ export interface Tidy {
   readonly logs: readonly string[];
 }
 
+/** What a checkout's `git diff` changes in one file. */
+export interface FileChange {
+  readonly added: readonly string[];
+  /** The checkout deleted the file. */
+  readonly deleted: boolean;
+  /** Its path, as the diff names it; a path git quotes stays quoted, and is never found on main. */
+  readonly file: string;
+  readonly removed: readonly string[];
+  /** The diff says nothing a line can hold: a rename, a mode, a binary file. */
+  readonly unread: boolean;
+}
+
 /**
- * Whether a lab checkout's changes are all on `main`: each line it adds is in that file there, or
- * is a round's result line whose round `main`'s file names, since a result line can be reworded
- * when it is carried over (a version renamed). The first line not there says why it is kept.
+ * Whether a lab checkout's changes are all on `main`, or the first that is not, which says why it
+ * is kept. A line it adds is on `main` when that file there has the whole line, or when it is a
+ * round's result line whose round `main`'s file names, since a result line can be reworded when it
+ * is carried over (a version renamed). A line it removes is when `main` lacks it too, and a file
+ * it deletes when `main` has no such file.
  */
 export const changesOnMain = (
-  added: ReadonlyMap<string, readonly string[]>,
+  changes: readonly FileChange[],
   main: ReadonlyMap<string, string | undefined>
 ): Option.Option<string> => {
-  for (const [file, lines] of added) {
-    const text = main.get(file);
-    for (const line of lines) {
-      if (line.trim() === "") {
-        continue;
-      }
-      const round = firstGroup(RESULT_LINE_RE, line);
-      const there =
-        text !== undefined &&
-        (text.includes(line) ||
-          (round !== undefined && text.includes(`\`${round}\``)));
-      if (!there) {
-        return Option.some(`${file}: "${line.slice(0, 80)}" is not on main`);
-      }
+  for (const change of changes) {
+    const why = whyNotOnMain(change, main.get(change.file));
+    if (why !== undefined) {
+      return Option.some(`${change.file}: ${why}`);
     }
   }
   return Option.none();
 };
 
-/** The lines a `git diff -U0` adds, by file. */
-export const addedLines = (diff: string): Map<string, string[]> => {
-  const added = new Map<string, string[]>();
-  let file: string | undefined;
-  for (const line of diff.split("\n")) {
-    if (line.startsWith("+++ ")) {
-      file = line.startsWith("+++ b/") ? line.slice(6) : undefined;
-      continue;
-    }
-    if (file !== undefined && line.startsWith("+")) {
-      added.set(file, [...(added.get(file) ?? []), line.slice(1)]);
-    }
+/** Why one file's change is not on `main`, whose text of the file is `text`, if it is not. */
+const whyNotOnMain = (
+  change: FileChange,
+  text: string | undefined
+): string | undefined => {
+  if (change.unread) {
+    return "its change is not one of lines";
   }
-  return added;
+  if (change.deleted) {
+    return text === undefined ? undefined : "deleted here, still on main";
+  }
+  const lines = new Set(text === undefined ? [] : text.split("\n"));
+  const isOnMain = (line: string) => {
+    const round = firstGroup(RESULT_LINE_RE, line);
+    return (
+      text !== undefined &&
+      (lines.has(line) ||
+        (round !== undefined && text.includes(`\`${round}\``)))
+    );
+  };
+  const added = change.added.find((l) => l.trim() !== "" && !isOnMain(l));
+  if (added !== undefined) {
+    return `"${added.slice(0, 80)}" is not on main`;
+  }
+  const removed = change.removed.find((l) => l.trim() !== "" && lines.has(l));
+  return removed === undefined
+    ? undefined
+    : `removes "${removed.slice(0, 80)}", which main still has`;
 };
 
-const git = (cwd: string, ...args: string[]) =>
-  Effect.gen(function* () {
-    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-    return yield* spawner.string(
-      ChildProcess.make("git", args, { cwd, stdin: "ignore" })
+/** One file's part of a diff, as it is read. */
+interface Reading {
+  added: string[];
+  deleted: boolean;
+  file: string | undefined;
+  hunks: boolean;
+  old: string | undefined;
+  removed: string[];
+}
+
+const changeRead = (r: Reading): FileChange => ({
+  added: r.added,
+  deleted: r.deleted,
+  file: r.file ?? r.old ?? "(a file git named oddly)",
+  removed: r.removed,
+  unread: !r.deleted && (r.file === undefined || !r.hunks),
+});
+
+/** A line of a file's header; true when it opens the first hunk. */
+const readHeader = (r: Reading, line: string): boolean => {
+  if (line.startsWith("--- ")) {
+    r.old = line.startsWith("--- a/") ? line.slice(6) : line.slice(4);
+  } else if (line === "+++ /dev/null") {
+    r.deleted = true;
+  } else if (line.startsWith("+++ ")) {
+    r.file = line.startsWith("+++ b/") ? line.slice(6) : line.slice(4);
+  } else if (line.startsWith("@@")) {
+    r.hunks = true;
+    return true;
+  }
+  return false;
+};
+
+/** The changes a `git diff -U0` makes, file by file; a line inside a hunk is never a header. */
+export const changesOf = (diff: string): FileChange[] => {
+  const readings: Reading[] = [];
+  let current: Reading | undefined;
+  let inHunk = false;
+  for (const line of diff.split("\n")) {
+    if (line.startsWith("diff --git ")) {
+      current = {
+        added: [],
+        deleted: false,
+        file: undefined,
+        hunks: false,
+        old: undefined,
+        removed: [],
+      };
+      readings.push(current);
+      inHunk = false;
+    } else if (current !== undefined && !inHunk) {
+      inHunk = readHeader(current, line);
+    } else if (current !== undefined && line.startsWith("+")) {
+      current.added.push(line.slice(1));
+    } else if (current !== undefined && line.startsWith("-")) {
+      current.removed.push(line.slice(1));
+    }
+  }
+  return readings.map(changeRead);
+};
+
+/** A command's output; it fails when the command exits with anything but 0. */
+const run = (cwd: string, command: string, args: readonly string[]) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+      const child = yield* spawner.spawn(
+        ChildProcess.make(command, args, { cwd, stdin: "ignore" })
+      );
+      const [stdout, , code] = yield* Effect.all(
+        [
+          child.stdout.pipe(Stream.decodeText(), Stream.mkString),
+          child.stderr.pipe(Stream.runDrain),
+          child.exitCode,
+        ],
+        { concurrency: "unbounded" }
+      );
+      if (code !== 0) {
+        return yield* new EvalsError({
+          message: `${command} ${args.join(" ")} exited ${code}, in ${cwd}`,
+        });
+      }
+      return stdout;
+    })
+  );
+
+const git = (cwd: string, ...args: string[]) => run(cwd, "git", args);
+
+/** A file as `main` has it, or nothing when `main` has no such file. */
+const onMain = Effect.fn("onMain")(function* (checkout: string, file: string) {
+  const listed = yield* git(
+    checkout,
+    "ls-tree",
+    "--name-only",
+    "origin/main",
+    "--",
+    file
+  );
+  if (listed.trim() === "") {
+    return;
+  }
+  return yield* git(checkout, "show", `origin/main:${file}`);
+});
+
+/**
+ * Why a detached lab checkout is kept, or nothing when everything in it is on `main`: its commit
+ * is one of `main`'s, git tracks every file in it, and each change it holds is on `main`. A
+ * checkout git cannot read is kept.
+ */
+export const whyKept = Effect.fn("whyKept")(function* (at: string) {
+  const { checkout } = yield* EvalsConfig;
+  return yield* Effect.gen(function* () {
+    const head = (yield* git(at, "rev-parse", "HEAD")).trim();
+    const onMainline = yield* git(
+      checkout,
+      "merge-base",
+      "--is-ancestor",
+      head,
+      "origin/main"
+    ).pipe(
+      Effect.as(true),
+      Effect.catchTag("EvalsError", () => Effect.succeed(false))
     );
-  });
+    if (!onMainline) {
+      return Option.some(`its commit ${head.slice(0, 8)} is not on main`);
+    }
+    const status = yield* git(at, "status", "--porcelain");
+    if (status.split("\n").some((line) => line.startsWith("??"))) {
+      return Option.some("it has files git does not track");
+    }
+    const changes = changesOf(yield* git(at, "diff", "-U0", "HEAD"));
+    const main = new Map<string, string | undefined>();
+    for (const change of changes) {
+      if (!change.unread) {
+        main.set(change.file, yield* onMain(checkout, change.file));
+      }
+    }
+    return changesOnMain(changes, main);
+  }).pipe(
+    Effect.catch((error) =>
+      Effect.succeed(Option.some(`git could not read it: ${String(error)}`))
+    )
+  );
+});
 
 /** The finished outside runs that installed their packages over the host's link. */
 const findInstalls = Effect.fn("findInstalls")(function* () {
@@ -111,18 +267,18 @@ const findInstalls = Effect.fn("findInstalls")(function* () {
   const installs: string[] = [];
   for (const round of yield* list(outside)) {
     for (const reference of yield* list(path.join(outside, round))) {
-      for (const run of yield* list(path.join(outside, round, reference))) {
+      for (const runDir of yield* list(path.join(outside, round, reference))) {
         const modules = path.join(
           outside,
           round,
           reference,
-          run,
+          runDir,
           "node_modules"
         );
         const finished =
-          RUN_DIR_RE.test(run) &&
+          RUN_DIR_RE.test(runDir) &&
           (yield* exists(
-            path.join(data.runs, round, reference, run, "run.json")
+            path.join(data.runs, round, reference, runDir, "run.json")
           ));
         if (!finished) {
           continue;
@@ -146,9 +302,7 @@ const findInstalls = Effect.fn("findInstalls")(function* () {
 /** The lab checkouts in `.work/`: those whose changes are all on `main`, and those kept. */
 const findCheckouts = Effect.fn("findCheckouts")(function* () {
   const { checkout, data } = yield* EvalsConfig;
-  const listed = yield* git(checkout, "worktree", "list", "--porcelain").pipe(
-    Effect.orElseSucceed(() => "")
-  );
+  const listed = yield* git(checkout, "worktree", "list", "--porcelain");
   const checkouts: string[] = [];
   const kept: Kept[] = [];
   for (const entry of listed.split("\n\n")) {
@@ -157,32 +311,10 @@ const findCheckouts = Effect.fn("findCheckouts")(function* () {
       continue;
     }
     const branch = firstGroup(BRANCH_RE, entry);
-    if (branch !== undefined) {
-      kept.push({ path: at, why: `on the branch ${branch}` });
-      continue;
-    }
-    const status = yield* git(at, "status", "--porcelain").pipe(
-      Effect.orElseSucceed(() => undefined)
-    );
-    if (status === undefined) {
-      kept.push({ path: at, why: "git could not read it" });
-      continue;
-    }
-    if (status.split("\n").some((line) => line.startsWith("??"))) {
-      kept.push({ path: at, why: "it has files git does not track" });
-      continue;
-    }
-    const added = addedLines(yield* git(at, "diff", "-U0", "HEAD"));
-    const main = new Map<string, string | undefined>();
-    for (const file of added.keys()) {
-      main.set(
-        file,
-        yield* git(checkout, "show", `origin/main:${file}`).pipe(
-          Effect.orElseSucceed(() => undefined)
-        )
-      );
-    }
-    const why = changesOnMain(added, main);
+    const why =
+      branch === undefined
+        ? yield* whyKept(at)
+        : Option.some(`on the branch ${branch}`);
     if (Option.isSome(why)) {
       kept.push({ path: at, why: why.value });
     } else {
@@ -237,6 +369,12 @@ export const removeScratch = Effect.fn("removeScratch")(function* (
     yield* fs.remove(install, { force: true, recursive: true });
   }
   for (const at of found.checkouts) {
+    // Judged again at the moment it goes: it may have changed since it was listed.
+    const why = yield* whyKept(at);
+    if (Option.isSome(why)) {
+      yield* Effect.log(`${at}: kept after all, ${why.value}`);
+      continue;
+    }
     // Forced: what it changed is on main, and its installed packages are ignored files.
     yield* git(checkout, "worktree", "remove", "--force", at);
   }
@@ -245,25 +383,22 @@ export const removeScratch = Effect.fn("removeScratch")(function* (
   }
 });
 
-/** The lab's long jobs running now (`lab-*` units), which may be reading what `tidy` removes. */
+/**
+ * The lab's long jobs running now (`lab-*` units), which may be reading what `tidy` removes. It
+ * fails when systemd cannot be asked, so nothing is removed on a guess.
+ */
 export const runningLabJobs = Effect.gen(function* () {
-  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-  const units = yield* spawner.string(
-    ChildProcess.make(
-      "systemctl",
-      [
-        "--user",
-        "list-units",
-        "--state=active",
-        "--plain",
-        "--no-legend",
-        "lab-*",
-      ],
-      { stdin: "ignore" }
-    )
-  );
+  const { data } = yield* EvalsConfig;
+  const units = yield* run(data.root, "systemctl", [
+    "--user",
+    "list-units",
+    "--state=active",
+    "--plain",
+    "--no-legend",
+    "lab-*",
+  ]);
   return units
     .split("\n")
     .map((line) => line.trim().split(SPACES_RE)[0] ?? "")
     .filter((unit) => unit !== "");
-}).pipe(Effect.orElseSucceed((): string[] => []));
+});

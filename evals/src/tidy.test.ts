@@ -4,58 +4,129 @@ import { Effect, FileSystem, Option } from "effect";
 import { TestClock } from "effect/testing";
 import { EvalsConfig } from "./config.ts";
 import { TestData, writeData } from "./test-data.ts";
-import { addedLines, changesOnMain, findScratch } from "./tidy.ts";
+import { changesOf, changesOnMain, findScratch } from "./tidy.ts";
 
 const NOW = Date.UTC(2026, 10, 23);
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+const change = (
+  file: string,
+  more: { added?: string[]; removed?: string[]; deleted?: boolean } = {}
+) => ({
+  added: more.added ?? [],
+  deleted: more.deleted ?? false,
+  file,
+  removed: more.removed ?? [],
+  unread: false,
+});
+
 describe("changesOnMain", () => {
   it("takes a result line carried over with its versions renamed as on main", () => {
-    const added = new Map([
-      [
-        "evals/gaps/g01-empty.md",
-        ["- `up88-told`: 2026-11-22, caught: up88-shipped 3/3, shipped 2/3"],
-      ],
-    ]);
+    const changes = [
+      change("evals/gaps/g01-empty.md", {
+        added: [
+          "- `up88-told`: 2026-11-22, caught: up88-shipped 3/3, shipped 2/3",
+        ],
+      }),
+    ];
     const main = new Map([
       [
         "evals/gaps/g01-empty.md",
         "**Result.**\n- `up88-told`: 2026-11-22, caught: main 3/3, up88-2 2/3\n",
       ],
     ]);
-    assert.isTrue(Option.isNone(changesOnMain(added, main)));
+    assert.isTrue(Option.isNone(changesOnMain(changes, main)));
   });
 
-  it("keeps a checkout with a line main does not have, and says which", () => {
-    const added = new Map([["evals/prompts/review.md", ["- a new rule", ""]]]);
-    const main = new Map([["evals/prompts/review.md", "- an old rule\n"]]);
-    const why = changesOnMain(added, main);
+  it("keeps a checkout whose added line main has only inside another", () => {
+    const changes = [change("evals/src/a.ts", { added: ["return true;"] })];
+    const main = new Map([
+      ["evals/src/a.ts", "// return true; was the old one\n"],
+    ]);
+    const why = changesOnMain(changes, main);
     assert.isTrue(Option.isSome(why));
-    assert.include(Option.getOrThrow(why), "evals/prompts/review.md");
+    assert.include(Option.getOrThrow(why), "evals/src/a.ts");
+  });
+
+  it("keeps a checkout that removes a line main still has", () => {
+    const changes = [
+      change("evals/prompts/review.md", { removed: ["- a rule"] }),
+    ];
+    const main = new Map([["evals/prompts/review.md", "- a rule\n"]]);
+    assert.isTrue(Option.isSome(changesOnMain(changes, main)));
+  });
+
+  it("keeps a checkout that deletes a file main still has, and not one main deleted too", () => {
+    const changes = [change("evals/gaps/g98-old.md", { deleted: true })];
+    assert.isTrue(
+      Option.isSome(
+        changesOnMain(changes, new Map([["evals/gaps/g98-old.md", "text"]]))
+      )
+    );
+    assert.isTrue(
+      Option.isNone(
+        changesOnMain(changes, new Map([["evals/gaps/g98-old.md", undefined]]))
+      )
+    );
   });
 
   it("keeps a checkout whose changed file is not on main", () => {
-    const added = new Map([["evals/gaps/g99-new.md", ["- `r1`: caught"]]]);
+    const changes = [
+      change("evals/gaps/g99-new.md", { added: ["- `r1`: caught"] }),
+    ];
     const main = new Map([["evals/gaps/g99-new.md", undefined]]);
-    assert.isTrue(Option.isSome(changesOnMain(added, main)));
+    assert.isTrue(Option.isSome(changesOnMain(changes, main)));
+  });
+
+  it("keeps a checkout with a change that is not one of lines", () => {
+    const changes = [{ ...change("docs/a.png"), unread: true }];
+    assert.isTrue(Option.isSome(changesOnMain(changes, new Map())));
   });
 });
 
-describe("addedLines", () => {
-  it("reads the lines a diff adds, by file", () => {
+describe("changesOf", () => {
+  it("reads a diff's lines file by file, a line inside a hunk never a header", () => {
     const diff = [
       "diff --git a/evals/gaps/g01.md b/evals/gaps/g01.md",
       "--- a/evals/gaps/g01.md",
       "+++ b/evals/gaps/g01.md",
       "@@ -9,0 +10,2 @@",
       "+- `r1`: caught 2/3",
-      "+- `r2`: caught 3/3",
-      "-- gone",
+      "+++ counter;",
+      "--- gone",
+      "diff --git a/evals/gaps/g02.md b/evals/gaps/g02.md",
+      "deleted file mode 100644",
+      "--- a/evals/gaps/g02.md",
+      "+++ /dev/null",
+      "@@ -1 +0,0 @@",
+      "-text",
+      "diff --git a/old.md b/new.md",
+      "similarity index 100%",
+      "rename from old.md",
+      "rename to new.md",
     ].join("\n");
-    assert.deepStrictEqual(
-      [...addedLines(diff)],
-      [["evals/gaps/g01.md", ["- `r1`: caught 2/3", "- `r2`: caught 3/3"]]]
-    );
+    const changes = changesOf(diff);
+    assert.deepStrictEqual(changes[0], {
+      added: ["- `r1`: caught 2/3", "++ counter;"],
+      deleted: false,
+      file: "evals/gaps/g01.md",
+      removed: ["-- gone"],
+      unread: false,
+    });
+    assert.strictEqual(changes[1]?.file, "evals/gaps/g02.md");
+    assert.isTrue(changes[1]?.deleted);
+    assert.isTrue(changes[2]?.unread);
+  });
+
+  it("keeps a path git quotes as it is, so it is never found on main", () => {
+    const diff = [
+      'diff --git "a/odd\\tname.md" "b/odd\\tname.md"',
+      '--- "a/odd\\tname.md"',
+      '+++ "b/odd\\tname.md"',
+      "@@ -1 +1 @@",
+      "+line",
+    ].join("\n");
+    assert.strictEqual(changesOf(diff)[0]?.file, '"b/odd\\tname.md"');
   });
 });
 

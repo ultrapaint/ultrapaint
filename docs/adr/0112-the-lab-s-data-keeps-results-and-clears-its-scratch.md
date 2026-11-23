@@ -23,12 +23,15 @@ removed, and the same will happen to every round from now on.
   - a finished outside run's own install of its packages: its source stays, and `reshoot`
     installs it again from the run's `package.json` before it pictures the app;
   - a lab checkout (a worktree of the repository in `.work/`, detached) whose every change is on
-    `main`: a result line counts as there when `main`'s file names its round, since a line is
-    reworded when it is carried over. A checkout on a branch, with files git does not track, or with
-    a line `main` lacks is kept, and `tidy` says why;
+    `main`: its commit is one of `main`'s, git tracks every file in it, each line it adds is a
+    whole line of that file on `main` (a result line counts when `main`'s file names its round,
+    since a line is reworded when it is carried over), each line it removes is gone from `main`
+    too, and each file it deletes. A checkout on a branch, at another commit, with files git does
+    not track, with a change that is not one of lines (a rename, a binary file), or that git
+    cannot read is kept, and `tidy` says why; each is judged again at the moment it would go;
   - a long job's log, and the process group it wrote down, 30 days after it was last written.
 - **`pnpm evals tidy` applies it.** It lists what would go; `--apply` removes it, and refuses while
-  a `lab-*` unit runs, since a job may be reading it.
+  a `lab-*` unit runs, since a job may be reading it, or when systemd cannot say whether one does.
 - **A checkout is removed by the thread that made it** once the round's results land: `tidy`
   catches what is left.
 
