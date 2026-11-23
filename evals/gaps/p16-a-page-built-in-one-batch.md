@@ -33,8 +33,11 @@ whole rather than after every call.
 briefing on the same briefs. It wins if:
 
 - the pairwise design score holds or improves;
-- the median `apply_operations` per run rises and the median ops per call falls (counted from
-  each run's `trace.md`; `generate.ts` records `mcpCalls` today, not this count);
+- the median `apply_operations` calls per run rises, counted from each run's `trace.md` (it
+  names each tool call by its title);
+- the median operations per call falls. `trace.md` keeps no call's input, so running the round
+  first adds a count of each `apply_operations` call's `ops` to the run's info in
+  `evals/src/generate.ts` (`infoOf`), beside `mcpCalls`;
 - time and tokens per run rise by no more than 15%.
 
 The tells (g53–g60) are counted as on every fresh-brief round.
