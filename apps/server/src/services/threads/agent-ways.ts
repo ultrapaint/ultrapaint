@@ -43,6 +43,7 @@ export const HANDOFF_ACTIONS = [
   "read",
   "mark",
   "note",
+  "change",
   "export",
   "import",
 ] as const;
@@ -72,12 +73,27 @@ const SEE_RUNNING_SCREEN = `Where you can see the running application, in a brow
    the screen that serves each page at the widths the page is drawn for, and draw what the code
    leaves to runtime (its data, sizes and states) as the screen shows it`;
 
+/**
+ * The changes `handoff`'s "change" takes, as `ComponentChange` writes them: what a task that
+ * changes a component lists, so the tool's own description stays short (ADR 0122).
+ */
+const COMPONENT_CHANGES = `an app component's {op:"addProperty", property}, {op:"setProperty", name, default?, members?, targets?},
+   {op:"renameProperty", name, to}, {op:"removeProperty", name}, {op:"renameMember", property, member, to},
+   {op:"addSlot", slot}, {op:"removeSlot", name}, {op:"defaultSlot", name}; a system component's look
+   {op:"setStyle", place:{variant:{axis, member}|null, state|null}, slot, style}, {op:"setHidden", part, hidden},
+   {op:"setContent", slot, nodes}, {op:"setItem", item}`;
+
 export interface AgentWays {
   /**
    * Asking the user what is theirs to decide, and waiting for the answers: a phrase after "ask
    * the user" or "put them to the user".
    */
   readonly askUser: string;
+  /**
+   * Changing a component's properties, members and slots, or a system component's look, so that a
+   * rename follows into every instance (ADR 0122): a step's text.
+   */
+  readonly changeComponent: string;
   /** The briefing's paragraph on changing designs. */
   readonly changingDesigns: string;
   /** How the pages of a canvas are read and changed. */
@@ -90,6 +106,8 @@ export interface AgentWays {
   readonly importTokens: (which: TokensNamed) => string;
   /** How a page built already is linked to the files that draw it: a clause after a comma. */
   readonly linkBuilt: string;
+  /** How a component brought up to date is linked to the files that draw it: a clause after a comma. */
+  readonly linkComponent: string;
   /**
    * Saying a design is implemented by the files written for it: a clause, its verb first. The
    * target as the text names it (`"home.page.json"`, or what stands for it).
@@ -124,6 +142,12 @@ export interface AgentWays {
 
 const withTools: AgentWays = {
   askUser: `with ${TOOLS.ask_user}`,
+  changeComponent: `Change an app component's properties, members and slots, and a system component's look, one
+   change at a time with ${handoffCall("change")}, target the component as listed and change one of
+   ${COMPONENT_CHANGES}.
+   A property, a member or a slot renamed or taken out there follows into every instance's props on
+   the pages, in the same undo step; written into the file by hand, it would leave them behind. An
+   app component's tree is written in its file.`,
   changingDesigns: `The "ultrapaint" MCP server is the editor itself: change designs with its tools, validated, shown on
 the canvas at once and undoable by the user, rather than by editing the JSON (a file you write
 must stay valid). Tools name a page by its URL, or its file when it has none; a node reference the
@@ -148,6 +172,8 @@ ${TOOLS.read_design_system}, ${TOOLS.list_components} and ${TOOLS.get_component}
   linkBuilt: `mark it implemented: ${handoffCall("mark")}, target the page's id as listed and files,
    the repository files that draw it (the route's module, the screen's component, the components
    only it uses). A state's page is implemented by the same files as its page.`,
+  linkComponent: `mark it implemented: ${handoffCall("mark")}, target the component as listed and
+   files, the repository files that draw it (its module, and the parts only it uses).`,
   markImplemented: (target) =>
     `mark it implemented: call ${handoffCall("mark")}, target ${target} and files, every repository file you wrote or changed for it. The editor then knows which code implements it, and tells the next implementation what changed.`,
   noteBehaviour: `write it down with ${handoffCall("note")}: on the node it belongs to, or on a component (target component:<Name>, node a part)`,
@@ -174,6 +200,9 @@ ${TOOLS.read_design_system}, ${TOOLS.list_components} and ${TOOLS.get_component}
 
 const withoutTools: AgentWays = {
   askUser: "in your reply, ending your turn for the answers",
+  changeComponent: `Write each component's file directly, and keep it valid. A property, a member or a slot the
+   code renamed: rename it in the props of its instances on the pages that place it too, and take it
+   out of them where the code took it out, or those pages break.`,
   changingDesigns:
     "Edit the .page.json files directly and keep them valid; every node needs a unique id.",
   editPages:
@@ -188,6 +217,8 @@ page format: ${pageSchema()}`,
     "have the user take them into the design with the Take button of the Design system panel's Sync view",
   linkBuilt:
     "note its files: without the editor's MCP server the user marks each page in the inspector.",
+  linkComponent:
+    "note its files and tell the user them: a component is marked implemented through the editor's MCP server.",
   markImplemented: () =>
     "tell the user which files implement it, so they can mark it implemented in the editor.",
   noteBehaviour: "write it down as a comment on the node",

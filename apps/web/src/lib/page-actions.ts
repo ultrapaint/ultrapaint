@@ -2,6 +2,7 @@
  * What is done to a page as a whole, from the Pages panel, the layers, the inspector, the frame
  * on the canvas and the context menu alike.
  */
+import { componentTarget } from "@ultrapaint/contracts/implementation";
 import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
 import { slugOf } from "@ultrapaint/shared/path";
 import { basePathOf } from "@ultrapaint/shared/route";
@@ -357,6 +358,14 @@ export const adoptPages = (targets: readonly string[]) =>
  */
 export const updatePagesFromCode = (targets: readonly string[]) =>
   startTask({ _tag: "UpdateFromCode", targets });
+
+/**
+ * Has an agent bring a component up to date from the code that draws it (ADR 0122), reconciled as
+ * a page's update is; the pages that place it follow through their instances. Drafted in a new
+ * chat, for the person to send (ADR 0074).
+ */
+export const updateComponentFromCode = (name: string) =>
+  startTask({ _tag: "UpdateFromCode", targets: [componentTarget(name)] });
 
 /**
  * Marks a design implemented by the files the user names, as it is now (ADR 0030): the next

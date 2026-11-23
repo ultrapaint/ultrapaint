@@ -109,6 +109,21 @@ describe("parseCommand", () => {
     });
   });
 
+  it("reads /update-from-code's component:<Name> among its pages, and offers it (ADR 0122)", () => {
+    expect(
+      requestOf("/update-from-code component:AppShell settings.page.json")
+    ).toEqual({
+      _tag: "UpdateFromCode",
+      targets: ["component:AppShell", "settings.page.json"],
+    });
+    expect(
+      commandOf({ _tag: "UpdateFromCode", targets: ["component:AppShell"] })
+    ).toBe("/update-from-code component:AppShell");
+    expect(
+      slashCommands.find((c) => c.name === "update-from-code")?.argument
+    ).toBe("[canvas | page | component:<Name>…]");
+  });
+
   it("takes Define's mode, and only Define's", () => {
     expect(requestOf("/design-system define propose a calm one")).toEqual({
       _tag: "SetupStep",

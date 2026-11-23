@@ -28,6 +28,9 @@ export const componentTarget = (name: string) =>
   `${COMPONENT_TARGET_PREFIX}${name}`;
 export const isComponentTarget = (target: string) =>
   target.startsWith(COMPONENT_TARGET_PREFIX);
+/** The component a `component:<Name>` target names. */
+export const componentNameOf = (target: string) =>
+  target.slice(COMPONENT_TARGET_PREFIX.length);
 const IMPLEMENTED_COMPONENTS = "components";
 
 const PAGE_FILE_RE = /\.page\.json$/;
@@ -40,7 +43,7 @@ const PAGE_FILE_RE = /\.page\.json$/;
 export const implementedFileOf = (target: string) =>
   `${IMPLEMENTED_DIR}/${
     isComponentTarget(target)
-      ? `${IMPLEMENTED_COMPONENTS}/${target.slice(COMPONENT_TARGET_PREFIX.length)}`
+      ? `${IMPLEMENTED_COMPONENTS}/${componentNameOf(target)}`
       : target.replace(PAGE_FILE_RE, "")
   }.implemented.json`;
 
@@ -121,6 +124,13 @@ export const isBound = (status: ImplementationItem["status"] | undefined) =>
  */
 export const behindItsCode = (item: ImplementationItem | undefined) =>
   !(item && isBound(item.status)) || item.codeChanged;
+
+/**
+ * Whether the code that implements a design changed since it was implemented (ADR 0115): what a
+ * bare `/update-from-code` takes, and all a component is taken for (ADR 0122).
+ */
+export const codeChangedSince = (item: ImplementationItem | undefined) =>
+  item !== undefined && isBound(item.status) && item.codeChanged;
 
 export const ImplementationList = Schema.Struct({
   items: Schema.Array(ImplementationItem),

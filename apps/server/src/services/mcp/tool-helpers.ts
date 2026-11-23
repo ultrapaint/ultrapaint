@@ -38,6 +38,12 @@ export const finite = (minimum: number, maximum: number) =>
 export const AnyJson = Schema.Unknown;
 
 /**
+ * One JSON object an agent passes, the handler validating it. An array of `AnyJson` would say
+ * nothing of its items, and Codex reads an array without `items` as an array of strings.
+ */
+export const AnyObject = Schema.Record(Schema.String, Schema.Unknown);
+
+/**
  * What a failure of a kind says to an agent, where its own message is the editor's words, written
  * for the user (`Stale`'s "reloading" is what the web editor does with it) or for a log. A kind
  * not here says its own message: a missing page or component already says what there is instead.

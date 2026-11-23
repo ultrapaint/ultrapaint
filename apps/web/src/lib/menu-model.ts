@@ -702,9 +702,12 @@ export type ComponentAction =
   | { kind: "insert" }
   | { kind: "insertCanvas" }
   | { kind: "openBoard" }
+  | { kind: "updateFromCode" }
   | { kind: "copyName" };
 
 interface ComponentFacts {
+  /** Its code changed since it was implemented: its board's menu offers Update from code too (ADR 0122). */
+  codeChanged: boolean;
   name: string;
   onCanvas: boolean;
   /** Where Insert puts it, as the Library says it: `the page`, `Card`; null when nowhere. */
@@ -719,6 +722,7 @@ export const componentEntries = (f: ComponentFacts): Entry<ComponentAction>[] =>
     f.onCanvas && item({ kind: "insertCanvas" }, "Insert on the canvas"),
     separator,
     item({ kind: "openBoard" }, "Open board"),
+    f.codeChanged && item({ kind: "updateFromCode" }, "Update from code"),
     item({ kind: "copyName" }, `Copy ${f.name}`),
   ]);
 

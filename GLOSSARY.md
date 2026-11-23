@@ -229,14 +229,16 @@ refactor and the board view left.
   (written through a tool, with no **spot**, `hasSpot`, they are not pinned on the canvas: ADR
   0085), and listed in the inspector's Behaviour section of what they are on (ADR 0086);
   a component's are in its file, deleted when done.
-- **Update from code**: a page brought up to date from the code that draws it (ADR 0115), by an
-  agent the person sends: rewritten in place to show what the code draws now, the design's own
-  changes since it was implemented reconciled with the code's rather than dropped, its old version
-  kept in the history, and marked implemented with its files (the implementation link, ADR 0030).
-  It takes the pages whose code changed and those not linked yet, by their canonical targets or
-  a canvas; its task request is `UpdateFromCode`, its command `/update-from-code`, its text the
-  page tasks' (`updateFromCode`). Offered in the Code tab's Implementation section, a canvas's
-  menu and the menu of several pages picked; never run on its own.
+- **Update from code**: a page or a component brought up to date from the code that draws it (ADR
+  0115, 0122), by an agent the person sends: rewritten in place to show what the code draws now,
+  the design's own changes since it was implemented reconciled with the code's rather than
+  dropped, its old version kept in the history, and marked implemented with its files (the
+  implementation link, ADR 0030). It takes the pages whose code changed and those not linked yet,
+  by their canonical targets or a canvas, and the components whose code changed
+  (`component:<Name>`), whose pages follow through their instances; its task request is
+  `UpdateFromCode`, its command `/update-from-code`, its text the page tasks' (`updateFromCode`).
+  Offered in the Code tab's Implementation section, a canvas's menu, the menu of several pages
+  picked, and a component's board and menus; never run on its own.
 - **Agent ways**: how an agent does what a task or the briefing asks of it, with the editor's MCP
   tools or without them (`agent-ways`), decided per session: the server offers its tools and the
   agent said it takes them (`mcpHttp`). Each capability is worded both ways (ask the user, save
@@ -395,8 +397,9 @@ refactor and the board view left.
   component's look — a part's style at a place, an optional part left out, a slot's content, the
   item template — or a note added or taken out) is made by `ComponentService.change` on the file
   as it is in the step, a rename followed into the variants its tree keeps and every instance's
-  props (`instanceOps`, of the documents as they are in the step), in one undo step. Every write
-  of a component's file reads it inside the step.
+  props (`instanceOps`, of the documents as they are in the step), in one undo step: from the
+  editor, and from an agent through `handoff`'s "change" (ADR 0122). Every write of a component's
+  file reads it inside the step.
 - **Catalogue**: what a design can place, the system components then the app components that
   read (system-components' `catalogueOf`, over the component files; ADR 0042): each entry's props,
   variant axes, slots and their layout, and the example a new instance starts with. The server

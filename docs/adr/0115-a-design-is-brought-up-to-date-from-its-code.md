@@ -6,6 +6,10 @@ is the Implementation section's one button). Story: UP-110.
 > Amended by [0118](0118-every-thread-writes-the-repository.md), 2026-11-23: its design thread
 > writes the repository as every thread does.
 
+> Amended by [0122](0122-a-component-is-brought-up-to-date-from-its-code.md), 2026-11-23: a
+> component whose code changed is brought up to date as a page is, its renames made through
+> `handoff`'s "change" so every instance follows.
+
 ## Context
 
 0030 made *code changed* "only a flag: the tool does not redraw the design from it", and ruled

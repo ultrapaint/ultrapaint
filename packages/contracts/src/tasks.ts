@@ -1,6 +1,6 @@
 /**
  * The tasks an agent is given, as typed requests: implement a design, link pages built already
- * to their code, bring pages up to date from their code, import a Figma file, redraw a canvas, run a step of the design-system setup,
+ * to their code, bring pages and components up to date from their code, import a Figma file, redraw a canvas, run a step of the design-system setup,
  * sync. The server turns a request into the task's text
  * (`apps/server/src/services/threads/tasks.ts`); a slash command is one way to write a request.
  * Each command is declared once here, with how it is offered, read and written: the catalogue the
@@ -46,10 +46,11 @@ const AdoptTask = Schema.TaggedStruct("Adopt", {
 });
 
 /**
- * `/update-from-code`: pages brought up to date from the code that draws them (ADR 0115), each
- * rewritten in place to show what the code draws now and marked implemented again; a page not
- * linked yet is linked first. Each target is a canvas (`""` the designs directory's own), naming
- * its pages, or a page; none names every page whose code changed or that is not linked yet.
+ * `/update-from-code`: pages and components brought up to date from the code that draws them (ADR
+ * 0115, 0122), each rewritten in place to show what the code draws now and marked implemented
+ * again; a page not linked yet is linked first. Each target is a canvas (`""` the designs
+ * directory's own), naming its pages, a page, or a component as `component:<Name>`; none names
+ * every page and component whose code changed.
  */
 const UpdateFromCodeTask = Schema.TaggedStruct("UpdateFromCode", {
   targets: Schema.Array(Schema.String),
@@ -129,7 +130,7 @@ export type TaskRequest = typeof TaskRequest.Type;
 /**
  * What a thread running the task is for (ADR 0030): implementing writes the application, so it
  * starts its agent with the repository writable. Linking pages built already changes no code, and
- * bringing pages up to date from it writes the designs only (ADR 0115).
+ * bringing pages and components up to date from it writes the designs only (ADR 0115).
  */
 export const taskPurpose = (request: TaskRequest): ThreadPurpose =>
   request._tag === "Implement" ? "implement" : "design";
@@ -174,7 +175,7 @@ const isSetupStep = Schema.is(SetupStepId);
 const isDefineMode = Schema.is(DefineMode);
 const isSyncSource = Schema.is(SyncSource);
 
-/** Canvases or pages, as `--adopt` and `/update-from-code` write them. */
+/** Canvases or pages, as `--adopt` writes them, and components too as `/update-from-code` does. */
 const targetsOf = (argument: string) =>
   argument.split(WHITESPACE_RE).filter(Boolean).map(canvasOfWord);
 
@@ -289,9 +290,9 @@ const COMMANDS: readonly Command[] = [
     requests: ["Implement", "Adopt"],
   }),
   command({
-    argument: "[canvas | page…]",
+    argument: "[canvas | page | component:<Name>…]",
     description:
-      "Bring pages up to date from the code that draws them: each rewritten in place to show what the code draws now, and linked to its files",
+      "Bring pages and components up to date from the code that draws them: each rewritten in place to show what the code draws now, and linked to its files",
     name: "update-from-code",
     parse: (argument) => ({
       _tag: "UpdateFromCode",

@@ -40,7 +40,10 @@ import {
   ownFrameOf,
   takesComments,
 } from "../state/frame-ref.ts";
-import { useImplementation } from "../state/implementation.ts";
+import {
+  componentCodeChanged,
+  useImplementation,
+} from "../state/implementation.ts";
 import { isolate } from "../state/isolation.ts";
 import { pagesActedOn } from "../state/page-picks.ts";
 import { showRightPanel } from "../state/panels.ts";
@@ -130,6 +133,7 @@ import {
   setPagesReady,
   setPageUrl,
   unlinkImplementation,
+  updateComponentFromCode,
   updatePagesFromCode,
   zoomToPage,
 } from "./page-actions.ts";
@@ -339,6 +343,7 @@ export const menuFor = (target: MenuTarget): MenuEntry[] | null => {
         "component",
         target,
         componentEntries({
+          codeChanged: componentCodeChanged(target.name),
           name: target.name,
           // Inserted on the page canvas: not from a board view, whose ground is no document.
           onCanvas: onPageCanvas() && useEditor.getState().canvas !== null,
@@ -734,6 +739,8 @@ const runComponent = (
     }
     case "openBoard":
       return openBoard({ item: target.name, view: "library" });
+    case "updateFromCode":
+      return updateComponentFromCode(target.name);
     case "copyName":
       return copyText(target.name);
     default:

@@ -1,16 +1,19 @@
 /**
  * The link between the designs and their code (ADR 0030), for agents in the editor and outside
  * it: what is ready or changed, the task that implements one, marking it implemented, writing
- * down behaviour the design cannot show, and bringing the code's tokens up to the design's (ADR
- * 0028). One tool: every agent carries every tool's schema on every turn.
+ * down behaviour the design cannot show, changing a component as its code now draws it (ADR
+ * 0122), and bringing the code's tokens up to the design's (ADR 0028). One tool: every agent
+ * carries every tool's schema on every turn.
  */
 
+import { ComponentChange } from "@ultrapaint/contracts/components";
 import type { ImplementationItem } from "@ultrapaint/contracts/implementation";
 import { baselineKey } from "@ultrapaint/contracts/sync";
 import { plural } from "@ultrapaint/shared/text";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { OpenProject } from "../../project.ts";
+import { ComponentService } from "../components.ts";
 import { DesignSystemSyncService } from "../design-system-sync.ts";
 import {
   type DesignTarget,
@@ -19,17 +22,28 @@ import {
 } from "../design-targets.ts";
 import { ImplementationService } from "../implementation.ts";
 import { codeDirection } from "../sync-readings.ts";
-import { HANDOFF_ACTIONS } from "../threads/agent-ways.ts";
+import { HANDOFF_ACTIONS, TOOLS } from "../threads/agent-ways.ts";
 import { AgentTasks } from "../threads/tasks.ts";
-import { doing, missing, opt, reported, ToolFailure } from "./tool-helpers.ts";
+import {
+  AnyObject,
+  doing,
+  missing,
+  opt,
+  reported,
+  ToolFailure,
+} from "./tool-helpers.ts";
+
+const decodeChange = Schema.decodeUnknownEffect(ComponentChange);
 
 const Handoff = Tool.make("handoff", {
   description:
-    'Designs and their code. action "list": ready or changed; "read": target\'s task; "mark": target implemented by files; "note": what target (node) must do that a design cannot show (text); "export"/"import": token values design→code/code→design, those named or all changed.',
+    'Designs and their code. action "list": ready or changed; "read": target\'s task; "mark": target implemented by files; "note": what target (node) must do that a design cannot show (text); "change": component target by change {op,…}, renames followed in instances; "export"/"import": token values design→code/code→design, those named or all changed.',
   failure: ToolFailure,
   parameters: Schema.Struct({
     action: Schema.Literals(HANDOFF_ACTIONS),
     canvas: opt(Schema.String),
+    /** One change to a component's file (`ComponentChange`), which the task says the ops of. */
+    change: opt(AnyObject),
     files: opt(Schema.Array(Schema.String)),
     /** A page's node, or a component's part. */
     node: opt(Schema.String),
@@ -66,6 +80,7 @@ export const HandoffToolsLive = HandoffTools.toLayer(
     const project = yield* OpenProject;
     const implementation = project.service(ImplementationService);
     const designTargets = project.service(DesignTargets);
+    const components = project.service(ComponentService);
     const tasks = yield* AgentTasks;
     const sync = yield* DesignSystemSyncService;
 
@@ -137,6 +152,38 @@ export const HandoffToolsLive = HandoffTools.toLayer(
     });
 
     /**
+     * One change to a component's file (ADR 0122), made through `ComponentService.change` as the
+     * editor makes it: a property, a member or a slot renamed or taken out follows into every
+     * instance's props, in one undo step. A page changes through its own tool.
+     */
+    const change = Effect.fnUntraced(function* (
+      target: DesignTarget,
+      given: unknown
+    ) {
+      if (target._tag !== "Component") {
+        return yield* missing(
+          `a page changes through ${TOOLS.apply_operations}: change takes a component (target component:<Name>)`
+        );
+      }
+      if (given === undefined) {
+        return yield* missing(
+          "say the change in change: one {op, …} of the component"
+        );
+      }
+      const made = yield* decodeChange(given).pipe(
+        Effect.mapError(
+          (error) =>
+            new ToolFailure({
+              message: `change is no component change: ${error.message}`,
+            })
+        )
+      );
+      const { name } = target.component;
+      yield* reported(components((c) => c.change(name, made)));
+      return { text: `Changed ${name}.` };
+    });
+
+    /**
      * The code's token values brought up to the design's, or the code's taken into the design (ADR
      * 0028): the tokens named, conflicts among them included, or what changed on one side alone.
      */
@@ -188,6 +235,7 @@ export const HandoffToolsLive = HandoffTools.toLayer(
       handoff: Effect.fn("EditorTools.handoff")(function* ({
         action,
         canvas,
+        change: given,
         files,
         node,
         target,
@@ -206,6 +254,9 @@ export const HandoffToolsLive = HandoffTools.toLayer(
         }
         if (action === "mark") {
           return yield* mark(targetId(named), files);
+        }
+        if (action === "change") {
+          return yield* change(named, given);
         }
         return yield* note(named, node, text);
       }),

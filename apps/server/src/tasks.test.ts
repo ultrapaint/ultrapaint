@@ -1,12 +1,16 @@
 import path from "node:path";
 import { assert, describe, it as test } from "@effect/vitest";
-import type { AppComponentFile } from "@ultrapaint/contracts/components";
+import {
+  APP_FROM,
+  type AppComponentFile,
+} from "@ultrapaint/contracts/components";
 import { commandOf, type TaskRequest } from "@ultrapaint/contracts/tasks";
 import { makeFixture as makeFigma } from "@ultrapaint/figma-import/testing/fixture";
 import { Effect, FileSystem } from "effect";
 import { OpenProject, ProjectManager } from "./project.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { DesignSystemSetupService } from "./services/design-system-setup.ts";
+import { DocumentService } from "./services/documents.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { ImplementationService } from "./services/implementation.ts";
 import { AskUser } from "./services/mcp/ask-user.ts";
@@ -19,7 +23,12 @@ import { SlashCommands } from "./services/threads/commands.ts";
 import { AgentTasks } from "./services/threads/tasks.ts";
 import { writeComponentFile } from "./testing/components.ts";
 import { eachTest } from "./testing/each-test.ts";
-import { heardOf, ProjectFixture, ProjectTest } from "./testing/project.ts";
+import {
+  callTool,
+  heardOf,
+  ProjectFixture,
+  ProjectTest,
+} from "./testing/project.ts";
 
 const task = (request: TaskRequest) =>
   Effect.flatMap(AgentTasks, (tasks) => tasks.task(request));
@@ -518,7 +527,7 @@ describe("bringing pages up to date from their code (ADR 0115)", () => {
             {
               command: "update-from-code",
               message:
-                "every page linked to its code is up to date with it; a page not linked yet is taken only when it or its canvas is named",
+                "every page and component linked to its code is up to date with it; a page not linked yet is taken only when it or its canvas is named",
               next: "Say so, and stop.",
             }
           );
@@ -559,6 +568,284 @@ describe("bringing pages up to date from their code (ADR 0115)", () => {
             "note its files: without the editor's MCP server"
           );
           assert.include(text, "Edit the files above directly");
+        })
+    );
+  });
+});
+
+/** An app component with a choice, placed on Home and drawn by src/plan.tsx. */
+const PLAN: AppComponentFile = {
+  name: "Plan",
+  origin: "app",
+  properties: [
+    {
+      default: "plain",
+      kind: "choice",
+      members: ["plain", "loud"],
+      name: "tone",
+    },
+  ],
+  slots: [],
+  tree: {
+    children: [{ id: "t", role: "heading", text: "Pro", type: "text" }],
+    id: "root",
+    type: "column",
+  },
+  version: 1,
+};
+
+/** Plan placed on Home and implemented by src/plan.tsx, whose code changed since. */
+const componentBehind = Effect.gen(function* () {
+  const { repo } = yield* ProjectFixture;
+  const fs = yield* FileSystem.FileSystem;
+  yield* writeComponentFile(path.join(repo, "designs"), PLAN);
+  yield* heardOf("designs/components/Plan.component.json");
+  const project = yield* OpenProject;
+  yield* project.use(
+    Effect.gen(function* () {
+      yield* (yield* DocumentService).apply({
+        edits: [
+          {
+            doc: "home.page.json",
+            ops: [
+              {
+                node: {
+                  component: "Plan",
+                  from: APP_FROM,
+                  id: "plan",
+                  props: { tone: "loud" },
+                  type: "instance",
+                },
+                op: "insert",
+                parent: null,
+              },
+            ],
+          },
+        ],
+      });
+      yield* (yield* ImplementationService).mark("component:Plan", [
+        "src/plan.tsx",
+      ]);
+    })
+  );
+  yield* fs.writeFileString(
+    path.join(repo, "src/plan.tsx"),
+    "export const Plan = () => <section />;\n"
+  );
+});
+
+const COMPONENT_CODE = {
+  ...CODE,
+  "src/plan.tsx": "export const Plan = () => null;\n",
+};
+
+describe("bringing components up to date from their code (ADR 0122)", () => {
+  eachTest(ProjectTest({ files: COMPONENT_CODE, mcp: true }))((it) => {
+    it.effect(
+      "gives a component whose code changed its changed files, the component as implemented, the pages placing it, and the mark",
+      () =>
+        Effect.gen(function* () {
+          yield* componentBehind;
+          const update = yield* task({
+            _tag: "UpdateFromCode",
+            targets: ["component:Plan"],
+          });
+          assert.strictEqual(update.purpose, "design");
+          assert.include(
+            update.text,
+            "- component:Plan: Plan, an app component (designs/components/Plan.component.json)"
+          );
+          assert.include(
+            update.text,
+            "in src/plan.tsx. These files changed since: src/plan.tsx."
+          );
+          assert.include(
+            update.text,
+            "designs/_implemented/components/Plan.implemented.json"
+          );
+          // Every page that places it follows through its instances, and is named at the end.
+          assert.include(
+            update.text,
+            "The pages that place it, which follow it through their instances: home.page.json."
+          );
+          assert.include(
+            update.text,
+            "the files that draw it and the pages that place it, which now draw it as it is"
+          );
+          // Where the agent can see the app, it looks at the component on a screen that uses it.
+          assert.include(update.text, "the component on a screen that uses it");
+          // Its props, members and slots change so every instance follows a rename.
+          assert.include(
+            update.text,
+            'handoff with action "change", target the component as listed'
+          );
+          assert.include(update.text, '{op:"renameProperty", name, to}');
+          assert.include(
+            update.text,
+            "version from before stays in the designs' history, where the user can restore it"
+          );
+          assert.include(
+            update.text,
+            'mark it implemented: handoff with action "mark", target the component as listed'
+          );
+          // A component alone: nothing of a page's update.
+          assert.notInclude(update.text, "The pages, by id");
+          assert.notInclude(update.text, "- home.page.json: Home");
+        })
+    );
+
+    it.effect(
+      "has the agent reconcile the component's own changes with the code's when its design changed too",
+      () =>
+        Effect.gen(function* () {
+          yield* componentBehind;
+          const { repo } = yield* ProjectFixture;
+          yield* writeComponentFile(path.join(repo, "designs"), {
+            ...PLAN,
+            tree: {
+              children: [
+                { id: "t", role: "heading", text: "Max", type: "text" },
+              ],
+              id: "root",
+              type: "column",
+            },
+          });
+          yield* heardOf("designs/components/Plan.component.json");
+          const text = yield* textOf({
+            _tag: "UpdateFromCode",
+            targets: ["component:Plan"],
+          });
+          assert.include(
+            text,
+            "The design changed since it was implemented too"
+          );
+          assert.include(text, "never take one side whole");
+          assert.include(text, "Where you cannot tell, ask the user");
+          assert.include(text, "put back the design's changes you kept");
+        })
+    );
+
+    it.effect(
+      "takes, named by nothing, the components whose code changed along with the pages",
+      () =>
+        Effect.gen(function* () {
+          yield* behindItsCode;
+          yield* componentBehind;
+          const text = yield* textOf({ _tag: "UpdateFromCode", targets: [] });
+          assert.include(text, "- home.page.json: Home, /home");
+          assert.include(text, "- component:Plan: Plan");
+        })
+    );
+
+    it.effect("takes a component and a page named together", () =>
+      Effect.gen(function* () {
+        yield* behindItsCode;
+        yield* componentBehind;
+        const text = yield* textOf({
+          _tag: "UpdateFromCode",
+          targets: ["component:Plan", "home.page.json"],
+        });
+        assert.include(text, "- home.page.json: Home, /home");
+        assert.include(text, "- component:Plan: Plan");
+        assert.include(text, "These pages and components of the design");
+      })
+    );
+
+    it.effect(
+      "points a page up to date with its code, whose components' code changed, to their own update",
+      () =>
+        Effect.gen(function* () {
+          yield* componentBehind;
+          const project = yield* OpenProject;
+          yield* project.use(
+            Effect.flatMap(ImplementationService, (i) =>
+              i.mark("home.page.json", ["src/home.tsx"])
+            )
+          );
+          assert.deepStrictEqual(
+            yield* failureOf({
+              _tag: "UpdateFromCode",
+              targets: ["home.page.json"],
+            }),
+            {
+              command: "update-from-code",
+              message:
+                "every page named is up to date with its code; the components it places whose code changed are brought up to date on their own, through their instances: /update-from-code component:Plan",
+              next: "Say so, and stop.",
+            }
+          );
+        })
+    );
+
+    it.effect(
+      "leaves out a component up to date with its code, or not implemented",
+      () =>
+        Effect.gen(function* () {
+          const { repo } = yield* ProjectFixture;
+          yield* writeComponentFile(path.join(repo, "designs"), PLAN);
+          yield* heardOf("designs/components/Plan.component.json");
+          assert.deepStrictEqual(
+            yield* failureOf({
+              _tag: "UpdateFromCode",
+              targets: ["component:Plan", "component:Nope"],
+            }),
+            {
+              command: "update-from-code",
+              message:
+                "there is no component Nope, and every component named is up to date with its code or was never implemented",
+              next: "Say so, and stop.",
+            }
+          );
+        })
+    );
+
+    it.effect("reads Implemented once handoff marks it", () =>
+      Effect.gen(function* () {
+        yield* componentBehind;
+        const changed = yield* Effect.flatMap(OpenProject, (p) =>
+          p.use(
+            Effect.flatMap(ImplementationService, (i) =>
+              i.item("component:Plan")
+            )
+          )
+        );
+        assert.isTrue(changed.codeChanged);
+        const { text } = yield* callTool(EditorTools, "handoff", {
+          action: "mark",
+          files: ["src/plan.tsx"],
+          target: "component:Plan",
+        });
+        assert.include(
+          text,
+          "- component:Plan (Plan): implemented → src/plan.tsx"
+        );
+        const marked = yield* Effect.flatMap(OpenProject, (p) =>
+          p.use(
+            Effect.flatMap(ImplementationService, (i) =>
+              i.item("component:Plan")
+            )
+          )
+        );
+        assert.strictEqual(marked.status, "implemented");
+        assert.isFalse(marked.codeChanged);
+      })
+    );
+  });
+
+  eachTest(ProjectTest({ files: COMPONENT_CODE, mcp: false }))((it) => {
+    it.effect(
+      "has a rename followed into every instance by hand without the editor's tools",
+      () =>
+        Effect.gen(function* () {
+          yield* componentBehind;
+          const text = yield* textOf({
+            _tag: "UpdateFromCode",
+            targets: ["component:Plan"],
+          });
+          assert.include(
+            text,
+            "rename it in the props of its instances on the pages that place it too"
+          );
         })
     );
   });
