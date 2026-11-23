@@ -599,6 +599,12 @@ const mountFrame = (
   const hostResize = new ResizeObserver(scheduleRects);
   hostResize.observe(host);
   host.addEventListener("scroll", scheduleRects, { passive: true });
+  // A scroll inside the page (a panel, a list) does not bubble to the host: caught on its way
+  // down, so what is outlined, and the hole over a text being edited, follow it.
+  shadow.addEventListener("scroll", scheduleRects, {
+    capture: true,
+    passive: true,
+  });
   for (const type of GUARDED) {
     shadow.addEventListener(type, guard, true);
   }
@@ -691,6 +697,7 @@ const mountFrame = (
       resize.disconnect();
       hostResize.disconnect();
       host.removeEventListener("scroll", scheduleRects);
+      shadow.removeEventListener("scroll", scheduleRects, { capture: true });
       for (const type of GUARDED) {
         shadow.removeEventListener(type, guard, true);
       }
