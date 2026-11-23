@@ -290,7 +290,9 @@ const PropControl = ({
     return (
       <Tooltip>
         <TooltipTrigger
-          render={<span className="truncate font-code text-muted-foreground" />}
+          render={
+            <span className="truncate font-body-small text-muted-foreground" />
+          }
         >
           {shown}
         </TooltipTrigger>

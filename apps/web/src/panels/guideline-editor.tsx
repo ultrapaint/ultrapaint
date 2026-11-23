@@ -70,7 +70,7 @@ export const GuidelineEditor = ({
     <Section className="min-h-0 flex-1 gap-2 border-b-0 pb-3" title="Markdown">
       <Textarea
         aria-label={`${section.heading} in DESIGN.md`}
-        className="min-h-80 flex-1 resize-none font-code [field-sizing:fixed]"
+        className="min-h-80 flex-1 resize-none [field-sizing:fixed]"
         onBlur={save}
         onChange={(e) => type(e.target.value)}
         onKeyDown={(e) => {

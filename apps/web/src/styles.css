@@ -34,10 +34,9 @@
   }
 }
 
-/* The faces: Cal Sans for headings, Figtree for bodies, Geist Mono for values, tokens and code
-   (ADR 0070) and never for a path, a URL or a file name (ADR 0108). All are loaded, so the
-   editor looks the same on every machine, and kept out of the theme, so no `font-sans` or
-   `font-mono` utility sets a face of its own. */
+/* The faces: Cal Sans for headings, Figtree for everything else, Geist Mono for blocks of code
+   alone (ADR 0117). All are loaded, so the editor looks the same on every machine, and kept out
+   of the theme, so no `font-sans` or `font-mono` utility sets a face of its own. */
 :root {
   --face-heading:
     "Cal Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
@@ -125,7 +124,7 @@
 /* Typography: Atlassian's semantic type tokens (ADR 0071), one `font-<token>` utility each,
    carrying the face, size, line height, weight and tracking together, in rem so they follow the
    browser's zoom, and the only way the editor sets type (ADR 0072). A heading is Cal Sans, a body
-   Figtree, code Geist Mono. Emphasis is a token of its own, a body at Atlassian's
+   Figtree, a block of code Geist Mono. Emphasis is a token of its own, a body at Atlassian's
    `font.weight.medium` or `semibold` (`font-body-medium`), never a weight added to a token.
    `text-` is colour only. Tailwind's own scale is cleared above; Streamdown's renderers and the
    designs drawn on the canvas, in their own shadow roots, keep theirs.
@@ -252,8 +251,10 @@
   letter-spacing: 0;
 }
 
-/* Values, tokens, commands and code, a value on its row or a block of lines. A path, a URL or a
-   file name is set in a body token (ADR 0108). */
+/* A block of code's lines, and nothing else (ADR 0117): a file's code, a diff, a terminal's or a
+   log's output, a code block in a message, a command in its box to copy, a tool's input. A value,
+   a token, a name, a tag, a version or a command in a row, a field, a menu or a sentence is set
+   in the body tokens. */
 @utility font-code {
   font-family: var(--face-code);
   font-size: calc(0.75rem * var(--text-scale, 1));
@@ -676,6 +677,15 @@ input[type="number"]::-webkit-inner-spin-button {
   }
   ::selection {
     background: oklch(0.56 0.2 263 / 35%);
+  }
+  /* A `code` or a `pre` is in the face around it, not the system's mono: only `font-code` sets
+     the mono, on a block of code (ADR 0117). */
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family: inherit;
+    font-size: inherit;
   }
   /*
    * Tailwind v4 gives buttons the default cursor; the pointer back, as shadcn's docs have it.

@@ -576,7 +576,7 @@ const InstanceSection = ({
                 Instance
               </span>
             ) : (
-              <CutText className="truncate font-code text-muted-foreground">
+              <CutText className="truncate font-body-small text-muted-foreground">
                 {node.from}
               </CutText>
             )}

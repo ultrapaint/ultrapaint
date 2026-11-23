@@ -24,7 +24,7 @@ const compact = [
   "[&_[data-streamdown=list-item]]:py-0",
   "[&_[data-streamdown=blockquote]]:my-2 [&_[data-streamdown=blockquote]]:border-l-2 [&_[data-streamdown=blockquote]]:pl-2",
   "[&_[data-streamdown=horizontal-rule]]:my-3",
-  "[&_[data-streamdown=inline-code]]:rounded-sm [&_[data-streamdown=inline-code]]:bg-muted [&_[data-streamdown=inline-code]]:px-1 [&_[data-streamdown=inline-code]]:py-0 [&_[data-streamdown=inline-code]]:font-code",
+  "[&_[data-streamdown=inline-code]]:rounded-sm [&_[data-streamdown=inline-code]]:bg-muted [&_[data-streamdown=inline-code]]:px-1 [&_[data-streamdown=inline-code]]:py-0",
   "[&_[data-streamdown=code-block]]:my-2 [&_[data-streamdown=code-block]]:rounded-md [&_[data-streamdown=code-block]]:p-1",
   // The header keeps its height: the copy button is pulled up over it by a
   // fixed margin, and shrinking one without the other tears them apart.

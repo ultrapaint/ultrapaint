@@ -1,7 +1,7 @@
 # ADR 0108: Paths, URLs and file names are set in the body face
 
 Status: accepted, 2026-11-20. Amends 0070 (what Geist Mono is for) and 0080 (the path to fix, in
-code).
+code). Amended by 0117 (the mono keeps blocks of code alone).
 
 ## Context
 

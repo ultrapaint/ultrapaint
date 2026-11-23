@@ -498,7 +498,7 @@ const CommandList = ({ menu }: { menu: CommandMenu }) =>
           tabIndex={-1}
           type="button"
         >
-          <span className="font-code text-foreground">
+          <span className="text-foreground">
             /{command.name}
             {command.argument ? (
               <span className="ml-1.5 text-muted-foreground">

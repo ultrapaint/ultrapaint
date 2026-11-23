@@ -129,9 +129,9 @@ const FrameError = ({ message }: { message: string }) => {
         <AlertTriangle className="size-4 shrink-0 text-destructive" />
         Part of this page failed to draw
       </span>
-      <pre className="select-text whitespace-pre-wrap font-code text-muted-foreground">
+      <p className="select-text whitespace-pre-wrap font-body-small text-muted-foreground">
         {message}
-      </pre>
+      </p>
     </div>
   );
 };

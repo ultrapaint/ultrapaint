@@ -2,7 +2,7 @@
 
 Status: accepted, 2026-11-09. Amends 0058 (the editor's faces). The roles named here are
 Atlassian's type tokens since 0071. Amended by 0108 (a path, a URL or a file name is Figtree,
-not Geist Mono).
+not Geist Mono) and 0117 (Geist Mono for blocks of code alone).
 
 ## Context
 

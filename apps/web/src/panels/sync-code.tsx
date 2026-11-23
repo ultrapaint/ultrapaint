@@ -37,10 +37,10 @@ const keyOf = (d: TokenDiff) => baselineKey(d.name, d.theme);
 /** A token, its value on each side. */
 const Row = ({ diff }: { diff: TokenDiff }) => (
   <li className="flex min-w-0 items-center gap-1.5 py-0.5">
-    <CutText className="truncate font-code">
+    <CutText className="truncate font-body-small">
       {diff.theme ? `${diff.name} (${diff.theme})` : diff.name}
     </CutText>
-    <span className="ml-auto flex shrink-0 items-center gap-1 font-code text-muted-foreground">
+    <span className="ml-auto flex shrink-0 items-center gap-1 font-body-small text-muted-foreground">
       {[diff.source ?? "none", diff.design ?? "none"].map((value, i) => (
         <span
           className="flex items-center gap-1"

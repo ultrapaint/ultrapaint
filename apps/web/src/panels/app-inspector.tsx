@@ -269,7 +269,7 @@ const AppBody = ({ file }: { file: AppComponentFile }) => {
               className="grid min-h-7 grid-cols-[72px_minmax(0,1fr)] items-center gap-x-2 font-body"
               key={slot.name}
             >
-              <span className="truncate font-code">{slot.name}</span>
+              <span className="truncate">{slot.name}</span>
               <span className="truncate text-muted-foreground">
                 {slotHolder(file, slot.node)}
                 {slot.default ? " · default" : ""}

@@ -61,10 +61,6 @@ export const tokensFound = (
 export const UI_FONT =
   '"Figtree Variable", ui-sans-serif, system-ui, -apple-system, sans-serif';
 
-/** The editor's mono, for a token's name and value. */
-export const MONO =
-  '"Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
-
 /** A step of the sheet's text colour: what qualifies its neighbour, on any sheet. */
 export const MUTED = "color-mix(in oklab, currentColor 58%, transparent)";
 
@@ -133,7 +129,7 @@ export const text = (
   ...extra,
 });
 
-/** A token's name in mono, in the sheet's colour, and its value under it, muted. */
+/** A token's name or value, muted, in the editor's face: the mono is for blocks of code alone. */
 export const code = (
   id: string,
   content: string,
@@ -141,7 +137,7 @@ export const code = (
   extra: TextExtra = {}
 ): DesignNode => ({
   color: MUTED,
-  font: MONO,
+  font: UI_FONT,
   id,
   lineHeight: 1.45,
   role: "paragraph",

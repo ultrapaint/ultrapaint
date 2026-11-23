@@ -314,13 +314,13 @@ const Value = ({ kind, value }: { kind: string; value: string }) => (
         style={{ background: value }}
       />
     ) : null}
-    <span className="truncate font-code">{value}</span>
+    <span className="truncate font-body-small">{value}</span>
   </span>
 );
 
 /** A few of a list, by name, then how many more. */
 const Names = ({ diffs }: { diffs: readonly TokenDiff[] }) => (
-  <span className="font-code text-muted-foreground">
+  <span className="font-body-small text-muted-foreground">
     {diffs.slice(0, 6).map(labelOf).join(", ")}
     {diffs.length > 6 ? ` and ${diffs.length - 6} more` : ""}
   </span>

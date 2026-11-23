@@ -147,9 +147,8 @@ describe("Settings › About › Folders (ADR 0091)", () => {
     expect(container.textContent).toContain(
       "To move it, start Ultrapaint with ULTRAPAINT_USER_DIR set."
     );
-    expect(container.querySelector("code")?.textContent).toBe(
-      "ULTRAPAINT_USER_DIR"
-    );
+    // In the sentence's face, as anything but a block of code (ADR 0117).
+    expect(container.querySelector("code")).toBeNull();
     expect(button("Move…")).toBeUndefined();
     expect(button("Open")).toBeUndefined();
     expect(

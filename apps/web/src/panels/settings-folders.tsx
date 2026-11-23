@@ -162,7 +162,8 @@ export const FoldersGroup = () => {
               <>
                 Your name, review findings and chat preferences, in every
                 project. To move it, start Ultrapaint with{" "}
-                <code className="font-code">ULTRAPAINT_USER_DIR</code> set.
+                <span className="text-foreground">ULTRAPAINT_USER_DIR</span>{" "}
+                set.
               </>
             )
           }

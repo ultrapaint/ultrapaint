@@ -24,6 +24,22 @@ const STOCK_SIZE =
 const NOT_A_TOKEN =
   /(?:^|[^\w-])font-(?:label|small|caption|thin|extralight|light|normal|regular|medium|semibold|bold|extrabold|black|sans|serif|mono|display|\[[^\]]*\])(?![\w-])|(?:^|[^\w-])(?:leading|tracking)-[\w.[\]-]+/;
 
+/** The mono, set by `font-code`. */
+const MONO = /(?:^|[^\w-])font-code(?![\w-])/;
+
+/** The files that draw a block of code's lines, the mono's one place (ADR 0117). */
+const BLOCKS_OF_CODE = [
+  "components/markdown-render.tsx",
+  "components/opening-splash.tsx",
+  "panels/changes.tsx",
+  "panels/code-implementation.tsx",
+  "panels/code.tsx",
+  "panels/save-config.tsx",
+  "panels/settings-agents.tsx",
+  "panels/thread-questions.tsx",
+  "panels/thread-transcript.tsx",
+];
+
 /** The `cn` package itself, which does not know the type tokens; `lib/cn.ts` does. */
 const PACKAGE_CN = /from "cn"/;
 
@@ -56,6 +72,10 @@ describe("typography", () => {
 
   it("sets type with the type tokens alone", () => {
     expect(linesMatching(NOT_A_TOKEN, SKIPPED)).toEqual([]);
+  });
+
+  it("sets the mono on blocks of code alone", () => {
+    expect(linesMatching(MONO, [...SKIPPED, ...BLOCKS_OF_CODE])).toEqual([]);
   });
 
   it("merges classes with the editor's cn, which knows the type tokens", () => {

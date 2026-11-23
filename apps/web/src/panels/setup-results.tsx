@@ -119,7 +119,7 @@ const ValueRow = ({
       <TooltipTrigger render={<li className="flex flex-col gap-0.5 py-1" />}>
         <span className="flex min-w-0 items-center gap-1.5">
           <Swatch kind={value.kind} value={value.value} />
-          <span className="truncate font-code">{value.value}</span>
+          <span className="truncate font-body-small">{value.value}</span>
           <span className="ml-auto shrink-0 font-body-small text-muted-foreground">
             {value.count}×
           </span>
@@ -258,7 +258,7 @@ const MappingRow = ({
       <TooltipTrigger render={<li className="flex flex-col gap-1 py-1.5" />}>
         <span className="flex min-w-0 items-center gap-1.5">
           <Swatch kind={entry.kind} value={entry.value} />
-          <span className="truncate font-code">{entry.value}</span>
+          <span className="truncate font-body-small">{entry.value}</span>
           <span className="ml-auto shrink-0 font-body-small text-muted-foreground">
             {entry.count}×{entry.by ? ` · ${BY[entry.by]}` : ""}
           </span>
