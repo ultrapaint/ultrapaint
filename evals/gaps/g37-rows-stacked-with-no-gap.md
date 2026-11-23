@@ -38,3 +38,4 @@ named: shipped skill 1/2, redesign-gaps 1/2. The person rated it real
 - `gaps-nov18` (2026-11-19): the person approved closing it by the checks, on the deck's claim that the editor's review shows its models what the checks measured. That holds only for the checks on the page's document (ADR 0061); the touching-rows check that catches this gap is the lab's rendered-page `measure` (1 of 3 alone, 3 of 3 with it, `chk-1`), not built into the editor. Kept open until the editor runs it.
 - `up88-told`: 2026-11-22, caught: main+told 1/3, up88-2+told 0/3 (opus, effort high; runs/up88-told/report.md)
 - `up88-names`: 2026-11-22, caught: main 0/3, up88-1 0/3, up88-2 0/3 (+1 partly) (opus, effort high; runs/up88-names/report.md)
+- `p15-told`: 2026-11-23, caught: shipped+told 0/3, p15-fix-adds-a-needed-control+told 0/3 (opus, effort high; runs/p15-told/report.md)

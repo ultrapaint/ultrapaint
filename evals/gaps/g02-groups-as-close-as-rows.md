@@ -58,3 +58,4 @@ each catches.
   for a story to run the rendered-page checks in the editor's review, which g37 waits on. Done.
 - `up88-told`: 2026-11-22, caught: main+told 2/3 (+1 partly), up88-2+told 1/3 (+1 partly) (opus, effort high; runs/up88-told/report.md)
 - `up88-names`: 2026-11-22, caught: main 3/3, up88-1 3/3, up88-2 2/2 (opus, effort high; runs/up88-names/report.md)
+- `p15-told`: 2026-11-23, caught: shipped+told 1/3 (+1 partly), p15-fix-adds-a-needed-control+told 0/3 (+2 partly) (opus, effort high; runs/p15-told/report.md)

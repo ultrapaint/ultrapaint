@@ -2,11 +2,11 @@
 id: p15
 title: A review's fix may not add a control the request allows
 kind: process
-status: open
+status: wontfix
 found: 2026-11-23
 source: CodeRabbit's review of PR #90 (UP-88), which moved the rule into the skill
 skill: [references/review.md]
-sections: []
+sections: [signup-dialog, meeting-panel, picture-lightbox]
 ---
 
 **What happened.** When the review's method moved from the editor's reviewer prompt into the
@@ -28,3 +28,12 @@ findings grow on the other sections, which would mean the rule is letting review
 than the request.
 
 **Result.**
+
+- `p15-told`: 2026-11-23, its sections' gaps caught: shipped+told 9/9, p15-fix-adds-a-needed-control+told 9/9 (opus, effort high; runs/p15-told/report.md)
+- `p15-told`, the fixes: in all 18 reviews of the three sections, main's skill (9) and the
+  candidate (9) alike, the finding's fix adds the way out (a close X, Escape, a Cancel). The rule
+  does not stop a fix from adding a control the screen needs: the skill's U1 and "every dialog has
+  a way out" carry it. Elsewhere the candidate caught 2 points fewer (−9 to +5, not shown) and
+  left 8.5 unmatched findings per review against 7.8.
+- Decision of 2026-11-23 (the person): closed, the skill unchanged. A fix already adds a way out
+  the screen needs; loosening the rule changed nothing measured.

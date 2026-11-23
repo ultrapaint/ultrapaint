@@ -39,3 +39,4 @@ apply to inherited copy as much as to new copy.
 - `rt-2-gpt`: 2026-11-16, its sections' gaps caught: shipped 11/16 (+4 partly), review-table 15/16, review-inventory 16/16 (reviewed by gpt-6.1-sol, judged by opus, cursor:grok-4.7-high, effort high; runs/rt-2-gpt/report.md)
 - `up88-told`: 2026-11-22, its sections' gaps caught: main+told 21/24 (+3 partly), up88-2+told 20/24 (+3 partly) (opus, effort high; runs/up88-told/report.md)
 - `up88-names`: 2026-11-22, its sections' gaps caught: main 21/24 (+3 partly), up88-1 22/24 (+2 partly), up88-2 20/24 (+4 partly) (opus, effort high; runs/up88-names/report.md)
+- `p15-told`: 2026-11-23, its sections' gaps caught: shipped+told 19/24 (+1 partly), p15-fix-adds-a-needed-control+told 19/24 (+2 partly) (opus, effort high; runs/p15-told/report.md)

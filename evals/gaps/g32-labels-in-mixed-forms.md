@@ -43,3 +43,4 @@ named: shipped skill 0/2, redesign-gaps 1/2. The person rated it real
   skill before it in `g76-rl` and 0 of 3 in `rt-2`: done.
 - `up88-told`: 2026-11-22, caught: main+told 0/3, up88-2+told 1/3 (opus, effort high; runs/up88-told/report.md)
 - `up88-names`: 2026-11-22, caught: main 1/3, up88-1 2/3, up88-2 1/3 (opus, effort high; runs/up88-names/report.md)
+- `p15-told`: 2026-11-23, caught: shipped+told 1/3, p15-fix-adds-a-needed-control+told 0/3 (opus, effort high; runs/p15-told/report.md)
