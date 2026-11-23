@@ -145,9 +145,9 @@ const withTools: AgentWays = {
   changeComponent: `Change an app component's properties, members and slots, and a system component's look, one
    change at a time with ${handoffCall("change")}, target the component as listed and change one of
    ${COMPONENT_CHANGES}.
-   A property, a member or a slot renamed or taken out there follows into every instance's props on
-   the pages, in the same undo step; written into the file by hand, it would leave them behind. An
-   app component's tree is written in its file.`,
+   A property or a member renamed there follows into every instance's props, on the pages and in
+   the trees of app components that place it, in the same undo step; written into the file by
+   hand, it would leave them behind. An app component's tree is written in its file.`,
   changingDesigns: `The "ultrapaint" MCP server is the editor itself: change designs with its tools, validated, shown on
 the canvas at once and undoable by the user, rather than by editing the JSON (a file you write
 must stay valid). Tools name a page by its URL, or its file when it has none; a node reference the
@@ -200,9 +200,10 @@ ${TOOLS.read_design_system}, ${TOOLS.list_components} and ${TOOLS.get_component}
 
 const withoutTools: AgentWays = {
   askUser: "in your reply, ending your turn for the answers",
-  changeComponent: `Write each component's file directly, and keep it valid. A property, a member or a slot the
-   code renamed: rename it in the props of its instances on the pages that place it too, and take it
-   out of them where the code took it out, or those pages break.`,
+  changeComponent: `Write each component's file directly, and keep it valid. A property or a member the code
+   renamed: rename it in the props of its instances too, on the pages that place it and in the
+   trees of app components that place it, and take it out of them where the code took it out, or
+   they break.`,
   changingDesigns:
     "Edit the .page.json files directly and keep them valid; every node needs a unique id.",
   editPages:
