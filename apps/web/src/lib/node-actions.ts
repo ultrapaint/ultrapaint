@@ -651,7 +651,8 @@ const applyToEach = (
         return updateOpsAt(
           node,
           frame,
-          layer ? withDefaults(node, op.set) : op.set
+          layer ? withDefaults(node, op.set) : op.set,
+          layer
         );
       }
       if (op.op === "setProps" && op.at === undefined) {
