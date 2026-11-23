@@ -1620,7 +1620,7 @@
                     "lineHeight": "16px",
                     "size": 12,
                     "role": "paragraph",
-                    "text": "About, as T3 Code’s: the version, Check for updates (the desktop app’s update already shows at the rail’s foot), and where things are.",
+                    "text": "About: the version and whether it is up to date, the update when there is one, and where things are kept.",
                     "type": "text"
                   }
                 ],
