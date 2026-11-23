@@ -14,6 +14,15 @@ const PX_RE = /^(-?\d*\.?\d+)px$/;
 /** What the option list offers to take the value off the node. */
 const UNSET = "__unset";
 
+/** A field's options, with Clear last while it holds a value. */
+export const withClear = (
+  options: readonly StyleOption[],
+  current: string
+): StyleOption[] =>
+  current === ""
+    ? [...options]
+    : [...options, { internal: true, label: "Clear", value: UNSET }];
+
 /** The option string a value is shown and picked as. */
 const optionOf = (value: JsonValue | undefined): string => {
   if (value === undefined || value === null) {
@@ -109,10 +118,7 @@ export const ValueField = ({
     }
     return accept?.(q) ? q : null;
   };
-  const withUnset: StyleOption[] =
-    current === ""
-      ? [...options]
-      : [...options, { label: "Clear", value: UNSET }];
+  const withUnset = withClear(options, current);
   return (
     <StyleCombobox
       autoOpen={autoOpen}
