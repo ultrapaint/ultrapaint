@@ -268,6 +268,222 @@
         ]
       }
     },
+    "onboarding/1a-start.page.json": {
+      "implemented": {
+        "at": 1795455345810,
+        "code": {
+          "apps/web/src/welcome.tsx": "ae556ba6097d22cc"
+        },
+        "design": "a42e47cc95a3c1e9",
+        "files": [
+          "apps/web/src/welcome.tsx"
+        ]
+      }
+    },
+    "onboarding/1b-first-screen.page.json": {
+      "implemented": {
+        "at": 1795455346573,
+        "code": {
+          "apps/web/src/panels/thread-composer.tsx": "ddfd00f067b11965",
+          "apps/web/src/panels/thread-turn.tsx": "d6c79bc89b2d0815",
+          "apps/web/src/panels/threads.tsx": "ed8b6d8e8336a237"
+        },
+        "design": "04de3222afcb4112",
+        "files": [
+          "apps/web/src/panels/thread-composer.tsx",
+          "apps/web/src/panels/thread-turn.tsx",
+          "apps/web/src/panels/threads.tsx"
+        ]
+      }
+    },
+    "onboarding/1c-a-folder-that-is-already-a-project.page.json": {
+      "implemented": {
+        "at": 1795455346013,
+        "code": {
+          "apps/web/src/welcome.tsx": "ae556ba6097d22cc"
+        },
+        "design": "c5371cec1975f1d9",
+        "files": [
+          "apps/web/src/welcome.tsx"
+        ]
+      }
+    },
+    "onboarding/2a-start-pick-the-look.page.json": {
+      "implemented": {
+        "at": 1795455346198,
+        "code": {
+          "apps/web/src/welcome.tsx": "ae556ba6097d22cc"
+        },
+        "design": "d698b413a40c5ed5",
+        "files": [
+          "apps/web/src/welcome.tsx"
+        ]
+      }
+    },
+    "onboarding/2b-choose-a-look.page.json": {
+      "implemented": {
+        "at": 1795455429315,
+        "code": {
+          "apps/web/src/boards/look-boards.ts": "c0cc9d6390159aee",
+          "apps/web/src/panels/look-panel.tsx": "9761f089f98a3ce3"
+        },
+        "design": "aff69b4561f3f20b",
+        "files": [
+          "apps/web/src/boards/look-boards.ts",
+          "apps/web/src/panels/look-panel.tsx"
+        ]
+      }
+    },
+    "onboarding/2c-look-from-a-site.page.json": {
+      "implemented": {
+        "at": 1795455429511,
+        "code": {
+          "apps/web/src/boards/look-boards.ts": "c0cc9d6390159aee",
+          "apps/web/src/panels/look-panel.tsx": "9761f089f98a3ce3"
+        },
+        "design": "acb98d03970e722e",
+        "files": [
+          "apps/web/src/boards/look-boards.ts",
+          "apps/web/src/panels/look-panel.tsx"
+        ]
+      }
+    },
+    "onboarding/2d-first-screen-in-the-chosen-look.page.json": {
+      "implemented": {
+        "at": 1795455346766,
+        "code": {
+          "apps/web/src/panels/thread-composer.tsx": "ddfd00f067b11965",
+          "apps/web/src/panels/thread-turn.tsx": "d6c79bc89b2d0815",
+          "apps/web/src/panels/threads.tsx": "ed8b6d8e8336a237"
+        },
+        "design": "f5aa4a3762842ffd",
+        "files": [
+          "apps/web/src/panels/thread-composer.tsx",
+          "apps/web/src/panels/thread-turn.tsx",
+          "apps/web/src/panels/threads.tsx"
+        ]
+      }
+    },
+    "onboarding/3a-start-open-a-project.page.json": {
+      "implemented": {
+        "at": 1795455346384,
+        "code": {
+          "apps/web/src/welcome.tsx": "ae556ba6097d22cc"
+        },
+        "design": "13921dee2a1bfc69",
+        "files": [
+          "apps/web/src/welcome.tsx"
+        ]
+      }
+    },
+    "onboarding/3b-setting-up-the-project.page.json": {
+      "implemented": {
+        "at": 1795455347456,
+        "code": {
+          "apps/web/src/canvas/empty-state.tsx": "3d52814118d917f2",
+          "apps/web/src/panels/thread-composer.tsx": "ddfd00f067b11965",
+          "apps/web/src/panels/thread-turn.tsx": "d6c79bc89b2d0815",
+          "apps/web/src/panels/threads.tsx": "ed8b6d8e8336a237"
+        },
+        "design": "caf4eb56aa89ba30",
+        "files": [
+          "apps/web/src/canvas/empty-state.tsx",
+          "apps/web/src/panels/thread-composer.tsx",
+          "apps/web/src/panels/thread-turn.tsx",
+          "apps/web/src/panels/threads.tsx"
+        ]
+      }
+    },
+    "onboarding/3c-the-app-in-the-editor.page.json": {
+      "implemented": {
+        "at": 1795455347650,
+        "code": {
+          "apps/web/src/canvas/empty-state.tsx": "3d52814118d917f2",
+          "apps/web/src/panels/chat-list.tsx": "00cb13c5a58b0824"
+        },
+        "design": "e3579b73ec7b79bc",
+        "files": [
+          "apps/web/src/canvas/empty-state.tsx",
+          "apps/web/src/panels/chat-list.tsx"
+        ]
+      }
+    },
+    "onboarding/3d-design-system-not-made-yet.page.json": {
+      "implemented": {
+        "at": 1795455429714,
+        "code": {
+          "apps/web/src/panels/design-system-list.tsx": "fccea3da7745a1aa"
+        },
+        "design": "e1b572eee0402246",
+        "files": [
+          "apps/web/src/panels/design-system-list.tsx"
+        ]
+      }
+    },
+    "onboarding/3e-setting-up-in-the-background.page.json": {
+      "implemented": {
+        "at": 1795455348013,
+        "code": {
+          "apps/web/src/panels/thread-composer.tsx": "ddfd00f067b11965",
+          "apps/web/src/panels/thread-turn.tsx": "d6c79bc89b2d0815",
+          "apps/web/src/panels/threads.tsx": "ed8b6d8e8336a237"
+        },
+        "design": "8d1b102a5bcd9b95",
+        "files": [
+          "apps/web/src/panels/thread-composer.tsx",
+          "apps/web/src/panels/thread-turn.tsx",
+          "apps/web/src/panels/threads.tsx"
+        ]
+      }
+    },
+    "onboarding/3f-design-system-ready.page.json": {
+      "implemented": {
+        "at": 1795455348210,
+        "code": {
+          "apps/web/src/panels/thread-composer.tsx": "ddfd00f067b11965",
+          "apps/web/src/panels/thread-turn.tsx": "d6c79bc89b2d0815",
+          "apps/web/src/panels/threads.tsx": "ed8b6d8e8336a237"
+        },
+        "design": "9f150b5ddffed333",
+        "files": [
+          "apps/web/src/panels/thread-composer.tsx",
+          "apps/web/src/panels/thread-turn.tsx",
+          "apps/web/src/panels/threads.tsx"
+        ]
+      }
+    },
+    "onboarding/4a-a-request-in-the-opened-project.page.json": {
+      "implemented": {
+        "at": 1795455348425,
+        "code": {
+          "apps/web/src/canvas/empty-state.tsx": "3d52814118d917f2",
+          "apps/web/src/panels/chat-starters.tsx": "201c9b7cb5b9bcff",
+          "apps/web/src/panels/threads.tsx": "ed8b6d8e8336a237"
+        },
+        "design": "ad3d9d20a0511d3b",
+        "files": [
+          "apps/web/src/canvas/empty-state.tsx",
+          "apps/web/src/panels/chat-starters.tsx",
+          "apps/web/src/panels/threads.tsx"
+        ]
+      }
+    },
+    "onboarding/4b-redesigning-a-page.page.json": {
+      "implemented": {
+        "at": 1795455348628,
+        "code": {
+          "apps/web/src/panels/thread-composer.tsx": "ddfd00f067b11965",
+          "apps/web/src/panels/thread-turn.tsx": "d6c79bc89b2d0815",
+          "apps/web/src/panels/threads.tsx": "ed8b6d8e8336a237"
+        },
+        "design": "df76ccf141cfb7a5",
+        "files": [
+          "apps/web/src/panels/thread-composer.tsx",
+          "apps/web/src/panels/thread-turn.tsx",
+          "apps/web/src/panels/threads.tsx"
+        ]
+      }
+    },
     "projects/1-tabs.page.json": {
       "implemented": {
         "at": 1795453417066,
