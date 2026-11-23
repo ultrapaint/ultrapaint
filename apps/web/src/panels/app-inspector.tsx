@@ -219,8 +219,8 @@ const AppBody = ({ file }: { file: AppComponentFile }) => {
       <Section action={<AddProperty file={file} />} title="Properties">
         {file.properties.length === 0 ? (
           <p className="font-body-small text-muted-foreground">
-            What an instance sets. Double-click the component to edit it in
-            place, and expose a field of a node, or add one.
+            What an instance sets. Select a layer of the component and expose
+            one of its fields, or add one.
           </p>
         ) : (
           file.properties.map((p) => (

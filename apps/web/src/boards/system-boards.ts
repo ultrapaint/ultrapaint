@@ -25,7 +25,7 @@ export interface Board {
   /** A stylesheet of its own, for what a document cannot say: an easing's animation (B12). */
   readonly css?: string;
   /**
-   * An app component's instance it draws, whose tree a double-click edits in place there, the
+   * An app component's instance it draws, whose tree a click edits in place there, the
    * edits landing on the member it is drawn with (its own fields for none).
    */
   readonly inPlace?: {

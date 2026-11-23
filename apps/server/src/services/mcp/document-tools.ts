@@ -131,6 +131,7 @@ const ApplyOperations = Tool.make("apply_operations", {
 (both take at:"md", from that breakpoint up)
 {op:"wrap", ids, type:"row"|"column"|"group"}, {op:"unwrap", id}, {op:"duplicate", id}
 {op:"replace", ids, node}: node where the siblings were
+"inst/layer" is a layer of an app instance: update, setProps, remove (hides) change that instance alone, as its overrides
 Inserting into an instance showing "text" makes the text its first child. Numbers are pixels, "$name" a token, else CSS. Size an instance with width, height, padding, never className. expectedHash (from read_page) refuses a changed page. "warnings": fills with no room.`,
   failure: ToolFailure,
   parameters: Schema.Struct({

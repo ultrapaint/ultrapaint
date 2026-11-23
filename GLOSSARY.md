@@ -414,15 +414,20 @@ refactor and the board view left.
   `expandAppInstance`. Edited **in place** (`isolation.ts`), its tree is a document of its own,
   `component:<Name>`, that the frame's selection and edits go to. The editor's words call it the
   **main component** where it stands against an **instance**: "Edit main component" changes every
-  instance, an instance's props and its instance overrides change that one alone. ADR 0114
-  (decided, not yet built) makes the main edited only when asked, stacked with a breadcrumb.
+  instance, an instance's props and its instance overrides change that one alone. It is edited
+  only when asked (ADR 0114), a level at a time, the banner's breadcrumb naming each.
 - **Instance override**: a field of a layer of an app component changed on one instance alone
-  (ADR 0114, decided, not yet built): kept on the instance, keyed by the layer's id in the
-  component, any field but never the structure (Delete hides the layer there); the main
-  component's value holds wherever the instance did not change it, and a field a property targets
-  is set as the property instead. Reset, applied to the main component, or made a property; a
-  prop of the component once implemented. _Avoid_ "override" alone: a variant's **overrides** are
-  its members' values in a node's `at`.
+  (ADR 0114): kept on the instance (`overrides`), keyed by the layer's id in the component, a
+  nested instance's layer by the way to it (`nav/label`), any field but never the structure
+  (Delete hides the layer there); the main component's value holds wherever the instance did not
+  change it, and a field a property targets is set as the property instead
+  (`throughProperties`). Reset, applied to the main component, or made a property; a prop of the
+  component in its code. _Avoid_ "override" alone: a variant's **overrides** are its members'
+  values in a node's `at`.
+- **Instance layer**: a layer of an app component as an instance on a page draws it, selected and
+  edited there (design-document's `instance-layers`, ADR 0114): named by the way to it from the
+  page's instance (`shell/side`, `shell/nav/label`), found by `layerPath`, the same object while
+  the instance and the component stay the same.
 - **Property**: what an instance of an app component sets, by name (its `props`): a text, a
   boolean, an image or a choice of members, with a default, set on the nodes it **targets**, a
   node's own field for its kind or a prop of the instance a node is.

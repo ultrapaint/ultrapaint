@@ -492,6 +492,21 @@ describe("an instance's layers (ADR 0114)", () => {
     expect(overridesOf(cleared)).toBeUndefined();
   });
 
+  it("turn a layer's row into a column and back, as a container's own type", () => {
+    const { root } = applyOps(
+      shell(),
+      [{ id: "shell/side", op: "update", set: { type: "row" } }],
+      options()
+    );
+    expect(overridesOf(root)).toEqual({ side: { type: "row" } });
+    const back = applyOps(
+      root,
+      [{ id: "shell/side", op: "update", set: { type: null } }],
+      options()
+    ).root;
+    expect(overridesOf(back)).toBeUndefined();
+  });
+
   it("set a nested instance's props for this instance alone", () => {
     const { root } = applyOps(
       shell(),

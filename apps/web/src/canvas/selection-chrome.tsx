@@ -27,7 +27,12 @@ import { askTaken, freshAsk, useAsk } from "../lib/ask-variations.ts";
 import { kindColor, selectionKindOf } from "../lib/selection-kind.ts";
 import { sizeLabel } from "../lib/size-label.ts";
 import { useBreakpoints } from "../state/design-system.ts";
-import { appFileOf, rootOfFrame, useDocuments } from "../state/documents.ts";
+import {
+  appFileOf,
+  drawnRootOf,
+  rootOfFrame,
+  useDocuments,
+} from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
 import { AskAgent } from "./ask-agent.tsx";
@@ -320,6 +325,7 @@ export const SelectionChrome = ({
   const hoverId = useHoverIn(frameId);
   const canvas = useEditor((s) => s.canvas);
   const own = useDocuments((s) => rootOfFrame(s.docs, canvas, frameId));
+  const drawnRoot = useDocuments((s) => drawnRootOf(s.docs, canvas, frameId));
   const breakpoint = useFrameBreakpoint(frameId);
   const breakpoints = useBreakpoints();
   if (!(madeHere && own && leadId !== null)) {
@@ -345,7 +351,9 @@ export const SelectionChrome = ({
       />
     ) : null;
   }
-  if (lead.id === root.id) {
+  // The frame's own root, not the root of a component edited in place in it, which is an
+  // element of the page it stands in.
+  if (lead.id === root.id && lead.id === drawnRoot?.id) {
     return (
       <RootChrome
         frame={frame}

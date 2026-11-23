@@ -102,6 +102,9 @@ const setOrDrop = (
   }
 };
 
+/** What an override's draft is while it sets no type of its own. */
+const LAYER_KIND = "layer";
+
 const DUPLICATE_OFFSET = 40;
 
 interface ApplyOptions {
@@ -436,13 +439,22 @@ export const applyOps = (
         | Record<string, Record<string, unknown>>
         | undefined),
     };
-    const over: Draft = { ...overrides[layer], id: layer, type: "layer" };
+    // A draft to set fields on as a node's are; its id and its kind are the layer's own.
+    const own = overrides[layer];
+    const over: Draft = {
+      ...own,
+      id: layer,
+      type: typeof own?.type === "string" ? own.type : LAYER_KIND,
+    };
     if (at === undefined) {
       setOrDrop(over, set);
     } else {
       setAt(over, at, set);
     }
-    const { id: _id, type: _type, ...fields } = over;
+    const { id: _id, type, ...fields } = over;
+    if (type !== LAYER_KIND && type !== undefined) {
+      fields.type = type;
+    }
     const kept = Object.fromEntries(
       Object.entries(fields).filter(([, value]) => value !== undefined)
     );

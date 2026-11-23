@@ -49,9 +49,9 @@ const useOwner = (frame: string, id: string): InstanceNode | null => {
 
 /** The override of a layer, as its instance in the frame's document holds it now. */
 const useOverride = (frame: string, id: string) => {
-  // Read again whenever the documents change.
-  useDocuments((s) => s.docs);
-  return isInstanceLayer(id) ? overriddenOn(frame, id) : null;
+  const canvas = useEditor((s) => s.canvas);
+  const docs = useDocuments((s) => s.docs);
+  return isInstanceLayer(id) ? overriddenOn(frame, id, { canvas, docs }) : null;
 };
 
 /** Under the header: the instance a layer is in, so a change is plainly this instance's alone. */
@@ -175,7 +175,7 @@ export const MainComponentRows = ({
   return (
     <>
       <Row label="Main">
-        <div className="flex min-w-0 flex-1 gap-1">
+        <div className="flex min-w-0 flex-1 flex-wrap gap-1">
           <Button
             onClick={() => isolate(frame, node)}
             size="sm"
@@ -194,7 +194,7 @@ export const MainComponentRows = ({
       </Row>
       {own && count > 0 ? (
         <Row label="Overrides">
-          <div className="flex min-w-0 flex-1 items-center gap-1">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
             <span className="shrink-0 px-2 font-body tabular-nums">
               {count === 1 ? "1 layer" : `${count} layers`}
             </span>
