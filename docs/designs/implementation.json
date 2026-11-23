@@ -560,6 +560,130 @@
         ]
       }
     },
+    "redesign/design-system-color.page.json": {
+      "implemented": {
+        "at": 1795455857316,
+        "code": {
+          "apps/web/src/boards/color-boards.ts": "cb65bf44e32d7b8b",
+          "apps/web/src/panels/board-inspector.tsx": "cdcca678c57d1c9a",
+          "apps/web/src/panels/design-system-list.tsx": "fccea3da7745a1aa"
+        },
+        "design": "882be545ec4b8979",
+        "files": [
+          "apps/web/src/boards/color-boards.ts",
+          "apps/web/src/panels/board-inspector.tsx",
+          "apps/web/src/panels/design-system-list.tsx"
+        ]
+      }
+    },
+    "redesign/design.page.json": {
+      "implemented": {
+        "at": 1795455856582,
+        "code": {
+          "apps/web/src/panels/inspector.tsx": "6361228930cfcc22",
+          "apps/web/src/panels/layers.tsx": "9c45b3e9fd80f115"
+        },
+        "design": "39e1a8693c6fabbd",
+        "files": [
+          "apps/web/src/panels/inspector.tsx",
+          "apps/web/src/panels/layers.tsx"
+        ]
+      }
+    },
+    "redesign/library-app-component.page.json": {
+      "implemented": {
+        "at": 1795455856940,
+        "code": {
+          "apps/web/src/boards/library-boards.ts": "04f67b6c7c8bf03d",
+          "apps/web/src/panels/board-inspector.tsx": "cdcca678c57d1c9a",
+          "apps/web/src/panels/library.tsx": "78874e91a085bc5f"
+        },
+        "design": "83e7b241b609ab18",
+        "files": [
+          "apps/web/src/boards/library-boards.ts",
+          "apps/web/src/panels/board-inspector.tsx",
+          "apps/web/src/panels/library.tsx"
+        ]
+      }
+    },
+    "redesign/library-button.page.json": {
+      "implemented": {
+        "at": 1795455857122,
+        "code": {
+          "apps/web/src/boards/library-boards.ts": "04f67b6c7c8bf03d",
+          "apps/web/src/panels/board-inspector.tsx": "cdcca678c57d1c9a",
+          "apps/web/src/panels/library.tsx": "78874e91a085bc5f"
+        },
+        "design": "143a5381a4287c7d",
+        "files": [
+          "apps/web/src/boards/library-boards.ts",
+          "apps/web/src/panels/board-inspector.tsx",
+          "apps/web/src/panels/library.tsx"
+        ]
+      }
+    },
+    "redesign/library-insert.page.json": {
+      "implemented": {
+        "at": 1795455856763,
+        "code": {
+          "apps/web/src/panels/inspector.tsx": "6361228930cfcc22",
+          "apps/web/src/panels/library.tsx": "78874e91a085bc5f"
+        },
+        "design": "0d88859376736821",
+        "files": [
+          "apps/web/src/panels/inspector.tsx",
+          "apps/web/src/panels/library.tsx"
+        ]
+      }
+    },
+    "redesign/vibe-new-chat.page.json": {
+      "implemented": {
+        "at": 1795455856408,
+        "code": {
+          "apps/web/src/panels/chat-starters.tsx": "201c9b7cb5b9bcff",
+          "apps/web/src/panels/thread-composer.tsx": "ddfd00f067b11965",
+          "apps/web/src/panels/threads.tsx": "ed8b6d8e8336a237"
+        },
+        "design": "479b1d2950c0b34d",
+        "files": [
+          "apps/web/src/panels/chat-starters.tsx",
+          "apps/web/src/panels/thread-composer.tsx",
+          "apps/web/src/panels/threads.tsx"
+        ]
+      }
+    },
+    "redesign/vibe-thread.page.json": {
+      "implemented": {
+        "at": 1795455856192,
+        "code": {
+          "apps/web/src/panels/composer-tray.tsx": "e6f003bb25d961d9",
+          "apps/web/src/panels/thread-composer.tsx": "ddfd00f067b11965",
+          "apps/web/src/panels/thread-turn.tsx": "d6c79bc89b2d0815",
+          "apps/web/src/panels/threads.tsx": "ed8b6d8e8336a237"
+        },
+        "design": "3d7bd60a0aaa71ec",
+        "files": [
+          "apps/web/src/panels/composer-tray.tsx",
+          "apps/web/src/panels/thread-composer.tsx",
+          "apps/web/src/panels/thread-turn.tsx",
+          "apps/web/src/panels/threads.tsx"
+        ]
+      }
+    },
+    "redesign/vibe.page.json": {
+      "implemented": {
+        "at": 1795455855921,
+        "code": {
+          "apps/web/src/panels/chat-list.tsx": "00cb13c5a58b0824",
+          "apps/web/src/panels/threads.tsx": "ed8b6d8e8336a237"
+        },
+        "design": "84b11dc4c40cdea0",
+        "files": [
+          "apps/web/src/panels/chat-list.tsx",
+          "apps/web/src/panels/threads.tsx"
+        ]
+      }
+    },
     "settings/about.page.json": {
       "implemented": {
         "at": 1795454712017,
