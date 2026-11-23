@@ -414,7 +414,15 @@ refactor and the board view left.
   `expandAppInstance`. Edited **in place** (`isolation.ts`), its tree is a document of its own,
   `component:<Name>`, that the frame's selection and edits go to. The editor's words call it the
   **main component** where it stands against an **instance**: "Edit main component" changes every
-  instance, an instance's props change that one alone.
+  instance, an instance's props and its instance overrides change that one alone. ADR 0114
+  (decided, not yet built) makes the main edited only when asked, stacked with a breadcrumb.
+- **Instance override**: a field of a layer of an app component changed on one instance alone
+  (ADR 0114, decided, not yet built): kept on the instance, keyed by the layer's id in the
+  component, any field but never the structure (Delete hides the layer there); the main
+  component's value holds wherever the instance did not change it, and a field a property targets
+  is set as the property instead. Reset, applied to the main component, or made a property; a
+  prop of the component once implemented. _Avoid_ "override" alone: a variant's **overrides** are
+  its members' values in a node's `at`.
 - **Property**: what an instance of an app component sets, by name (its `props`): a text, a
   boolean, an image or a choice of members, with a default, set on the nodes it **targets**, a
   node's own field for its kind or a prop of the instance a node is.
