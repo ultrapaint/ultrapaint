@@ -520,22 +520,26 @@ export const reviewerResult = (
 /** The round with the designer's answer: what it declined and why, and how many it fixed. */
 export const answeredRound = (
   item: ReviewItem,
-  declined: ReadonlyMap<number, string>
-): ReviewItem => ({
-  ...item,
-  findings: item.findings.map((f, i) => {
-    const reason = declined.get(i);
-    return reason === undefined ? f : { ...f, declined: reason };
-  }),
-  // What the designer was sent: blockers and majors (ADR 0063) and the checks' findings
-  // (ADR 0081), less what it declined.
-  fixed:
-    item.findings.filter(isSent).length -
-    [...declined.keys()].filter((i) => {
-      const f = item.findings[i];
-      return f !== undefined && isSent(f);
-    }).length,
-});
+  declined: ReadonlyMap<number, string>,
+  /**
+   * How many findings the designer was sent, the first of the round's list; unknown (a round
+   * sent before the server restarted), those a round sends: blockers, majors, the checks'.
+   */
+  asked?: number
+): ReviewItem => {
+  const wasSent = (f: RoundFinding, i: number) =>
+    asked === undefined ? isSent(f) : i < asked;
+  return {
+    ...item,
+    findings: item.findings.map((f, i) => {
+      const reason = declined.get(i);
+      return reason === undefined ? f : { ...f, declined: reason };
+    }),
+    // What the designer was sent (ADR 0063, 0081), less what it declined.
+    fixed: item.findings.filter((f, i) => wasSent(f, i) && !declined.has(i))
+      .length,
+  };
+};
 
 /** The round ended, the reviewers still looking stopped with it; one that ended stays as it is. */
 export const endedRound = (

@@ -263,6 +263,8 @@ export class ReviewLoop extends Context.Service<
       const lastPages = new Map<string, readonly string[]>();
       /** A round's findings waiting for the designer's answer, for the log, by the round's item. */
       const unanswered = new Map<string, Logged>();
+      /** How many of a round's findings the designer was sent, the first of its list, by item. */
+      const askedOf = new Map<string, number>();
 
       const currentPaths = project
         .use(RepoPaths)
@@ -347,9 +349,11 @@ export class ReviewLoop extends Context.Service<
         const declined = cancelled
           ? new Map<number, string>()
           : declinedOf(saidSinceLastPrompt(items), round.findings);
+        const asked = askedOf.get(round.id);
+        askedOf.delete(round.id);
         if (!cancelled) {
           yield* patchRound(threadId, round.id, (item) =>
-            answeredRound(item, declined)
+            answeredRound(item, declined, asked)
           );
         }
         const waiting = unanswered.get(round.id);
@@ -646,6 +650,7 @@ export class ReviewLoop extends Context.Service<
           return null;
         }
         const asked = [...(send ? sent : []), ...checks];
+        askedOf.set(state.id, asked.length);
         if (review.settings.findingsLog) {
           // Only what the designer is sent waits for its answer, in the order its declines are
           // numbered in; the rest of the round is logged as not asked about.

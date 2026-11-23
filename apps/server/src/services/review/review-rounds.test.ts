@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import type { ThreadItem } from "@ultrapaint/contracts/threads";
+import type { RoundFinding, ThreadItem } from "@ultrapaint/contracts/threads";
 import { Option } from "effect";
 import { withoutDataUrls } from "./page-views.ts";
 import {
@@ -270,6 +270,38 @@ describe("a round answered", () => {
       round: 1,
     };
     expect(answeredRound(answered, new Map([[1, "the brief"]])).fixed).toBe(1);
+  });
+
+  it("counts as fixed only what the designer was sent, when it is known", () => {
+    const roundFinding = (title: string, more: Partial<RoundFinding> = {}) => ({
+      category: "spacing" as const,
+      fix: "",
+      problem: "",
+      reviewer: "m0",
+      severity: "major" as const,
+      title,
+      where: "",
+      ...more,
+    });
+    const answered: Extract<ThreadItem, { kind: "review" }> = {
+      at: 0,
+      findings: [
+        roundFinding("Rows touching", {
+          check: "touching-rows",
+          reviewer: "check",
+        }),
+        roundFinding("Header too loud"),
+      ],
+      id: "r1",
+      kind: "review",
+      maxRounds: 2,
+      reviewers: [],
+      round: 1,
+    };
+    expect(answeredRound(answered, new Map(), 1).fixed).toBe(1);
+    expect(answeredRound(answered, new Map([[0, "by design"]]), 1).fixed).toBe(
+      0
+    );
   });
 });
 

@@ -538,7 +538,7 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
       if (disabled(el)) {
         continue;
       }
-      const under = backdrop(el.parentElement);
+      const under = backdrop(above(el));
       if (!under) {
         continue;
       }
@@ -570,7 +570,7 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
     )) {
       const style = getComputedStyle(el);
       const fill = rgba(style.backgroundColor);
-      const under = backdrop(el.parentElement);
+      const under = backdrop(above(el));
       if (fill[3] < 0.3 || disabled(el) || !under) {
         continue;
       }
@@ -605,7 +605,7 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
     if (fill[3] < 0.5 || box.width < 120 || box.height < 64 || isControl(el)) {
       return;
     }
-    const under = backdrop(el.parentElement);
+    const under = backdrop(above(el));
     if (!under) {
       return;
     }
