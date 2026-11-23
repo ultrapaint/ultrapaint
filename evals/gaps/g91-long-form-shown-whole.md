@@ -2,7 +2,7 @@
 id: g91
 title: A long form drawn as one page of every field
 kind: missing
-status: testing
+status: done
 found: 2026-11-21
 source: the person, on fx-opus-new20 (decisions/new20)
 skill: [references/kinds/form.md]
@@ -31,3 +31,10 @@ on the pictures, not a measure.
   closed only Accessibility needs (run 2).
 - Decision of 2026-11-22 (`decisions/new20-ship`): steps anyway, against the agent's call of one
   page with the optional sections closed. The rule is made firm and run again.
+- `fx-opus-g91firm`: 2026-11-22, the skill as merged in PR #92 with the rule made firm
+  (`candidates/g91-firm`: "never one page, even for someone who types fast"),
+  `fresh-patient-intake`, 3 runs, Opus in Claude Code designing. All three drew the form in
+  steps, a stepper beside it naming what is left in each; runs 2 and 3 opened on the step with
+  the problem.
+- Decision of 2026-11-23 (`decisions/g91-firm`): ship, as the agent called it. Shipped in
+  `references/kinds/form.md`, "A long form", and its Check row.
