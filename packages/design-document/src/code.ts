@@ -333,7 +333,13 @@ const overrideProps = (
   const at = new Map<string, Record<string, JsonValue>>();
   // Each field of each layer keeps one name, its layer's id joined to it where another layer's
   // field, or one of the instance's own props, has the name already.
-  const taken = new Set(Object.keys(asProps(instance.props ?? {})));
+  // The instance's own props, at its base and at every breakpoint, keep their names.
+  const taken = new Set(
+    [
+      instance.props,
+      ...Object.values(instance.at ?? {}).map((over) => over.props),
+    ].flatMap((props) => Object.keys(asProps(props ?? {})))
+  );
   const names = new Map<string, string>();
   const nameOf = (way: string, words: string, field: string, kind: string) => {
     // A layer's own field and a nested instance's prop of one name are two things.
@@ -343,9 +349,14 @@ const overrideProps = (
       return known;
     }
     const plain = propNameOf(`${words} ${field}`);
-    const name = taken.has(plain)
+    const named = taken.has(plain)
       ? propNameOf(`${words} ${way.split(LAYER_SEPARATOR).join(" ")} ${field}`)
       : plain;
+    // Still taken: counted on until free.
+    let name = named;
+    for (let n = 2; taken.has(name); n += 1) {
+      name = `${named}${n}`;
+    }
     taken.add(name);
     names.set(key, name);
     return name;
