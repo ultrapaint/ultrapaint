@@ -350,11 +350,27 @@ export const makeProperty = async (
       appFileOf
     ),
   ];
-  const moved = await applyEdits(
-    [{ doc: docOfFrame(frame, canvas), ops }],
-    `Make ${named} a property`
-  );
-  if (moved) {
-    await changeFile(file, { op: "addProperty", property });
+  const doc = docOfFrame(frame, canvas);
+  const moved = await applyEdits([{ doc, ops }], `Make ${named} a property`);
+  if (!moved || (await changeFile(file, { op: "addProperty", property }))) {
+    return;
   }
+  // The component refused the property: the instance is given its override back, and the value
+  // that waited for the property is taken off it.
+  await applyEdits(
+    [
+      {
+        doc,
+        ops: [
+          ...throughProperties(
+            [{ id: owner.id, op: "setProps", props: { [named]: null } }],
+            root,
+            appFileOf
+          ),
+          { id: layerId, op: "update", set: { [field]: value } },
+        ],
+      },
+    ],
+    `Keep ${field} on the instance`
+  );
 };
