@@ -1,7 +1,7 @@
 ---
 id: g95
 title: Mono on a control's label because its text is an id
-kind: missed
+kind: missing
 status: open
 found: 2026-11-23
 source: the person, on fx-opus-new23 (decisions/new23)
