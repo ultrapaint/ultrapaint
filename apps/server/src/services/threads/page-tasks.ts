@@ -424,7 +424,9 @@ ${numbered([
         if (chosen.length === 0) {
           return yield* taskFailure(
             "update-from-code",
-            noneLeft(unknown, words.length > 0, "is up to date with its code"),
+            words.length > 0
+              ? noneLeft(unknown, true, "is up to date with its code")
+              : "every page linked to its code is up to date with it; a page not linked yet is taken only when it or its canvas is named",
             "Say so, and stop."
           );
         }
