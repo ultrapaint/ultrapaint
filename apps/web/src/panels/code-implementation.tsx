@@ -137,7 +137,8 @@ const MoreMenu = ({
 
 /**
  * The design brought up to date from the code that changed since it was implemented (ADR 0115),
- * by an agent the person sends; what the design changed meanwhile is replaced, and said so.
+ * by an agent the person sends; what the design changed meanwhile is reconciled with the code's
+ * changes, the person asked where the agent can't tell.
  */
 const UpdateFromCode = ({
   designChanged,
@@ -149,7 +150,8 @@ const UpdateFromCode = ({
   <>
     {designChanged ? (
       <p className="mt-1 font-body-small text-muted-foreground">
-        The design's changes not implemented yet will be replaced.
+        The design changed too: the agent reconciles both, and asks you where it
+        can't tell.
       </p>
     ) : null}
     <Button

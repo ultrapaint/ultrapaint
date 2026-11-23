@@ -338,7 +338,7 @@ describe("bringing pages up to date from their code (ADR 0115)", () => {
           assert.include(update.text, "- home.page.json: Home, /home");
           assert.include(
             update.text,
-            "It is implemented in src/home.tsx. These files changed since: src/home.tsx."
+            "in src/home.tsx. These files changed since: src/home.tsx."
           );
           assert.include(
             update.text,
@@ -374,7 +374,7 @@ describe("bringing pages up to date from their code (ADR 0115)", () => {
     );
 
     it.effect(
-      "says the design's changes not implemented yet are replaced, when the design changed too",
+      "has the agent reconcile the design's changes with the code's, asking where it can't tell, when the design changed too",
       () =>
         Effect.gen(function* () {
           yield* behindItsCode;
@@ -382,7 +382,7 @@ describe("bringing pages up to date from their code (ADR 0115)", () => {
             _tag: "UpdateFromCode",
             targets: ["home.page.json"],
           });
-          assert.notInclude(before, "will be replaced");
+          assert.notInclude(before, "never take one side whole");
           // The page's heading changed in the design, past the editor.
           const { repo } = yield* ProjectFixture;
           const fs = yield* FileSystem.FileSystem;
@@ -392,13 +392,17 @@ describe("bringing pages up to date from their code (ADR 0115)", () => {
             (yield* fs.readFileString(file)).replace("Hello", "Welcome")
           );
           yield* heardOf("designs/home.page.json");
+          const after = yield* textOf({
+            _tag: "UpdateFromCode",
+            targets: ["home.page.json"],
+          });
           assert.include(
-            yield* textOf({
-              _tag: "UpdateFromCode",
-              targets: ["home.page.json"],
-            }),
+            after,
             "The design changed since it was implemented too"
           );
+          assert.include(after, "never take one side whole");
+          assert.include(after, "Where you cannot tell, ask the user");
+          assert.include(after, "put back the design's changes you kept");
         })
     );
 

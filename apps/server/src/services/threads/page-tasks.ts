@@ -431,14 +431,47 @@ ${numbered([
         const entries = yield* Effect.forEach(chosen, (page) =>
           behindEntry(page, pages, itemByTarget.get(page.id))
         );
-        return updateTask(
-          chosen,
-          entries,
-          unknown,
-          chosen.some((p) => !isBound(itemByTarget.get(p.id)?.status))
-        );
+        return updateTask(chosen, entries, unknown, {
+          bothChanged: chosen.some(
+            (p) => itemByTarget.get(p.id)?.designChanged === true
+          ),
+          unlinked: chosen.some(
+            (p) => !isBound(itemByTarget.get(p.id)?.status)
+          ),
+        });
       })
     );
+
+  /**
+   * What the update says of a linked page's code: when and where it was implemented, what changed
+   * since, the design as it was implemented, and, when the design changed too, what changed in it
+   * for the agent to reconcile with the code's changes.
+   */
+  const boundLines = Effect.fnUntraced(function* (
+    target: string,
+    item: ImplementationItem
+  ) {
+    const { settings } = yield* RepoPaths;
+    const on =
+      item.at === undefined
+        ? ""
+        : ` on ${new Date(item.at).toISOString().slice(0, 10)}`;
+    const lines = [
+      `  It was implemented${on} in ${item.files.join(", ")}. These files changed since: ${item.changedFiles.join(", ")}.`,
+      `  The design as it was implemented: ${settings.designsDir}/${implementedFileOf(target)}.`,
+    ];
+    if (item.designChanged) {
+      // What changed in the design is shown when it can be read; the task stands without it.
+      const changes = yield* Effect.orElseSucceed(
+        (yield* ImplementationService).changes(target),
+        () => null
+      );
+      lines.push(
+        `  The design changed since it was implemented too, and those changes never reached the code: reconcile them with the code's, as the steps say.${changes?.text ? `\n  What changed in the design:\n${changes.text.replace(/^/gm, "  ")}` : ""}`
+      );
+    }
+    return lines;
+  });
 
   /**
    * A page behind its code, as the update lists it: what draws it and what changed, the widths it
@@ -449,7 +482,6 @@ ${numbered([
     pages: readonly Page[],
     item: ImplementationItem | undefined
   ) {
-    const { settings } = yield* RepoPaths;
     const notes = yield* (yield* DesignTargets).notes({ _tag: "Page", page });
     // A canvas whose layout can't be read has no frames: its pages are drawn at the desktop size.
     const layout = yield* Effect.option(
@@ -461,25 +493,13 @@ ${numbered([
       (yield* DocumentService).get(page.id),
       () => null
     );
-    const lines = [pageLine(page), `  Its file: ${page.file}.`];
-    if (item && isBound(item.status)) {
-      lines.push(
-        `  It is implemented in ${item.files.join(", ")}. These files changed since: ${item.changedFiles.join(", ")}.`,
-        `  The design as it was implemented: ${settings.designsDir}/${implementedFileOf(page.id)}.`
-      );
-      if (item.designChanged) {
-        // What changed in the design is shown when it can be read; the task stands without it.
-        const changes = yield* Effect.orElseSucceed(
-          (yield* ImplementationService).changes(page.id),
-          () => null
-        );
-        lines.push(
-          `  The design changed since it was implemented too, and those changes never reached the code: they will be replaced by what the code draws.${changes?.text ? `\n  What changed in the design:\n${changes.text.replace(/^/gm, "  ")}` : ""}`
-        );
-      }
-    } else {
-      lines.push("  It is not linked to its code yet.");
-    }
+    const lines = [
+      pageLine(page),
+      `  Its file: ${page.file}.`,
+      ...(item && isBound(item.status)
+        ? yield* boundLines(page.id, item)
+        : ["  It is not linked to its code yet."]),
+    ];
     lines.push(`  It is drawn at ${widths.join(", ")} px wide.`);
     // A base page names its states; a state named alone names no siblings, which it does not own.
     const states =
@@ -507,7 +527,15 @@ ${numbered([
     chosen: readonly Page[],
     entries: readonly string[],
     unknown: readonly string[],
-    unlinked: boolean
+    {
+      bothChanged,
+      unlinked,
+    }: {
+      /** A page's design changed too since it was implemented: the two are reconciled. */
+      readonly bothChanged: boolean;
+      /** A page is not linked to its code yet: its files are found first. */
+      readonly unlinked: boolean;
+    }
   ) => {
     const canvasIds = [...new Set(chosen.map((p) => p.canvas))];
     const [onlyCanvas] = canvasIds;
@@ -533,6 +561,14 @@ ${numbered([
   `Read the files that draw each page, starting with the files that changed since it was
    implemented, and the design as it was implemented, to see what moved and what still holds.`,
   ways.seeRunningScreen,
+  bothChanged
+    ? `For each page whose design changed too, never take one side whole: set the design's changes
+   since it was implemented (listed with it) beside the code's, the git history of its files since
+   that day (git log and git diff from then). A change only one side made is kept. Where both
+   changed the same thing, the history decides what is current: which change came later, and
+   what its commit, or the design's note, says it was for. Where you cannot tell, ask the user
+   ${ways.askUser}, a few at a time, before you write. Drop neither side without saying so.`
+    : null,
   `Rewrite each page in place to show what the code draws now: the same page and the same URL,
    the ids of the nodes you keep, its states, its links to other pages and its behaviour notes
    where they still hold. Draw with the design system's components and tokens, each of the
@@ -542,8 +578,13 @@ ${numbered([
    and name it in your last message.`,
   `Once a page is up to date, ${ways.linkBuilt}`,
   markRefused,
+  bothChanged
+    ? `Then, on each page whose design changed too, put back the design's changes you kept: the
+   page then reads Design changed, and implementing it builds what is left.`
+    : null,
   `End with a table: each page, what you changed and the files that draw it, or why it is left
-   as it is. Say whether you saw the running screen; where you could not see the running screen,
+   as it is; for a page whose design changed too, which of its changes you kept for the code to
+   follow and which the code had already overtaken, and what the user decided. Say whether you saw the running screen; where you could not see the running screen,
    say so: the page was updated from the code alone and not checked against the application.`,
 ])}
 </ultrapaint-task>`;
