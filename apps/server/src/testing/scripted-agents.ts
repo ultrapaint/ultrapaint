@@ -12,7 +12,7 @@ import {
   type ScriptedAgent,
 } from "@ultrapaint/acp/scripted-agent";
 import type { AgentConfig } from "@ultrapaint/contracts/threads";
-import { Context, Effect, Layer, Queue } from "effect";
+import { Context, Effect, Layer, Option, Queue } from "effect";
 import { ServerConfig } from "../config.ts";
 import { makeAgentClient } from "../services/threads/agent-client.ts";
 import {
@@ -20,6 +20,7 @@ import {
   type AgentLaunchOptions,
   hostless,
 } from "../services/threads/agent-launcher.ts";
+import { AgentSandbox } from "../services/threads/agent-sandbox.ts";
 
 /** An agent the launcher started, with what it was started for. */
 export interface LaunchedAgent extends ScriptedAgent {
@@ -72,6 +73,16 @@ export class ScriptedAgents extends Context.Service<
           name: `${options.config.id}-${count}`,
           script: scripts.get(options.config.id) ?? scripts.get(undefined),
         });
+        // Confined as the sandbox the test gives says, where it gives one.
+        const sandbox = yield* Effect.serviceOption(AgentSandbox);
+        const confined = Option.isSome(sandbox)
+          ? (yield* sandbox.value.session({
+              config: options.config,
+              root: options.root,
+              tmpDir: options.tmpDir ?? options.root,
+              writable: options.writable,
+            })).confined
+          : false;
         yield* Queue.offer(started, {
           ...control,
           config: options.config,
@@ -79,7 +90,7 @@ export class ScriptedAgents extends Context.Service<
           tmpDir: options.tmpDir,
           writable: options.writable,
         });
-        return agent;
+        return { ...agent, confined };
       });
 
       return Context.make(

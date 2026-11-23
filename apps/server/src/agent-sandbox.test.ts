@@ -14,20 +14,32 @@ const machine = {
   uid: process.getuid?.(),
 };
 
-/** The sandbox as the server would build it, with the bubblewrap it is given. */
-const sandboxWith = (bubblewrap: string) =>
+/**
+ * The sandbox as the server would build it, with the bubblewrap it is given (none: not
+ * installed) and, where said, whether the person wants agents confined.
+ */
+const sandboxWith = (
+  bubblewrap: string | undefined,
+  options: { readonly platform?: string; readonly wanted?: boolean } = {}
+) =>
   Effect.gen(function* () {
     return yield* AgentSandbox;
   }).pipe(
     Effect.provide(
       Layer.provide(
         AgentSandbox.layerFor(machine, {
-          tools: { bubblewrap, platform: "linux" },
+          tools: { bubblewrap, platform: options.platform ?? "linux" },
+          ...(options.wanted !== undefined && {
+            wanted: Effect.succeed(options.wanted),
+          }),
         }),
         NodeServices.layer
       )
     )
   );
+
+/** A stand-in for bubblewrap that starts, so the sandbox is there whatever this machine has. */
+const STARTING = "/usr/bin/true";
 
 /** A stand-in for bubblewrap that refuses, as it does on a kernel restricting user namespaces. */
 const refusing = (message: string) => {
@@ -228,43 +240,57 @@ describe("AgentSandbox, turned off by the person (ADR 0119)", () => {
     id: "a",
     name: "A",
   };
-  const withWanted = (wanted: boolean) =>
-    Layer.provideMerge(
-      AgentSandbox.layerFor(machine, { wanted: Effect.succeed(wanted) }),
-      NodeServices.layer
-    );
 
   it.effect(
     "starts the agent unconfined on a machine that could confine it",
     () =>
       Effect.gen(function* () {
-        const sandbox = yield* AgentSandbox;
-        if (!sandbox.available) {
-          return;
-        }
+        const sandbox = yield* sandboxWith(STARTING, { wanted: false });
+        assert.isTrue(sandbox.available);
         assert.isFalse(yield* sandbox.confines);
         const session = yield* sandbox.session({
           config,
           root: tmpdir(),
           tmpDir: tmpdir(),
         });
+        assert.isFalse(session.confined);
         assert.strictEqual(session.launch.command, "agent");
-      }).pipe(Effect.provide(withWanted(false)))
+      })
   );
 
-  it.effect("confines it again once turned back on", () =>
+  it.effect("confines it once turned back on", () =>
     Effect.gen(function* () {
-      const sandbox = yield* AgentSandbox;
-      if (!sandbox.available) {
-        return;
-      }
+      const sandbox = yield* sandboxWith(STARTING, { wanted: true });
       assert.isTrue(yield* sandbox.confines);
       const session = yield* sandbox.session({
         config,
         root: tmpdir(),
         tmpDir: tmpdir(),
       });
-      assert.notStrictEqual(session.launch.command, "agent");
-    }).pipe(Effect.provide(withWanted(true)))
+      assert.isTrue(session.confined);
+      assert.strictEqual(session.launch.command, STARTING);
+    })
+  );
+});
+
+describe("AgentSandbox, on a machine without one (ADR 0119)", () => {
+  it.effect(
+    "says so on Linux without bubblewrap, with no problem to report",
+    () =>
+      Effect.gen(function* () {
+        const sandbox = yield* sandboxWith(undefined);
+        assert.isFalse(sandbox.available);
+        assert.strictEqual(sandbox.platform, "linux");
+        assert.isUndefined(sandbox.problem);
+        assert.isFalse(yield* sandbox.confines);
+      })
+  );
+
+  it.effect("says so on a system it has no sandbox for", () =>
+    Effect.gen(function* () {
+      const sandbox = yield* sandboxWith(undefined, { platform: "win32" });
+      assert.isFalse(sandbox.available);
+      assert.strictEqual(sandbox.platform, "win32");
+    })
   );
 });

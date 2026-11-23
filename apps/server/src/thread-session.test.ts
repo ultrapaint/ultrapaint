@@ -456,6 +456,9 @@ describe("a thread's session", () => {
           (reopened?.params as { _meta?: unknown } | undefined)?._meta,
           SCRIPTED_SANDBOX_META
         );
+        // The thread says what the launch was (ADR 0119).
+        const thread = yield* (yield* ThreadStore).get(first.threadId);
+        assert.isTrue(thread?.sandboxed);
       })
   );
 

@@ -48,20 +48,6 @@ eachTest(Opened, {
   realClock:
     "the agent is a real process, its turns heard over the socket, and the sandbox real",
 })("agent threads", (it) => {
-  it.effect(
-    "says whether this computer can confine agents, and why not (ADR 0119)",
-    () =>
-      Effect.gen(function* () {
-        const { client } = yield* TestEnv;
-        const status = yield* client["agents.sandbox"]();
-        assert.strictEqual(status.platform, process.platform);
-        // A sandbox that started has nothing to say; one that could not, says why or is missing.
-        if (status.available) {
-          assert.isUndefined(status.problem);
-        }
-      })
-  );
-
   it.effect("lists the built-in agents and the ones configured on disk", () =>
     Effect.gen(function* () {
       const { client } = yield* TestEnv;

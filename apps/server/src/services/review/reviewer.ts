@@ -23,7 +23,6 @@ import {
 import { Effect, FileSystem, Schema, type Scope } from "effect";
 import { AgentConfigs } from "../threads/agent-configs.ts";
 import { AgentLauncher } from "../threads/agent-launcher.ts";
-import { AgentSandbox } from "../threads/agent-sandbox.ts";
 import { mapConfigOptions, optionValue } from "../threads/transcript.ts";
 import { answerOf, type PageAnswer, UNREADABLE } from "./review-rounds.ts";
 
@@ -48,7 +47,6 @@ const failureOf = (config: AgentConfig) => (error: AcpError) =>
 export const makeReviewer = Effect.fnUntraced(function* () {
   const agents = yield* AgentConfigs;
   const launcher = yield* AgentLauncher;
-  const sandbox = yield* AgentSandbox;
   const fs = yield* FileSystem.FileSystem;
 
   /** The model's answer to `prompt`, page by page, in a session of its own on `root`. */
@@ -91,7 +89,7 @@ export const makeReviewer = Effect.fnUntraced(function* () {
     const agreed = negotiated(yield* Effect.mapError(agent.initialize, failed));
     const session = yield* Effect.mapError(
       agent.newSession(root, {
-        meta: (yield* sandbox.confines) ? config.sandboxMeta : undefined,
+        meta: agent.confined ? config.sandboxMeta : undefined,
       }),
       failed
     );

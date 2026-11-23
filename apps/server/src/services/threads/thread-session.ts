@@ -683,7 +683,8 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
           session.editorMcp,
           input.text,
           reviewed,
-          now.skills
+          now.skills,
+          now.sandboxed === true
         );
         blocks.unshift(...context.blocks);
         if (context.briefed) {
