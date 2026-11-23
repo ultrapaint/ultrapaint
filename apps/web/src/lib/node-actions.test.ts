@@ -9,6 +9,7 @@ import { applyOps } from "@ultrapaint/design-document/ops";
 import { canvasDocOf, canvasOfDoc } from "@ultrapaint/design-document/tree";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { endDrag, useDrag } from "../canvas/drag.ts";
+import { useComponents } from "../state/components.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
@@ -154,6 +155,44 @@ beforeEach(() => {
       }),
     },
     loaded: true,
+  });
+});
+
+describe("a layer of an instance edited in a view (ADR 0114)", () => {
+  it("keeps its value at the breakpoint, though the level below has it: the main's would show", async () => {
+    useComponents.setState({
+      components: [
+        {
+          name: "Promo",
+          origin: "app",
+          properties: [],
+          slots: [],
+          tree: {
+            children: [text("sale", { at: { md: { align: "center" } } })],
+            id: "p-root",
+            type: "column",
+          },
+          version: 1,
+        },
+      ],
+    });
+    const home = useDocuments.getState().docs[HOME];
+    useDocuments.setState({
+      docs: {
+        ...useDocuments.getState().docs,
+        [HOME]: stateOf(HOME, {
+          ...(home?.root as DesignNode & { children: DesignNode[] }),
+          children: [
+            { component: "Promo", from: "#app", id: "promo", type: "instance" },
+          ],
+        } as DesignNode),
+      },
+    });
+    select({ frame: TABLET, nodeId: "promo/sale" });
+    await setField(ALIGN, "start");
+    expect(applied().at(-1)?.edits[0]?.ops).toEqual([
+      { at: "md", id: "promo/sale", op: "update", set: { align: "start" } },
+    ]);
   });
 });
 

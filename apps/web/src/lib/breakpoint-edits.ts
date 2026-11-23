@@ -70,12 +70,18 @@ const writtenAt = (
   node: DesignNode,
   key: string,
   value: JsonValue,
-  inherited: Fields | null
+  inherited: Fields | null,
+  explicit: boolean
 ): JsonValue => {
   const unset = unsetValueOf(node, key);
   const written = value === null ? (unset ?? null) : value;
   if (inherited === null) {
     return written;
+  }
+  // A layer of an instance (ADR 0114): taking its value away at a breakpoint would show the
+  // main component's there, which need not be the level below's; its value is written as it is.
+  if (explicit) {
+    return key === "hidden" ? value === true : written;
   }
   // Shown again at a breakpoint is `hidden: false` there, not the field taken away.
   if (key === "hidden") {
@@ -94,7 +100,9 @@ const writtenAt = (
 export const updateOpsAt = (
   node: DesignNode,
   frame: string,
-  set: Fields
+  set: Fields,
+  /** The node is a layer of an instance, whose values are its instance override's. */
+  explicit = false
 ): DocOp[] => {
   const breakpoints = currentBreakpoints();
   const shown = frameBreakpoint(frame);
@@ -114,11 +122,15 @@ export const updateOpsAt = (
         shown === null ? null : sourceOf(node, key, breakpoints, shown);
       return [
         key,
-        from === null ? value : writtenAt(node, key, value, null),
+        from === null ? value : writtenAt(node, key, value, null, explicit),
         from,
       ] as const;
     }
-    return [key, writtenAt(node, key, value, inherited), target] as const;
+    return [
+      key,
+      writtenAt(node, key, value, inherited, explicit),
+      target,
+    ] as const;
   });
   return [...groupBy(entries)].map(([at, fields]) => ({
     ...(at !== null && { at }),
