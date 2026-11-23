@@ -5,7 +5,8 @@
  * as it changes. Edits land on the component's own fields, or on one member of one of its choices
  * (`size=lg`), which records an override as a view records a breakpoint's. It is entered only when
  * asked (ADR 0114), one level in from a component already edited there; Escape, Done or a click
- * outside goes up one level, the breadcrumb to any.
+ * outside goes up one level, the breadcrumb to any. Its nodes are outlined in the component colour,
+ * and the inspector says what is edited, at the top of its Design tab (ADR 0120).
  *
  * The tree edited is the document's, which the server publishes whenever the component's file
  * changes, whoever changes it (ADR 0042): its file only starts it, so an edit is never shown
@@ -29,6 +30,7 @@ import { appComponentOf, useComponents } from "./components.ts";
 import { drawnRootOf, editFrameAs, useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
 import { frameRefOf } from "./frame-ref.ts";
+import { usePanels } from "./panels.ts";
 import { select } from "./selection.ts";
 
 /** A choice's member edits land on. */
@@ -126,6 +128,10 @@ export const isolate = (
   useIsolation.setState({ isolated });
   editIn(isolated);
   showTree();
+  // The inspector's Design tab says what is edited and is the way out (ADR 0120): put away, or
+  // on the Code tab, it comes back on it.
+  useEditor.getState().setRightTab("design");
+  usePanels.getState().setHidden({ right: false });
   if (selects) {
     select({ frame, nodeId: file.tree.id });
   }
@@ -249,6 +255,10 @@ const aroundProps = (around: Isolation | null) => {
   }
   return Object.keys(props).length > 0 ? { around: props } : {};
 };
+
+/** Whether a main component is edited in place in `frame`: its nodes are a component's (ADR 0120). */
+export const useEditsMain = (frame: string): boolean =>
+  useIsolation((s) => s.isolated?.frame === frame);
 
 /** What a frame is told of the instance edited in it: the one, drawn at the variant edited. */
 export const useIsolatedRequest = (frame: string): RenderRequest["isolate"] => {

@@ -14,6 +14,7 @@ import { useDesignSystem } from "./design-system.ts";
 import { useDesignSystemSetup } from "./design-system-setup.ts";
 import { useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
+import { useIsolation } from "./isolation.ts";
 import { LOOK_ITEM } from "./look-page.ts";
 import {
   rightHasSubject,
@@ -101,6 +102,7 @@ beforeEach(() => {
   });
   useDesignSystemSetup.setState({ shown: false });
   useDesignSystem.setState({ designSystem: null });
+  useIsolation.setState({ isolated: null });
   for (const requested of [
     "back",
     "diff",
@@ -287,6 +289,24 @@ describe("the right panel (ADR 0058)", () => {
       workspace: "prototype",
     });
     expect(rightHasSubject()).toBe(false);
+  });
+
+  it("shows the main component edited in place, nothing selected in it (ADR 0120)", () => {
+    useEditor.setState({
+      selection: null,
+      workspace: "design",
+    });
+    useIsolation.setState({
+      isolated: {
+        around: null,
+        component: "Shell",
+        drawn: "shell",
+        frame: HOME,
+        instance: "shell",
+        variant: null,
+      },
+    });
+    expect(rightHasSubject()).toBe(true);
   });
 
   it("always shows a board view's inspector", () => {

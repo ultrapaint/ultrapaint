@@ -43,6 +43,11 @@ import {
 } from "@ultrapaint/design-document/tree";
 import { promptDialog } from "../components/dialogs.tsx";
 import {
+  pickedRoots,
+  settledPicks,
+  useCanvasPicks,
+} from "../state/canvas-picks.ts";
+import {
   appComponentOf,
   holdsChildren,
   useComponents,
@@ -114,8 +119,8 @@ export const selected = (ctx: Context = liveContext()) => {
 
 /**
  * The nodes an action on `target` is for: the whole selection when the target is one of it, the
- * target alone when it is not. Without a target, every node selected, or the root of the page
- * selected as a whole.
+ * target alone when it is not. Without a target, every node selected, the roots of the frames
+ * picked together, or the root of the page selected as a whole.
  */
 export const actedOn = (target?: Selection): Selection[] => {
   const all = allSelected();
@@ -124,6 +129,12 @@ export const actedOn = (target?: Selection): Selection[] => {
   }
   if (all.length > 0) {
     return all;
+  }
+  // Frames picked together: the inspector edits each one's root (ADR 0121).
+  const picks = settledPicks(useCanvasPicks.getState());
+  if (picks.length > 0) {
+    const { canvas } = useEditor.getState();
+    return pickedRoots(picks, useDocuments.getState().docs, canvas);
   }
   const page = selected();
   return page ? [{ frame: page.frame, nodeId: page.node.id }] : [];

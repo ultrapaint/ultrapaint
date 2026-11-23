@@ -7,8 +7,16 @@ import { isInstanceLayer } from "@ultrapaint/design-document/instance-layers";
  */
 type SelectionKind = "component" | "element";
 
-export const selectionKindOf = (node: DesignNode | null): SelectionKind =>
-  node?.type === "instance" || (node !== null && isInstanceLayer(node.id))
+/**
+ * A node's kind: an instance, a layer of one (ADR 0114), or any node of a main component edited
+ * in place (`inMain`, ADR 0120) is a component's; anything else an element.
+ */
+export const selectionKindOf = (
+  node: DesignNode | null,
+  inMain = false
+): SelectionKind =>
+  node?.type === "instance" ||
+  (node !== null && (inMain || isInstanceLayer(node.id)))
     ? "component"
     : "element";
 

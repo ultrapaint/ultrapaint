@@ -4,17 +4,26 @@ import type { DocumentState } from "@ultrapaint/contracts/document";
 import type { FrameLayout, Page } from "@ultrapaint/contracts/pages";
 import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { actedOn } from "../lib/node-actions.ts";
 import {
   clearCanvasPicks,
   pickFrames,
+  picksInside,
   startCanvasPicks,
+  togglePick,
   useCanvasPicks,
 } from "../state/canvas-picks.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { usePagePicks } from "../state/page-picks.ts";
+import { rightHasSubject } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
-import { select, selectedPageNow } from "../state/selection.ts";
+import {
+  inspected,
+  select,
+  selectedPageNow,
+  selectPage,
+} from "../state/selection.ts";
 import { pageDocs } from "../testing/page-docs.ts";
 import {
   beginCanvasMarquee,
@@ -106,8 +115,9 @@ beforeEach(() => {
     mode: "select",
     selection: null,
     view: { x: 0, y: 0, zoom: 1 },
+    workspace: "design",
   });
-  useCanvasPicks.setState({ ids: [] });
+  useCanvasPicks.setState({ drawing: false, ids: [] });
   usePagePicks.setState({ ids: [] });
   stop = startCanvasPicks();
 });
@@ -191,11 +201,62 @@ describe("the marquee over the ground", () => {
 });
 
 describe("frames picked together", () => {
+  it("leave the right panel away while the marquee is drawn, and are its subject once it is let go (ADR 0121)", () => {
+    beginCanvasMarquee(at(-10, -10));
+    moveCanvasMarquee(at(450, 50));
+    expect(rightHasSubject()).toBe(false);
+    expect(inspected()).toBeNull();
+    endCanvasMarquee();
+    expect(rightHasSubject()).toBe(true);
+  });
+
+  it("are inspected and edited as their roots, each in its own document (ADR 0121)", () => {
+    pickFrames([HOME.id, ABOUT.id, NODE]);
+    expect(inspected()?.nodes.map((n) => n.id)).toEqual(["root", "root", "n1"]);
+    expect(actedOn()).toEqual([
+      { frame: HOME.id, nodeId: "root" },
+      { frame: ABOUT.id, nodeId: "root" },
+      { frame: NODE, nodeId: "n1" },
+    ]);
+  });
+
   it("are let go of when anything else is selected", () => {
     pickFrames([HOME.id, ABOUT.id]);
     select({ frame: HOME.id, nodeId: "x" });
     expect(useCanvasPicks.getState().ids).toEqual([]);
     expect(usePagePicks.getState().ids).toEqual([]);
+  });
+
+  it("are inspected from the first whose page is still there", () => {
+    pickFrames([HOME.id, ABOUT.id, SHOP.id]);
+    const { [HOME.id]: _gone, ...docs } = useDocuments.getState().docs;
+    useDocuments.setState({ docs });
+    expect(inspected()?.frame).toBe(ABOUT.id);
+    expect(inspected()?.nodes).toHaveLength(2);
+  });
+
+  it("take a frame Shift- or ⌘-clicked, and give one back the same way, one left selected (ADR 0121)", () => {
+    selectPage(HOME.id);
+    togglePick(ABOUT.id);
+    expect(useCanvasPicks.getState().ids).toEqual([HOME.id, ABOUT.id]);
+    togglePick(NODE);
+    expect(useCanvasPicks.getState().ids).toEqual([HOME.id, ABOUT.id, NODE]);
+    togglePick(HOME.id);
+    togglePick(NODE);
+    expect(useCanvasPicks.getState().ids).toEqual([]);
+    expect(selectedPageNow()).toBe(ABOUT.id);
+  });
+
+  it("take a frame clicked inside with Shift or ⌘ only while frames are picked as wholes (ADR 0121)", () => {
+    selectPage(HOME.id);
+    expect(picksInside(ABOUT.id)).toBe(true);
+    // Inside the one frame selected, the click still reaches its layers.
+    expect(picksInside(HOME.id)).toBe(false);
+    pickFrames([HOME.id, ABOUT.id]);
+    expect(picksInside(HOME.id)).toBe(true);
+    // A layer inside a page selected: a Shift-click adds a layer, as it always has.
+    select({ frame: HOME.id, nodeId: "x" });
+    expect(picksInside(ABOUT.id)).toBe(false);
   });
 
   it("are what Escape lets go of first", () => {

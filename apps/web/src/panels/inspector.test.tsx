@@ -9,6 +9,7 @@ import { useComponents } from "../state/components.ts";
 import { editFrameAs, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useIsolation } from "../state/isolation.ts";
+import { usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { select, toggleSelected } from "../state/selection.ts";
 import { fakeApi } from "../testing/fake-api.ts";
@@ -206,6 +207,29 @@ describe("an app component's instance and its layers (ADR 0114)", () => {
     expect(button("Edit main component")).toBeDefined();
     act(() => button("Edit main component")?.click());
     expect(useIsolation.getState().isolated?.component).toBe("Promo");
+  });
+
+  it("says the main component edited at its top, Done going back to the page (ADR 0120)", () => {
+    withPromo();
+    act(() => select({ frame: HOME, nodeId: "promo" }));
+    // The right panel put away, on the Code tab, comes back on Design with what it says.
+    usePanels.setState({ right: true });
+    useEditor.setState({ rightTab: "code" });
+    act(() => button("Edit main component")?.click());
+    expect(useEditor.getState().rightTab).toBe("design");
+    const section = container.querySelector("[data-main-component]");
+    expect(section?.textContent).toContain("Home");
+    expect(section?.textContent).toContain("Promo");
+    expect(section?.textContent).toContain("Main component · 1 instance");
+    expect(usePanels.getState().right).toBe(false);
+    act(() =>
+      [...(section?.querySelectorAll("button") ?? [])]
+        .find((b) => b.textContent?.startsWith("Done"))
+        ?.click()
+    );
+    expect(useIsolation.getState().isolated).toBeNull();
+    expect(useEditor.getState().selection?.nodeId).toBe("promo");
+    expect(container.querySelector("[data-main-component]")).toBeNull();
   });
 
   it("names the instance a layer is in", () => {

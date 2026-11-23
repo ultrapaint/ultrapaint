@@ -4,6 +4,9 @@ Status: accepted, 2026-11-23. Supersedes 0041's "Editing an app component happen
 in place" (a double-click isolating an instance, every edit going to the main component). The rest
 of 0041 stands: properties, slots, variants, nesting, Detach and implementing.
 
+> Amended by [0120](0120-the-main-component-edited-is-said-in-the-inspector.md), 2026-11-23: the
+> breadcrumb, the instances and Done are at the top of the inspector, not in a banner.
+
 ## Context
 
 An app component's layers were not the page's: the renderer drew them under an attribute the hit
