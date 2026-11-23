@@ -317,6 +317,11 @@ describe("a frame gesture", () => {
     // The click after it, Shift let go of by then, picks nothing; asked once.
     expect(pickedFramesMoved()).toBe(true);
     expect(pickedFramesMoved()).toBe(false);
+    // Let go elsewhere, no click asks: the next press forgets it.
+    beginFrameGesture({ ...press(0, 0), shiftKey: true }, about, "move");
+    beginFrameGesture(press(0, 0), home.id, "resize", "se");
+    fire("pointerup");
+    expect(pickedFramesMoved()).toBe(false);
     useCanvasPicks.setState({ ids: [] });
   });
 
