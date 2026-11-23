@@ -780,6 +780,7 @@ const EVERY_ACTION = {
     openCanvas: true,
     readyAll: true,
     rename: true,
+    updateFromCode: true,
   },
   comment: {
     copyText: true,
@@ -843,6 +844,7 @@ const EVERY_ACTION = {
     setUrl: true,
     state: true,
     unlink: true,
+    updateFromCode: true,
     variations: true,
     zoomTo: true,
   },

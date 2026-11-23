@@ -1,6 +1,6 @@
 /**
  * The tasks an agent is given, as typed requests: implement a design, link pages built already
- * to their code, import a Figma file, redraw a canvas, run a step of the design-system setup,
+ * to their code, bring pages up to date from their code, import a Figma file, redraw a canvas, run a step of the design-system setup,
  * sync. The server turns a request into the task's text
  * (`apps/server/src/services/threads/tasks.ts`); a slash command is one way to write a request.
  * Each command is declared once here, with how it is offered, read and written: the catalogue the
@@ -42,6 +42,16 @@ export type ImplementTask = typeof ImplementTask.Type;
  * or a page; none names every page not linked yet.
  */
 const AdoptTask = Schema.TaggedStruct("Adopt", {
+  targets: Schema.Array(Schema.String),
+});
+
+/**
+ * `/update-from-code`: pages brought up to date from the code that draws them (ADR 0115), each
+ * rewritten in place to show what the code draws now and marked implemented again; a page not
+ * linked yet is linked first. Each target is a canvas (`""` the designs directory's own), naming
+ * its pages, or a page; none names every page whose code changed or that is not linked yet.
+ */
+const UpdateFromCodeTask = Schema.TaggedStruct("UpdateFromCode", {
   targets: Schema.Array(Schema.String),
 });
 
@@ -107,6 +117,7 @@ export const TaskRequest = Schema.Union([
   InitTask,
   ImplementTask,
   AdoptTask,
+  UpdateFromCodeTask,
   ImportFigmaTask,
   RedrawTask,
   SetupStepTask,
@@ -117,7 +128,8 @@ export type TaskRequest = typeof TaskRequest.Type;
 
 /**
  * What a thread running the task is for (ADR 0030): implementing writes the application, so it
- * starts its agent with the repository writable. Linking pages built already changes no code.
+ * starts its agent with the repository writable. Linking pages built already changes no code, and
+ * bringing pages up to date from it writes the designs only (ADR 0115).
  */
 export const taskPurpose = (request: TaskRequest): ThreadPurpose =>
   request._tag === "Implement" ? "implement" : "design";
@@ -161,6 +173,10 @@ const canvasOfWord = (word: string) => (word === ROOT_CANVAS ? "" : word);
 const isSetupStep = Schema.is(SetupStepId);
 const isDefineMode = Schema.is(DefineMode);
 const isSyncSource = Schema.is(SyncSource);
+
+/** Canvases or pages, as `--adopt` and `/update-from-code` write them. */
+const targetsOf = (argument: string) =>
+  argument.split(WHITESPACE_RE).filter(Boolean).map(canvasOfWord);
 
 /** The words of a command, a word left out when it is empty. */
 const written = (...words: readonly (string | undefined)[]) =>
@@ -251,10 +267,7 @@ const COMMANDS: readonly Command[] = [
     parse: (argument) => {
       const { first, rest } = splitWord(argument);
       if (first === ADOPT_FLAG) {
-        return {
-          _tag: "Adopt",
-          targets: rest.split(WHITESPACE_RE).filter(Boolean).map(canvasOfWord),
-        };
+        return { _tag: "Adopt", targets: targetsOf(rest) };
       }
       const inCanvas: RegExpExecArray | null = IN_CANVAS_RE.exec(first);
       return {
@@ -274,6 +287,18 @@ const COMMANDS: readonly Command[] = [
             request.extra,
           ],
     requests: ["Implement", "Adopt"],
+  }),
+  command({
+    argument: "[canvas | page…]",
+    description:
+      "Bring pages up to date from the code that draws them: each rewritten in place to show what the code draws now, and linked to its files",
+    name: "update-from-code",
+    parse: (argument) => ({
+      _tag: "UpdateFromCode",
+      targets: targetsOf(argument),
+    }),
+    print: (request) => request.targets.map(canvasWord),
+    requests: ["UpdateFromCode"],
   }),
   command({
     description:

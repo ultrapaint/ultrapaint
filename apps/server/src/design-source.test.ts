@@ -319,6 +319,68 @@ describe("the design as the source, and its link to the code (ADR 0028–0030)",
     60_000
   );
 
+  onAServer.effect(
+    "brings a page whose code changed up to date for an agent outside the editor, which marks it implemented again (ADR 0115)",
+    () =>
+      Effect.gen(function* () {
+        const { client, port, repo } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        yield* opened;
+        yield* fs.makeDirectory(path.join(repo, "src"));
+        yield* fs.writeFileString(path.join(repo, "src/home.tsx"), HOME_CODE);
+        yield* client["implementation.mark"]({
+          files: ["src/home.tsx"],
+          target: HOME,
+        });
+        // Someone changes the code.
+        yield* fs.writeFileString(
+          path.join(repo, "src/home.tsx"),
+          "export const Home = () => 'hi';\n"
+        );
+        const { token } = yield* client["mcp.connection"]();
+        const mcp = (method: string, params: Record<string, unknown>) =>
+          callMcp(port, token, { method, params });
+        const handoff = (args: Record<string, unknown>) =>
+          Effect.flatMap(
+            mcp("tools/call", { arguments: args, name: "handoff" }),
+            toolText
+          );
+        assert.include(
+          yield* handoff({ action: "list" }),
+          `- ${HOME} (Home): changed: the code changed (src/home.tsx)`
+        );
+        const prompt = yield* Effect.flatMap(
+          mcp("prompts/get", {
+            arguments: { argument: HOME },
+            name: "update-from-code",
+          }),
+          (response) =>
+            Effect.promise(
+              () =>
+                response.json() as Promise<{
+                  result?: { messages?: { content: { text: string } }[] };
+                }>
+            )
+        );
+        const task = prompt.result?.messages?.[0]?.content.text ?? "";
+        assert.include(task, '<ultrapaint-task command="update-from-code">');
+        assert.include(task, "These files changed since: src/home.tsx.");
+        assert.include(task, 'handoff with action "mark"');
+
+        // The agent has rewritten the page, and marks it by the files that draw it.
+        assert.include(
+          yield* handoff({
+            action: "mark",
+            files: ["src/home.tsx"],
+            target: HOME,
+          }),
+          "implemented"
+        );
+        const { items } = yield* client["implementation.list"]();
+        assert.strictEqual(statusOf(items, HOME)?.status, "implemented");
+      })
+  );
+
   inProject.effect(
     "starts a system component's file from its default look, and makes an app component of nodes",
     () =>

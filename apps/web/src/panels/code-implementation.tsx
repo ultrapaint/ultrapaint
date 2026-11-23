@@ -1,12 +1,13 @@
 /**
  * Where a page stands with the code that implements it (ADR 0030), in the Code tab above the
  * page's code (ADR 0102): the files, whether the design or the code changed since, what changed
- * in the design, the tokens waiting for the code, and the way to implement it.
+ * in the design, the tokens waiting for the code, and the way to implement it, or to bring the
+ * design up to date from its code (ADR 0115).
  */
 
 import type { ImplementationItem } from "@ultrapaint/contracts/implementation";
 import type { Page } from "@ultrapaint/contracts/pages";
-import { Code, Ellipsis } from "lucide-react";
+import { Code, Ellipsis, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +29,7 @@ import {
   markImplemented,
   setPageReady,
   unlinkImplementation,
+  updatePagesFromCode,
 } from "../lib/page-actions.ts";
 import { api } from "../state/connection.ts";
 import {
@@ -100,6 +102,12 @@ const MoreMenu = ({
             Find its code with an agent
           </DropdownMenuItem>
         )}
+        {/* Not a button: a draft not built yet is unlinked too, and finds no code (ADR 0115). */}
+        {bound ? null : (
+          <DropdownMenuItem onClick={() => updatePagesFromCode([page.id])}>
+            Update from code
+          </DropdownMenuItem>
+        )}
         {status === undefined || status === "draft" ? (
           <DropdownMenuItem onClick={() => setPageReady(page, true)}>
             Mark ready to implement
@@ -126,6 +134,34 @@ const MoreMenu = ({
     </DropdownMenu>
   );
 };
+
+/**
+ * The design brought up to date from the code that changed since it was implemented (ADR 0115),
+ * by an agent the person sends; what the design changed meanwhile is replaced, and said so.
+ */
+const UpdateFromCode = ({
+  designChanged,
+  page,
+}: {
+  designChanged: boolean;
+  page: Page;
+}) => (
+  <>
+    {designChanged ? (
+      <p className="mt-1 font-body-small text-muted-foreground">
+        The design's changes not implemented yet will be replaced.
+      </p>
+    ) : null}
+    <Button
+      className="mt-1 w-full"
+      onClick={() => updatePagesFromCode([page.id])}
+      variant="outline"
+    >
+      <RefreshCw />
+      Update from code
+    </Button>
+  </>
+);
 
 export const Implementation = ({ page }: { page: Page }) => {
   const item = useImplementation((s) => s.byTarget[page.id]);
@@ -176,6 +212,9 @@ export const Implementation = ({ page }: { page: Page }) => {
         <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-2 font-code text-muted-foreground">
           {changes}
         </pre>
+      ) : null}
+      {item?.codeChanged ? (
+        <UpdateFromCode designChanged={designChanged} page={page} />
       ) : null}
       <Button
         className="mt-1 w-full"

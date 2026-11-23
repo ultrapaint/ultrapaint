@@ -453,8 +453,19 @@ describe("the editor's MCP server, over the wire", () => {
         const listed = yield* json({ method: "prompts/list" });
         assert.includeMembers(
           (listed.result.prompts ?? []).map((p) => p.name),
-          ["implement", "redraw", "sync"]
+          ["implement", "update-from-code", "redraw", "sync"]
         );
+        const pagesOrCanvases = yield* json({
+          method: "completion/complete",
+          params: {
+            argument: { name: "argument", value: "" },
+            ref: { name: "update-from-code", type: "ref/prompt" },
+          },
+        });
+        assert.includeMembers(pagesOrCanvases.result.completion?.values ?? [], [
+          '""',
+          "home.page.json",
+        ]);
         const completed = yield* json({
           method: "completion/complete",
           params: {

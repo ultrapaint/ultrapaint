@@ -67,6 +67,11 @@ const tokensArgument = (which: TokensNamed) => {
     : `tokens ${JSON.stringify(which)}`;
 };
 
+/** How a step looks at the running screen, worded alike with the editor's tools and without. */
+const SEE_RUNNING_SCREEN = `Where you can see the running application, in a browser or a view at a width of it, look at
+   the screen that serves each page at the widths the page is drawn for, and draw what the code
+   leaves to runtime (its data, sizes and states) as the screen shows it`;
+
 export interface AgentWays {
   /**
    * Asking the user what is theirs to decide, and waiting for the answers: a phrase after "ask
@@ -103,6 +108,11 @@ export interface AgentWays {
   readonly readTheme: (stylesheets: string, before: string) => string;
   /** Saving the design system with DESIGN.md, and the formats it is written in: a step's text. */
   readonly saveDesignSystem: (designsDir: string) => string;
+  /**
+   * Looking at the running application's screen to draw a page as it shows (ADR 0115), in the
+   * design skill's words for what an agent may have (a browser, a view at a width): a step's text.
+   */
+  readonly seeRunningScreen: string;
   /** Settling a token changed on both sides, once the user said which value to keep. */
   readonly settleTokens: string;
   /**
@@ -155,6 +165,9 @@ ${TOOLS.read_design_system}, ${TOOLS.list_components} and ${TOOLS.get_component}
    \`designMd\` the whole of DESIGN.md. ${TOOLS.get_document_format} with kind "design-system" has its JSON
    Schema. The tool validates both, puts the design system's values in DESIGN.md's front matter
    and tells you what is wrong; fix it and call it again. Do not write the two files by hand.`,
+  seeRunningScreen: `${SEE_RUNNING_SCREEN}; ${TOOLS.get_screenshot} shows the page as you
+   redraw it, at the same widths, to compare. Where you can see neither, update the page from
+   the code alone.`,
   settleTokens: `bring it over with ${handoffCall("export")} for the design's value or "import" for the code's, and tokens, their names`,
   tools: TOOLS,
 };
@@ -193,6 +206,8 @@ page format: ${pageSchema()}`,
    its tokens. Put every token's value in ${DESIGN_SYSTEM_FILE}, and delete
    ${designsDir}/${DESIGN_TOKENS_FILE} if there is one: the values the editor saved
    last are there, and they win over the ones you write.`,
+  seeRunningScreen: `${SEE_RUNNING_SCREEN}. Where you can see neither, update the page from the
+   code alone.`,
   settleTokens:
     "have the user pick it in the Design system panel's Sync view, or write the design's value into the stylesheet where the token is declared",
   tools: null,

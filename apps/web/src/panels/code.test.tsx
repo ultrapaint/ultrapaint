@@ -2,12 +2,16 @@
 import "../testing/fake-browser.ts";
 import { RequestError } from "@ultrapaint/client-runtime/connection";
 import type { DesignNode, DocumentState } from "@ultrapaint/contracts/document";
+import type { ImplementationItem } from "@ultrapaint/contracts/implementation";
+import type { Thread } from "@ultrapaint/contracts/threads";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { viewFrameOf } from "../state/frame-ref.ts";
+import { useImplementation } from "../state/implementation.ts";
+import { takeRequest } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { select } from "../state/selection.ts";
 import { fakeApi } from "../testing/fake-api.ts";
@@ -67,6 +71,7 @@ beforeEach(() => {
   });
   useDocuments.setState({ canvas: "main", docs: { [HOME]: home } });
   useProject.setState(initialProject, true);
+  useImplementation.setState({ byTarget: {} });
   useProject.setState({
     pages: [
       {
@@ -132,5 +137,101 @@ describe("a page's implementation", () => {
   it("is not shown for a node inside the page", async () => {
     await selectAndRead("title", 1);
     expect(container.textContent).not.toContain("Implementation");
+  });
+});
+
+/** Home linked to its code, where the code, the design or both changed since. */
+const linked = (changed: { code: boolean; design: boolean }) =>
+  useImplementation.setState({
+    byTarget: {
+      [HOME]: {
+        changedFiles: changed.code ? ["src/orders.tsx"] : [],
+        codeChanged: changed.code,
+        designChanged: changed.design,
+        files: ["src/orders.tsx"],
+        kind: "page",
+        name: "Home",
+        ready: false,
+        status: changed.code || changed.design ? "changed" : "implemented",
+        target: HOME,
+      } satisfies ImplementationItem,
+    },
+  });
+
+const buttonNamed = (name: string) =>
+  [...container.querySelectorAll("button")].find((b) => b.textContent === name);
+
+/** The Implementation section's menu, opened: its items' names. */
+const menuItems = () => {
+  act(() =>
+    (
+      container.querySelector(
+        '[aria-label="More implementation actions"]'
+      ) as HTMLElement | null
+    )?.click()
+  );
+  return [...document.body.querySelectorAll("[role=menuitem]")].map(
+    (i) => i.textContent
+  );
+};
+
+describe("a page's Update from code (ADR 0115)", () => {
+  it("is a button when the page's code changed since it was implemented", async () => {
+    linked({ code: true, design: false });
+    await selectAndRead("home", 1);
+    expect(buttonNamed("Update from code")).toBeDefined();
+    expect(container.textContent).not.toContain("will be replaced");
+  });
+
+  it("says the design's changes will be replaced when the design changed too", async () => {
+    linked({ code: true, design: true });
+    await selectAndRead("home", 1);
+    expect(buttonNamed("Update from code")).toBeDefined();
+    expect(container.textContent).toContain(
+      "The design's changes not implemented yet will be replaced."
+    );
+  });
+
+  it("is in the menu only, beside finding its code, for a page not linked yet", async () => {
+    await selectAndRead("home", 1);
+    expect(buttonNamed("Update from code")).toBeUndefined();
+    const items = menuItems();
+    expect(items).toContain("Find its code with an agent");
+    expect(items).toContain("Update from code");
+  });
+
+  it("is not offered for a page implemented with nothing changed, nor one whose design alone changed", async () => {
+    linked({ code: false, design: false });
+    await selectAndRead("home", 1);
+    expect(buttonNamed("Update from code")).toBeUndefined();
+    expect(menuItems()).not.toContain("Update from code");
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+    linked({ code: false, design: true });
+    await act(async () => undefined);
+    expect(buttonNamed("Update from code")).toBeUndefined();
+    expect(menuItems()).not.toContain("Update from code");
+  });
+
+  it("drafts the task in a new chat, and sends nothing (ADR 0074)", async () => {
+    const thread: Thread = {
+      agentId: "claude-code",
+      createdAt: 0,
+      id: "t1",
+      status: "idle",
+      title: "New chat",
+      updatedAt: 0,
+    };
+    fakeApi.respond("threads.create", () => thread);
+    linked({ code: true, design: false });
+    await selectAndRead("home", 1);
+    act(() => buttonNamed("Update from code")?.click());
+    await act(() => fakeApi.requested("threads.create"));
+    await act(async () => undefined);
+    expect(takeRequest({ draft: thread.id })).toBe(
+      `/update-from-code ${HOME} `
+    );
+    expect(fakeApi.calls.map((c) => c.method)).not.toContain("threads.prompt");
   });
 });
