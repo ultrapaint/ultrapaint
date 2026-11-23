@@ -4,6 +4,7 @@ import {
   dataDirsOf,
   editionOf,
   folderArgument,
+  RUNNER_ENV,
 } from "./edition.ts";
 
 const devRun = {
@@ -22,7 +23,16 @@ describe("editionOf", () => {
     expect(editionOf({ [DEV_RUN_ENV]: JSON.stringify(devRun) })).toEqual({
       _tag: "Dev",
       ...devRun,
+      runner: false,
     });
+  });
+
+  it("knows a runner waits for it only when the runner started it, not when opened from the Dock", () => {
+    const started = editionOf({
+      [DEV_RUN_ENV]: JSON.stringify(devRun),
+      [RUNNER_ENV]: "1",
+    });
+    expect(started._tag === "Dev" && started.runner).toBe(true);
   });
 
   it("carries why the last update from main failed, when the runner says it did", () => {
@@ -52,16 +62,18 @@ describe("dataDirsOf", () => {
   });
 
   it("gives Ultrapaint Dev a folder of its own, first filled from the release's", () => {
-    expect(dataDirsOf({ _tag: "Dev", ...devRun }, appData, undefined)).toEqual({
+    expect(
+      dataDirsOf({ _tag: "Dev", ...devRun, runner: true }, appData, undefined)
+    ).toEqual({
       firstFrom: `${appData}/Ultrapaint`,
       own: `${appData}/Ultrapaint Dev`,
     });
   });
 
   it("puts the data where the variable says, and copies nothing into a throwaway folder", () => {
-    expect(dataDirsOf({ _tag: "Dev", ...devRun }, appData, "/tmp/try")).toEqual(
-      { own: "/tmp/try" }
-    );
+    expect(
+      dataDirsOf({ _tag: "Dev", ...devRun, runner: true }, appData, "/tmp/try")
+    ).toEqual({ own: "/tmp/try" });
   });
 });
 
@@ -83,7 +95,7 @@ describe("folderArgument", () => {
           "--x",
           "/work/a",
         ],
-        { _tag: "Dev", ...devRun }
+        { _tag: "Dev", ...devRun, runner: true }
       )
     ).toBe("/work/a");
   });
@@ -93,6 +105,7 @@ describe("folderArgument", () => {
       folderArgument(["electron", "/code/ultrapaint/apps/desktop/build/app"], {
         _tag: "Dev",
         ...devRun,
+        runner: true,
       })
     ).toBeUndefined();
   });

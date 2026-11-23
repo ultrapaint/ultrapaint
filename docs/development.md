@@ -27,9 +27,11 @@ command `ultrapaint --dev`. The editor reloads and the server restarts as files 
 its own name, data and a blueprint past the tab strip's +. Each local project it opens runs this
 checkout's `ultrapaint --dev`, live. When `main` moves ahead, its update item lists the new
 commits, and Pull and restart pulls them (fast-forward only, `pnpm install` when the lockfile
-changed), builds what changed and starts it again. On a Mac, `pnpm desktop:dev-app` once puts
-`Ultrapaint Dev.app` in `~/Applications`, to open it from the Dock or Spotlight; run it again when
-the checkout's Electron changes. The checkout to keep for it is a clone on `main`, such as
+changed), builds what changed and starts it again. On a Mac the same command makes Ultrapaint
+Dev's own app in the checkout (`apps/desktop/.dev-app/`), so Spotlight finds it and it can be kept
+in the Dock; opened from there it starts at once on the last build. Should that app misbehave,
+delete `apps/desktop/.dev-app` and the next start makes it again. An `~/Applications/Ultrapaint
+Dev.app` from before can be deleted. The checkout to keep for it is a clone on `main`, such as
 `~/Code/ultrapaint/ultrapaint`.
 
 `pnpm pack:local` makes the package a release carries, in `dist/ultrapaint-<version>.tgz`. A

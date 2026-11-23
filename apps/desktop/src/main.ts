@@ -6,7 +6,8 @@
  * Nothing of the editor lives here; what the app decides lives in its services, and this file
  * connects them to Electron.
  */
-import { existsSync, statSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { existsSync, mkdirSync, openSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -110,8 +111,8 @@ const sshConfig = process.env.ULTRAPAINT_DESKTOP_SSH_CONFIG
 const DevServerArgs = Schema.fromJsonString(Schema.Array(Schema.String));
 
 /**
- * The app's parts, beside this file: Electron's app path, but for Ultrapaint Dev started from
- * `Ultrapaint Dev.app`, whose own small app loads this one from the checkout.
+ * The app's parts, beside this file: Electron's app path, whichever Electron runs it (the
+ * release's, the checkout's, or Ultrapaint Dev's own Mac app).
  */
 const appDir = import.meta.dirname;
 const dataDir = app.getPath("userData");
@@ -945,6 +946,31 @@ if (app.requestSingleInstanceLock()) {
   app.quit();
 }
 
+/**
+ * Ultrapaint Dev opened from the Dock has no runner waiting for it (UP-116): to be updated, it
+ * starts one, through the login shell for its `PATH`, which waits for this app to exit, pulls
+ * `main`, and builds and runs it again. What it says goes to the app's log folder.
+ */
+const handOverToRunner = (checkout: string) => {
+  const logs = app.getPath("logs");
+  mkdirSync(logs, { recursive: true });
+  // Left open: the app exits right after, which closes it.
+  const out = openSync(path.join(logs, "runner.log"), "a");
+  // Outlives the app on purpose: it waits for it to exit, then starts it again.
+  spawn(
+    process.env.SHELL || "/bin/sh",
+    [
+      "-l",
+      "-c",
+      'cd "$1" && exec node apps/desktop/scripts/dev.ts --pull-first --after "$2"',
+      "ultrapaint-dev",
+      checkout,
+      String(process.pid),
+    ],
+    { detached: true, stdio: ["ignore", out, out] }
+  ).unref();
+};
+
 /*
  * Closing the window quits (D13). The servers the app started stop first, once the user agreed
  * to stop agents at work in them (a second close or Cmd-Q meanwhile has the same answer); a
@@ -973,6 +999,11 @@ const quit = (ask: boolean, update = false) => {
         : false;
       await runtime.dispose();
       if (restart && edition._tag === "Dev") {
+        if (!edition.runner) {
+          handOverToRunner(edition.checkout);
+          app.exit(0);
+          return;
+        }
         app.exit(RESTART_EXIT_CODE);
         return;
       }

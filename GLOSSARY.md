@@ -664,12 +664,13 @@ refactor and the board view left.
   ADR 0078). Its **release notes** are what comes before the release's install mark. Ultrapaint
   Dev's is `main` ahead of its checkout: the commits it lacks, pulled on a restart (`pull`), or
   why it cannot be (`manual`: changes not committed, another branch, commits of its own; ADR 0113).
-- **Ultrapaint Dev**: the desktop app run from a checkout of Ultrapaint (`pnpm desktop:dev`, or
-  `Ultrapaint Dev.app` on a Mac, which `pnpm desktop:dev-app` writes), beside the release (ADR
+- **Ultrapaint Dev**: the desktop app run from a checkout of Ultrapaint (`pnpm desktop:dev`, and on a
+  Mac its own `Ultrapaint Dev.app`, which that command makes in the checkout), beside the release (ADR
   0113; `Edition` in `edition.ts`). Its own name, data folder (first filled with the release's
   projects, none open) and Keychain entry; each local project runs the checkout's `ultrapaint
   --dev` and opens in the editor that serves, live; its App update pulls `main`, through its runner
-  (`scripts/dev.ts`), which builds what changed and starts it again; the blueprint under the
+  (`scripts/dev.ts`), which builds what changed and starts it again (opened from the Dock, it has
+  none and starts one); the blueprint under the
   tab strip and its icon tell it apart; it leaves the `ultrapaint` command to the release. The editor
   learns it from the bridge's `dev`. _Avoid_: dev mode (`ultrapaint --dev`), nightly, the dev
   build.
