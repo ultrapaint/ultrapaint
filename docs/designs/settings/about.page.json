@@ -198,7 +198,7 @@
             {"type": "row", "id": "r_s16s", "fill": "#ec4899", "height": 8, "radius": 999, "width": 8, "children": []},
             {"type": "text", "id": "t_s16t", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "New", "weight": 500}
           ]},
-          {"type": "text", "id": "t_s16v", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "About, as T3 Code’s: the version, Check for updates (the desktop app’s update already shows at the rail’s foot), and where things are."}
+          {"type": "text", "id": "t_s16v", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "About: the version and whether it is up to date, the update when there is one, and where things are kept."}
         ]},
         {"type": "column", "id": "c_s171", "gap": 4, "width": "fill", "children": [
           {"type": "row", "id": "r_s16z", "crossAlign": "center", "gap": 6, "children": [
