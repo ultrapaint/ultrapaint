@@ -88,6 +88,29 @@ const checkLayerFields = (set: Record<string, unknown>) => {
   }
 };
 
+/**
+ * Whether a layer's kind may be turned into `to`: the layer's own kind known, where the
+ * components are, and a group, a row or a column's, as a node's is. From a breakpoint on, the
+ * row or column rule is the draft's, which is set on the layer's own kind.
+ */
+const checkLayerKind = (
+  id: string,
+  to: unknown,
+  kind: string | undefined,
+  known: boolean,
+  at: string | undefined
+) => {
+  if (typeof to !== "string") {
+    return;
+  }
+  if (known && kind === undefined) {
+    fail(`the kind of ${id} is not known: it cannot be turned into a ${to}`);
+  }
+  if (at === undefined && kind !== undefined && !CONTAINER_TYPES.has(kind)) {
+    fail(`a ${kind} layer cannot become a ${to}`);
+  }
+};
+
 /** A field set or taken out of `fields`: `null` takes it out. */
 const setOrDrop = (
   fields: Record<string, unknown>,
@@ -117,7 +140,9 @@ interface ApplyOptions {
    * The kind of a layer of an instance as the instance draws it (ADR 0114), when the components
    * are known: what its kind may be turned into, as a node's may.
    */
-  readonly kindOf?: ((layer: string) => string | undefined) | undefined;
+  readonly kindOf?:
+    | ((layer: string, tree: DesignNode) => string | undefined)
+    | undefined;
   readonly next: IdGenerator;
 }
 
@@ -442,15 +467,9 @@ export const applyOps = (
       fail(`${instance} is a ${node.type}: only an instance has layers`);
     }
     checkLayerFields(set);
-    const kind = kindOf?.(id);
-    if (
-      at === undefined &&
-      typeof set.type === "string" &&
-      kind !== undefined &&
-      !CONTAINER_TYPES.has(kind)
-    ) {
-      fail(`a ${kind} layer cannot become a ${set.type}`);
-    }
+    // Read off the tree as the batch has made it so far: an instance inserted in it is there.
+    const kind = kindOf?.(id, draft as unknown as DesignNode);
+    checkLayerKind(id, set.type, kind, kindOf !== undefined, at);
     const overrides = {
       ...(node.overrides as
         | Record<string, Record<string, unknown>>

@@ -18,12 +18,15 @@
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import { componentDocOf, variantKey } from "@ultrapaint/contracts/components";
 import type { InstanceNode } from "@ultrapaint/contracts/document";
-import { layerIdOf } from "@ultrapaint/design-document/instance-layers";
+import {
+  layerIdOf,
+  layerPath,
+} from "@ultrapaint/design-document/instance-layers";
 import type { RenderRequest } from "@ultrapaint/preview-core/preview";
 import { useMemo } from "react";
 import { create } from "zustand";
 import { appComponentOf, useComponents } from "./components.ts";
-import { editFrameAs, useDocuments } from "./documents.ts";
+import { drawnRootOf, editFrameAs, useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
 import { frameRefOf } from "./frame-ref.ts";
 import { select } from "./selection.ts";
@@ -223,17 +226,37 @@ export const useIsolatedRequest = (frame: string): RenderRequest["isolate"] => {
   const isolated = useIsolation((s) =>
     s.isolated?.frame === frame ? s.isolated : null
   );
+  const canvas = useEditor((s) => s.canvas);
+  const components = useComponents((s) => s.components);
+  // The instances the edited one is drawn inside, as the document resolves the way to it: said
+  // as one text, so the request is made again only when they change.
+  const enclosing = useDocuments((s) => {
+    if (!isolated) {
+      return "";
+    }
+    const path = layerPath(
+      drawnRootOf(s.docs, canvas, frame),
+      isolated.drawn,
+      (name) => appComponentOf(components, name)
+    );
+    return (path ?? [])
+      .slice(0, -1)
+      .filter((n) => n.type === "instance")
+      .map((n) => n.id)
+      .join("\n");
+  });
   return useMemo(
     () =>
       isolated
         ? {
             ...aroundProps(isolated.around),
+            ...(enclosing !== "" && { enclosing: enclosing.split("\n") }),
             instance: isolated.drawn,
             ...(isolated.variant && {
               props: { [isolated.variant.property]: isolated.variant.member },
             }),
           }
         : undefined,
-    [isolated]
+    [enclosing, isolated]
   );
 };

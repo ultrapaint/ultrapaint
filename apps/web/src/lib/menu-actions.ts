@@ -9,6 +9,7 @@ import { familyOf } from "@ultrapaint/contracts/canvas-layout";
 import type { Comment } from "@ultrapaint/contracts/comments";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { isBusy } from "@ultrapaint/contracts/threads";
+import { isLayerOf } from "@ultrapaint/design-document/instance-layers";
 import { pageOfLink } from "@ultrapaint/shared/link";
 import { toast } from "sonner";
 import { canvasPoint } from "../canvas/drag.ts";
@@ -31,7 +32,7 @@ import {
 } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
 import type { MenuTarget, Point } from "../state/context-menu.ts";
-import { nodeIn, useDocuments } from "../state/documents.ts";
+import { nodeIn, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { pagesOfCanvas, type Selection, useEditor } from "../state/editor.ts";
 import {
   frameRefOf,
@@ -212,6 +213,10 @@ const nodeMenu = (target: Selection) => {
     frame,
     hidden: allHidden(targets),
     index: place?.siblings.findIndex((c) => c.id === current.node.id) ?? 0,
+    layer: isLayerOf(
+      rootOfFrame(ctx.docs, ctx.canvas, target.frame),
+      current.node.id
+    ),
     linkTargets: hasPrototypeLinks(frame) ? linkTargets() : [],
     node: current.node,
     parentSelectable: !!place?.parent && place.parent.type !== "page",

@@ -7,7 +7,6 @@
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { ViewportPreset } from "@ultrapaint/contracts/pages";
-import { isInstanceLayer } from "@ultrapaint/design-document/instance-layers";
 import {
   isContainer,
   nodeKind,
@@ -170,6 +169,11 @@ export interface NodeFacts {
   hidden: boolean;
   /** Where it sits among its siblings. */
   index: number;
+  /**
+   * The node is a layer of an app component's instance (ADR 0114), as the document resolves it:
+   * its main component's to move, copy, detach or rename.
+   */
+  layer?: boolean;
   /** The canvas's pages a link can lead to, by file; empty for a node beside the pages. */
   /** The routes, then the drafts (ADR 0075), which a link to gives a route first. */
   linkTargets?: readonly { draft?: boolean; name: string; path: string }[];
@@ -260,7 +264,7 @@ const instanceEntries = (f: NodeFacts): (Entry<NodeAction> | false)[] => {
         disabled: several,
       }),
     // A nested instance is detached in its main component, never on the page (ADR 0114).
-    app && !isInstanceLayer(node.id) && item({ kind: "detach" }, "Detach"),
+    app && f.layer !== true && item({ kind: "detach" }, "Detach"),
   ];
 };
 
@@ -279,7 +283,7 @@ export const nodeEntries = (f: NodeFacts): Entry<NodeAction>[] => {
   const { node } = f;
   // A page's root, and a layer of an instance (ADR 0114), stay where they are: the layer is
   // moved, copied or made anything else in its main component.
-  const layer = isInstanceLayer(node.id);
+  const layer = f.layer === true;
   const root = isPageRoot(node) || layer;
   const several = f.count > 1;
   // About one node only: greyed out when the menu acts on several.

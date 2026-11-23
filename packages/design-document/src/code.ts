@@ -335,8 +335,9 @@ const overrideProps = (
   // field, or one of the instance's own props, has the name already.
   const taken = new Set(Object.keys(asProps(instance.props ?? {})));
   const names = new Map<string, string>();
-  const nameOf = (way: string, words: string, field: string) => {
-    const key = `${way}\u0000${field}`;
+  const nameOf = (way: string, words: string, field: string, kind: string) => {
+    // A layer's own field and a nested instance's prop of one name are two things.
+    const key = `${way}\u0000${kind}\u0000${field}`;
     const known = names.get(key);
     if (known !== undefined) {
       return known;
@@ -353,13 +354,18 @@ const overrideProps = (
     into: Record<string, JsonValue>,
     way: string,
     words: string,
-    fields: Readonly<Record<string, JsonValue>>
+    fields: Readonly<Record<string, JsonValue>>,
+    kind = "field"
   ) => {
-    for (const [field, value] of Object.entries(fields)) {
+    // A layer's own fields are named first, a nested instance's props after them.
+    const ordered = Object.entries(fields).sort(
+      ([a], [b]) => Number(a === "props") - Number(b === "props")
+    );
+    for (const [field, value] of ordered) {
       if (field === "props" && isRecord(value)) {
-        add(into, way, words, value as Record<string, JsonValue>);
+        add(into, way, words, value as Record<string, JsonValue>, "prop");
       } else if (field !== "at") {
-        Object.defineProperty(into, nameOf(way, words, field), {
+        Object.defineProperty(into, nameOf(way, words, field, kind), {
           configurable: true,
           enumerable: true,
           value,

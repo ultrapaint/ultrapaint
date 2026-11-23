@@ -104,6 +104,11 @@ export interface RenderRequest {
         readonly around?:
           | Readonly<Record<string, Readonly<Record<string, JsonValue>>>>
           | undefined;
+        /**
+         * The instances the one edited is drawn inside (ADR 0114), as the page draws them: each
+         * is drawn as its main component, at the props `around` gives it.
+         */
+        readonly enclosing?: readonly string[] | undefined;
         readonly instance: string;
         readonly props?: Readonly<Record<string, JsonValue>> | undefined;
       }
