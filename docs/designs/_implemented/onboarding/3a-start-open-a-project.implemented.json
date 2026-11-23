@@ -1,0 +1,626 @@
+{
+  "kind": "page",
+  "notes": [],
+  "root": {
+    "fill": "$color-background",
+    "id": "root",
+    "padding": {
+      "top": 232
+    },
+    "align": "start",
+    "crossAlign": "center",
+    "gap": 0,
+    "children": [
+      {
+        "height": 436,
+        "id": "c_eze5ujdm",
+        "name": "Start",
+        "width": 624,
+        "gap": 24,
+        "children": [
+          {
+            "id": "c_eze4kygc",
+            "name": "Header",
+            "width": "fill",
+            "gap": 16,
+            "children": [
+              {
+                "height": 28,
+                "id": "img_eze4gder",
+                "name": "Ultrapaint",
+                "width": 155,
+                "alt": "Ultrapaint",
+                "tint": "$color-foreground",
+                "src": "assets/icons/ultrapaint-lockup.svg",
+                "type": "image"
+              },
+              {
+                "id": "c_eze4j15q",
+                "width": "fill",
+                "gap": 4,
+                "children": [
+                  {
+                    "id": "t_eze4hiey",
+                    "color": "$color-foreground",
+                    "font": "'Cal Sans', system-ui, sans-serif",
+                    "lineHeight": 1.25,
+                    "size": 16,
+                    "tracking": "0.02em",
+                    "weight": 400,
+                    "level": 1,
+                    "role": "heading",
+                    "text": "Start a new project",
+                    "type": "text"
+                  },
+                  {
+                    "id": "t_eze4ioc1",
+                    "color": "$color-muted-foreground",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": 1.429,
+                    "size": 14,
+                    "role": "paragraph",
+                    "text": "Say what you want to make, and an agent draws its first screens.",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "column"
+          },
+          {
+            "border": {
+              "color": "$color-border",
+              "style": "solid",
+              "width": 1
+            },
+            "fill": "$color-muted",
+            "id": "c_eze53egd",
+            "name": "Prompt",
+            "radius": "$radius-xl",
+            "width": "fill",
+            "children": [
+              {
+                "height": 88,
+                "id": "t_eze4l374",
+                "padding": {
+                  "left": 12,
+                  "right": 12,
+                  "top": 12
+                },
+                "width": "fill",
+                "color": "$color-muted-foreground",
+                "font": "'Figtree Variable', system-ui, sans-serif",
+                "lineHeight": 1.429,
+                "size": 14,
+                "role": "paragraph",
+                "text": "A booking app for a climbing gym…",
+                "type": "text"
+              },
+              {
+                "id": "r_eze520a8",
+                "padding": {
+                  "bottom": 6,
+                  "left": 6,
+                  "right": 6
+                },
+                "width": "fill",
+                "crossAlign": "center",
+                "gap": 2,
+                "children": [
+                  {
+                    "height": 28,
+                    "id": "i_eze4m385",
+                    "name": "Add pictures or files",
+                    "radius": "$radius-md",
+                    "width": 28,
+                    "props": {
+                      "variant": "ghost",
+                      "size": "icon"
+                    },
+                    "children": [
+                      {
+                        "height": 16,
+                        "id": "img_eze4ngux",
+                        "name": "plus",
+                        "width": 16,
+                        "alt": "",
+                        "tint": "$color-muted-foreground",
+                        "src": "assets/icons/plus.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "component": "Button",
+                    "from": "@ultrapaint/system",
+                    "type": "instance"
+                  },
+                  {
+                    "height": 28,
+                    "id": "r_eze4rkhq",
+                    "name": "Chip · New folder in Ultrapaint",
+                    "padding": {
+                      "left": 8,
+                      "right": 8
+                    },
+                    "radius": "$radius-md",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "height": 14,
+                        "id": "img_eze4o4cg",
+                        "name": "folder",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-muted-foreground",
+                        "src": "assets/icons/folder.svg",
+                        "type": "image"
+                      },
+                      {
+                        "id": "t_eze4p5ts",
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "New folder in Ultrapaint",
+                        "type": "text"
+                      },
+                      {
+                        "height": 14,
+                        "id": "img_eze4q28r",
+                        "name": "chevron-down",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-muted-foreground",
+                        "src": "assets/icons/chevron-down.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "height": 28,
+                    "id": "r_eze4unpm",
+                    "name": "Chip · Agent picks the look",
+                    "padding": {
+                      "left": 8,
+                      "right": 8
+                    },
+                    "radius": "$radius-md",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "id": "t_eze4sl9s",
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "Agent picks the look",
+                        "type": "text"
+                      },
+                      {
+                        "height": 14,
+                        "id": "img_eze4tgwk",
+                        "name": "chevron-down",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-muted-foreground",
+                        "src": "assets/icons/chevron-down.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "r_eze4vdxk",
+                    "width": "fill",
+                    "children": [],
+                    "type": "row"
+                  },
+                  {
+                    "height": 28,
+                    "id": "r_eze4zffy",
+                    "name": "Chip · Opus 5.5",
+                    "padding": {
+                      "left": 8,
+                      "right": 8
+                    },
+                    "radius": "$radius-md",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "id": "t_eze4wa5f",
+                        "color": "$color-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "Opus 5.5",
+                        "type": "text"
+                      },
+                      {
+                        "id": "t_eze4x6co",
+                        "opacity": 0.7,
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "High",
+                        "type": "text"
+                      },
+                      {
+                        "height": 14,
+                        "id": "img_eze4y6al",
+                        "name": "chevron-down",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-muted-foreground",
+                        "src": "assets/icons/chevron-down.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "fill": "$color-primary",
+                    "height": 26,
+                    "id": "r_eze51fdq",
+                    "radius": 999,
+                    "width": 26,
+                    "align": "center",
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "height": 16,
+                        "id": "img_eze50nv4",
+                        "name": "arrow-up",
+                        "width": 16,
+                        "alt": "",
+                        "tint": "$color-primary-foreground",
+                        "src": "assets/icons/arrow-up.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "row"
+              }
+            ],
+            "type": "column"
+          },
+          {
+            "id": "c_eze5nemz",
+            "margin": {
+              "top": 24
+            },
+            "name": "Recent projects",
+            "width": "fill",
+            "gap": 8,
+            "children": [
+              {
+                "id": "r_eze58a1j",
+                "width": "fill",
+                "crossAlign": "center",
+                "children": [
+                  {
+                    "id": "t_eze545mh",
+                    "width": "fill",
+                    "color": "$color-foreground",
+                    "font": "'Cal Sans', system-ui, sans-serif",
+                    "lineHeight": 1.429,
+                    "size": 14,
+                    "tracking": "0.02em",
+                    "weight": 400,
+                    "role": "paragraph",
+                    "text": "Recent projects",
+                    "type": "text"
+                  },
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "fill": "$color-accent",
+                    "height": 24,
+                    "id": "r_eze57r00",
+                    "padding": {
+                      "left": 8,
+                      "right": 6
+                    },
+                    "radius": "$radius-md",
+                    "crossAlign": "center",
+                    "gap": 4,
+                    "children": [
+                      {
+                        "id": "t_eze55eic",
+                        "color": "$color-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "weight": 500,
+                        "role": "paragraph",
+                        "text": "Open project",
+                        "type": "text"
+                      },
+                      {
+                        "height": 14,
+                        "id": "img_eze56en5",
+                        "name": "chevron-down",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-foreground",
+                        "src": "assets/icons/chevron-down.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "row"
+              },
+              {
+                "border": {
+                  "color": "$color-border",
+                  "style": "solid",
+                  "width": 1
+                },
+                "fill": "$color-card",
+                "id": "c_eze5msp8",
+                "radius": "$radius-lg",
+                "width": "fill",
+                "children": [
+                  {
+                    "id": "r_eze5e8nk",
+                    "name": "Project · saloon-booking",
+                    "padding": {
+                      "bottom": 8,
+                      "left": 12,
+                      "right": 12,
+                      "top": 8
+                    },
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 12,
+                    "children": [
+                      {
+                        "id": "c_eze5bs3u",
+                        "width": "fill",
+                        "children": [
+                          {
+                            "id": "t_eze591be",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "weight": 500,
+                            "role": "paragraph",
+                            "text": "saloon-booking",
+                            "type": "text"
+                          },
+                          {
+                            "id": "t_eze5axpf",
+                            "color": "$color-muted-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "~/Ultrapaint/saloon-booking",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "column"
+                      },
+                      {
+                        "height": 24,
+                        "id": "i_eze5c1ql",
+                        "name": "More",
+                        "radius": "$radius-md",
+                        "width": 24,
+                        "props": {
+                          "variant": "ghost",
+                          "size": "icon"
+                        },
+                        "children": [
+                          {
+                            "height": 14,
+                            "id": "img_eze5d6zq",
+                            "name": "ellipsis",
+                            "width": 14,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/ellipsis.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "component": "Button",
+                        "from": "@ultrapaint/system",
+                        "type": "instance"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "fill": "$color-border",
+                    "height": 1,
+                    "id": "r_eze5fkd7",
+                    "width": "fill",
+                    "children": [],
+                    "type": "row"
+                  },
+                  {
+                    "id": "r_eze5lzc6",
+                    "name": "Project · bike-shop",
+                    "padding": {
+                      "bottom": 8,
+                      "left": 12,
+                      "right": 12,
+                      "top": 8
+                    },
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 12,
+                    "children": [
+                      {
+                        "id": "c_eze5iskp",
+                        "width": "fill",
+                        "children": [
+                          {
+                            "id": "t_eze5g9zg",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "weight": 500,
+                            "role": "paragraph",
+                            "text": "bike-shop",
+                            "type": "text"
+                          },
+                          {
+                            "id": "t_eze5hspy",
+                            "color": "$color-muted-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "~/Code/bike-shop",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "column"
+                      },
+                      {
+                        "height": 24,
+                        "id": "i_eze5jpwc",
+                        "name": "More",
+                        "radius": "$radius-md",
+                        "width": 24,
+                        "props": {
+                          "variant": "ghost",
+                          "size": "icon"
+                        },
+                        "children": [
+                          {
+                            "height": 14,
+                            "id": "img_eze5kw4l",
+                            "name": "ellipsis",
+                            "width": 14,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/ellipsis.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "component": "Button",
+                        "from": "@ultrapaint/system",
+                        "type": "instance"
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "column"
+          },
+          {
+            "height": 68,
+            "id": "r_eze5tcv1",
+            "margin": {
+              "bottom": 52,
+              "top": -120
+            },
+            "name": "Overlay",
+            "padding": {
+              "left": 400
+            },
+            "width": "fill",
+            "children": [
+              {
+                "border": {
+                  "color": "$color-border",
+                  "style": "solid",
+                  "width": 1
+                },
+                "fill": "$color-popover",
+                "id": "c_eze5s32k",
+                "name": "Menu",
+                "padding": 4,
+                "radius": "$radius-lg",
+                "shadow": "$shadow-overlay",
+                "width": 224,
+                "children": [
+                  {
+                    "fill": "$color-accent",
+                    "height": 30,
+                    "id": "r_eze5pt03",
+                    "padding": {
+                      "left": 8,
+                      "right": 8
+                    },
+                    "radius": "$radius-md",
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 8,
+                    "children": [
+                      {
+                        "id": "t_eze5olg7",
+                        "width": "fill",
+                        "color": "$color-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "A folder on this computer…",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "height": 30,
+                    "id": "r_eze5rcns",
+                    "padding": {
+                      "left": 8,
+                      "right": 8
+                    },
+                    "radius": "$radius-md",
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 8,
+                    "children": [
+                      {
+                        "id": "t_eze5q8ke",
+                        "width": "fill",
+                        "color": "$color-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "A folder over SSH…",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "row"
+          }
+        ],
+        "type": "column"
+      }
+    ],
+    "direction": "column",
+    "type": "page"
+  }
+}

@@ -1,0 +1,650 @@
+{
+  "kind": "page",
+  "notes": [],
+  "root": {
+    "fill": "$color-background",
+    "id": "root",
+    "padding": {
+      "top": 232
+    },
+    "align": "start",
+    "crossAlign": "center",
+    "gap": 0,
+    "children": [
+      {
+        "height": 436,
+        "id": "c_ywb2pu5k",
+        "name": "Start",
+        "width": 624,
+        "gap": 24,
+        "children": [
+          {
+            "id": "c_ywa1lf2c",
+            "name": "Header",
+            "width": "fill",
+            "gap": 16,
+            "children": [
+              {
+                "height": 28,
+                "id": "img_ywa1hro7",
+                "name": "Ultrapaint",
+                "width": 155,
+                "alt": "Ultrapaint",
+                "tint": "$color-foreground",
+                "src": "assets/icons/ultrapaint-lockup.svg",
+                "type": "image"
+              },
+              {
+                "id": "c_ywa1kw0f",
+                "width": "fill",
+                "gap": 4,
+                "children": [
+                  {
+                    "id": "t_ywa1i9au",
+                    "color": "$color-foreground",
+                    "font": "'Cal Sans', system-ui, sans-serif",
+                    "lineHeight": 1.25,
+                    "size": 16,
+                    "tracking": "0.02em",
+                    "weight": 400,
+                    "level": 1,
+                    "role": "heading",
+                    "text": "Start a new project",
+                    "type": "text"
+                  },
+                  {
+                    "id": "t_ywa1jh3d",
+                    "color": "$color-muted-foreground",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": 1.429,
+                    "size": 14,
+                    "role": "paragraph",
+                    "text": "Say what you want to make, and an agent draws its first screens.",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "column"
+          },
+          {
+            "border": {
+              "color": "$color-ring",
+              "style": "solid",
+              "width": 1
+            },
+            "fill": "$color-muted",
+            "id": "c_ywb243tr",
+            "name": "Prompt",
+            "radius": "$radius-xl",
+            "width": "fill",
+            "children": [
+              {
+                "height": 88,
+                "id": "t_ywa1ml6i",
+                "padding": {
+                  "left": 12,
+                  "right": 12,
+                  "top": 12
+                },
+                "width": "fill",
+                "color": "$color-foreground",
+                "font": "'Figtree Variable', system-ui, sans-serif",
+                "lineHeight": 1.429,
+                "size": 14,
+                "role": "paragraph",
+                "text": "A habit tracker for students: today’s list, streaks and a weekly review",
+                "type": "text"
+              },
+              {
+                "id": "r_ywb23dvd",
+                "padding": {
+                  "bottom": 6,
+                  "left": 6,
+                  "right": 6
+                },
+                "width": "fill",
+                "crossAlign": "center",
+                "gap": 2,
+                "children": [
+                  {
+                    "height": 28,
+                    "id": "i_ywb1nnce",
+                    "name": "Add pictures or files",
+                    "radius": "$radius-md",
+                    "width": 28,
+                    "props": {
+                      "variant": "ghost",
+                      "size": "icon"
+                    },
+                    "children": [
+                      {
+                        "height": 16,
+                        "id": "img_ywb1olbc",
+                        "name": "plus",
+                        "width": 16,
+                        "alt": "",
+                        "tint": "$color-muted-foreground",
+                        "src": "assets/icons/plus.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "component": "Button",
+                    "from": "@ultrapaint/system",
+                    "type": "instance"
+                  },
+                  {
+                    "height": 28,
+                    "id": "r_ywb1s16g",
+                    "name": "Chip · New folder in Ultrapaint",
+                    "padding": {
+                      "left": 8,
+                      "right": 8
+                    },
+                    "radius": "$radius-md",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "height": 14,
+                        "id": "img_ywb1p1mb",
+                        "name": "folder",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-muted-foreground",
+                        "src": "assets/icons/folder.svg",
+                        "type": "image"
+                      },
+                      {
+                        "id": "t_ywb1qa7y",
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "New folder in Ultrapaint",
+                        "type": "text"
+                      },
+                      {
+                        "height": 14,
+                        "id": "img_ywb1ruwe",
+                        "name": "chevron-down",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-muted-foreground",
+                        "src": "assets/icons/chevron-down.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "height": 28,
+                    "id": "r_ywb1vqlo",
+                    "name": "Chip · Agent picks the look",
+                    "padding": {
+                      "left": 8,
+                      "right": 8
+                    },
+                    "radius": "$radius-md",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "id": "t_ywb1tj2o",
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "Agent picks the look",
+                        "type": "text"
+                      },
+                      {
+                        "height": 14,
+                        "id": "img_ywb1u53c",
+                        "name": "chevron-down",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-muted-foreground",
+                        "src": "assets/icons/chevron-down.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "r_ywb1wlaf",
+                    "width": "fill",
+                    "children": [],
+                    "type": "row"
+                  },
+                  {
+                    "height": 28,
+                    "id": "r_ywb200s8",
+                    "name": "Chip · Opus 5.5",
+                    "padding": {
+                      "left": 8,
+                      "right": 8
+                    },
+                    "radius": "$radius-md",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "id": "t_ywb1xn68",
+                        "color": "$color-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "Opus 5.5",
+                        "type": "text"
+                      },
+                      {
+                        "id": "t_ywb1y1qo",
+                        "opacity": 0.7,
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "High",
+                        "type": "text"
+                      },
+                      {
+                        "height": 14,
+                        "id": "img_ywb1zpuu",
+                        "name": "chevron-down",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-muted-foreground",
+                        "src": "assets/icons/chevron-down.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "fill": "$color-primary",
+                    "height": 26,
+                    "id": "r_ywb22x0e",
+                    "radius": 999,
+                    "width": 26,
+                    "align": "center",
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "height": 16,
+                        "id": "img_ywb21cxh",
+                        "name": "arrow-up",
+                        "width": 16,
+                        "alt": "",
+                        "tint": "$color-primary-foreground",
+                        "src": "assets/icons/arrow-up.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "row"
+              }
+            ],
+            "type": "column"
+          },
+          {
+            "id": "c_ywb2oiju",
+            "margin": {
+              "top": 24
+            },
+            "name": "Recent projects",
+            "width": "fill",
+            "gap": 8,
+            "children": [
+              {
+                "id": "r_ywb29evf",
+                "width": "fill",
+                "crossAlign": "center",
+                "children": [
+                  {
+                    "id": "t_ywb25nzm",
+                    "width": "fill",
+                    "color": "$color-foreground",
+                    "font": "'Cal Sans', system-ui, sans-serif",
+                    "lineHeight": 1.429,
+                    "size": 14,
+                    "tracking": "0.02em",
+                    "weight": 400,
+                    "role": "paragraph",
+                    "text": "Recent projects",
+                    "type": "text"
+                  },
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "height": 24,
+                    "id": "r_ywb28hp3",
+                    "padding": {
+                      "left": 8,
+                      "right": 6
+                    },
+                    "radius": "$radius-md",
+                    "crossAlign": "center",
+                    "gap": 4,
+                    "children": [
+                      {
+                        "id": "t_ywb265zr",
+                        "color": "$color-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "weight": 500,
+                        "role": "paragraph",
+                        "text": "Open project",
+                        "type": "text"
+                      },
+                      {
+                        "height": 14,
+                        "id": "img_ywb27nhn",
+                        "name": "chevron-down",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-foreground",
+                        "src": "assets/icons/chevron-down.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "row"
+              },
+              {
+                "border": {
+                  "color": "$color-border",
+                  "style": "solid",
+                  "width": 1
+                },
+                "fill": "$color-card",
+                "id": "c_ywb2noag",
+                "radius": "$radius-lg",
+                "width": "fill",
+                "children": [
+                  {
+                    "id": "r_ywb2fssx",
+                    "name": "Project · saloon-booking",
+                    "padding": {
+                      "bottom": 8,
+                      "left": 12,
+                      "right": 12,
+                      "top": 8
+                    },
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 12,
+                    "children": [
+                      {
+                        "id": "c_ywb2c3y9",
+                        "width": "fill",
+                        "children": [
+                          {
+                            "id": "t_ywb2a526",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "weight": 500,
+                            "role": "paragraph",
+                            "text": "saloon-booking",
+                            "type": "text"
+                          },
+                          {
+                            "id": "t_ywb2b697",
+                            "color": "$color-muted-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "~/Ultrapaint/saloon-booking",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "column"
+                      },
+                      {
+                        "height": 24,
+                        "id": "i_ywb2dtze",
+                        "name": "More",
+                        "radius": "$radius-md",
+                        "width": 24,
+                        "props": {
+                          "variant": "ghost",
+                          "size": "icon"
+                        },
+                        "children": [
+                          {
+                            "height": 14,
+                            "id": "img_ywb2egq0",
+                            "name": "ellipsis",
+                            "width": 14,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/ellipsis.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "component": "Button",
+                        "from": "@ultrapaint/system",
+                        "type": "instance"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "fill": "$color-border",
+                    "height": 1,
+                    "id": "r_ywb2g15z",
+                    "width": "fill",
+                    "children": [],
+                    "type": "row"
+                  },
+                  {
+                    "id": "r_ywb2mctn",
+                    "name": "Project · bike-shop",
+                    "padding": {
+                      "bottom": 8,
+                      "left": 12,
+                      "right": 12,
+                      "top": 8
+                    },
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 12,
+                    "children": [
+                      {
+                        "id": "c_ywb2jp99",
+                        "width": "fill",
+                        "children": [
+                          {
+                            "id": "t_ywb2hoe5",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "weight": 500,
+                            "role": "paragraph",
+                            "text": "bike-shop",
+                            "type": "text"
+                          },
+                          {
+                            "id": "t_ywb2idtv",
+                            "color": "$color-muted-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "~/Code/bike-shop",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "column"
+                      },
+                      {
+                        "height": 24,
+                        "id": "i_ywb2kk1o",
+                        "name": "More",
+                        "radius": "$radius-md",
+                        "width": 24,
+                        "props": {
+                          "variant": "ghost",
+                          "size": "icon"
+                        },
+                        "children": [
+                          {
+                            "height": 14,
+                            "id": "img_ywb2lmhn",
+                            "name": "ellipsis",
+                            "width": 14,
+                            "alt": "",
+                            "tint": "$color-muted-foreground",
+                            "src": "assets/icons/ellipsis.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "component": "Button",
+                        "from": "@ultrapaint/system",
+                        "type": "instance"
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "column"
+          }
+        ],
+        "type": "column"
+      },
+      {
+        "fill": "rgb(0 0 0 / 0.1)",
+        "height": 900,
+        "id": "r_ywb2zhr5",
+        "margin": {
+          "top": -668
+        },
+        "name": "Scrim",
+        "width": 1440,
+        "align": "center",
+        "crossAlign": "center",
+        "children": [
+          {
+            "border": {
+              "color": "$color-border",
+              "style": "solid",
+              "width": 1
+            },
+            "fill": "$color-popover",
+            "id": "c_ywb2y713",
+            "name": "Dialog",
+            "padding": 24,
+            "radius": "$radius-xl",
+            "shadow": "$shadow-overlay",
+            "width": 448,
+            "gap": 20,
+            "children": [
+              {
+                "id": "c_ywb2slca",
+                "gap": 6,
+                "children": [
+                  {
+                    "id": "t_ywb2q1sz",
+                    "color": "$color-foreground",
+                    "font": "'Cal Sans', system-ui, sans-serif",
+                    "lineHeight": 1.25,
+                    "size": 16,
+                    "tracking": "0.02em",
+                    "weight": 400,
+                    "role": "paragraph",
+                    "text": "bike-shop is already an Ultrapaint project",
+                    "type": "text"
+                  },
+                  {
+                    "id": "t_ywb2r1s7",
+                    "color": "$color-muted-foreground",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": 1.429,
+                    "size": 14,
+                    "role": "paragraph",
+                    "text": "Open it, and your prompt goes to a new chat there.",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "r_ywb2xmjj",
+                "width": "fill",
+                "align": "end",
+                "gap": 8,
+                "children": [
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "fill": "transparent",
+                    "height": 28,
+                    "id": "i_ywb2td9k",
+                    "padding": {
+                      "left": 10,
+                      "right": 10
+                    },
+                    "radius": "$radius-md",
+                    "props": {
+                      "variant": "outline",
+                      "size": "sm"
+                    },
+                    "text": "Choose another folder",
+                    "component": "Button",
+                    "from": "@ultrapaint/system",
+                    "type": "instance"
+                  },
+                  {
+                    "height": 28,
+                    "id": "i_ywb2va7m",
+                    "padding": {
+                      "left": 10,
+                      "right": 10
+                    },
+                    "radius": "$radius-md",
+                    "props": {
+                      "variant": "primary",
+                      "size": "sm"
+                    },
+                    "text": "Open bike-shop",
+                    "component": "Button",
+                    "from": "@ultrapaint/system",
+                    "type": "instance"
+                  }
+                ],
+                "type": "row"
+              }
+            ],
+            "type": "column"
+          }
+        ],
+        "type": "row"
+      }
+    ],
+    "direction": "column",
+    "type": "page"
+  }
+}
