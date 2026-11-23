@@ -442,8 +442,9 @@ export const removeScratch = Effect.fn("removeScratch")(function* (
 });
 
 /**
- * The lab's long jobs running now (`lab-*` units), which may be reading what `tidy` removes. It
- * fails when systemd cannot be asked, so nothing is removed on a guess.
+ * The lab's long jobs running now (`lab-*` services; a timer that has fired is no job), which may
+ * be reading what `tidy` removes. It fails when systemd cannot be asked, so nothing is removed on
+ * a guess.
  */
 export const runningLabJobs = Effect.gen(function* () {
   const { data } = yield* EvalsConfig;
@@ -451,6 +452,7 @@ export const runningLabJobs = Effect.gen(function* () {
     "--user",
     "list-units",
     "--state=active",
+    "--type=service",
     "--plain",
     "--no-legend",
     "lab-*",
