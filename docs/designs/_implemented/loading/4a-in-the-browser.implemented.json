@@ -1,0 +1,292 @@
+{
+  "kind": "page",
+  "notes": [],
+  "root": {
+    "fill": "$color-canvas",
+    "id": "root",
+    "padding": {
+      "bottom": 32,
+      "top": 310
+    },
+    "align": "start",
+    "crossAlign": "center",
+    "children": [
+      {
+        "id": "c_7nucn1",
+        "name": "Splash",
+        "width": 440,
+        "gap": 24,
+        "children": [
+          {
+            "id": "c_qsulx6",
+            "name": "Header",
+            "width": "fill",
+            "crossAlign": "center",
+            "gap": 32,
+            "children": [
+              {
+                "height": 30,
+                "id": "img_shtx4g",
+                "name": "Ultrapaint",
+                "width": 166,
+                "alt": "Ultrapaint",
+                "tint": "$color-foreground",
+                "src": "assets/icons/ultrapaint-lockup.svg",
+                "type": "image"
+              },
+              {
+                "id": "c_bt95lg",
+                "width": "fill",
+                "crossAlign": "center",
+                "gap": 4,
+                "children": [
+                  {
+                    "id": "t_h7g84a",
+                    "align": "center",
+                    "color": "$color-foreground",
+                    "font": "'Cal Sans', system-ui, sans-serif",
+                    "lineHeight": 1.2,
+                    "size": 20,
+                    "tracking": "0.01em",
+                    "weight": 400,
+                    "level": 1,
+                    "role": "heading",
+                    "text": "Opening bike-shop",
+                    "type": "text"
+                  },
+                  {
+                    "id": "t_ke86x4",
+                    "align": "center",
+                    "color": "$color-muted-foreground",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": 1.333,
+                    "size": 12,
+                    "role": "paragraph",
+                    "text": "~/Code/bike-shop",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "column"
+          },
+          {
+            "id": "c_cb44b8th",
+            "name": "Progress",
+            "width": "fill",
+            "gap": 24,
+            "children": [
+              {
+                "id": "c_663hxy",
+                "width": "fill",
+                "gap": 8,
+                "children": [
+                  {
+                    "height": 14,
+                    "id": "c_cb43zuy7",
+                    "name": "Bar",
+                    "width": "fill",
+                    "children": [
+                      {
+                        "fill": "$color-border",
+                        "height": 6,
+                        "id": "r_cb43v7mr",
+                        "margin": {
+                          "top": 4
+                        },
+                        "name": "Track",
+                        "radius": 999,
+                        "width": "fill",
+                        "children": [],
+                        "type": "row"
+                      },
+                      {
+                        "height": 6,
+                        "id": "r_cb43yto0",
+                        "margin": {
+                          "top": -6
+                        },
+                        "name": "Paint",
+                        "width": "fill",
+                        "crossAlign": "start",
+                        "children": [
+                          {
+                            "fill": "$color-foreground",
+                            "height": 6,
+                            "id": "r_cb43wp33",
+                            "name": "Stroke",
+                            "radius": 999,
+                            "width": 145,
+                            "children": [],
+                            "type": "row"
+                          },
+                          {
+                            "height": 34,
+                            "id": "img_cb43x55y",
+                            "margin": {
+                              "left": -13,
+                              "top": -22
+                            },
+                            "name": "Brush",
+                            "width": 27,
+                            "alt": "",
+                            "tint": "$color-foreground",
+                            "src": "assets/icons/splash-brush.svg",
+                            "type": "image"
+                          }
+                        ],
+                        "type": "row"
+                      }
+                    ],
+                    "type": "column"
+                  },
+                  {
+                    "id": "t_rd3cxa",
+                    "color": "$color-muted-foreground",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": 1.333,
+                    "size": 12,
+                    "role": "paragraph",
+                    "text": "About 1 s left",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "c_pkddh6",
+                "name": "Steps",
+                "width": "fill",
+                "children": [
+                  {
+                    "height": 28,
+                    "id": "r_cb443z30",
+                    "name": "Step, done",
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 8,
+                    "children": [
+                      {
+                        "height": 14,
+                        "id": "img_cb440uiz",
+                        "name": "circle-check",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-muted-foreground",
+                        "src": "assets/icons/circle-check.svg",
+                        "type": "image"
+                      },
+                      {
+                        "id": "t_cb441nz3",
+                        "width": "fill",
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "Loading the editor",
+                        "type": "text"
+                      },
+                      {
+                        "id": "t_cb442hby",
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.333,
+                        "size": 12,
+                        "role": "paragraph",
+                        "text": "0.3 s",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "height": 28,
+                    "id": "r_cb447uts",
+                    "name": "Step, now",
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 8,
+                    "children": [
+                      {
+                        "height": 14,
+                        "id": "img_cb444sw8",
+                        "name": "loader-circle",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-foreground",
+                        "src": "assets/icons/loader-circle.svg",
+                        "type": "image"
+                      },
+                      {
+                        "id": "t_cb445m2c",
+                        "width": "fill",
+                        "color": "$color-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "weight": 500,
+                        "role": "paragraph",
+                        "text": "Reading the project",
+                        "type": "text"
+                      },
+                      {
+                        "id": "t_cb446nhh",
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.333,
+                        "size": 12,
+                        "role": "paragraph",
+                        "text": "0.2 s",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "height": 28,
+                    "id": "r_cb44ax7n",
+                    "name": "Step, next",
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 8,
+                    "children": [
+                      {
+                        "height": 14,
+                        "id": "img_cb448rgj",
+                        "name": "circle",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-muted-foreground",
+                        "src": "assets/icons/circle.svg",
+                        "type": "image"
+                      },
+                      {
+                        "id": "t_cb449ieq",
+                        "width": "fill",
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "Drawing the canvas",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "column"
+          }
+        ],
+        "type": "column"
+      }
+    ],
+    "direction": "column",
+    "type": "page"
+  }
+}

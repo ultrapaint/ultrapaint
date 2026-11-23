@@ -1,0 +1,324 @@
+{
+  "kind": "page",
+  "notes": [],
+  "root": {
+    "fill": "$color-canvas",
+    "id": "root",
+    "padding": {
+      "bottom": 32,
+      "top": 310
+    },
+    "align": "start",
+    "crossAlign": "center",
+    "children": [
+      {
+        "id": "c_7nucn1",
+        "name": "Splash",
+        "width": 440,
+        "gap": 24,
+        "children": [
+          {
+            "id": "c_qsulx6",
+            "name": "Header",
+            "width": "fill",
+            "crossAlign": "center",
+            "gap": 32,
+            "children": [
+              {
+                "height": 30,
+                "id": "img_shtx4g",
+                "name": "Ultrapaint",
+                "width": 166,
+                "alt": "Ultrapaint",
+                "tint": "$color-foreground",
+                "src": "assets/icons/ultrapaint-lockup.svg",
+                "type": "image"
+              },
+              {
+                "id": "c_bt95lg",
+                "width": "fill",
+                "crossAlign": "center",
+                "gap": 4,
+                "children": [
+                  {
+                    "id": "t_h7g84a",
+                    "align": "center",
+                    "color": "$color-foreground",
+                    "font": "'Cal Sans', system-ui, sans-serif",
+                    "lineHeight": 1.2,
+                    "size": 20,
+                    "tracking": "0.01em",
+                    "weight": 400,
+                    "level": 1,
+                    "role": "heading",
+                    "text": "Opening bike-shop",
+                    "type": "text"
+                  },
+                  {
+                    "id": "t_ke86x4",
+                    "align": "center",
+                    "color": "$color-muted-foreground",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": 1.333,
+                    "size": 12,
+                    "role": "paragraph",
+                    "text": "naf-mini:~/Code/bike-shop",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "column"
+          },
+          {
+            "id": "c_cb32diys",
+            "name": "Progress",
+            "width": "fill",
+            "gap": 24,
+            "children": [
+              {
+                "id": "c_pkddh6",
+                "name": "Steps",
+                "width": "fill",
+                "children": [
+                  {
+                    "height": 28,
+                    "id": "r_cb31ukyn",
+                    "name": "Step, done",
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 8,
+                    "children": [
+                      {
+                        "height": 14,
+                        "id": "img_cb31r0gt",
+                        "name": "circle-check",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-muted-foreground",
+                        "src": "assets/icons/circle-check.svg",
+                        "type": "image"
+                      },
+                      {
+                        "id": "t_cb31s6fd",
+                        "width": "fill",
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "Connecting to naf-mini",
+                        "type": "text"
+                      },
+                      {
+                        "id": "t_cb31tb46",
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.333,
+                        "size": 12,
+                        "role": "paragraph",
+                        "text": "1.1 s",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "c_cb320irf",
+                    "name": "Step, now",
+                    "width": "fill",
+                    "children": [
+                      {
+                        "height": 28,
+                        "id": "r_cb31yg27",
+                        "name": "Row",
+                        "width": "fill",
+                        "crossAlign": "center",
+                        "gap": 8,
+                        "children": [
+                          {
+                            "height": 14,
+                            "id": "img_cb31vjip",
+                            "name": "loader-circle",
+                            "width": 14,
+                            "alt": "",
+                            "tint": "$color-foreground",
+                            "src": "assets/icons/loader-circle.svg",
+                            "type": "image"
+                          },
+                          {
+                            "id": "t_cb31wbeo",
+                            "width": "fill",
+                            "color": "$color-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.429,
+                            "size": 14,
+                            "weight": 500,
+                            "role": "paragraph",
+                            "text": "Starting ultrapaint there",
+                            "type": "text"
+                          },
+                          {
+                            "id": "t_cb31x9ys",
+                            "color": "$color-muted-foreground",
+                            "font": "'Figtree Variable', system-ui, sans-serif",
+                            "lineHeight": 1.333,
+                            "size": 12,
+                            "role": "paragraph",
+                            "text": "3.2 s",
+                            "type": "text"
+                          }
+                        ],
+                        "type": "row"
+                      },
+                      {
+                        "id": "t_cb31zzz9",
+                        "padding": {
+                          "left": 22
+                        },
+                        "color": "$color-muted-foreground",
+                        "font": "'Geist Mono Variable', ui-monospace, monospace",
+                        "lineHeight": 1.667,
+                        "size": 12,
+                        "role": "paragraph",
+                        "text": "ultrapaint 0.1.5 · reading the settings",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "column"
+                  },
+                  {
+                    "height": 28,
+                    "id": "r_cb323osb",
+                    "name": "Step, next",
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 8,
+                    "children": [
+                      {
+                        "height": 14,
+                        "id": "img_cb321wh8",
+                        "name": "circle",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-muted-foreground",
+                        "src": "assets/icons/circle.svg",
+                        "type": "image"
+                      },
+                      {
+                        "id": "t_cb322has",
+                        "width": "fill",
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "Loading the editor",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "height": 28,
+                    "id": "r_cb326vdv",
+                    "name": "Step, next",
+                    "width": "fill",
+                    "crossAlign": "center",
+                    "gap": 8,
+                    "children": [
+                      {
+                        "height": 14,
+                        "id": "img_cb324cwm",
+                        "name": "circle",
+                        "width": 14,
+                        "alt": "",
+                        "tint": "$color-muted-foreground",
+                        "src": "assets/icons/circle.svg",
+                        "type": "image"
+                      },
+                      {
+                        "id": "t_cb325fl5",
+                        "width": "fill",
+                        "color": "$color-muted-foreground",
+                        "font": "'Figtree Variable', system-ui, sans-serif",
+                        "lineHeight": 1.429,
+                        "size": 14,
+                        "role": "paragraph",
+                        "text": "Reading the project",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "r_cb32cfip",
+                "name": "Footer",
+                "width": "fill",
+                "crossAlign": "center",
+                "gap": 8,
+                "children": [
+                  {
+                    "height": 28,
+                    "id": "i_cb327315",
+                    "padding": {
+                      "left": 10,
+                      "right": 10
+                    },
+                    "radius": "$radius-md",
+                    "props": {
+                      "variant": "ghost",
+                      "size": "sm"
+                    },
+                    "text": "Show log",
+                    "component": "Button",
+                    "from": "@ultrapaint/system",
+                    "type": "instance"
+                  },
+                  {
+                    "id": "r_cb329fe9",
+                    "width": "fill",
+                    "children": [],
+                    "type": "row"
+                  },
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "fill": "transparent",
+                    "height": 28,
+                    "id": "i_cb32a8x5",
+                    "padding": {
+                      "left": 10,
+                      "right": 10
+                    },
+                    "radius": "$radius-md",
+                    "props": {
+                      "variant": "outline",
+                      "size": "sm"
+                    },
+                    "text": "Cancel",
+                    "component": "Button",
+                    "from": "@ultrapaint/system",
+                    "type": "instance"
+                  }
+                ],
+                "type": "row"
+              }
+            ],
+            "type": "column"
+          }
+        ],
+        "type": "column"
+      }
+    ],
+    "direction": "column",
+    "type": "page"
+  }
+}
