@@ -2,7 +2,7 @@
 id: g95
 title: Mono on a control's label because its text is an id
 kind: missing
-status: open
+status: testing
 found: 2026-11-23
 source: the person, on fx-opus-new23 (decisions/new23)
 skill: [references/typography.md]
@@ -26,3 +26,12 @@ the mono | The sans; the mono for the value it names, where that value is read".
 item in the mono; ids in the incident text may stay in it.
 
 **Result.**
+- `fx-opus-new23c`: 2026-11-23, `candidates/new23` (the mono for code, and ids and timers read or
+  copied as values; a control's label in the sans), `fresh-status-page`, 2 runs, Opus in Claude
+  Code designing: no mono anywhere in 2 of 2, the region tabs in the sans.
+- Decision of 2026-11-23 (`decisions/new23c`): right, but wider: "the using of the mono font is
+  something that should be really weighted in every ui element, not only in this tab case. The mono
+  font is something AI likes to use but 99% should not be used". Not shipped as written; a wider
+  candidate (`candidates/g95-wide`: the mono for code only, ids, times, figures, labels, tabs,
+  buttons, captions and cells in the sans, its tabular figures in a column) is tested on
+  `fresh-status-page`, `fresh-audit-log` and `fresh-docs-webhooks`.

@@ -348,8 +348,10 @@ says what the content already shows is noise: remove it, rather than shrinking o
 
 ### Accessibility
 
-- Contrast meets AA: text `4.5:1`; large text (`24px`, or `18.7px` bold), icons, field borders
-  and focus rings `3:1`. Compute muted text on tinted surfaces.
+- Contrast meets AA: text `4.5:1`; large text (`24px`, or `18.7px` bold), icons and focus rings
+  `3:1`. A field's or an outline button's border is `3:1` only when nothing else shows it is there
+  (no fill, no value, no label in or beside it); else it is a quiet line, about `1.3–1.6:1`.
+  Compute muted text on tinted surfaces.
 - Colour is never the only signal: a word or an icon beside it.
 - Focus is visible. Targets are `24×24px` at least (`44×44px` on touch), reached by padding (a
   checkbox, a chevron), never overlapping.

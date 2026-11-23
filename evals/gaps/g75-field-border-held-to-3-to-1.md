@@ -2,7 +2,7 @@
 id: g75
 title: A field's border held to 3:1
 kind: missing
-status: testing
+status: done
 found: 2026-11-11
 source: the editor's fields and selects (Settings), commit 0da4a35b, corrected by the person
 skill: [SKILL.md, references/accessibility.md, references/components.md]
@@ -46,3 +46,12 @@ at 1.4:1 with no fill and no label.
   person, choosing between them: "In both I also don't like the heavy grey of the buttons border"
   (`decisions/new23`). The same fault as the fields', on an outline button: a border held to 3:1
   where the button's label and shape already show it is there.
+- `fx-opus-new23c`: 2026-11-23, `candidates/new23` (the skill on main with this gap's rule, widened
+  to outline buttons: a field's or an outline button's border `3:1` only when nothing else shows it
+  is there, else a quiet line about `1.3–1.6:1`; the same sentence in `references/accessibility.md`;
+  and g95's first rule), `fresh-recipe-cooking`, 2 runs, Opus in Claude Code designing: no heavy
+  outline in 2 of 2; Back, Pause and +1 min drawn as quiet filled buttons, the empty checkboxes alone
+  keeping a dark edge, their border their only sign.
+- Decision of 2026-11-23 (`decisions/new23c`): ship, as the agent called it, closing the gap on these
+  runs instead of the recall its **Test.** named. Shipped in `SKILL.md`, Accessibility, and
+  `references/accessibility.md`, Contrast.

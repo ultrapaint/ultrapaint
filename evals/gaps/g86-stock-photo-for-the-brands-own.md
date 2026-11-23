@@ -48,3 +48,6 @@ one fails.
   no placeholder.
 - Decision of 2026-11-22 (`decisions/new20-ship`): shipped, with the clause "A chart, a diagram or
   a screen of the product the page can draw is drawn, not left as a placeholder".
+- `fx-opus-new23b`: 2026-11-23, `fresh-video-call`, 2 runs, Opus in Claude Code, the skill on main:
+  the shared slide ("Q1: three bets") drawn as grey placeholder bars in run 1, drawn whole in run 2.
+  The clause held in 1 of 2 on a picture of the product's own content; the person chose run 2.

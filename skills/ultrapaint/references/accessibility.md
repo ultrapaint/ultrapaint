@@ -7,7 +7,8 @@ the user what fails.
 ## Contrast
 
 Muted and placeholder text fail first, then a field's border on a tinted surface: compute those
-pairs before any other.
+pairs before any other. A border held to `3:1` is one that alone shows a field or a button is
+there; one beside a fill, a value, a label or a chevron is a quiet line.
 
 ## A second signal beside colour
 
