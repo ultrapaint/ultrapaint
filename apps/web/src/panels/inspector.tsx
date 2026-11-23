@@ -99,6 +99,7 @@ import {
 } from "./inspector-fields.tsx";
 import {
   InstanceLayerNote,
+  InstanceOverrideMarks,
   InstanceOverridesSection,
   MainComponentRows,
 } from "./inspector-instance.tsx";
@@ -139,38 +140,49 @@ export const Inspector = () => {
     <InspectedKey.Provider
       value={`${frame}#${nodes.map((n) => n.id).join(",")}`}
     >
-      <div className="flex flex-col pb-4">
-        <Header frame={frame} node={node} nodes={nodes} />
-        {nodes.length === 1 && <InstanceLayerNote frame={frame} node={node} />}
-        {nodes.length === 1 && !layer && (
-          <IsolatedComponent frame={frame} node={node} />
-        )}
-        {/* A layer of an instance has no variations of its own (ADR 0114). */}
-        {nodes.length === 1 && !layer && (
-          <VariationsSection frame={frame} node={node} />
-        )}
-        {node.type === "page" && nodes.length === 1 && (
-          <PageSection frame={frame} />
-        )}
-        {nodes.length === 1 && !layer && (
-          <BehaviourSection frame={frame} node={node} />
-        )}
-        {nodes.length === 1 && <BreakpointSection frame={frame} node={node} />}
-        {nodes.length === 1 && (
-          <InstanceOverridesSection frame={frame} node={node} />
-        )}
-        {oneComponent(nodes) && <InstanceSection frame={frame} nodes={nodes} />}
-        {allOf(nodes, "text") && <TextSection nodes={nodes} />}
-        {allOf(nodes, "image") && <ImageSection nodes={nodes} />}
-        {allStacks(nodes) && <LayoutSection nodes={nodes} />}
-        <SizeSection frame={frame} nodes={nodes} />
-        <SpacingSection nodes={nodes} write={writeSides} />
-        <AppearanceSection nodes={nodes} />
-        {/* Only a page's node is in the prototype: nothing would follow a link anywhere else. */}
-        {node.type !== "page" && hasPrototypeLinks(frameRefOf(frame)) && (
-          <LinkSection nodes={nodes} />
-        )}
-      </div>
+      <InstanceOverrideMarks
+        frame={frame}
+        node={nodes.length === 1 ? node : null}
+      >
+        <div className="flex flex-col pb-4">
+          <Header frame={frame} node={node} nodes={nodes} />
+          {nodes.length === 1 && (
+            <InstanceLayerNote frame={frame} node={node} />
+          )}
+          {nodes.length === 1 && !layer && (
+            <IsolatedComponent frame={frame} node={node} />
+          )}
+          {/* A layer of an instance has no variations of its own (ADR 0114). */}
+          {nodes.length === 1 && !layer && (
+            <VariationsSection frame={frame} node={node} />
+          )}
+          {node.type === "page" && nodes.length === 1 && (
+            <PageSection frame={frame} />
+          )}
+          {nodes.length === 1 && !layer && (
+            <BehaviourSection frame={frame} node={node} />
+          )}
+          {nodes.length === 1 && (
+            <BreakpointSection frame={frame} node={node} />
+          )}
+          {nodes.length === 1 && (
+            <InstanceOverridesSection frame={frame} node={node} />
+          )}
+          {oneComponent(nodes) && (
+            <InstanceSection frame={frame} nodes={nodes} />
+          )}
+          {allOf(nodes, "text") && <TextSection nodes={nodes} />}
+          {allOf(nodes, "image") && <ImageSection nodes={nodes} />}
+          {allStacks(nodes) && <LayoutSection nodes={nodes} />}
+          <SizeSection frame={frame} nodes={nodes} />
+          <SpacingSection nodes={nodes} write={writeSides} />
+          <AppearanceSection nodes={nodes} />
+          {/* Only a page's node is in the prototype: nothing would follow a link anywhere else. */}
+          {node.type !== "page" && hasPrototypeLinks(frameRefOf(frame)) && (
+            <LinkSection nodes={nodes} />
+          )}
+        </div>
+      </InstanceOverrideMarks>
     </InspectedKey.Provider>
   );
 };
@@ -575,7 +587,7 @@ const InstanceSection = ({
           <MainComponentRows frame={frame} node={node} />
         ) : null}
         {ownText ? (
-          <Row label="Text">
+          <Row fields={["text"]} label="Text">
             <TextInput
               onChange={(v) => set("text", v === "" ? null : v)}
               {...shownAs(
@@ -622,7 +634,7 @@ const ImageSection = ({ nodes }: { nodes: readonly ImageNode[] }) => {
   const src = sharedOf(nodes, (n) => n.src);
   return (
     <Section title="Image">
-      <Row label="Source">
+      <Row fields={["src"]} label="Source">
         <TextInput
           onChange={(v) => set("src", v)}
           {...shownAs(
@@ -646,13 +658,13 @@ const ImageSection = ({ nodes }: { nodes: readonly ImageNode[] }) => {
           type="file"
         />
       </Row>
-      <Row label="Alt">
+      <Row fields={["alt"]} label="Alt">
         <TextInput
           onChange={(v) => set("alt", v)}
           {...shownAs(sharedOf(nodes, (n) => n.alt))}
         />
       </Row>
-      <Row label="Fit">
+      <Row fields={["fit"]} label="Fit">
         <Segmented
           onChange={(v) => set("fit", v)}
           options={[
@@ -663,7 +675,7 @@ const ImageSection = ({ nodes }: { nodes: readonly ImageNode[] }) => {
           value={nullIfMixed(sharedOf(nodes, (n) => n.fit ?? "cover"))}
         />
       </Row>
-      <Row label="Tint">
+      <Row fields={["tint"]} label="Tint">
         <ColorField
           field={TOKEN_FIELDS.tint}
           nodes={nodes}
@@ -681,7 +693,7 @@ const LinkSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
   const shared = sharedOf(nodes, (n) => n.link);
   return (
     <Section title="Prototype">
-      <Row label="Goes to">
+      <Row fields={["link"]} label="Goes to">
         <LinkField
           link={shared === MIXED ? undefined : (shared ?? undefined)}
           mixed={shared === MIXED}

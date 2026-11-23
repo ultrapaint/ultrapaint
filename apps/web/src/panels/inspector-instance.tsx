@@ -13,12 +13,14 @@ import {
 } from "@ultrapaint/design-document/instance-layers";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { Component, RotateCcw, Variable } from "lucide-react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { CutText } from "../components/cut-text.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import {
   applyToMain,
   canBeProperty,
+  fieldName,
   fieldsOf,
   makeProperty,
   type OverriddenField,
@@ -32,7 +34,11 @@ import { appComponentOf, useComponents } from "../state/components.ts";
 import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { isolate } from "../state/isolation.ts";
-import { Row, Section } from "./inspector-fields.tsx";
+import {
+  InstanceOverrideMarksContext,
+  Row,
+  Section,
+} from "./inspector-fields.tsx";
 
 /**
  * The instance a layer is drawn by, as the frame's document and the components' files hold it
@@ -91,7 +97,7 @@ const shown = (value: JsonValue): string => {
 
 /** A field's name as a row says it, with the breakpoint it is set from. */
 const fieldLabel = ({ at, field }: OverriddenField) =>
-  at === null ? field : `${field} · ${at}`;
+  at === null ? fieldName(field) : `${fieldName(field)} · ${at}`;
 
 /** A layer's instance override on this instance: each field given back, or made a property. */
 export const InstanceOverridesSection = ({
@@ -214,5 +220,43 @@ export const MainComponentRows = ({
         </Row>
       ) : null}
     </>
+  );
+};
+
+/**
+ * Marks every field of the inspector the layer's instance override sets, and gives each back from
+ * its mark (ADR 0114): what is inspected inside it, when it is one layer of an instance.
+ */
+export const InstanceOverrideMarks = ({
+  children,
+  frame,
+  node,
+}: {
+  children: ReactNode;
+  frame: string;
+  node: DesignNode | null;
+}) => {
+  const seen = useSeen();
+  const found =
+    node && isInstanceLayer(node.id)
+      ? overriddenOn(frame, node.id, seen)
+      : null;
+  const fields = fieldsOf(found?.over);
+  const marks =
+    node && fields.length > 0
+      ? {
+          fields: new Set(fields.map((f) => f.field)),
+          reset: (names: readonly string[]) =>
+            resetInstanceOverride(
+              frame,
+              node.id,
+              fields.filter((f) => names.includes(f.field))
+            ),
+        }
+      : null;
+  return (
+    <InstanceOverrideMarksContext.Provider value={marks}>
+      {children}
+    </InstanceOverrideMarksContext.Provider>
   );
 };

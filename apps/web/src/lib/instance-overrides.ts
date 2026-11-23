@@ -75,13 +75,38 @@ export const overriddenOn = (
   return { instance, key, over: instance.overrides?.[key] };
 };
 
-/** A field of one layer's instance override, a breakpoint's apart: what the inspector lists. */
+/**
+ * A field of one layer's instance override, a breakpoint's apart: what the inspector lists and
+ * marks. A nested instance's prop is `props.<name>`.
+ */
 export interface OverriddenField {
   /** The breakpoint it is set from; null for the layer's own. */
   readonly at: string | null;
   readonly field: string;
   readonly value: JsonValue;
 }
+
+/** What a nested instance's prop is called among the fields: `props.label`. */
+const PROPS = "props.";
+
+/** The fields one set of an instance override sets, a nested instance's props one by one. */
+const entriesOf = (
+  set: Readonly<Record<string, unknown>>,
+  at: string | null
+): OverriddenField[] =>
+  Object.entries(set).flatMap(([field, value]): OverriddenField[] => {
+    if (field === "at") {
+      return [];
+    }
+    if (field === "props" && isRecord(value)) {
+      return Object.entries(value).map(([name, prop]) => ({
+        at,
+        field: `${PROPS}${name}`,
+        value: prop as JsonValue,
+      }));
+    }
+    return [{ at, field, value: value as JsonValue }];
+  });
 
 /** The fields one layer's instance override sets, its own first, then each breakpoint's. */
 export const fieldsOf = (
@@ -90,21 +115,20 @@ export const fieldsOf = (
   if (!over) {
     return [];
   }
-  const { at, ...own } = over as Record<string, JsonValue>;
-  const fields: OverriddenField[] = Object.entries(own).map(
-    ([field, value]) => ({ at: null, field, value })
-  );
-  if (isRecord(at)) {
-    for (const [name, set] of Object.entries(at)) {
-      if (isRecord(set)) {
-        for (const [field, value] of Object.entries(set)) {
-          fields.push({ at: name, field, value: value as JsonValue });
-        }
-      }
-    }
-  }
-  return fields;
+  const { at } = over;
+  return [
+    ...entriesOf(over, null),
+    ...(isRecord(at)
+      ? Object.entries(at).flatMap(([name, set]) =>
+          isRecord(set) ? entriesOf(set, name) : []
+        )
+      : []),
+  ];
 };
+
+/** How the inspector names an overridden field: a nested instance's prop by its own name. */
+export const fieldName = (field: string) =>
+  field.startsWith(PROPS) ? field.slice(PROPS.length) : field;
 
 /** Fields of a layer's instance override given back to the main component, in one undo step. */
 export const resetInstanceOverride = (
@@ -112,22 +136,38 @@ export const resetInstanceOverride = (
   layerId: string,
   fields: readonly Pick<OverriddenField, "at" | "field">[]
 ) => {
-  const byAt = new Map<string | null, Record<string, null>>();
+  const sets = new Map<string | null, Record<string, null>>();
+  const props = new Map<string | null, Record<string, null>>();
   for (const { at, field } of fields) {
-    byAt.set(at, { ...byAt.get(at), [field]: null });
+    if (field.startsWith(PROPS)) {
+      props.set(at, { ...props.get(at), [fieldName(field)]: null });
+    } else {
+      sets.set(at, { ...sets.get(at), [field]: null });
+    }
   }
+  const atOf = (at: string | null) => (at === null ? {} : { at });
   return applyEdits(
     [
       {
         doc: docOfFrame(frame, current().canvas),
-        ops: [...byAt].map(
-          ([at, set]): DocOp => ({
-            id: layerId,
-            op: "update",
-            set,
-            ...(at !== null && { at }),
-          })
-        ),
+        ops: [
+          ...[...sets].map(
+            ([at, set]): DocOp => ({
+              id: layerId,
+              op: "update",
+              set,
+              ...atOf(at),
+            })
+          ),
+          ...[...props].map(
+            ([at, given]): DocOp => ({
+              id: layerId,
+              op: "setProps",
+              props: given,
+              ...atOf(at),
+            })
+          ),
+        ],
       },
     ],
     fields.length > 1 ? "Reset instance overrides" : "Reset instance override"

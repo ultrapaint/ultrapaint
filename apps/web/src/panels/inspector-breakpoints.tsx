@@ -221,7 +221,7 @@ export const BreakpointSection = ({
           </Tooltip>
         </Row>
       ))}
-      <Row label="Shown at">
+      <Row fields={["hidden"]} label="Shown at">
         <OptionSelect
           onChange={(v) => showByChoice(frame, own, v)}
           options={visibilityOptions(breakpoints, visibility)}
@@ -229,7 +229,7 @@ export const BreakpointSection = ({
         />
       </Row>
       {editing === null ? null : (
-        <Row label="Order">
+        <Row fields={["order"]} label="Order">
           <Segmented
             onChange={(v) => set("order", ORDER_VALUE[v])}
             options={[...ORDER_OPTIONS]}

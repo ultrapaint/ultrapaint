@@ -90,17 +90,67 @@ export const Section = ({
  * A row of a section: its label in a column of its own, muted, and its controls; two fields share
  * the row half and half. A row without a label lines its controls up under the ones above.
  */
+/**
+ * The fields of the layer inspected that its instance overrides (ADR 0114), with a breakpoint's,
+ * and how some of them are given back to the main component; null while what is inspected is no
+ * layer of an instance, or one with none.
+ */
+export interface InstanceOverrideMarks {
+  readonly fields: ReadonlySet<string>;
+  readonly reset: (fields: readonly string[]) => void;
+}
+
+export const InstanceOverrideMarksContext =
+  createContext<InstanceOverrideMarks | null>(null);
+
+/**
+ * A mark in the component colour on what this instance overrides of `fields`, which gives them
+ * back to the main component when pressed; nothing where it overrides none of them.
+ */
+export const OverrideMark = ({
+  fields,
+  label,
+}: {
+  fields: readonly string[];
+  label: string;
+}) => {
+  const marks = useContext(InstanceOverrideMarksContext);
+  const changed = fields.filter((f) => marks?.fields.has(f));
+  if (!marks || changed.length === 0) {
+    return null;
+  }
+  return (
+    <IconButton
+      className="size-4 shrink-0"
+      data-overridden={changed.join(" ")}
+      onClick={() => marks.reset(changed)}
+      size="icon-sm"
+      tooltip={`${label}: changed on this instance. Reset to the main component`}
+    >
+      <span className="size-1.5 rounded-full bg-component" />
+    </IconButton>
+  );
+};
+
 export const Row = ({
   children,
+  fields,
   label,
 }: {
   children: ReactNode;
+  /** The node's fields the row sets, marked where the instance overrides them (ADR 0114). */
+  fields?: readonly string[];
   label?: string;
 }) => (
   <div className="grid min-h-7 grid-cols-[72px_minmax(0,1fr)] items-center gap-x-2">
-    <CutText className="truncate font-body-small text-muted-foreground">
-      {label}
-    </CutText>
+    <div className="flex min-w-0 items-center gap-0.5">
+      <CutText className="truncate font-body-small text-muted-foreground">
+        {label}
+      </CutText>
+      {fields ? (
+        <OverrideMark fields={fields} label={label ?? fields.join(", ")} />
+      ) : null}
+    </div>
     <div className="flex min-w-0 items-center gap-2">{children}</div>
   </div>
 );

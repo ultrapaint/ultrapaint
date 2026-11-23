@@ -62,7 +62,7 @@ const withBorder = (
 /** Opacity and corner radius: what every node has, set or not. */
 const LookSection = ({ nodes }: { nodes: readonly DesignNode[] }) => (
   <Section title="Appearance">
-    <Row label="Opacity">
+    <Row fields={["opacity"]} label="Opacity">
       <ValueField
         onChange={(v) => set("opacity", opacityOf(v))}
         options={OPACITY_OPTIONS}
@@ -72,7 +72,7 @@ const LookSection = ({ nodes }: { nodes: readonly DesignNode[] }) => (
         )}
       />
     </Row>
-    <Row label="Radius">
+    <Row fields={["radius"]} label="Radius">
       <NodeValueField
         field={TOKEN_FIELDS.radius}
         nodes={nodes}
@@ -102,7 +102,7 @@ const FillSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
       title="Fill"
     >
       {filled || adding ? (
-        <Row label="Colour">
+        <Row fields={["fill"]} label="Colour">
           <ColorField
             autoOpen={adding && !filled}
             field={TOKEN_FIELDS.fill}
@@ -147,7 +147,7 @@ const BorderSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
     >
       {bordered ? (
         <>
-          <Row label="Width">
+          <Row fields={["border"]} label="Width">
             <ValueField
               onChange={setBorder("width")}
               options={[
@@ -208,7 +208,7 @@ const ShadowSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
       title="Effects"
     >
       {shadowed || adding ? (
-        <Row label="Shadow">
+        <Row fields={["shadow"]} label="Shadow">
           <NodeValueField
             accept={(q) => CSS.supports("box-shadow", q)}
             autoOpen={adding && !shadowed}

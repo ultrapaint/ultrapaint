@@ -1,7 +1,10 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
-import { findLayer } from "@ultrapaint/design-document/instance-layers";
-import { nodeLabel } from "@ultrapaint/design-document/tree";
+import {
+  findLayer,
+  instanceLayerOf,
+} from "@ultrapaint/design-document/instance-layers";
+import { findNode, nodeLabel } from "@ultrapaint/design-document/tree";
 import type { Preview } from "@ultrapaint/preview-core/preview";
 import { X } from "lucide-react";
 import {
@@ -224,10 +227,16 @@ export const Frame = memo(
       })
     );
 
-    // A selection whose node is gone (an undo, an agent) is let go of.
+    // A selection whose node is gone (an undo, an agent) is let go of. A layer of an instance
+    // goes with its instance: its component's file may not be read yet (ADR 0114).
     useEffect(() => {
       const [lead] = selectedHere;
-      if (lead !== undefined && root && !findLayer(root, lead, appFileOf)) {
+      const layer = lead === undefined ? null : instanceLayerOf(lead);
+      const gone =
+        lead !== undefined &&
+        !findLayer(root, lead, appFileOf) &&
+        !(layer && findNode(root, layer.instance));
+      if (root && gone) {
         select(null);
       }
     }, [selectedHere, root]);
