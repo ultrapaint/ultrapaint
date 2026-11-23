@@ -86,6 +86,66 @@ describe("an app component's instance on a page (ADR 0114)", () => {
     version: 1,
   })}\n`;
 
+  /** The page with an override of the title made before the title became a property. */
+  const PAGE_HELD = `${JSON.stringify({
+    root: {
+      children: [
+        {
+          component: "Promo",
+          from: "#app",
+          id: "promo",
+          overrides: { title: { text: "Old" } },
+          props: { title: "Spring" },
+          type: "instance",
+        },
+      ],
+      id: "page",
+      type: "page",
+    },
+    version: 1,
+  })}\n`;
+
+  it.effect(
+    "gives back an instance override held from before its field became a property, the property's value kept",
+    () =>
+      Effect.gen(function* () {
+        yield* project(
+          Effect.flatMap(DocumentService, (d) =>
+            d.apply({
+              edits: [
+                {
+                  doc: "promo.page.json",
+                  ops: [
+                    {
+                      id: "promo/title",
+                      op: "update",
+                      set: { text: null },
+                    },
+                  ],
+                },
+              ],
+            })
+          )
+        );
+        const page = yield* project(
+          Effect.flatMap(DocumentService, (d) => d.get("promo.page.json"))
+        );
+        const [promo] = page.root ? childrenOf(page.root) : [];
+        assert.deepInclude(promo ?? {}, { props: { title: "Spring" } });
+        assert.notProperty(promo ?? {}, "overrides");
+      }).pipe(
+        Effect.provide(
+          ProjectTest({
+            files: {
+              "designs/components/Promo.component.json": PROMO,
+              "designs/promo.page.json": PAGE_HELD,
+            },
+          })
+        ),
+        Effect.scoped
+      )
+  );
+
   it.effect(
     "sets a layer's field that a property sets as the property, whoever edits it",
     () =>
