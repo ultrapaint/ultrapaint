@@ -190,7 +190,7 @@ export const checkFindings = (
   const onPages = new Set(rendered.map((f) => f.page)).size;
   const pageName = pageNames(pages);
   return [
-    ...mergeFound(rendered).map((f) =>
+    ...mergeFound(rendered, pageName).map((f) =>
       // A problem on one page of several names it; one two pages share names them already.
       onPages > 1 && rendered.filter((r) => sameTitle(r, f)).length === 1
         ? {

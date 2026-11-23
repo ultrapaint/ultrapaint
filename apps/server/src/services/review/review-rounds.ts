@@ -346,7 +346,11 @@ const PAGE_SUFFIX_RE = /\.page\.json$/;
  * several pages (the states of one screen) is one finding, at its most severe, naming the pages.
  * The designer fixes it once; the transcript counts it once.
  */
-export const mergeFound = (found: readonly Found[]): readonly Found[] => {
+export const mergeFound = (
+  found: readonly Found[],
+  /** How a page is named in the merged `where`: its short name unless told otherwise. */
+  pageName: (page: string) => string = shortPage
+): readonly Found[] => {
   const groups = new Map<string, Found[]>();
   for (const f of found) {
     const key = `${f.reviewer}|${f.finding.category}|${f.finding.title.trim().toLowerCase()}`;
@@ -367,7 +371,7 @@ export const mergeFound = (found: readonly Found[]): readonly Found[] => {
       ...worst,
       finding: {
         ...worst.finding,
-        where: `${worst.finding.where}, on ${pages.length} pages (${pages.map(shortPage).join(", ")})`,
+        where: `${worst.finding.where}, on ${pages.length} pages (${pages.map(pageName).join(", ")})`,
       },
     };
   });

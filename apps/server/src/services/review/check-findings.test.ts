@@ -133,6 +133,25 @@ describe("the checks' findings for the designer", () => {
     ]);
   });
 
+  it("name both pages by their whole routes when a shared fault is on two of one short name", () => {
+    const touching = {
+      box: { height: 84, width: 200, x: 0, y: 0 },
+      kind: "touching-rows" as const,
+      list: "Invoices",
+      rowHeight: 28,
+    };
+    const found = checkFindings(
+      ["/settings/billing", "/account/billing"].map((route) => ({
+        checks: { offSystem: [], rendered: [touching] },
+        file: `designs${route}.page.json`,
+        route,
+      }))
+    );
+    expect(found.map((f) => f.finding.where)).toEqual([
+      "the rows of “Invoices”, on 2 pages (/settings/billing, /account/billing)",
+    ]);
+  });
+
   it("are none when nothing was measured wrong", () => {
     expect(
       checkFindings([
