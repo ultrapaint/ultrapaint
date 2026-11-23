@@ -493,6 +493,18 @@ describe("bringing pages up to date from their code (ADR 0115)", () => {
         })
     );
 
+    it.effect(
+      "takes, named by nothing, the pages whose code changed and none not linked yet",
+      () =>
+        Effect.gen(function* () {
+          yield* behindItsCode;
+          const text = yield* textOf({ _tag: "UpdateFromCode", targets: [] });
+          assert.include(text, "- home.page.json");
+          assert.notInclude(text, "- pricing.page.json");
+          assert.notInclude(text, "- about.page.json");
+        })
+    );
+
     it.effect("refuses when every page named is up to date with its code", () =>
       Effect.gen(function* () {
         yield* behindItsCode;
@@ -635,7 +647,8 @@ describe("the editor's tools in what an agent is told", () => {
       { _tag: "Sync", source: "design" },
       { _tag: "Sync", source: "code" },
     ],
-    UpdateFromCode: [{ _tag: "UpdateFromCode", targets: [] }],
+    // The root canvas named: its pages are not linked yet, which a bare update leaves out.
+    UpdateFromCode: [{ _tag: "UpdateFromCode", targets: [""] }],
     Variations: [
       { _tag: "Variations", count: 2, target: "home.page.json#heading" },
     ],

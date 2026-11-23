@@ -395,8 +395,9 @@ ${numbered([
   /**
    * Update from code (ADR 0115): pages brought up to date from the code that draws them, each
    * rewritten in place and linked to its files again; a page not linked yet has its files found
-   * first. Named by nothing, every page whose code changed or that is not linked yet; one up to
-   * date with its code is left out, and a state's page whose base page is taken goes with it.
+   * first. Named by nothing, every page whose code changed: a page not linked yet is taken only
+   * when it, or its canvas, is named, since every draft not built yet is unlinked too (decided
+   * with the person, 2026-11-23). One up to date with its code is left out.
    */
   const updateFromCode = (words: readonly string[]) =>
     project.use(
@@ -412,11 +413,12 @@ ${numbered([
             familyOf(pages, p).some(
               (base) => base.state === undefined && picked.has(base.id)
             ));
-        const behind = pages.filter(
-          (p) =>
-            (words.length === 0 || isNamed(p)) &&
-            behindItsCode(itemByTarget.get(p.id))
-        );
+        const behind = pages.filter((p) => {
+          const item = itemByTarget.get(p.id);
+          return words.length === 0
+            ? item !== undefined && isBound(item.status) && item.codeChanged
+            : isNamed(p) && behindItsCode(item);
+        });
         // A state is a page of its own: it is taken when it is behind, and only then.
         const chosen = behind;
         if (chosen.length === 0) {

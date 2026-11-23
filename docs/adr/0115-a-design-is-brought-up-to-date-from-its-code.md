@@ -25,7 +25,8 @@ flags and offers, for a page and for a canvas.
 - **One task request, `UpdateFromCode`**, beside Implement and Adopt, written
   `/update-from-code [canvas | page…]` in the contracts' slash-command catalogue: a canvas (`""`
   for the designs directory's own) names its pages, anything else a page; none names every page
-  whose code changed or that is not linked yet. The server's page tasks write its text. Its thread
+  whose code changed, a page not linked yet only when it or its canvas is named, since every draft
+  not built yet is unlinked too. The server's page tasks write its text. Its thread
   is a `design` thread: it writes the designs directory only and reads the code, as a design
   thread may.
 - **Which pages it takes:** those whose code changed since they were implemented (*Code
