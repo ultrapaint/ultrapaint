@@ -41,7 +41,7 @@ import {
   type EachRound,
   MAX_ROUNDS,
 } from "@ultrapaint/contracts/review";
-import { Effect, Layer, Option } from "effect";
+import { Console, Effect, Layer, Option } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 import { writeBrief } from "./brief.ts";
 import { Browser } from "./browser.ts";
@@ -83,6 +83,7 @@ import { DIMENSIONS, studyAnnotate, studyBook } from "./study.ts";
 import { studyGround } from "./study-ground.ts";
 import { studyRead } from "./study-read.ts";
 import { tells } from "./tells.ts";
+import { findScratch, removeScratch, runningLabJobs } from "./tidy.ts";
 import { applyTriage, triage } from "./triage.ts";
 import { variety } from "./variety.ts";
 import { verify } from "./verify.ts";
@@ -1113,6 +1114,49 @@ const outlineCommand = Command.make(
   )
 );
 
+const tidyCommand = Command.make(
+  "tidy",
+  {
+    apply: Flag.Boolean("apply").pipe(
+      Flag.withDescription("Remove them; without it, only list them"),
+      Flag.withDefault(false)
+    ),
+  },
+  Effect.fn(function* (input) {
+    const { data } = yield* EvalsConfig;
+    const found = yield* findScratch();
+    const show = (file: string) => `  ${data.fromData(file)}`;
+    const lines = [
+      `Outside runs' own installs (reshoot installs them again): ${found.installs.length}`,
+      ...found.installs.map(show),
+      `Lab checkouts whose changes are all on main: ${found.checkouts.length}`,
+      ...found.checkouts.map(show),
+      `Jobs' logs older than 30 days: ${found.logs.length}`,
+      ...found.logs.map(show),
+      `Lab checkouts kept: ${found.kept.length}`,
+      ...found.kept.map((k) => `${show(k.path)}: ${k.why}`),
+    ];
+    yield* Console.log(lines.join("\n"));
+    if (!input.apply) {
+      yield* Console.log("Nothing removed: --apply removes them.");
+      return;
+    }
+    const running = yield* runningLabJobs;
+    if (running.length > 0) {
+      yield* Console.log(
+        `Nothing removed: ${running.join(", ")} may be reading them. Run it again once they end.`
+      );
+      return;
+    }
+    yield* removeScratch(found);
+    yield* Console.log("Removed.");
+  })
+).pipe(
+  Command.withDescription(
+    "List the data directory's scratch that nothing reads any more, and with --apply remove it (ADR 0112)"
+  )
+);
+
 const gapsCommand = Command.make("gaps", {}, listGaps).pipe(
   Command.withDescription(
     "The design gaps of evals/gaps/: id, kind, status, title and the sections recall reviews"
@@ -1523,6 +1567,7 @@ Command.make("design-evals").pipe(
     pairwiseCommand,
     varietyCommand,
     gapsCommand,
+    tidyCommand,
     recallCommand,
     verifyCommand,
     proposeCommand,

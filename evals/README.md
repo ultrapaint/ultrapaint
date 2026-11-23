@@ -33,6 +33,17 @@ corpus/, studies/, patterns/, patterns-landing/, gallery/   the studies' sources
 .work/          the servers' configurations, scratch designs directories and logs
 ```
 
+Everything outside `.work/` is a result, or what a result reads, and stays. `.work/` is scratch
+(ADR 0112): a finished outside run's own install of its packages, a lab checkout whose every change
+is on `main`, and a job's log after 30 days go once nothing reads them. The thread that made a
+checkout removes it when the round's results land; `pnpm evals tidy` lists what is left to go, and
+`--apply` removes it, refusing while a `lab-*` unit runs:
+
+```sh
+pnpm evals tidy            # what would go, and each checkout it keeps with why
+pnpm evals tidy --apply
+```
+
 ### Hosts
 
 The projects the agents design in. Each is what a user gets from `ultrapaint new`, so a round
@@ -362,7 +373,7 @@ an installed package, and the pictures showed the fallback face. Each picture wa
 faces. A screen that scrolls inside a panel (an app shell the window's height) is pictured with
 the window grown until the panel shows all it scrolls, or its pictures would stop at the fold.
 Rounds pictured before 20 November are taken again from their apps, which stay in
-`.work/outside/`, with no agent run; each run's counted marks and pairwise verdicts go with its old pictures, which
+`.work/outside/` (a run whose own install `tidy` removed is installed again first), with no agent run; each run's counted marks and pairwise verdicts go with its old pictures, which
 stay until the new ones are all taken:
 
 ```sh
