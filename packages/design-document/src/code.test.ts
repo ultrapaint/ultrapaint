@@ -214,6 +214,33 @@ describe("an app component's instance overrides (ADR 0114)", () => {
     expect(code()).toContain('title="Orders"');
   });
 
+  it("keep apart two layers of one name, by the second's id", () => {
+    const twice = toCode(
+      {
+        ...shell,
+        overrides: { a_one: { fill: "red" }, b_two: { fill: "blue" } },
+        props: {},
+      } as DesignNode,
+      none,
+      {
+        fileOf: () =>
+          ({
+            ...files.AppShell,
+            tree: {
+              children: [
+                { children: [], id: "a_one", name: "Panel", type: "column" },
+                { children: [], id: "b_two", name: "Panel", type: "column" },
+              ],
+              id: "r_root",
+              type: "row",
+            },
+          }) as AppComponentFile,
+      }
+    );
+    expect(twice).toContain('panelFill="red"');
+    expect(twice).toContain('panelBTwoFill="blue"');
+  });
+
   it("set at a breakpoint are written for that breakpoint", () => {
     expect(code()).toContain("sidebarHidden");
   });

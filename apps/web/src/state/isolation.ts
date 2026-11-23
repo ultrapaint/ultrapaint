@@ -204,6 +204,20 @@ export const startIsolation = (): (() => void) => {
   };
 };
 
+/**
+ * The variant each level around the one edited is edited at, by its instance as the frame draws
+ * it: none when no level around is edited at one.
+ */
+const aroundProps = (around: Isolation | null) => {
+  const props: Record<string, Record<string, string>> = {};
+  for (let level = around; level; level = level.around) {
+    if (level.variant) {
+      props[level.drawn] = { [level.variant.property]: level.variant.member };
+    }
+  }
+  return Object.keys(props).length > 0 ? { around: props } : {};
+};
+
 /** What a frame is told of the instance edited in it: the one, drawn at the variant edited. */
 export const useIsolatedRequest = (frame: string): RenderRequest["isolate"] => {
   const isolated = useIsolation((s) =>
@@ -213,6 +227,7 @@ export const useIsolatedRequest = (frame: string): RenderRequest["isolate"] => {
     () =>
       isolated
         ? {
+            ...aroundProps(isolated.around),
             instance: isolated.drawn,
             ...(isolated.variant && {
               props: { [isolated.variant.property]: isolated.variant.member },

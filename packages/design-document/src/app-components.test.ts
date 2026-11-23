@@ -158,6 +158,24 @@ describe("an instance's overrides (ADR 0114)", () => {
     expect(childrenOf(tree)[3]?.type).toBe("row");
   });
 
+  it("never turn a container into anything but a container", () => {
+    const { tree } = expandAppInstance(
+      PLAN,
+      instance({ overrides: { s: { type: "text" } } })
+    );
+    expect(childrenOf(tree)[3]?.type).toBe("column");
+  });
+
+  it("hand a nested instance a container's new kind for its layer", () => {
+    const { tree } = expandAppInstance(
+      PLAN,
+      instance({ overrides: { "b/body": { type: "row" } } })
+    );
+    expect(childrenOf(tree)[2]).toMatchObject({
+      overrides: { body: { type: "row" } },
+    });
+  });
+
   it("are left out for a layer the main component no longer has", () => {
     const { tree } = expandAppInstance(
       PLAN,

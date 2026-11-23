@@ -7,7 +7,6 @@
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
-import { isInstanceLayer } from "@ultrapaint/design-document/instance-layers";
 import {
   childrenOf,
   findPath,
@@ -21,6 +20,11 @@ export interface LayerItem {
   /** The frame the row's node is shown in. */
   readonly frame: string;
   readonly key: string;
+  /**
+   * The row is a layer of an app component's instance (ADR 0114): its main component's to move,
+   * rename or drop into, never the page's.
+   */
+  readonly layer?: boolean;
   /** The node the row names: for a page, its root, null while the page cannot be read. */
   readonly node: DesignNode | null;
   /** The page the row stands for, when it is a page's row. */
@@ -46,13 +50,20 @@ const nodeItem = (
   frame: string,
   node: DesignNode,
   parent: DesignNode | null,
-  layersOf: LayersOf
+  layersOf: LayersOf,
+  layer = false
 ): LayerItem => ({
-  children: [...layersOf(node), ...childrenOf(node)].map((child) =>
-    nodeItem(frame, child, node, layersOf)
-  ),
+  children: [
+    ...layersOf(node).map((child) =>
+      nodeItem(frame, child, node, layersOf, true)
+    ),
+    ...childrenOf(node).map((child) =>
+      nodeItem(frame, child, node, layersOf, layer)
+    ),
+  ],
   frame,
   key: layerKey(frame, node.id),
+  ...(layer && { layer }),
   node,
   parent,
 });
@@ -490,7 +501,7 @@ const mayDrop = (dragged: LayerItem, over: LayerItem) => {
     return false;
   }
   // A layer of an instance is moved in its main component, and holds nothing of the page's.
-  if (isInstanceLayer(node.id) || isInstanceLayer(over.node.id)) {
+  if (dragged.layer || over.layer) {
     return false;
   }
   if (over.page) {

@@ -10,10 +10,7 @@
 import { componentDocOf } from "@ultrapaint/contracts/component-names";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
-import {
-  isInstanceLayer,
-  ownLayersOf,
-} from "@ultrapaint/design-document/instance-layers";
+import { ownLayersOf } from "@ultrapaint/design-document/instance-layers";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import {
   ArrowRight,
@@ -670,7 +667,12 @@ export const Layers = () => {
     return item
       ? {
           item,
-          rename: () => setRenaming(item.key),
+          // F2 as a double-click: a layer of an instance is named in its main component.
+          rename: () => {
+            if (!item.layer) {
+              setRenaming(item.key);
+            }
+          },
           select: (add) => selectItem(item, add),
           walk: (pressed) => walkFrom(item.key, pressed),
         }
@@ -870,7 +872,7 @@ const RowName = ({
       onDoubleClick={(e) => {
         e.stopPropagation();
         // A layer of an instance is named in its main component (ADR 0114).
-        if (!(item.node && isInstanceLayer(item.node.id))) {
+        if (!item.layer) {
           shared.setRenaming(item.key);
         }
       }}
@@ -1329,7 +1331,7 @@ const LayerRow = ({
         FOCUS_RING
       )}
       data-row={key}
-      draggable={!(renaming || isInstanceLayer(node.id))}
+      draggable={!(renaming || item.layer)}
       onClick={onClick}
       {...dragHandlers}
       onMouseEnter={onMouseEnter}

@@ -267,7 +267,7 @@ const asAppComponentCode = (
   const over = overrideProps(node, w.fileOf);
   const breakpoints = new Set([
     ...Object.keys(node.at ?? {}),
-    ...Object.keys(over.at),
+    ...over.at.keys(),
   ]);
   const at =
     breakpoints.size > 0
@@ -276,7 +276,7 @@ const asAppComponentCode = (
             const fields = node.at?.[breakpoint] ?? {};
             const props = {
               ...(fields.props && asProps(fields.props)),
-              ...over.at[breakpoint],
+              ...over.at.get(breakpoint),
             };
             return [
               breakpoint,
@@ -325,33 +325,59 @@ const overrideProps = (
   instance: InstanceNode,
   fileOf: AppFileOf
 ): {
-  readonly at: Record<string, Record<string, JsonValue>>;
+  readonly at: ReadonlyMap<string, Record<string, JsonValue>>;
   readonly base: Record<string, JsonValue>;
 } => {
   const base: Record<string, JsonValue> = {};
-  const at: Record<string, Record<string, JsonValue>> = {};
+  // By breakpoint, a name the document gives: a map, so no name reaches an object's prototype.
+  const at = new Map<string, Record<string, JsonValue>>();
+  // Each field of each layer keeps one name, its layer's id joined to it where another layer's
+  // field, or one of the instance's own props, has the name already.
+  const taken = new Set(Object.keys(asProps(instance.props ?? {})));
+  const names = new Map<string, string>();
+  const nameOf = (way: string, words: string, field: string) => {
+    const key = `${way}\u0000${field}`;
+    const known = names.get(key);
+    if (known !== undefined) {
+      return known;
+    }
+    const plain = propNameOf(`${words} ${field}`);
+    const name = taken.has(plain)
+      ? propNameOf(`${words} ${way.split(LAYER_SEPARATOR).join(" ")} ${field}`)
+      : plain;
+    taken.add(name);
+    names.set(key, name);
+    return name;
+  };
   const add = (
     into: Record<string, JsonValue>,
+    way: string,
     words: string,
     fields: Readonly<Record<string, JsonValue>>
   ) => {
     for (const [field, value] of Object.entries(fields)) {
       if (field === "props" && isRecord(value)) {
-        add(into, words, value as Record<string, JsonValue>);
+        add(into, way, words, value as Record<string, JsonValue>);
       } else if (field !== "at") {
-        into[propNameOf(`${words} ${field}`)] = value;
+        Object.defineProperty(into, nameOf(way, words, field), {
+          configurable: true,
+          enumerable: true,
+          value,
+          writable: true,
+        });
       }
     }
   };
   for (const [way, fields] of Object.entries(instance.overrides ?? {})) {
     const words = layerWords(instance, way, fileOf);
-    add(base, words, fields);
+    add(base, way, words, fields);
     const byBreakpoint = fields.at;
     if (isRecord(byBreakpoint)) {
       for (const [breakpoint, set] of Object.entries(byBreakpoint)) {
         if (isRecord(set)) {
-          at[breakpoint] ??= {};
-          add(at[breakpoint], words, set as Record<string, JsonValue>);
+          const into = at.get(breakpoint) ?? {};
+          at.set(breakpoint, into);
+          add(into, way, words, set as Record<string, JsonValue>);
         }
       }
     }
