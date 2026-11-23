@@ -271,8 +271,8 @@ export const sandboxUnavailable = (status: SandboxStatus): ReactNode => {
   if (status.platform === "linux") {
     return (
       <>
-        {lead}. Install bubblewrap (<code className="font-code">bwrap</code>)
-        and restart Ultrapaint.
+        {lead}. Install bubblewrap (
+        <span className="text-foreground">bwrap</span>) and restart Ultrapaint.
       </>
     );
   }
