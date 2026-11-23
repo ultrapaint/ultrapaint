@@ -255,6 +255,36 @@ describe("an app component's instance overrides (ADR 0114)", () => {
     expect(both).toContain("navI9k2m1xWidth={120}");
   });
 
+  it("never take a name the instance's props have, at its base or at a breakpoint", () => {
+    const crowded = toCode(
+      {
+        ...shell,
+        at: { md: { props: { panelBFill: "x" } } },
+        overrides: { a_one: { fill: "red" }, b: { fill: "blue" } },
+        props: { panelFill: "y" },
+      } as DesignNode,
+      none,
+      {
+        breakpoints: [{ min: 768, name: "md" }],
+        fileOf: () =>
+          ({
+            ...files.AppShell,
+            tree: {
+              children: [
+                { children: [], id: "a_one", name: "Panel", type: "column" },
+                { children: [], id: "b", name: "Panel", type: "column" },
+              ],
+              id: "r_root",
+              type: "row",
+            },
+          }) as AppComponentFile,
+      }
+    );
+    expect(crowded).toContain('panelFill="y"');
+    expect(crowded).toContain('panelAOneFill="red"');
+    expect(crowded).toContain('panelBFill2="blue"');
+  });
+
   it("set at a breakpoint are written for that breakpoint", () => {
     expect(code()).toContain("sidebarHidden");
   });
