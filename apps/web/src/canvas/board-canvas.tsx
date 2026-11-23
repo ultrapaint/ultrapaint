@@ -484,6 +484,7 @@ const BoardTree = ({
   return (
     <div className="absolute inset-0">
       <SelectLayer
+        frameId={frameId}
         name={name}
         onClick={pointer.onSelectClick}
         onContextMenu={pointer.onContextMenu}

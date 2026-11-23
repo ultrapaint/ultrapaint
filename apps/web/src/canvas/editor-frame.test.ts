@@ -556,6 +556,7 @@ describe("a frame's events handed on", () => {
       rendered: () => calls.push("rendered"),
       size: () => calls.push("size"),
       textCommit: () => calls.push("textCommit"),
+      textEditing: () => calls.push("textEditing"),
     };
     const handed = m.forwardTo(() => every);
     handed.error({ message: "m" });
@@ -566,6 +567,7 @@ describe("a frame's events handed on", () => {
     handed.rendered(1);
     handed.size({ height: 1, width: 1 });
     handed.textCommit("n", "t");
+    handed.textEditing(null);
     expect(calls).toEqual(Object.keys(every));
     // @ts-expect-error: a kind left out does not compile.
     const partial: Handed = { ...every, size: undefined };

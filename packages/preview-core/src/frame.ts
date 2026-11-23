@@ -267,6 +267,12 @@ const mountFrame = (
     host.setAttribute(STILL_ATTRIBUTE, "");
   }
   let shown: FrameShown = { ...NOT_SHOWN, ...options.shown };
+  /**
+   * The host as the editor shows it; while a text of it is edited, it takes the pointer too, so
+   * a click on that text reaches it through the editor's layer over the frame.
+   */
+  const showShown = () =>
+    showHost(host, editing ? { ...shown, interactive: true } : shown);
   showHost(host, shown);
   // ---- Where the frame is ----
   /** The frame's place on the screen and the canvas's zoom, which its pixels are scaled by. */
@@ -507,24 +513,29 @@ const mountFrame = (
     nodeId: string;
     onBlur: () => void;
     original: string;
+    /** The element's own inline outline, given back when the edit ends. */
+    outline: string;
   } | null = null;
 
   const finishTextEdit = (commit: boolean) => {
     if (!editing) {
       return;
     }
-    const { el, nodeId, onBlur, original } = editing;
+    const { el, nodeId, onBlur, original, outline } = editing;
     el.removeEventListener("blur", onBlur);
     editing = null;
     setInert();
+    showShown();
     el.contentEditable = "false";
     el.removeAttribute("contenteditable");
+    el.style.outline = outline;
     const text = el.textContent ?? "";
     if (commit && text !== original) {
       events.textCommit?.(nodeId, text);
     } else {
       el.textContent = original;
     }
+    events.textEditing?.(null);
   };
 
   const editKey = (e: KeyboardEvent) => {
@@ -546,8 +557,17 @@ const mountFrame = (
       finishTextEdit(false);
     }
     const onBlur = () => finishTextEdit(true);
-    editing = { el, nodeId, onBlur, original: el.textContent ?? "" };
+    editing = {
+      el,
+      nodeId,
+      onBlur,
+      original: el.textContent ?? "",
+      outline: el.style.outline,
+    };
     setInert();
+    showShown();
+    // The editor's selection outlines the text: the browser's focus ring would be a second one.
+    el.style.outline = "none";
     el.contentEditable = "plaintext-only";
     el.focus();
     const range = document.createRange();
@@ -555,6 +575,7 @@ const mountFrame = (
     getSelection()?.removeAllRanges();
     getSelection()?.addRange(range);
     el.addEventListener("blur", onBlur, { once: true });
+    events.textEditing?.(nodeId);
   };
 
   // ---- Observers ----
@@ -651,7 +672,7 @@ const mountFrame = (
       }
       const wasInteractive = shown.interactive;
       shown = { ...shown, ...next };
-      showHost(host, shown);
+      showShown();
       setInert();
       if (shown.interactive !== wasInteractive) {
         for (const listener of interactiveListeners) {

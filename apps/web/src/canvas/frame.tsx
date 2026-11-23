@@ -1,5 +1,6 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
+import type { Rect } from "@ultrapaint/contracts/preview";
 import {
   findLayer,
   instanceLayerOf,
@@ -319,6 +320,7 @@ export const Frame = memo(
             />
           ) : null}
           <SelectLayer
+            frameId={frameId}
             name={name}
             onClick={onSelectClick}
             onContextMenu={onContextMenu}
@@ -419,8 +421,25 @@ const PreviewHost = ({
 
 type LayerHandler<E> = (e: E) => void;
 
-/** Over the frame in select mode, without Space held: what picks nodes in the preview. */
+/**
+ * The select layer's outline with a hole where `hole` is, in the frame's pixels: a press in the
+ * hole goes past the layer to what is under it.
+ */
+export const clipAround = (hole: Rect) => {
+  const left = hole.x;
+  const top = hole.y;
+  const right = hole.x + hole.width;
+  const bottom = hole.y + hole.height;
+  return `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${left}px ${top}px, ${left}px ${bottom}px, ${right}px ${bottom}px, ${right}px ${top}px, ${left}px ${top}px)`;
+};
+
+/**
+ * Over the frame in select mode, without Space held: what picks nodes in the preview. While a
+ * text of the frame is edited in place, the text shows through: a click on it puts the caret
+ * where it is, a drag selects, and a click anywhere else ends the edit and picks as ever.
+ */
 export const SelectLayer = ({
+  frameId,
   name,
   onClick,
   onContextMenu,
@@ -432,6 +451,7 @@ export const SelectLayer = ({
   onPointerMove,
   onPointerUp,
 }: {
+  frameId: string;
   name: string;
   onClick: LayerHandler<ReactMouseEvent>;
   onContextMenu: LayerHandler<ReactMouseEvent>;
@@ -445,6 +465,11 @@ export const SelectLayer = ({
   onPointerUp: LayerHandler<ReactPointerEvent>;
 }) => {
   const selecting = useEditor(isSelecting);
+  const [editing, setEditing] = useState<string | null>(null);
+  useFrameEvents(frameId, { textEditing: setEditing });
+  const hole = useEditor((s) =>
+    editing === null ? undefined : s.rects[frameId]?.[editing]
+  );
   const gone = useEffectEvent(onGone);
   useEffect(() => {
     if (selecting) {
@@ -466,6 +491,7 @@ export const SelectLayer = ({
       onPointerLeave={onPointerLeave}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      style={hole ? { clipPath: clipAround(hole) } : undefined}
       type="button"
     />
   );
