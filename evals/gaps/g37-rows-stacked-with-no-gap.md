@@ -2,7 +2,7 @@
 id: g37
 title: Rows with fills stacked with no gap
 kind: missing
-status: done
+status: testing
 found: 2026-11-04
 source: the Changes panel, editor redesign at f608871 (held-out finding changes-1, rated real)
 skill: [SKILL.md]
@@ -39,4 +39,8 @@ named: shipped skill 1/2, redesign-gaps 1/2. The person rated it real
 - `up88-told`: 2026-11-22, caught: main+told 1/3, up88-2+told 0/3 (opus, effort high; runs/up88-told/report.md)
 - `up88-names`: 2026-11-22, caught: main 0/3, up88-1 0/3, up88-2 0/3 (+1 partly) (opus, effort high; runs/up88-names/report.md)
 - `p15-told`: 2026-11-23, caught: shipped+told 0/3, p15-fix-adds-a-needed-control+told 0/3 (opus, effort high; runs/p15-told/report.md)
-- Closed 2026-11-23 by the checks, as `gaps-nov18` decided: UP-75 (PR #103, ADR 0081 accepted) has the editor measure the drawn page for touching rows and hand each finding to the designer as a check's, so the review in the editor now catches this gap the way `chk-1` did in the lab.
+- 2026-11-23, UP-75 (PR #103, ADR 0081 accepted): the editor now measures the drawn page for
+  touching rows and hands each finding to the designer as a check's, so fills at rest (a current
+  row, filled rows) reach the designer as they did in `chk-1`. Fills that show only on hover do
+  not: the editor's check runs no hover pass, where the lab's `measure` re-runs the audit on
+  hover. Stays open for those until the editor's check hovers the rows too.
