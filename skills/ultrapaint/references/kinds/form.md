@@ -50,9 +50,9 @@ Open with it, before the first element: `references/components.md`, `references/
 A form of more than about twelve fields (registering a patient, a customer, an order by hand) is
 in steps, one or two sections each, wherever it is filled in and however fast: a vertical stepper
 beside the form names every step and what is left in each, so nothing missing is hidden; Back and
-Continue follow each step's last field, so Tab runs from one step into the next; any step reopens
-from the stepper. The last step ends in the primary, which checks every step and opens the first
-with a problem. A form this long is never one page, even for someone who types fast.
+Continue follow each step's last field, so Tab reaches Continue and Enter opens the next step with
+its first field focused; any step reopens from the stepper. The last step ends in the primary,
+which checks every step and opens the first with a problem. A form this long is never one page, even for someone who types fast.
 
 ## Password
 
