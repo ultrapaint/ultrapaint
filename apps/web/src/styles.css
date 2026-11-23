@@ -469,8 +469,8 @@ input[type="number"]::-webkit-inner-spin-button {
   --board-grid: oklch(0.3 0.03 262 / 20%);
   /* Ultrapaint Dev's look (ADR 0113): blueprint paper past the tab strip's +, its grid and its
      drawn lines, in the brand's blue. Never anywhere else, nor in the release. */
-  --blueprint: oklch(0.94 0.03 250);
-  --blueprint-ink: oklch(0.5 0.13 255 / 32%);
+  --blueprint: oklch(0.95 0.025 250);
+  --blueprint-ink: oklch(0.5 0.13 255 / 14%);
   --blueprint-line: oklch(0.47 0.15 258 / 85%);
   /* The paper a component's picture lies on, a step under the panel: the pictures are drawn in the
      design's light look, and a white card in one still shows its edge. */
@@ -529,8 +529,8 @@ input[type="number"]::-webkit-inner-spin-button {
   --canvas-grid: oklch(1 0 0 / 7%);
   --board: oklch(0.185 0.018 262);
   --board-grid: oklch(0.85 0.04 262 / 14%);
-  --blueprint: oklch(0.3 0.1 257);
-  --blueprint-ink: oklch(0.85 0.06 245 / 30%);
+  --blueprint: oklch(0.22 0.06 257);
+  --blueprint-ink: oklch(0.85 0.06 245 / 12%);
   --blueprint-line: oklch(0.88 0.07 245 / 80%);
   /* Dimmed, so a tile is never the brightest thing in the chrome. */
   --specimen: oklch(0.9 0.003 80);
