@@ -2,7 +2,8 @@
 
 Status: accepted, 2026-10-29; a state in one variant member: amended by 0044; the Assets panel's
 components and a view of their own: amended by 0045 (the Library). Renames 0040's
-primitives and replaces 0029's specs and drafts.
+primitives and replaces 0029's specs and drafts. Editing an app component in place: superseded by
+0114 (an instance's layers changed on the page, the main component edited only when asked).
 Amends 0030 (a component is a design target as `component:<Name>`, its snapshot in
 `_implemented/components/`) and 0027 (DESIGN.md's component tokens are read off the system
 components' files). The terms are in `GLOSSARY.md`.
