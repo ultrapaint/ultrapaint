@@ -34,8 +34,8 @@ makes such a change.
   after marking, so the component reads *Design changed*.
 - **`handoff` changes a component**: its action `"change"` takes one `ComponentChange` and applies
   it through `ComponentService.change`, as the editor does, as `"note"` adds a component's note. A
-  property, member or slot renamed or taken out follows into every instance's props in the same
-  undo step; a system component's look changes one look change at a time. The tool's description
+  property or member renamed follows into every instance's props, on the pages and in app
+  components' trees, in the same undo step (there is no slot rename among the changes); a system component's look changes one look change at a time. The tool's description
   grows by one clause and its schema by one parameter (13,333 of the 13,600 characters the tools
   may take); the ops are listed in the task that asks for them. The MCP instructions say a
   component's properties, members and slots change through it. Rejected: the ops in

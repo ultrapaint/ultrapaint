@@ -153,7 +153,7 @@ export const HandoffToolsLive = HandoffTools.toLayer(
 
     /**
      * One change to a component's file (ADR 0122), made through `ComponentService.change` as the
-     * editor makes it: a property, a member or a slot renamed or taken out follows into every
+     * editor makes it: a property or a member renamed or taken out follows into every
      * instance's props, in one undo step. A page changes through its own tool.
      */
     const change = Effect.fnUntraced(function* (
