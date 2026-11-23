@@ -49,8 +49,8 @@ says what each is called there.
    table of each file you opened, and fix what fails. Find each small uppercase label above a
    heading and delete it unless it states a fact the heading cannot. Look at the page at the
    phone's width and the desktop's, in a view at a width or else in a browser: every image loads,
-   and a headline set in pieces keeps the spaces between its words. Your last message names each
-   file you opened.
+   and a headline set in pieces keeps the spaces between its words. With neither, your last
+   message says you did not see it at those widths. It names each file you opened.
 6. **Have each section reviewed.** Where you have a reviewer that sends you findings, answer
    them: fix each, or say why not. Elsewhere, when you can start another agent, have a fresh one review each section
    from a crop at 2× (dark and light where the product has both) with this skill's review job,
