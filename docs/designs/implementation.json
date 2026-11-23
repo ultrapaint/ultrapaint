@@ -1,5 +1,173 @@
 {
   "items": {
+    "chat/1-running.page.json": {
+      "implemented": {
+        "at": 1795453973314,
+        "code": {
+          "apps/web/src/panels/composer-tray.tsx": "e6f003bb25d961d9",
+          "apps/web/src/panels/thread-composer.tsx": "ddfd00f067b11965",
+          "apps/web/src/panels/thread-turn.tsx": "d6c79bc89b2d0815",
+          "apps/web/src/panels/threads.tsx": "ed8b6d8e8336a237"
+        },
+        "design": "2eded2eda05c9cf4",
+        "files": [
+          "apps/web/src/panels/composer-tray.tsx",
+          "apps/web/src/panels/thread-composer.tsx",
+          "apps/web/src/panels/thread-turn.tsx",
+          "apps/web/src/panels/threads.tsx"
+        ]
+      }
+    },
+    "chat/2-done.page.json": {
+      "implemented": {
+        "at": 1795453974313,
+        "code": {
+          "apps/web/src/panels/composer-tray.tsx": "e6f003bb25d961d9",
+          "apps/web/src/panels/thread-composer.tsx": "ddfd00f067b11965",
+          "apps/web/src/panels/thread-turn.tsx": "d6c79bc89b2d0815",
+          "apps/web/src/panels/threads.tsx": "ed8b6d8e8336a237"
+        },
+        "design": "b409d415f65baf38",
+        "files": [
+          "apps/web/src/panels/composer-tray.tsx",
+          "apps/web/src/panels/thread-composer.tsx",
+          "apps/web/src/panels/thread-turn.tsx",
+          "apps/web/src/panels/threads.tsx"
+        ]
+      }
+    },
+    "chat/3-review-open.page.json": {
+      "implemented": {
+        "at": 1795453974903,
+        "code": {
+          "apps/web/src/panels/composer-tray.tsx": "e6f003bb25d961d9",
+          "apps/web/src/panels/thread-composer.tsx": "ddfd00f067b11965",
+          "apps/web/src/panels/thread-review.tsx": "ae7a9d2c2cb563ad",
+          "apps/web/src/panels/thread-turn.tsx": "d6c79bc89b2d0815",
+          "apps/web/src/panels/threads.tsx": "ed8b6d8e8336a237"
+        },
+        "design": "92add5060c8d894e",
+        "files": [
+          "apps/web/src/panels/composer-tray.tsx",
+          "apps/web/src/panels/thread-composer.tsx",
+          "apps/web/src/panels/thread-review.tsx",
+          "apps/web/src/panels/thread-turn.tsx",
+          "apps/web/src/panels/threads.tsx"
+        ]
+      }
+    },
+    "chat/4-activity-open.page.json": {
+      "implemented": {
+        "at": 1795453975591,
+        "code": {
+          "apps/web/src/panels/composer-tray.tsx": "e6f003bb25d961d9",
+          "apps/web/src/panels/thread-composer.tsx": "ddfd00f067b11965",
+          "apps/web/src/panels/thread-turn.tsx": "d6c79bc89b2d0815",
+          "apps/web/src/panels/threads.tsx": "ed8b6d8e8336a237"
+        },
+        "design": "0112a95ad00b4781",
+        "files": [
+          "apps/web/src/panels/composer-tray.tsx",
+          "apps/web/src/panels/thread-composer.tsx",
+          "apps/web/src/panels/thread-turn.tsx",
+          "apps/web/src/panels/threads.tsx"
+        ]
+      }
+    },
+    "chat/5-question.page.json": {
+      "implemented": {
+        "at": 1795453976067,
+        "code": {
+          "apps/web/src/panels/composer-tray.tsx": "e6f003bb25d961d9",
+          "apps/web/src/panels/thread-composer.tsx": "ddfd00f067b11965",
+          "apps/web/src/panels/thread-questions.tsx": "4d22d9d8d65bee0f",
+          "apps/web/src/panels/thread-turn.tsx": "d6c79bc89b2d0815",
+          "apps/web/src/panels/threads.tsx": "ed8b6d8e8336a237"
+        },
+        "design": "8f055439293e0198",
+        "files": [
+          "apps/web/src/panels/composer-tray.tsx",
+          "apps/web/src/panels/thread-composer.tsx",
+          "apps/web/src/panels/thread-questions.tsx",
+          "apps/web/src/panels/thread-turn.tsx",
+          "apps/web/src/panels/threads.tsx"
+        ]
+      }
+    },
+    "chat/6-skill-menu.page.json": {
+      "implemented": {
+        "at": 1795453976356,
+        "code": {
+          "apps/web/src/panels/composer-tray.tsx": "e6f003bb25d961d9",
+          "apps/web/src/panels/thread-composer.tsx": "ddfd00f067b11965",
+          "apps/web/src/panels/thread-turn.tsx": "d6c79bc89b2d0815",
+          "apps/web/src/panels/threads.tsx": "ed8b6d8e8336a237"
+        },
+        "design": "6f98e342a1a69a42",
+        "files": [
+          "apps/web/src/panels/composer-tray.tsx",
+          "apps/web/src/panels/thread-composer.tsx",
+          "apps/web/src/panels/thread-turn.tsx",
+          "apps/web/src/panels/threads.tsx"
+        ]
+      }
+    },
+    "chat/7-review-menu.page.json": {
+      "implemented": {
+        "at": 1795453976575,
+        "code": {
+          "apps/web/src/panels/composer-tray.tsx": "e6f003bb25d961d9",
+          "apps/web/src/panels/review-level.tsx": "362aa55540e6414a",
+          "apps/web/src/panels/thread-composer.tsx": "ddfd00f067b11965",
+          "apps/web/src/panels/thread-turn.tsx": "d6c79bc89b2d0815",
+          "apps/web/src/panels/threads.tsx": "ed8b6d8e8336a237"
+        },
+        "design": "1eae2a7462333a99",
+        "files": [
+          "apps/web/src/panels/composer-tray.tsx",
+          "apps/web/src/panels/review-level.tsx",
+          "apps/web/src/panels/thread-composer.tsx",
+          "apps/web/src/panels/thread-turn.tsx",
+          "apps/web/src/panels/threads.tsx"
+        ]
+      }
+    },
+    "chat/8-header-menu.page.json": {
+      "implemented": {
+        "at": 1795453976815,
+        "code": {
+          "apps/web/src/panels/composer-tray.tsx": "e6f003bb25d961d9",
+          "apps/web/src/panels/thread-composer.tsx": "ddfd00f067b11965",
+          "apps/web/src/panels/thread-turn.tsx": "d6c79bc89b2d0815",
+          "apps/web/src/panels/threads.tsx": "ed8b6d8e8336a237"
+        },
+        "design": "6eadf24dcd9d0858",
+        "files": [
+          "apps/web/src/panels/composer-tray.tsx",
+          "apps/web/src/panels/thread-composer.tsx",
+          "apps/web/src/panels/thread-turn.tsx",
+          "apps/web/src/panels/threads.tsx"
+        ]
+      }
+    },
+    "chat/9-no-skill.page.json": {
+      "implemented": {
+        "at": 1795453977099,
+        "code": {
+          "apps/web/src/panels/composer-tray.tsx": "e6f003bb25d961d9",
+          "apps/web/src/panels/thread-composer.tsx": "ddfd00f067b11965",
+          "apps/web/src/panels/thread-turn.tsx": "d6c79bc89b2d0815",
+          "apps/web/src/panels/threads.tsx": "ed8b6d8e8336a237"
+        },
+        "design": "57be40604a4688ee",
+        "files": [
+          "apps/web/src/panels/composer-tray.tsx",
+          "apps/web/src/panels/thread-composer.tsx",
+          "apps/web/src/panels/thread-turn.tsx",
+          "apps/web/src/panels/threads.tsx"
+        ]
+      }
+    },
     "loading/1a-opening.page.json": {
       "implemented": {
         "at": 1795452815993,
