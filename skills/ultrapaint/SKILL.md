@@ -54,9 +54,9 @@ says what each is called there.
 6. **Have each section reviewed before you finish.** Where you have
    a reviewer that sends you findings, answer them: fix each, or say why not. Elsewhere, when you
    can start another agent, have a fresh one review each section from a crop at 2× (dark and light
-   where the product has both) with this skill's review job, and fix what it finds. The design is
-   not finished until then: your last message gives each section's verdict from its reviewer, done
-   or what is left, or says that no one reviewed it because you could start no agent.
+   where the product has both) with this skill's review job, fix what it finds, and only then
+   finish: your last message gives each section's verdict from that reviewer, done or what is
+   left. With no agent to start, it says that no one reviewed it.
 
 ### The kind of screen or page
 
