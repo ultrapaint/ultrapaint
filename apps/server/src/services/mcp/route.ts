@@ -145,7 +145,8 @@ Change designs through these tools, not by editing their files: ${TOOLS.read_pag
 first, then a part at a time with node), then ${TOOLS.apply_operations}; ${TOOLS.get_document_format} has the whole
 format, ${TOOLS.get_component} an instance to start from. Call ${TOOLS.focus} before changing nodes, so the user
 sees where you work, and ${TOOLS.get_screenshot} to look at the result. A component's file in components/ is
-written as a file. Token values are the design system's, never a stylesheet's. Before designing,
+written as a file, but its properties, members and slots change with ${handoffCall("change")}, which
+renames them in every instance too. Token values are the design system's, never a stylesheet's. Before designing,
 read the design skill, the resource ${skillUri(CORE_FILE)}: it names the references it needs.
 To implement a design, ${handoffCall("list")} says what is ready or changed since it was implemented,
 and "read" with its target gives the task, which says the rest. What the code must do that a design

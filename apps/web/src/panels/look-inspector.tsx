@@ -76,6 +76,7 @@ import { api } from "../state/connection.ts";
 import { boardFrameOf } from "../state/frame-ref.ts";
 import { commitStyle, draftStyle } from "../state/look.ts";
 import { reportError } from "../state/project.ts";
+import { UpdateComponentItem } from "./code-implementation.tsx";
 import { Notes } from "./component-notes.tsx";
 import { ComponentUsedIn } from "./component-used-in.tsx";
 import { OPACITY_OPTIONS, opacityOf } from "./inspector-appearance.tsx";
@@ -692,7 +693,10 @@ const useSystemFile = (name: string) =>
     return file?.origin === "system" ? file : undefined;
   });
 
-/** The "…" of a component's board: implement it, and take its look over or reset it. */
+/**
+ * The "…" of a component's board: implement it, update it from its code (ADR 0122), and take its
+ * look over or reset it.
+ */
 export const SystemMenu = ({ name }: { name: string }) => {
   const file = useSystemFile(name);
   return (
@@ -716,6 +720,7 @@ export const SystemMenu = ({ name }: { name: string }) => {
           <Code2 />
           Implement
         </DropdownMenuItem>
+        <UpdateComponentItem name={name} />
         {file ? (
           <DropdownMenuItem
             onClick={() => removeComponent(name)}

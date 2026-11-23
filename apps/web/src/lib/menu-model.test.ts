@@ -492,6 +492,7 @@ describe("the comment menu", () => {
 describe("the Library's menu", () => {
   it("inserts only where there is somewhere to insert", () => {
     const got = componentEntries({
+      codeChanged: false,
       name: "Card",
       onCanvas: true,
       target: null,
@@ -502,10 +503,21 @@ describe("the Library's menu", () => {
 
   it("opens the component's board, as its row's chevron does under the pointer", () => {
     const got = componentEntries({
+      codeChanged: false,
       name: "Card",
       onCanvas: false,
       target: "the page",
     });
     expect(find(got, "openBoard")).toMatchObject({ label: "Open board" });
+  });
+
+  it("offers Update from code for a component whose code changed, as its board's menu does (ADR 0122)", () => {
+    const card = { name: "Card", onCanvas: false, target: "the page" };
+    expect(
+      find(componentEntries({ ...card, codeChanged: true }), "updateFromCode")
+    ).toMatchObject({ label: "Update from code" });
+    expect(
+      find(componentEntries({ ...card, codeChanged: false }), "updateFromCode")
+    ).toBeUndefined();
   });
 });

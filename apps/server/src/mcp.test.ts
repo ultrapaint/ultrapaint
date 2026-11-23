@@ -466,6 +466,18 @@ describe("the editor's MCP server, over the wire", () => {
           '""',
           "home.page.json",
         ]);
+        // A component is brought up to date from its code too (ADR 0122).
+        yield* client["components.fromDefault"]({ name: "Button" });
+        const components = yield* json({
+          method: "completion/complete",
+          params: {
+            argument: { name: "argument", value: "component:" },
+            ref: { name: "update-from-code", type: "ref/prompt" },
+          },
+        });
+        assert.deepStrictEqual(components.result.completion?.values, [
+          "component:Button",
+        ]);
         const completed = yield* json({
           method: "completion/complete",
           params: {

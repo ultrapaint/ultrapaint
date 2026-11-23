@@ -39,6 +39,7 @@ import {
 import { useComponents } from "../state/components.ts";
 import { commitEdits, useDesignSystem } from "../state/design-system.ts";
 import { AppInspector, AppMenu } from "./app-inspector.tsx";
+import { ComponentImplementation } from "./code-implementation.tsx";
 import { GuidelineEditor } from "./guideline-editor.tsx";
 import { InspectedKey } from "./inspector-fields.tsx";
 import { LookInspector, SystemMenu } from "./look-inspector.tsx";
@@ -216,10 +217,15 @@ const LibraryBody = ({ open }: { open: BoardPlace }) => {
       </PanelEmpty>
     );
   }
-  return meta?.importFrom === APP_FROM ? (
-    <AppInspector name={open.item} />
-  ) : (
-    <LookInspector meta={meta} name={open.item} />
+  return (
+    <>
+      <ComponentImplementation name={open.item} />
+      {meta?.importFrom === APP_FROM ? (
+        <AppInspector name={open.item} />
+      ) : (
+        <LookInspector meta={meta} name={open.item} />
+      )}
+    </>
   );
 };
 

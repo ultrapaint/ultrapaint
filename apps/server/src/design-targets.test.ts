@@ -1,9 +1,13 @@
 import { assert, describe } from "@effect/vitest";
+import { APP_FROM } from "@ultrapaint/contracts/components";
+import type { DesignNode } from "@ultrapaint/contracts/document";
 import { emptySystemComponent } from "@ultrapaint/contracts/testing/components";
+import { walk } from "@ultrapaint/design-document/tree";
 import { type Context, Effect } from "effect";
 import { OpenProject, type ProjectServices } from "./project.ts";
 import { CommentsService } from "./services/comments.ts";
 import { ComponentService } from "./services/components.ts";
+import { DocumentService } from "./services/documents.ts";
 import { ImplementationService } from "./services/implementation.ts";
 import { EditorTools } from "./services/mcp/route.ts";
 import { AgentTasks } from "./services/threads/tasks.ts";
@@ -41,6 +45,38 @@ const implementTask = (target: string) =>
   Effect.flatMap(AgentTasks, (tasks) =>
     Effect.map(tasks.task({ _tag: "Implement", target }), ({ text }) => text)
   );
+
+/** An app component Plan, with a choice tone, placed on Home as loud. */
+const planOnHome = Effect.gen(function* () {
+  yield* project(ComponentService, (c) => c.create("Plan"));
+  yield* project(ComponentService, (c) =>
+    c.change("Plan", {
+      op: "addProperty",
+      property: {
+        default: "plain",
+        kind: "choice",
+        members: ["plain", "loud"],
+        name: "tone",
+      },
+    })
+  );
+  yield* callTool(EditorTools, "apply_operations", {
+    ops: [
+      {
+        node: {
+          component: "Plan",
+          from: APP_FROM,
+          id: "plan",
+          props: { tone: "loud" },
+          type: "instance",
+        },
+        op: "insert",
+        parent: null,
+      },
+    ],
+    route: "/home",
+  });
+});
 
 describe("a design target, named once", () => {
   eachTest(
@@ -135,6 +171,73 @@ describe("a design target, named once", () => {
           const implement = yield* implementTask(target);
           assert.include(implement, "- Submits the form it is in");
         }
+      })
+    );
+
+    it.effect(
+      "changes a component through handoff, a rename following into its instances' props (ADR 0122)",
+      () =>
+        Effect.gen(function* () {
+          yield* planOnHome;
+          assert.strictEqual(
+            yield* handoff({
+              action: "change",
+              change: { name: "tone", op: "renameProperty", to: "mood" },
+              target: "component:Plan",
+            }),
+            "Changed Plan."
+          );
+          const home = yield* project(DocumentService, (d) =>
+            d.get("home.page.json")
+          );
+          const plan = [...walk(home.root as DesignNode)].find(
+            (n) => n.id === "plan"
+          );
+          assert.deepStrictEqual(
+            (plan as { props?: object } | undefined)?.props,
+            { mood: "loud" }
+          );
+        })
+    );
+
+    it.effect(
+      "refuses a component change the component cannot take, saying why",
+      () =>
+        Effect.gen(function* () {
+          yield* planOnHome;
+          assert.strictEqual(
+            yield* refusal({
+              action: "change",
+              change: { name: "size", op: "renameProperty", to: "x" },
+              target: "component:Plan",
+            }),
+            "Plan has no property size"
+          );
+          assert.include(
+            yield* refusal({
+              action: "change",
+              change: { op: "renameEverything" },
+              target: "component:Plan",
+            }),
+            "change is no component change"
+          );
+        })
+    );
+
+    it.effect("refuses a change to a page, or one not said", () =>
+      Effect.gen(function* () {
+        assert.strictEqual(
+          yield* refusal({
+            action: "change",
+            change: { name: "tone", op: "removeProperty" },
+            target: "/home",
+          }),
+          "a page changes through apply_operations: change takes a component (target component:<Name>)"
+        );
+        assert.strictEqual(
+          yield* refusal({ action: "change", target: "component:Button" }),
+          "say the change in change: one {op, …} of the component"
+        );
       })
     );
 

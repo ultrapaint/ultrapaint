@@ -2,10 +2,15 @@
  * Where a page stands with the code that implements it (ADR 0030), in the Code tab above the
  * page's code (ADR 0102): the files, whether the design or the code changed since, what changed
  * in the design, the tokens waiting for the code, and the way to implement it, or to bring the
- * design up to date from its code (ADR 0115).
+ * design up to date from its code (ADR 0115). A component's board has its own, smaller, for the
+ * same update (ADR 0122).
  */
 
-import type { ImplementationItem } from "@ultrapaint/contracts/implementation";
+import {
+  componentTarget,
+  type ImplementationItem,
+  isBound,
+} from "@ultrapaint/contracts/implementation";
 import type { Page } from "@ultrapaint/contracts/pages";
 import { Code, Ellipsis, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -29,6 +34,7 @@ import {
   markImplemented,
   setPageReady,
   unlinkImplementation,
+  updateComponentFromCode,
   updatePagesFromCode,
 } from "../lib/page-actions.ts";
 import { api } from "../state/connection.ts";
@@ -36,6 +42,7 @@ import {
   exportTokens,
   statusLabel,
   tokensWaiting,
+  useComponentCodeChanged,
   useImplementation,
 } from "../state/implementation.ts";
 import { Row, Section } from "./inspector-fields.tsx";
@@ -142,10 +149,10 @@ const MoreMenu = ({
  */
 const UpdateFromCode = ({
   designChanged,
-  page,
+  onUpdate,
 }: {
   designChanged: boolean;
-  page: Page;
+  onUpdate: () => void;
 }) => (
   <>
     {designChanged ? (
@@ -154,16 +161,74 @@ const UpdateFromCode = ({
         can't tell.
       </p>
     ) : null}
-    <Button
-      className="mt-1 w-full"
-      onClick={() => updatePagesFromCode([page.id])}
-      variant="outline"
-    >
+    <Button className="mt-1 w-full" onClick={onUpdate} variant="outline">
       <RefreshCw />
       Update from code
     </Button>
   </>
 );
+
+/** A design's status, a warning dot before it while it is behind on one side. */
+const StatusRow = ({ item }: { item: ImplementationItem | undefined }) => {
+  const draft = item?.status === "draft" || item === undefined;
+  const behind = item?.status === "changed" || tokensWaiting(item);
+  return (
+    <Row label="Status">
+      <span className="flex min-w-0 items-center gap-1.5 font-body">
+        {behind ? (
+          <span className="size-1.5 shrink-0 rounded-full bg-warning" />
+        ) : null}
+        <CutText className={cn("truncate", draft && "text-muted-foreground")}>
+          {item && item.status !== "draft"
+            ? statusLabel(item)
+            : "Not implemented"}
+        </CutText>
+      </span>
+    </Row>
+  );
+};
+
+/** The files a design is implemented by. */
+const FilesRow = ({ files }: { files: readonly string[] }) => (
+  <Row label="Files">
+    <CutText className="truncate font-body text-muted-foreground">
+      {files.join(", ")}
+    </CutText>
+  </Row>
+);
+
+/** Update from code in a component's ⋯ menu, while its code changed since it was implemented (ADR 0122). */
+export const UpdateComponentItem = ({ name }: { name: string }) =>
+  useComponentCodeChanged(name) ? (
+    <DropdownMenuItem onClick={() => updateComponentFromCode(name)}>
+      <RefreshCw />
+      Update from code
+    </DropdownMenuItem>
+  ) : null;
+
+/**
+ * Where a component stands with the code that implements it, on its board in the Library (ADR
+ * 0122): once it is implemented, its status and files, and Update from code when its code changed
+ * since. A component not implemented yet shows nothing: its board's menu implements it.
+ */
+export const ComponentImplementation = ({ name }: { name: string }) => {
+  const item = useImplementation((s) => s.byTarget[componentTarget(name)]);
+  if (!(item && isBound(item.status))) {
+    return null;
+  }
+  return (
+    <Section title="Implementation">
+      <StatusRow item={item} />
+      <FilesRow files={item.files} />
+      {item.codeChanged ? (
+        <UpdateFromCode
+          designChanged={item.designChanged}
+          onUpdate={() => updateComponentFromCode(name)}
+        />
+      ) : null}
+    </Section>
+  );
+};
 
 export const Implementation = ({ page }: { page: Page }) => {
   const item = useImplementation((s) => s.byTarget[page.id]);
@@ -182,33 +247,14 @@ export const Implementation = ({ page }: { page: Page }) => {
   }, [page.id, designChanged, key]);
   const changes = designChanged && read?.key === key ? read.text : null;
   const bound = item?.status === "implemented" || item?.status === "changed";
-  const draft = item?.status === "draft" || item === undefined;
-  const behind = item?.status === "changed" || tokensWaiting(item);
   return (
     <Section
       action={<MoreMenu item={item} page={page} />}
       className="mb-2 px-4"
       title="Implementation"
     >
-      <Row label="Status">
-        <span className="flex min-w-0 items-center gap-1.5 font-body">
-          {behind ? (
-            <span className="size-1.5 shrink-0 rounded-full bg-warning" />
-          ) : null}
-          <CutText className={cn("truncate", draft && "text-muted-foreground")}>
-            {item && item.status !== "draft"
-              ? statusLabel(item)
-              : "Not implemented"}
-          </CutText>
-        </span>
-      </Row>
-      {bound && item ? (
-        <Row label="Files">
-          <CutText className="truncate font-body text-muted-foreground">
-            {item.files.join(", ")}
-          </CutText>
-        </Row>
-      ) : null}
+      <StatusRow item={item} />
+      {bound && item ? <FilesRow files={item.files} /> : null}
       {item?.tokens ? <TokensWaiting tokens={item.tokens} /> : null}
       {changes ? (
         <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-2 font-code text-muted-foreground">
@@ -216,7 +262,10 @@ export const Implementation = ({ page }: { page: Page }) => {
         </pre>
       ) : null}
       {item?.codeChanged ? (
-        <UpdateFromCode designChanged={designChanged} page={page} />
+        <UpdateFromCode
+          designChanged={designChanged}
+          onUpdate={() => updatePagesFromCode([page.id])}
+        />
       ) : null}
       <Button
         className="mt-1 w-full"

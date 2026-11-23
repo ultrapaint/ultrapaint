@@ -27,6 +27,7 @@ import {
 import { CallingThread } from "./access.ts";
 import { makeLookup, nodeIdOf } from "./lookup.ts";
 import {
+  AnyObject,
   asJson,
   doing,
   finite,
@@ -74,12 +75,6 @@ const warningsOf = (root: DesignNode, catalogue: Catalogue): string[] => {
     ...fillWarnings(root, catalogue).map((w) => `${w.nodeId}: ${w.message}`),
   ];
 };
-
-/**
- * One JSON object an agent passes, the handler validating it. An array of `AnyJson` would say
- * nothing of its items, and Codex reads an array without `items` as an array of strings.
- */
-const AnyObject = Schema.Record(Schema.String, Schema.Unknown);
 
 const ReadPage = Tool.make("read_page", {
   description:

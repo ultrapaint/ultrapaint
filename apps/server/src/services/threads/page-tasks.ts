@@ -1,7 +1,7 @@
 /**
  * The tasks that draw or implement pages: implement a page or a component in the
- * application's code, link pages built already to their code, bring pages up to date from their
- * code, an uploaded Figma file as pages, and a canvas redrawn another way. The components in every variant and state are the Library's boards
+ * application's code, link pages built already to their code, bring pages and components up to
+ * date from their code, an uploaded Figma file as pages, and a canvas redrawn another way. The components in every variant and state are the Library's boards
  * (ADR 0045), which no agent draws.
  */
 import { familyOf } from "@ultrapaint/contracts/canvas-layout";
@@ -17,10 +17,13 @@ import type { TextStyle } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import {
   behindItsCode,
+  codeChangedSince,
+  componentNameOf,
   componentTarget,
   type ImplementationItem,
   implementedFileOf,
   isBound,
+  isComponentTarget,
 } from "@ultrapaint/contracts/implementation";
 import {
   type FrameLayout,
@@ -28,10 +31,11 @@ import {
   presetSize,
 } from "@ultrapaint/contracts/pages";
 import { baselineKey, type TokenDiff } from "@ultrapaint/contracts/sync";
-import type {
-  ImplementTask,
-  ImportFigmaTask,
-  RedrawTask,
+import {
+  commandOf,
+  type ImplementTask,
+  type ImportFigmaTask,
+  type RedrawTask,
 } from "@ultrapaint/contracts/tasks";
 import { nodeLabel, walk } from "@ultrapaint/design-document/tree";
 import { plural } from "@ultrapaint/shared/text";
@@ -127,6 +131,13 @@ const leftOut = (unknown: readonly string[]) =>
 (There is no canvas or page ${unknown.join(", ")}; they are left out.)`
     : "";
 
+/** What a task says of the names it was given that name no component. */
+const leftOutComponents = (unknown: readonly string[]) =>
+  unknown.length > 0
+    ? `
+(There is no component ${unknown.join(", ")}; they are left out.)`
+    : "";
+
 /**
  * Why a task that takes pages has none to take: the names it did not know, and why the pages it
  * was given, or every page, are left.
@@ -137,6 +148,201 @@ const noneLeft = (
   why: string
 ) =>
   `${unknown.length > 0 ? `there is no canvas or page ${unknown.join(", ")}, and ` : ""}every page ${givenNames ? "named " : ""}${why}`;
+
+/** A design's behaviour notes, as the update lists them under it. */
+const noteLines = (notes: readonly Note[]) =>
+  notes.map(
+    (note) =>
+      `  Behaviour note${note.element ? ` on ${note.element}${note.nodeId ? ` (${note.nodeId})` : ""}` : ""}: ${note.text}`
+  );
+
+/**
+ * Why an update named pages or components and has none to take: the names it did not know, that
+ * each kind named is up to date (a component never implemented has no code to come from), and
+ * where the components the pages place are updated instead (ADR 0122).
+ */
+const nothingNamedBehind = (asked: {
+  readonly components: boolean;
+  readonly noSuchComponent: readonly string[];
+  readonly ownUpdate: string | null;
+  readonly pages: boolean;
+  readonly unknown: readonly string[];
+}) => {
+  const missingNames = [
+    asked.unknown.length > 0
+      ? `no canvas or page ${asked.unknown.join(", ")}`
+      : null,
+    asked.noSuchComponent.length > 0
+      ? `no component ${asked.noSuchComponent.join(", ")}`
+      : null,
+  ].filter((part) => part !== null);
+  const upToDate = [
+    asked.pages ? "every page named is up to date with its code" : null,
+    asked.components
+      ? "every component named is up to date with its code or was never implemented"
+      : null,
+  ].filter((part) => part !== null);
+  const there =
+    missingNames.length > 0
+      ? `there is ${missingNames.join(" and ")}, and `
+      : "";
+  return `${there}${upToDate.join(", and ")}${asked.ownUpdate ? `; ${asked.ownUpdate}` : ""}`;
+};
+
+/**
+ * Why an update has nothing to take: named by nothing, that every linked design is up to date;
+ * named, why each name was left out, and where the pages' changed components are updated instead.
+ */
+const nothingToUpdate = (
+  words: readonly string[],
+  taken: ReturnType<typeof pagesToUpdate>,
+  components: ReturnType<typeof componentsToUpdate>,
+  theirOwn: readonly string[]
+) =>
+  words.length > 0
+    ? nothingNamedBehind({
+        components: components.namedComponents.length > 0,
+        noSuchComponent: components.noSuchComponent,
+        ownUpdate:
+          theirOwn.length > 0
+            ? `the components ${taken.picked.size === 1 ? "it places" : "they place"} whose code changed are ${componentsOwnUpdate(theirOwn)}`
+            : null,
+        pages: taken.pageWords.length > 0,
+        unknown: taken.unknown,
+      })
+    : "every page and component linked to its code is up to date with it; a page not linked yet is taken only when it or its canvas is named";
+
+/** How the update looks at a component where the application runs (ADR 0122). */
+const SEE_COMPONENT_RUNNING = `Where you can see the running application, in a browser or a view at a width of it, look at
+   the component on a screen that uses it, in the variants, sizes and states the screens show.
+   Where you can see neither, update the component from the code alone.`;
+
+/** The update of a component, sent on its own: what points a page to it (ADR 0122). */
+const componentsOwnUpdate = (names: readonly string[]) =>
+  `brought up to date on their own, through their instances: ${commandOf({ _tag: "UpdateFromCode", targets: names.map(componentTarget) })}`;
+
+/**
+ * The components a tree places, by name, and those they place in turn: a page follows a change to
+ * any of them through its instances.
+ */
+const placedIn = (
+  root: DesignNode | null | undefined,
+  files: readonly ComponentFile[]
+) => {
+  const placed = usedComponents(root);
+  for (const name of placed) {
+    const file = files.find((c) => c.name === name);
+    if (file?.origin === "app") {
+      for (const inner of usedComponents(file.tree)) {
+        placed.add(inner);
+      }
+    }
+  }
+  return placed;
+};
+
+/**
+ * The pages an update takes (ADR 0115): named by nothing, those whose code changed; named, those
+ * behind their code, a base page named taking its states with it and a state named alone staying
+ * alone. A state is a page of its own: it is taken when it is behind, and only then.
+ */
+const pagesToUpdate = (
+  words: readonly string[],
+  canvases: readonly { readonly id: string }[],
+  pages: readonly Page[],
+  itemByTarget: ReadonlyMap<string, ImplementationItem>
+) => {
+  const pageWords = words.filter((w) => !isComponentTarget(w));
+  const { picked, unknown } = pagesOf(pageWords, canvases, pages);
+  const isNamed = (p: Page) =>
+    picked.has(p.id) ||
+    (p.state !== undefined &&
+      familyOf(pages, p).some(
+        (base) => base.state === undefined && picked.has(base.id)
+      ));
+  const chosen = pages.filter((p) => {
+    const item = itemByTarget.get(p.id);
+    return words.length === 0
+      ? codeChangedSince(item)
+      : isNamed(p) && behindItsCode(item);
+  });
+  return {
+    chosen,
+    named: pages.filter(isNamed),
+    pageWords,
+    picked,
+    unknown,
+  };
+};
+
+/**
+ * The components an update takes (ADR 0122): those whose code changed since they were
+ * implemented, named or, named by nothing, all of them. One never implemented has no code to
+ * come from, nor a draft to find the code of.
+ */
+const componentsToUpdate = (
+  words: readonly string[],
+  files: readonly ComponentFile[],
+  itemByTarget: ReadonlyMap<string, ImplementationItem>
+) => {
+  const namedComponents = words.filter(isComponentTarget).map(componentNameOf);
+  const changed = files.filter((c) =>
+    codeChangedSince(itemByTarget.get(componentTarget(c.name)))
+  );
+  return {
+    changed,
+    chosen: changed.filter(
+      (c) => words.length === 0 || namedComponents.includes(c.name)
+    ),
+    namedComponents,
+    noSuchComponent: namedComponents.filter(
+      (name) => !files.some((c) => c.name === name)
+    ),
+  };
+};
+
+/** What an update takes: the kinds of design there are, as its text names them. */
+const kindNames = (anyPage: boolean, anyComponent: boolean) => {
+  const kinds = (page: string, component: string, joint: string) =>
+    [anyPage ? page : null, anyComponent ? component : null]
+      .filter((kind) => kind !== null)
+      .join(joint);
+  return {
+    /** `pages`, `components` or `pages and components`. */
+    several: kinds("pages", "components", " and "),
+    /** `page`, `component` or `page or component`. */
+    singular: kinds("page", "component", " or "),
+  };
+};
+
+/** What an update's steps turn on. */
+interface UpdateFlags {
+  readonly anyComponent: boolean;
+  readonly anyPage: boolean;
+  /** A design's own changes since it was implemented: the two sides are reconciled. */
+  readonly bothChanged: boolean;
+  /** The kinds taken, as one of them is named: `page`, `component`, `page or component`. */
+  readonly singular: string;
+  /** A page is not linked to its code yet: its files are found first. */
+  readonly unlinked: boolean;
+}
+
+/** The components an update takes (ADR 0122), and how their files read. */
+const componentsSection = (
+  components: readonly ComponentFile[],
+  entries: readonly string[]
+) => {
+  if (components.length === 0) {
+    return "";
+  }
+  const origins = [...new Set(components.map((c) => c.origin))];
+  return `
+The components:
+${entries.join("\n")}
+
+${origins.map((origin) => `A component's file, of ${componentBody(origin)}`).join("\n")}
+`;
+};
 
 /** How the update finds the screen that draws a page not linked yet (ADR 0115). */
 const FIND_THE_SCREEN = `Find where the application's pages live and how its routes are declared, and the screen
@@ -297,11 +503,11 @@ export const makePageTasks = Effect.fnUntraced(function* (deps: {
   const project = yield* OpenProject;
   const { tools } = ways;
 
-  /** What a page refused a mark is to do: marking checks the tokens only through the tool. */
+  /** What a design refused a mark is to do: marking checks the tokens only through the tool. */
   const markRefused = tools
-    ? `If marking is refused because tokens the page uses have not reached the code, the design's
+    ? `If marking is refused because tokens the design uses have not reached the code, the design's
    values are newer than the stylesheet's: ask the user whether to export them (${handoffCall("export")}
-   and their names) before marking, or to leave the page unlinked.`
+   and their names) before marking, or to leave it unlinked.`
     : null;
   const fs = yield* FileSystem.FileSystem;
 
@@ -397,52 +603,84 @@ ${numbered([
    * rewritten in place and linked to its files again; a page not linked yet has its files found
    * first. Named by nothing, every page whose code changed: a page not linked yet is taken only
    * when it, or its canvas, is named, since every draft not built yet is unlinked too (decided
-   * with the person, 2026-11-23). One up to date with its code is left out.
+   * with the person, 2026-11-23). One up to date with its code is left out. A component
+   * (`component:<Name>`) is taken when its code changed since it was implemented, and named by
+   * nothing too (ADR 0122); the pages that place it follow through their instances.
    */
   const updateFromCode = (words: readonly string[]) =>
     project.use(
       Effect.gen(function* () {
         const { canvases, pages } = yield* (yield* PagesService).list;
         const { items } = yield* (yield* ImplementationService).list;
+        const files = yield* (yield* ComponentService).components;
         const itemByTarget = new Map(items.map((i) => [i.target, i]));
-        const { picked, unknown } = pagesOf(words, canvases, pages);
-        // A base page named takes its states with it; a state named alone stays alone.
-        const isNamed = (p: Page) =>
-          picked.has(p.id) ||
-          (p.state !== undefined &&
-            familyOf(pages, p).some(
-              (base) => base.state === undefined && picked.has(base.id)
-            ));
-        const behind = pages.filter((p) => {
-          const item = itemByTarget.get(p.id);
-          return words.length === 0
-            ? item !== undefined && isBound(item.status) && item.codeChanged
-            : isNamed(p) && behindItsCode(item);
-        });
-        // A state is a page of its own: it is taken when it is behind, and only then.
-        const chosen = behind;
-        if (chosen.length === 0) {
+        const taken = pagesToUpdate(words, canvases, pages, itemByTarget);
+        const components = componentsToUpdate(words, files, itemByTarget);
+        // What each page places, read only when a component's code changed.
+        const placedByPage =
+          components.changed.length > 0
+            ? yield* placingOf(pages, files)
+            : new Map<string, ReadonlySet<string>>();
+        if (taken.chosen.length === 0 && components.chosen.length === 0) {
+          // The components the pages named place whose code changed: their own update's.
+          const theirOwn = components.changed
+            .filter((c) =>
+              taken.named.some((p) => placedByPage.get(p.id)?.has(c.name))
+            )
+            .map((c) => c.name);
           return yield* taskFailure(
             "update-from-code",
-            words.length > 0
-              ? noneLeft(unknown, true, "is up to date with its code")
-              : "every page linked to its code is up to date with it; a page not linked yet is taken only when it or its canvas is named",
+            nothingToUpdate(words, taken, components, theirOwn),
             "Say so, and stop."
           );
         }
-        const entries = yield* Effect.forEach(chosen, (page) =>
+        const entries = yield* Effect.forEach(taken.chosen, (page) =>
           behindEntry(page, pages, itemByTarget.get(page.id))
         );
-        return updateTask(chosen, entries, unknown, {
-          bothChanged: chosen.some(
-            (p) => itemByTarget.get(p.id)?.designChanged === true
-          ),
-          unlinked: chosen.some(
+        const componentEntries = yield* Effect.forEach(
+          components.chosen,
+          (component) =>
+            componentEntry(
+              component,
+              itemByTarget.get(componentTarget(component.name)),
+              pages.filter((p) => placedByPage.get(p.id)?.has(component.name))
+            )
+        );
+        return updateTask({
+          bothChanged: [
+            ...taken.chosen.map((p) => p.id),
+            ...components.chosen.map((c) => componentTarget(c.name)),
+          ].some((target) => itemByTarget.get(target)?.designChanged === true),
+          componentEntries,
+          components: components.chosen,
+          entries,
+          noSuchComponent: components.noSuchComponent,
+          pages: taken.chosen,
+          unknown: taken.unknown,
+          unlinked: taken.chosen.some(
             (p) => !isBound(itemByTarget.get(p.id)?.status)
           ),
         });
       })
     );
+
+  /** The components each page places, through other app components too, by page id. */
+  const placingOf = Effect.fnUntraced(function* (
+    pages: readonly Page[],
+    files: readonly ComponentFile[]
+  ) {
+    const documents = yield* DocumentService;
+    const placed = new Map<string, ReadonlySet<string>>();
+    for (const page of pages) {
+      // A page that can't be read places nothing the update can name.
+      const doc = yield* Effect.orElseSucceed(
+        documents.get(page.id),
+        () => null
+      );
+      placed.set(page.id, placedIn(doc?.root, files));
+    }
+    return placed;
+  });
 
   /**
    * What the update says of a linked page's code: when and where it was implemented, what changed
@@ -517,78 +755,164 @@ ${numbered([
     if (links.length > 0) {
       lines.push(`  Its links: ${links.join("; ")}.`);
     }
-    for (const note of notes) {
-      lines.push(
-        `  Behaviour note${note.element ? ` on ${note.element}${note.nodeId ? ` (${note.nodeId})` : ""}` : ""}: ${note.text}`
-      );
-    }
+    lines.push(...noteLines(notes));
     return lines.join("\n");
   });
 
-  const updateTask = (
-    chosen: readonly Page[],
-    entries: readonly string[],
-    unknown: readonly string[],
-    {
-      bothChanged,
-      unlinked,
-    }: {
-      /** A page's design changed too since it was implemented: the two are reconciled. */
-      readonly bothChanged: boolean;
-      /** A page is not linked to its code yet: its files are found first. */
-      readonly unlinked: boolean;
-    }
-  ) => {
-    const canvasIds = [...new Set(chosen.map((p) => p.canvas))];
-    const [onlyCanvas] = canvasIds;
-    const canvas =
-      onlyCanvas !== undefined && canvasIds.length === 1
-        ? named(onlyCanvas)
-        : `each page's own (${canvasIds.map(named).join(", ")})`;
-    return `<ultrapaint-task command="update-from-code">
-These pages of the design have fallen behind the application's code, or were never linked to it.
-Bring each one up to date: rewrite it in place to show what the code draws now, and link it to
-the files that draw it. Change the designs only, never the application's code. Each page's
-version from before stays in the designs' history, where the user can restore it.${leftOut(unknown)}
+  /**
+   * A component behind its code, as the update lists it (ADR 0122): its file, what draws it and
+   * what changed, the pages that place it, which follow it, and its behaviour notes.
+   */
+  const componentEntry = Effect.fnUntraced(function* (
+    component: ComponentFile,
+    item: ImplementationItem | undefined,
+    placers: readonly Page[]
+  ) {
+    const { settings } = yield* RepoPaths;
+    const target = componentTarget(component.name);
+    const notes = yield* (yield* DesignTargets).notes({
+      _tag: "Component",
+      component,
+    });
+    const lines = [
+      `- ${target}: ${component.name}, ${component.origin === "app" ? "an app component" : "a system component's look"} (${settings.designsDir}/${componentFileOf(component.name)})`,
+      ...(item ? yield* boundLines(target, item) : []),
+      placers.length > 0
+        ? `  The pages that place it, which follow it through their instances: ${placers.map((p) => p.id).join(", ")}.`
+        : "  No page places it.",
+      ...noteLines(notes),
+    ];
+    return lines.join("\n");
+  });
 
-The pages, by id:
-${entries.join("\n")}
-
-${ways.editPages(canvas)}
-
-${numbered([
-  unlinked
-    ? `For each page not linked yet, find the code that draws it. ${FIND_THE_SCREEN}`
-    : null,
-  `Read the files that draw each page, starting with the files that changed since it was
+  /**
+   * How the update reads what moved, and on which side (ADR 0115, 0122): the code first, the
+   * running application where the agent can see it, and the design's own changes beside the
+   * code's.
+   */
+  const readingSteps = (flags: UpdateFlags) => {
+    const { anyComponent, anyPage, bothChanged, singular, unlinked } = flags;
+    return [
+      unlinked
+        ? `For each page not linked yet, find the code that draws it. ${FIND_THE_SCREEN}`
+        : null,
+      `Read the files that draw each ${singular}, starting with the files that changed since it was
    implemented, and the design as it was implemented, to see what moved and what still holds.`,
-  ways.seeRunningScreen,
-  bothChanged
-    ? `For each page whose design changed too, never take one side whole: set the design's changes
+      anyPage ? ways.seeRunningScreen : null,
+      anyComponent ? SEE_COMPONENT_RUNNING : null,
+      bothChanged
+        ? `For each ${singular} whose design changed too, never take one side whole: set the design's changes
    since it was implemented (listed with it) beside the code's, the git history of its files since
    that day (git log and git diff from then). A change only one side made is kept. Where both
    changed the same thing, the history decides what is current: which change came later, and
    what its commit, or the design's note, says it was for. Where you cannot tell, ask the user
    ${ways.askUser}, a few at a time, before you write. Drop neither side without saying so.`
-    : null,
-  `Rewrite each page in place to show what the code draws now: the same page and the same URL,
+        : null,
+    ];
+  };
+
+  /** How the update rewrites each design, and links it to its code again. */
+  const writingSteps = ({ anyComponent, anyPage }: UpdateFlags) => [
+    anyPage
+      ? `Rewrite each page in place to show what the code draws now: the same page and the same URL,
    the ids of the nodes you keep, its states, its links to other pages and its behaviour notes
    where they still hold. Draw with the design system's components and tokens, each of the
    application's components as the component of the design that stands for it. A state listed
-   with its page but not on its own is up to date: leave it.`,
-  `Where no code draws a page (an exploration, a board of options), leave it as it is, unlinked,
-   and name it in your last message.`,
-  `Once a page is up to date, ${ways.linkBuilt}`,
-  markRefused,
-  bothChanged
-    ? `Then, on each page whose design changed too, put back the design's changes you kept: the
-   page then reads Design changed, and implementing it builds what is left.`
-    : null,
-  `End with a table: each page, what you changed and the files that draw it, or why it is left
-   as it is; for a page whose design changed too, which of its changes you kept for the code to
+   with its page but not on its own is up to date: leave it.`
+      : null,
+    anyComponent
+      ? `Change each component in place to what its code draws now: the same component and name, its
+   properties, variants, sizes and slots as the code has them, and its behaviour notes where they
+   still hold. Its pages are not rewritten: they follow it through their instances.`
+      : null,
+    anyComponent ? ways.changeComponent : null,
+    anyPage
+      ? `Where no code draws a page (an exploration, a board of options), leave it as it is, unlinked,
+   and name it in your last message.`
+      : null,
+    anyPage ? `Once a page is up to date, ${ways.linkBuilt}` : null,
+    anyComponent
+      ? `Once a component is up to date, ${ways.linkComponent}`
+      : null,
+    markRefused,
+  ];
+
+  /** What the update puts back of the design, and what its last message says. */
+  const closingSteps = ({
+    anyComponent,
+    anyPage,
+    bothChanged,
+    singular,
+  }: UpdateFlags) => {
+    const rows = [
+      anyPage
+        ? "each page, what you changed and the files that draw it, or why it is left as it is"
+        : null,
+      anyComponent
+        ? "each component, what you changed, the files that draw it and the pages that place it, which now draw it as it is"
+        : null,
+    ].filter((row) => row !== null);
+    return [
+      bothChanged
+        ? `Then, on each ${singular} whose design changed too, put back the design's changes you kept: it
+   then reads Design changed, and implementing it builds what is left.`
+        : null,
+      `End with a table: ${rows.join("; ")}; for a ${singular} whose design changed too, which of its changes you kept for the code to
    follow and which the code had already overtaken, and what the user decided. Say whether you saw the running screen; where you could not see the running screen,
-   say so: the page was updated from the code alone and not checked against the application.`,
-])}
+   say so: it was updated from the code alone and not checked against the application.`,
+    ];
+  };
+
+  /** The pages an update takes, and how they are read and changed. */
+  const pagesSection = (pages: readonly Page[], entries: readonly string[]) => {
+    if (pages.length === 0) {
+      return "";
+    }
+    const canvasIds = [...new Set(pages.map((p) => p.canvas))];
+    const [onlyCanvas] = canvasIds;
+    const canvas =
+      onlyCanvas !== undefined && canvasIds.length === 1
+        ? named(onlyCanvas)
+        : `each page's own (${canvasIds.map(named).join(", ")})`;
+    return `
+The pages, by id:
+${entries.join("\n")}
+
+${ways.editPages(canvas)}
+`;
+  };
+
+  const updateTask = (update: {
+    /** A design's own changes since it was implemented: the two sides are reconciled. */
+    readonly bothChanged: boolean;
+    readonly componentEntries: readonly string[];
+    /** The components taken (ADR 0122). */
+    readonly components: readonly ComponentFile[];
+    readonly entries: readonly string[];
+    readonly noSuchComponent: readonly string[];
+    /** The pages taken. */
+    readonly pages: readonly Page[];
+    readonly unknown: readonly string[];
+    /** A page is not linked to its code yet: its files are found first. */
+    readonly unlinked: boolean;
+  }) => {
+    const anyPage = update.pages.length > 0;
+    const anyComponent = update.components.length > 0;
+    const { several, singular } = kindNames(anyPage, anyComponent);
+    const flags: UpdateFlags = {
+      anyComponent,
+      anyPage,
+      bothChanged: update.bothChanged,
+      singular,
+      unlinked: update.unlinked,
+    };
+    return `<ultrapaint-task command="update-from-code">
+These ${several} of the design have fallen behind the application's code${anyPage ? ", or were never linked to it" : ""}.
+Bring each one up to date: rewrite it in place to show what the code draws now, and link it to
+the files that draw it. Change the designs only, never the application's code. Each ${singular}'s
+version from before stays in the designs' history, where the user can restore it.${leftOut(update.unknown)}${leftOutComponents(update.noSuchComponent)}
+${pagesSection(update.pages, update.entries)}${componentsSection(update.components, update.componentEntries)}
+${numbered([...readingSteps(flags), ...writingSteps(flags), ...closingSteps(flags)])}
 </ultrapaint-task>`;
   };
 

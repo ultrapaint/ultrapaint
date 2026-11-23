@@ -4,6 +4,8 @@ import {
   type DesignSystem,
   emptyDesignSystem,
 } from "@ultrapaint/contracts/design-system";
+import type { ImplementationItem } from "@ultrapaint/contracts/implementation";
+import type { Thread } from "@ultrapaint/contracts/threads";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -16,6 +18,8 @@ import {
 } from "../state/board.ts";
 import { draftEdits, useDesignSystem } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
+import { useImplementation } from "../state/implementation.ts";
+import { takeRequest } from "../state/panels.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { BoardInspector } from "./board-inspector.tsx";
 
@@ -43,6 +47,7 @@ const COLOR: BoardPlace = { item: "color", view: "system" };
 const initialEditor = useEditor.getState();
 const initialBoard = useBoard.getState();
 const initialDesignSystem = useDesignSystem.getState();
+const initialImplementation = useImplementation.getState();
 
 let mounted: Root;
 let container: HTMLElement;
@@ -79,6 +84,7 @@ afterEach(() => {
   act(() => mounted.unmount());
   draftEdits(null);
   useDesignSystem.setState(initialDesignSystem, true);
+  useImplementation.setState(initialImplementation, true);
 });
 
 describe("Design system's inspector, from one pick to the next", () => {
@@ -98,5 +104,81 @@ describe("Design system's inspector, from one pick to the next", () => {
     expect(button("Generate ramp…")).toBeDefined();
     // The shades drawn over the board went with it.
     expect(useDesignSystem.getState().designSystem).toEqual(ds);
+  });
+});
+
+/** The Button's board in the Library. */
+const BUTTON: BoardPlace = { item: "Button", view: "library" };
+
+/** The Button implemented by ui/button.tsx, its code changed since or not. */
+const buttonImplemented = (codeChanged: boolean) =>
+  useImplementation.setState({
+    byTarget: {
+      "component:Button": {
+        at: 0,
+        changedFiles: codeChanged ? ["ui/button.tsx"] : [],
+        codeChanged,
+        designChanged: false,
+        files: ["ui/button.tsx"],
+        kind: "component",
+        name: "Button",
+        ready: false,
+        status: codeChanged ? "changed" : "implemented",
+        target: "component:Button",
+      } satisfies ImplementationItem,
+    },
+  });
+
+/** The board's ⋯ menu, opened: its items' names. */
+const boardMenuItems = () => {
+  act(() =>
+    container.querySelector<HTMLElement>('[aria-label="More"]')?.click()
+  );
+  return [...document.body.querySelectorAll("[role=menuitem]")].map(
+    (i) => i.textContent
+  );
+};
+
+describe("a component's Update from code (ADR 0122)", () => {
+  const openButton = () => {
+    openBoard(BUTTON);
+    act(() => mounted.render(<BoardInspector open={BUTTON} />));
+  };
+
+  it("reads Code changed on its board, and offers Update from code there and in its menu", () => {
+    buttonImplemented(true);
+    openButton();
+    expect(container.textContent).toContain("Code changed");
+    expect(button("Update from code")).toBeDefined();
+    expect(boardMenuItems()).toContain("Update from code");
+  });
+
+  it("is not offered for a component implemented with nothing changed", () => {
+    buttonImplemented(false);
+    openButton();
+    expect(container.textContent).toContain("Implemented");
+    expect(button("Update from code")).toBeUndefined();
+    expect(boardMenuItems()).not.toContain("Update from code");
+  });
+
+  it("drafts the task in a new chat, and sends nothing (ADR 0074)", async () => {
+    const thread: Thread = {
+      agentId: "claude-code",
+      createdAt: 0,
+      id: "t1",
+      status: "idle",
+      title: "New chat",
+      updatedAt: 0,
+    };
+    fakeApi.respond("threads.create", () => thread);
+    buttonImplemented(true);
+    openButton();
+    act(() => button("Update from code")?.click());
+    await act(() => fakeApi.requested("threads.create"));
+    await act(async () => undefined);
+    expect(takeRequest({ draft: thread.id })).toBe(
+      "/update-from-code component:Button "
+    );
+    expect(fakeApi.calls.map((c) => c.method)).not.toContain("threads.prompt");
   });
 });

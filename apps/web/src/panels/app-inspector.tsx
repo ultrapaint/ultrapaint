@@ -47,6 +47,7 @@ import {
 import { useEditor } from "../state/editor.ts";
 import { boardFrameOf } from "../state/frame-ref.ts";
 import { isolate, useIsolation } from "../state/isolation.ts";
+import { UpdateComponentItem } from "./code-implementation.tsx";
 import { Notes } from "./component-notes.tsx";
 import { ComponentUsedIn } from "./component-used-in.tsx";
 import { Inspector } from "./inspector.tsx";
@@ -74,7 +75,7 @@ const overridesOf = (tree: DesignNode, key: string) => {
   return count;
 };
 
-/** The "…" of an app component's board: implement it, delete it. */
+/** The "…" of an app component's board: implement it, update it from its code, delete it. */
 export const AppMenu = ({ name }: { name: string }) => (
   <DropdownMenu>
     <DropdownMenuTrigger
@@ -91,6 +92,7 @@ export const AppMenu = ({ name }: { name: string }) => (
         <Code2 />
         Implement
       </DropdownMenuItem>
+      <UpdateComponentItem name={name} />
       <DropdownMenuItem
         onClick={async () => {
           const removed = await removeComponent(name);

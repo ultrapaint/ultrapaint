@@ -796,6 +796,7 @@ const EVERY_ACTION = {
     insert: true,
     insertCanvas: true,
     openBoard: true,
+    updateFromCode: true,
   },
   node: {
     arrange: true,
@@ -876,7 +877,7 @@ const CONTACT = "contact.page.json";
 
 /**
  * The stores as the menus between them show every item: something copied and selected, a page
- * implemented, two picked together, an agent at work.
+ * implemented, a component whose code changed, two picked together, an agent at work.
  */
 const setUpForEvery = () => {
   setUp();
@@ -887,7 +888,14 @@ const setUpForEvery = () => {
   }));
   usePagePicks.getState().set([BOLD, CONTACT]);
   useImplementation.setState({
-    byTarget: { [ABOUT]: { files: ["src/about.tsx"], status: "implemented" } },
+    byTarget: {
+      [ABOUT]: { files: ["src/about.tsx"], status: "implemented" },
+      "component:Card": {
+        codeChanged: true,
+        files: ["src/card.tsx"],
+        status: "changed",
+      },
+    },
   } as never);
   useAgents.setState({ threads: [{ ...thread, status: "running" }] });
 };

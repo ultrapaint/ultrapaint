@@ -6,6 +6,7 @@
  * offers an MCP server's prompts as slash commands of its own; prompts cost no tool definition.
  */
 import { SETUP_STEPS } from "@ultrapaint/contracts/design-system-setup";
+import { componentTarget } from "@ultrapaint/contracts/implementation";
 import {
   SyncSource,
   slashCommands,
@@ -41,7 +42,7 @@ export const TaskPrompts = Layer.effectDiscard(
                 const files = yield* (yield* ComponentService).components;
                 return [
                   ...pages.map((p) => p.route ?? p.file),
-                  ...files.map((c) => `component:${c.name}`),
+                  ...files.map((c) => componentTarget(c.name)),
                   "--adopt",
                 ];
               })
@@ -49,12 +50,18 @@ export const TaskPrompts = Layer.effectDiscard(
             .pipe(Effect.orElseSucceed(() => []));
         case "update-from-code":
           return project
-            .use(Effect.flatMap(PagesService, (pages) => pages.list))
+            .use(
+              Effect.gen(function* () {
+                const list = yield* (yield* PagesService).list;
+                const files = yield* (yield* ComponentService).components;
+                return [
+                  ...list.canvases.map((c) => canvasWord(c.id)),
+                  ...list.pages.map((p) => p.id),
+                  ...files.map((c) => componentTarget(c.name)),
+                ];
+              })
+            )
             .pipe(
-              Effect.map((list) => [
-                ...list.canvases.map((c) => canvasWord(c.id)),
-                ...list.pages.map((p) => p.id),
-              ]),
               // A completion that can't list the pages offers none; the prompt still takes any name.
               Effect.orElseSucceed(() => [])
             );

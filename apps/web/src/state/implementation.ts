@@ -4,9 +4,10 @@
  * whenever a design, a binding or a component's file changes; a change to the code is seen when the list is
  * read again, which the panels do when they open.
  */
-import type {
-  ImplementationItem,
-  ImplementationList,
+import {
+  componentTarget,
+  type ImplementationItem,
+  type ImplementationList,
 } from "@ultrapaint/contracts/implementation";
 import { toast } from "sonner";
 import { create } from "zustand";
@@ -37,6 +38,19 @@ const implementationData = follow({
   read: () => api().request("implementation.list", undefined),
   whole: ["implementation"],
 });
+
+const codeChangedOf = (
+  byTarget: ImplementationStore["byTarget"],
+  name: string
+) => byTarget[componentTarget(name)]?.codeChanged === true;
+
+/** Whether a component's code changed since it was implemented: it offers Update from code (ADR 0122). */
+export const useComponentCodeChanged = (name: string) =>
+  useImplementation((s) => codeChangedOf(s.byTarget, name));
+
+/** The same, read once, for a menu built when it opens. */
+export const componentCodeChanged = (name: string) =>
+  codeChangedOf(useImplementation.getState().byTarget, name);
 
 const statusWords = (item: ImplementationItem): string => {
   switch (item.status) {
