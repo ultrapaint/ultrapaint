@@ -75,7 +75,7 @@ const BrandColour = ({ brand }: { brand: string }) => {
       </span>
       <Input
         aria-label="Brand colour"
-        className="h-7 font-code"
+        className="h-7"
         onBlur={() => setTyped(null)}
         onChange={(e) => {
           const next = e.target.value.trim();

@@ -264,7 +264,7 @@ const StepRow = ({
       </div>
       {showLine ? (
         // On the label's edge: the icon's 14px and the 8px gap before the label.
-        <p className="truncate pl-5.5 font-code text-muted-foreground">
+        <p className="truncate pl-5.5 font-body-small text-muted-foreground">
           {step.line}
         </p>
       ) : null}

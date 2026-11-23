@@ -228,9 +228,7 @@ const NodeRow = () => {
       <RowMessage kind="notice">
         <div className="flex flex-col gap-1">
           <p>
-            <code className="break-all font-code text-foreground">
-              node --version
-            </code>{" "}
+            <span className="break-all text-foreground">node --version</span>{" "}
             failed: {status.reason}
           </p>
           <p>
@@ -270,7 +268,9 @@ export const AboutSection = ({ folders }: { folders?: React.ReactNode }) => {
             {dev ? "Ultrapaint Dev" : "Ultrapaint"}
           </h3>
           {version ? (
-            <span className="font-code text-muted-foreground">{version}</span>
+            <span className="font-body-small text-muted-foreground tabular-nums">
+              {version}
+            </span>
           ) : null}
         </div>
         <UpdateState />

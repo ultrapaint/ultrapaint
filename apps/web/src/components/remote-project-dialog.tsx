@@ -145,7 +145,6 @@ const Form = ({ projects }: { projects: ShellProjects }) => {
         <Field>
           <FieldLabel htmlFor="remote-command">Command</FieldLabel>
           <Input
-            className="font-code"
             disabled={busy}
             id="remote-command"
             onChange={(e) => setCommand(e.target.value)}

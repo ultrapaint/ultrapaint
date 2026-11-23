@@ -48,9 +48,9 @@ const Words = ({ text }: { text: string }) =>
   text.split(QUOTED).map((part, i) =>
     i % 2 === 1 ? (
       // biome-ignore lint/suspicious/noArrayIndexKey: the parts of one sentence, in its order.
-      <code className="font-code" key={i}>
+      <span className="text-foreground" key={i}>
         {part}
-      </code>
+      </span>
     ) : (
       part
     )

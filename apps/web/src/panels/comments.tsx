@@ -225,7 +225,7 @@ const Item = ({ comment }: { comment: Comment }) => {
               </span>
             ) : null}
             {comment.element ? (
-              <span className="truncate font-code">{`<${comment.element}>`}</span>
+              <span className="truncate">{`<${comment.element}>`}</span>
             ) : null}
           </span>
         ) : null}

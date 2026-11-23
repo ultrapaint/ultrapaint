@@ -49,7 +49,7 @@ const TokensWaiting = ({ tokens }: { tokens: readonly string[] }) => (
     <p className="min-w-0 flex-1 font-body-small text-muted-foreground">
       {tokens.length === 1 ? "A token" : `${tokens.length} tokens`} it uses wait
       {tokens.length === 1 ? "s" : ""} for the code:{" "}
-      <span className="font-code text-foreground">{tokens.join(", ")}</span>
+      <span className="text-foreground">{tokens.join(", ")}</span>
     </p>
     <Button
       className="shrink-0"

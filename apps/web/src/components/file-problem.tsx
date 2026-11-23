@@ -35,14 +35,14 @@ export const FileProblem = ({
       <p key={i}>
         {part.at === null ? null : (
           <>
-            <code className="font-code">{part.at}</code>{" "}
+            <span className="text-foreground">{part.at}</span>{" "}
           </>
         )}
         {part.says.map((said, j) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: the pieces of one sentence, in its order.
           <Fragment key={j}>
             {said.code ? (
-              <code className="font-code">{said.text}</code>
+              <span className="text-foreground">{said.text}</span>
             ) : (
               said.text
             )}

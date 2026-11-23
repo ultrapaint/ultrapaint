@@ -87,20 +87,17 @@ const visibilityOptions = (
 ): SelectOption[] => [
   { label: "Every width", value: "every" },
   {
-    code: true,
     description: "hidden",
     label: "Hidden everywhere",
     value: "none",
   },
   ...breakpoints.map((b) => ({
-    code: true,
     description: `max-${b.name}:hidden`,
     group: "From a breakpoint up",
     label: `From ${b.name} up (${b.min}px)`,
     value: `from:${b.name}`,
   })),
   ...breakpoints.map((b) => ({
-    code: true,
     description: `${b.name}:hidden`,
     group: "Below a breakpoint",
     label: `Below ${b.name} (${b.min}px)`,
@@ -173,7 +170,7 @@ export const BreakpointSection = ({
       {editing === null ? null : (
         <Row label="Edits at">
           <span className="truncate font-body">
-            <span className="font-code">{editing}</span>
+            <span>{editing}</span>
             <span className="text-muted-foreground"> and up</span>
           </span>
         </Row>
@@ -194,7 +191,7 @@ export const BreakpointSection = ({
               {fieldsAt(own, b.name).map((field) => (
                 <span
                   className={cn(
-                    "flex h-6 items-center gap-0.5 rounded-md bg-muted pr-0.5 pl-2 font-code",
+                    "flex h-6 items-center gap-0.5 rounded-md bg-muted pr-0.5 pl-2 font-body-small",
                     b.name === shown && "bg-accent text-foreground"
                   )}
                   key={field}

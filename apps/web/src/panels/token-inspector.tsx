@@ -153,7 +153,7 @@ const ThemeValue = ({
       ) : null}
       <Input
         aria-label={`${name}'s value in ${theme}`}
-        className="h-7 font-code"
+        className="h-7"
         onBlur={commit}
         onChange={(e) => type(e.target.value)}
         onKeyDown={(e) => {
@@ -318,7 +318,7 @@ const RampSection = ({ ds, name }: { ds: DesignSystem; name: string }) => {
             <Swatch color={made ? base : undefined} />
             <Input
               aria-label="The colour the ramp is made from"
-              className="h-7 font-code"
+              className="h-7"
               onChange={(e) => setBase(e.target.value)}
               value={base}
             />
@@ -460,7 +460,7 @@ const AddToken = ({
       <Row label="Name">
         <Input
           aria-label="The new token's name"
-          className="h-7 font-code"
+          className="h-7"
           onChange={(e) => setName(e.target.value)}
           value={name}
         />
@@ -468,7 +468,7 @@ const AddToken = ({
       <Row label="Value">
         <Input
           aria-label="The new token's value"
-          className="h-7 font-code"
+          className="h-7"
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && ready) {

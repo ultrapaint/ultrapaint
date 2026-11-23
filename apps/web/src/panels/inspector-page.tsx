@@ -103,7 +103,7 @@ export const ViewsRow = ({ pageId }: { pageId: string }) => {
                 <DropdownMenuLabel>At a breakpoint</DropdownMenuLabel>
                 {breakpoints.map((b) => (
                   <DropdownMenuItem key={b.name} onClick={() => add(b.min)}>
-                    <span className="flex-1 font-code">{b.name}</span>
+                    <span className="flex-1">{b.name}</span>
                     <span className="font-body-small text-muted-foreground tabular-nums">
                       {b.min}
                     </span>

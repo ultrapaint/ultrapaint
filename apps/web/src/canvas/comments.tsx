@@ -500,7 +500,7 @@ const Card = ({ comment }: { comment: Comment }) => {
       </div>
       <div className="-mt-2 flex flex-col gap-1 pl-8">
         {comment.element ? (
-          <span className="truncate font-code text-muted-foreground">
+          <span className="truncate font-body-small text-muted-foreground">
             {`<${comment.element}>`}
           </span>
         ) : null}

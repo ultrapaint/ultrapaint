@@ -1049,11 +1049,11 @@ const ServerAgents = () => {
               <span className="truncate font-body-small text-muted-foreground">
                 {agent.package ? (
                   <>
-                    <code className="font-code">{agent.package}</code>, run with
-                    npx when it isn’t installed
+                    <span className="text-foreground">{agent.package}</span>,
+                    run with npx when it isn’t installed
                   </>
                 ) : (
-                  <code className="font-code">{agent.command}</code>
+                  <span className="text-foreground">{agent.command}</span>
                 )}
               </span>
             </div>

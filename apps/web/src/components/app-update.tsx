@@ -95,7 +95,7 @@ const MainDetails = ({ update }: { update: AppUpdate }) => (
           <span className="min-w-0 flex-1 text-pretty font-body-small">
             {commit.notes}
           </span>
-          <span className="shrink-0 font-code text-muted-foreground">
+          <span className="shrink-0 font-body-small text-muted-foreground tabular-nums">
             {commit.version}
           </span>
         </li>

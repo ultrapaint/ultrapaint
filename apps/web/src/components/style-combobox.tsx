@@ -377,7 +377,7 @@ const Option = ({ item }: { item: StyleOption }) => (
   <>
     {item.preview}
     <span className="truncate">{item.label}</span>
-    <span className="ml-auto flex items-center gap-1.5 pl-3 font-code text-muted-foreground">
+    <span className="ml-auto flex items-center gap-1.5 pl-3 font-body-small text-muted-foreground">
       {hintsOf(item).map((hint) => (
         <span key={hint}>{hint}</span>
       ))}
@@ -397,7 +397,7 @@ const ArbitraryItem = ({
     <span className={cn("truncate", arbitrary && "text-warning")}>
       {arbitrary ? "Use arbitrary" : "Use"}
     </span>
-    <span className="ml-auto pl-3 font-code text-muted-foreground">
+    <span className="ml-auto pl-3 font-body-small text-muted-foreground">
       {item.value}
     </span>
   </>

@@ -468,8 +468,8 @@ export const SetupStepIntro = ({ threadId }: { threadId: string }) => {
     <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
       <span className="font-body-medium">{title} starts when you send</span>
       <span className="max-w-72 text-pretty font-body-small text-muted-foreground">
-        <code className="font-code">{command}</code> is the step’s task; add to
-        it if you like. The agent asks here when a decision is yours.
+        <span className="text-foreground">{command}</span> is the step’s task;
+        add to it if you like. The agent asks here when a decision is yours.
       </span>
       <Button
         onClick={() => openStepThread(threadId, `${command} `)}

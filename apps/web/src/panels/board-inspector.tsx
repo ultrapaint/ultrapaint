@@ -19,7 +19,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/cn";
 import { OVERVIEW } from "../boards/library-boards.ts";
 import { type DesignSystemPick, designSystemPickOf } from "../boards/pick.ts";
 import { isGuideline } from "../boards/system-boards.ts";
@@ -263,12 +262,7 @@ export const BoardInspector = ({ open }: { open: BoardPlace }) => {
       <div className="flex h-11 shrink-0 items-center gap-2 border-b pr-1.5 pl-3">
         <PickSwatch picked={picked} />
         <div className="flex min-w-0 flex-1 items-baseline gap-2">
-          <h2
-            className={cn(
-              "min-w-0 shrink truncate",
-              picked?.kind === "token" ? "font-code" : "font-heading-xsmall"
-            )}
-          >
+          <h2 className="min-w-0 shrink truncate font-heading-xsmall">
             <CutText className="block truncate">{title}</CutText>
           </h2>
           <span className="min-w-0 flex-1 truncate font-body-small text-muted-foreground">

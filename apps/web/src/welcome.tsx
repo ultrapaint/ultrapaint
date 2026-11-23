@@ -493,7 +493,7 @@ const StartComposer = ({ onProblem }: { onProblem: (m: string) => void }) => {
         <Alert variant="destructive">
           <CircleAlert />
           <AlertTitle>Couldn’t start the project</AlertTitle>
-          <AlertDescription className="max-h-40 overflow-y-auto whitespace-pre-wrap font-code">
+          <AlertDescription className="max-h-40 overflow-y-auto whitespace-pre-wrap">
             {failed}
           </AlertDescription>
         </Alert>
