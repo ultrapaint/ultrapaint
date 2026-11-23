@@ -10,7 +10,8 @@ The type voice of the character picks it when the product has none:
 - **Technical**: a neo-grotesque, Inter or a face like it (Inter Display for display sizes), or
   Geist. A mono only for code: a code block, a command, a key or a token the reader copies. Ids,
   times, figures, labels, tabs, buttons, captions and table cells stay in the sans, its tabular
-  figures where numbers line up in a column.
+  figures where numbers line up in a column. A public page whose chosen move sets mono labels or
+  captions keeps them (`references/moves.md`).
 - **Humanistic**: a friendly geometric or humanist sans for the interface (DM Sans, Figtree,
   Inter); headlines may take a serif display or a friendly display face over that plain sans body.
 - **Expressive**: the brand's face. Headings range from a neo-grotesque to a serif display, a
@@ -67,7 +68,7 @@ the page. Weights under `300` are for display sizes, `28px` and up.
 | A face named in the tokens and not loaded, or rendered in the fallback | Load it, or the nearest free face, and say which |
 | A paid face the product does not load and the user holds no licence for | The nearest free face of its kind |
 | Three or more families | One, two at most |
-| The mono on anything but code: a heading, body, an id, a time, a figure, a label, a tab, a button, a cell | The sans, tabular figures in a column; the mono for code and what is copied as code |
+| The mono on anything but code: a heading, body, an id, a time, a figure, a label, a tab, a button, a cell | The sans, tabular figures in a column; the mono for code and what is copied as code, or where a public page chose a move that sets it (`references/moves.md`) |
 | A public page with two hero sizes | One hero size; the rest plainly smaller |
 | A headline with two or more accents | One, or none |
 | A small uppercase label above a heading | Remove it, unless it states a fact the heading cannot |

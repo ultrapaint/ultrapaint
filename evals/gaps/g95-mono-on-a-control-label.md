@@ -46,3 +46,6 @@ item in the mono; ids in the incident text may stay in it.
 - Decision of 2026-11-23 (`decisions/g95-wide`): ship, as the agent called it. Shipped in
   `references/typography.md` (the type voice, the small labels, the Check row),
   `references/character.md` and `references/system/foundations.md`.
+- 2026-11-23, on PR #118: the person kept the public pages' chosen moves that set mono (a
+  monospace label layer, portfolio captions, landing indices); the rule and its Check row name
+  that exception.
