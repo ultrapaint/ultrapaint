@@ -640,6 +640,7 @@ const installMode = ((): InstallMode => {
     return {
       _tag: "Checkout",
       dir: edition.checkout,
+      running: edition.commit,
       ...(edition.updateFailed === undefined
         ? {}
         : { failed: edition.updateFailed }),

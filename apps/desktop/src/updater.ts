@@ -63,6 +63,8 @@ export type InstallMode =
       readonly _tag: "Checkout";
       readonly dir: string;
       readonly failed?: string;
+      /** The commit the app runs, which `main` is compared with: the checkout may have moved on. */
+      readonly running?: string;
     }
   /** Not packaged (development): nothing is checked. */
   | { readonly _tag: "None" };
@@ -287,9 +289,10 @@ export class Updater extends Context.Service<
         /** Ultrapaint Dev: `main` ahead of the checkout, pulled on a restart unless it is blocked. */
         const runCheckout = Effect.fn("Updater.checkout")(function* (
           dir: string,
-          failed: string | undefined
+          failed: string | undefined,
+          running: string | undefined
         ) {
-          const state = yield* readCheckout(dir).pipe(
+          const state = yield* readCheckout(dir, running).pipe(
             Effect.provideService(
               ChildProcessSpawner.ChildProcessSpawner,
               spawner
@@ -325,7 +328,7 @@ export class Updater extends Context.Service<
 
         const run = Effect.gen(function* () {
           if (mode._tag === "Checkout") {
-            return yield* runCheckout(mode.dir, mode.failed);
+            return yield* runCheckout(mode.dir, mode.failed, mode.running);
           }
           releases = yield* releasesSince(fetchFn, current);
           const [newest] = releases;

@@ -123,6 +123,25 @@ describe("readCheckout", () => {
   );
 
   it.effect(
+    "lists main's commits since the commit the app runs, though the checkout moved on since",
+    () =>
+      inRepositories(({ checkout, other }) =>
+        Effect.gen(function* () {
+          const running = git(checkout, "rev-parse", "--short", "HEAD");
+          commit(other, "a.ts", "fix: pulled in a terminal");
+          git(checkout, "pull", "-q", "--ff-only", "origin", "main");
+          const state = yield* readCheckout(checkout, running);
+          assert.deepStrictEqual(
+            state.behind.map((c) => c.subject),
+            ["fix: pulled in a terminal"]
+          );
+          assert.strictEqual(state.commit, running);
+        })
+      ),
+    GIT_TIMEOUT
+  );
+
+  it.effect(
     "fails when main cannot be fetched",
     () =>
       inRepositories(({ checkout }) =>
@@ -185,6 +204,56 @@ describe("pullMain", () => {
           );
           assert.isTrue(Exit.isFailure(exit));
           assert.strictEqual(git(checkout, "rev-parse", "HEAD"), before);
+        })
+      ),
+    GIT_TIMEOUT
+  );
+
+  it.effect(
+    "keeps a commit made while the install ran, rather than put the checkout back over it",
+    () =>
+      inRepositories(({ checkout, other }) =>
+        Effect.gen(function* () {
+          commit(other, "pnpm-lock.yaml", "chore: a new dependency");
+          // The install fails after a commit lands in the checkout meanwhile.
+          const exit = yield* Effect.exit(
+            pullMain(checkout, {
+              install: [
+                "sh",
+                "-c",
+                `git -c user.name=M -c user.email=m@example.com commit -q --allow-empty -m "feat: mine meanwhile" && exit 1`,
+              ],
+            })
+          );
+          assert.isTrue(Exit.isFailure(exit));
+          assert.strictEqual(
+            git(checkout, "log", "-1", "--format=%s"),
+            "feat: mine meanwhile"
+          );
+        })
+      ),
+    GIT_TIMEOUT
+  );
+
+  it.effect(
+    "installs the dependencies of the commit it went back to, after a failed install",
+    () =>
+      inRepositories(({ checkout, other, root }) =>
+        Effect.gen(function* () {
+          commit(other, "pnpm-lock.yaml", "chore: a new dependency");
+          const marker = path.join(root, "reinstalled");
+          // Fails on the new lockfile, succeeds on the old one, as an install offline would.
+          const exit = yield* Effect.exit(
+            pullMain(checkout, {
+              install: [
+                "sh",
+                "-c",
+                `grep -q "a new dependency" pnpm-lock.yaml && exit 1; touch '${marker}'`,
+              ],
+            })
+          );
+          assert.isTrue(Exit.isFailure(exit));
+          assert.isTrue(existsSync(marker));
         })
       ),
     GIT_TIMEOUT
