@@ -1,7 +1,7 @@
 ---
 id: g94
 title: A picture opened larger with no way to close it
-kind: missing
+kind: missed
 status: done
 found: 2026-11-23
 source: gap p15's test, from fx-opus-main23/fresh-changelog/run-1 with its close X removed
