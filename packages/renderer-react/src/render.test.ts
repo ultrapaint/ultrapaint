@@ -61,6 +61,7 @@ const draw = async (
   extra: {
     readonly at?: string;
     readonly components?: readonly ComponentFile[];
+    readonly isolate?: { readonly instance: string };
   } = {}
 ) => {
   const canvas = document.createElement("div");
@@ -92,6 +93,7 @@ const draw = async (
     mounted = renderToCanvas(setup, canvas);
     mounted.render({
       ...(extra.at !== undefined && { at: extra.at }),
+      ...(extra.isolate && { isolate: extra.isolate }),
       components: extra.components ?? [],
       designSystem: null,
       mode: "page",
@@ -435,6 +437,40 @@ describe("an app component (ADR 0041)", () => {
     expect(at("outer/o-promo/d-title")?.textContent).toBe("Inside");
     expect(at("outer/o-promo/d-body")?.textContent).toBe("Mine");
     expect(at("outer/o-me")?.textContent).toContain("drawn inside itself");
+  });
+
+  it("draws the main component's own values around one edited inside it (ADR 0114)", async () => {
+    const outer: AppComponentFile = {
+      name: "Outer",
+      origin: "app",
+      properties: [],
+      slots: [],
+      tree: {
+        children: [
+          {
+            component: "Promo",
+            from: APP_FROM,
+            id: "o-promo",
+            type: "instance",
+          },
+        ],
+        id: "o-root",
+        type: "row",
+      },
+      version: 1,
+    };
+    const { at } = await draw(
+      column([
+        instance("outer", "Outer", {
+          from: APP_FROM,
+          overrides: { "o-promo": { hidden: true } },
+        }),
+      ]),
+      { components: [promo, outer], isolate: { instance: "outer/o-promo" } }
+    );
+    // The page hides it; the main component, edited, does not.
+    expect(at("d-root")).not.toBeNull();
+    expect(at("d-root")?.style.display).not.toBe("none");
   });
 });
 

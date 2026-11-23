@@ -181,7 +181,8 @@ export const canvasRoot = (nodes: readonly DesignNode[]): GroupNode => ({
   type: "group",
 });
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
+/** Whether a value is an object of fields, not an array or a scalar. */
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 /**

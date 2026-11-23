@@ -39,7 +39,11 @@ import { promptDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { startTask } from "../lib/start-thread.ts";
 import { openBoard } from "../state/board.ts";
-import { appComponentOf, useComponents } from "../state/components.ts";
+import {
+  appComponentOf,
+  changeFile,
+  useComponents,
+} from "../state/components.ts";
 import { useEditor } from "../state/editor.ts";
 import { boardFrameOf } from "../state/frame-ref.ts";
 import { isolate, useIsolation } from "../state/isolation.ts";
@@ -48,7 +52,6 @@ import { ComponentUsedIn } from "./component-used-in.tsx";
 import { Inspector } from "./inspector.tsx";
 import {
   AddPropertyTrigger,
-  changeFile,
   KINDS,
   newProperty,
   PropertyRow,

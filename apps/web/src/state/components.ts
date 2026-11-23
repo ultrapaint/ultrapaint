@@ -7,6 +7,7 @@
 import { type Catalogue, metaOf } from "@ultrapaint/contracts/catalogue";
 import {
   type AppComponentFile,
+  type ComponentChange,
   type ComponentEntry,
   type ComponentFile,
   type ComponentList,
@@ -93,3 +94,31 @@ export const holdsChildren = (node: DesignNode): boolean =>
       ? metaOf(useComponents.getState().catalogue, node)
       : undefined
   );
+
+/**
+ * Changes a component's file on the server, an app component's or a system component's, on the
+ * file as it is there now (ADR 0042), so a change made meanwhile stays; what the server refuses is
+ * said. True when it went through.
+ */
+export const changeFile = async (
+  file: Pick<ComponentFile, "name">,
+  change: ComponentChange
+): Promise<boolean> => {
+  try {
+    await api().request("components.change", { change, name: file.name });
+    return true;
+  } catch (error) {
+    reportError(error);
+    return false;
+  }
+};
+
+/** A name for a new property of `file`: `base`, or `base 2`, `base 3`… while it is taken. */
+export const freeName = (file: AppComponentFile, base: string) => {
+  const taken = new Set(file.properties.map((p) => p.name));
+  let name = base;
+  for (let i = 2; taken.has(name); i += 1) {
+    name = `${base} ${i}`;
+  }
+  return name;
+};

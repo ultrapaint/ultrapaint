@@ -6,6 +6,7 @@
  */
 
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import { isInstanceLayer } from "@ultrapaint/design-document/instance-layers";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { toast } from "sonner";
 import { create } from "zustand";
@@ -47,14 +48,17 @@ const keep = (nodes: readonly DesignNode[], write: boolean) => {
 
 /**
  * The selections to copy, and their nodes: a page's root is the page, copied by duplicating it
- * instead, and a node inside another copied goes with it.
+ * instead; a layer of an instance is its main component's, copied there (ADR 0114); and a node
+ * inside another copied goes with it.
  */
 const copyable = (target?: Selection) => {
   const { docs } = useDocuments.getState();
   const { canvas } = useEditor.getState();
   const targets = outermost(actedOn(target)).flatMap((t) => {
     const node = nodeIn(docs, canvas, t.frame, t.nodeId);
-    return node && node.type !== "page" ? [{ node, target: t }] : [];
+    return node && node.type !== "page" && !isInstanceLayer(t.nodeId)
+      ? [{ node, target: t }]
+      : [];
   });
   return {
     nodes: targets.map((t) => t.node),

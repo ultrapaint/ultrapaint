@@ -54,3 +54,78 @@ describe("a canvas's file", () => {
       )
   );
 });
+
+describe("an app component's instance on a page (ADR 0114)", () => {
+  const PROMO = `${JSON.stringify({
+    name: "Promo",
+    origin: "app",
+    properties: [
+      {
+        default: "Sale",
+        kind: "text",
+        name: "title",
+        targets: [{ node: "title" }],
+      },
+    ],
+    slots: [],
+    tree: {
+      children: [{ id: "title", role: "heading", text: "Sale", type: "text" }],
+      id: "root",
+      type: "column",
+    },
+    version: 1,
+  })}\n`;
+  const PAGE = `${JSON.stringify({
+    root: {
+      children: [
+        { component: "Promo", from: "#app", id: "promo", type: "instance" },
+      ],
+      id: "page",
+      type: "page",
+    },
+    version: 1,
+  })}\n`;
+
+  it.effect(
+    "sets a layer's field that a property sets as the property, whoever edits it",
+    () =>
+      Effect.gen(function* () {
+        const applied = yield* project(
+          Effect.flatMap(DocumentService, (d) =>
+            d.apply({
+              edits: [
+                {
+                  doc: "promo.page.json",
+                  ops: [
+                    {
+                      id: "promo/title",
+                      op: "update",
+                      set: { color: "red", text: "Spring" },
+                    },
+                  ],
+                },
+              ],
+            })
+          )
+        );
+        const page = yield* project(
+          Effect.flatMap(DocumentService, (d) => d.get("promo.page.json"))
+        );
+        assert.isDefined(applied);
+        assert.deepInclude(page.root ? childrenOf(page.root)[0] : {}, {
+          overrides: { title: { color: "red" } },
+          props: { title: "Spring" },
+        });
+      }).pipe(
+        Effect.provide(
+          ProjectTest({
+            files: {
+              "designs/components/Promo.component.json": PROMO,
+              "designs/promo.page.json": PAGE,
+            },
+          })
+        ),
+        Effect.scoped
+      )
+  );
+});

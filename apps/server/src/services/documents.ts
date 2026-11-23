@@ -1,4 +1,5 @@
 import {
+  type AppComponentFile,
   COMPONENT_EXTENSION,
   COMPONENTS_DIR,
   componentDocOf,
@@ -9,6 +10,7 @@ import {
   type AppliedChanges,
   type ApplyInput,
   DesignNode,
+  type DocOp,
   type DocumentChange,
   type DocumentEdit,
   type DocumentState,
@@ -23,6 +25,11 @@ import { ASSETS_DIR, type UploadAssetInput } from "@ultrapaint/contracts/pages";
 import { variationsFileOf } from "@ultrapaint/contracts/variations";
 import { serialiseDocument } from "@ultrapaint/design-document/format";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
+import {
+  isInstanceLayer,
+  LAYER_SEPARATOR,
+  throughProperties,
+} from "@ultrapaint/design-document/instance-layers";
 import { applyOps, DocumentOpError } from "@ultrapaint/design-document/ops";
 import { changedNodes } from "@ultrapaint/design-document/patch";
 import {
@@ -31,6 +38,7 @@ import {
   canvasRoot,
   childrenOf,
   DOCUMENT_VERSION,
+  findNode,
   idsOf,
   isPageFile,
 } from "@ultrapaint/design-document/tree";
@@ -486,6 +494,48 @@ export class DocumentService extends Context.Service<
         }
       });
 
+      /**
+       * The app components the layers these operations name are drawn through (ADR 0114), by
+       * name: what tells a field a property sets from an instance override of it.
+       */
+      const layerFiles = Effect.fnUntraced(function* (
+        tree: DesignNode,
+        ops: readonly DocOp[]
+      ) {
+        const files = new Map<string, AppComponentFile>();
+        const read = Effect.fnUntraced(function* (name: string) {
+          const known = files.get(name);
+          if (known) {
+            return known;
+          }
+          const { text } = yield* load(componentDocOf(name), false);
+          const found = text === null ? null : readComponentFile(text);
+          const file =
+            found && "component" in found && found.component.origin === "app"
+              ? found.component
+              : undefined;
+          if (file) {
+            files.set(name, file);
+          }
+          return file;
+        });
+        for (const op of ops) {
+          if (!("id" in op && isInstanceLayer(op.id))) {
+            continue;
+          }
+          const [first = "", ...rest] = op.id.split(LAYER_SEPARATOR);
+          let node: DesignNode | null = findNode(tree, first);
+          for (const id of rest) {
+            if (node?.type !== "instance") {
+              break;
+            }
+            const file = yield* read(node.component);
+            node = file ? findNode(file.tree, id) : null;
+          }
+        }
+        return (name: string) => files.get(name);
+      });
+
       const apply = Effect.fn("DocumentService.apply")(function* (
         input: ApplyInput,
         alongside?: (step: ApplyStep) => Effect.Effect<Alongside, EditFailure>
@@ -523,6 +573,7 @@ export class DocumentService extends Context.Service<
               });
             }
             const canvas = canvasOfDoc(change.doc);
+            const fileOfLayer = yield* layerFiles(loaded.root, change.ops);
             const result = yield* Effect.try({
               catch: (error) =>
                 new BadRequest({
@@ -532,10 +583,15 @@ export class DocumentService extends Context.Service<
                       : `the operations could not be applied: ${messageOf(error)}`,
                 }),
               try: () =>
-                applyOps(loaded.root as DesignNode, change.ops, {
-                  canvas: canvas !== null,
-                  next: makeIdGenerator(idsOf(loaded.root as DesignNode)),
-                }),
+                applyOps(
+                  loaded.root as DesignNode,
+                  // A field of an instance's layer that a property sets is set as the property.
+                  throughProperties(change.ops, loaded.root, fileOfLayer),
+                  {
+                    canvas: canvas !== null,
+                    next: makeIdGenerator(idsOf(loaded.root as DesignNode)),
+                  }
+                ),
             });
             yield* writeDocument(tx, change.doc, loaded, result.root);
             // By its file: two spellings of one page are one document.

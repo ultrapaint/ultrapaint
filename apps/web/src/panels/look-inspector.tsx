@@ -71,7 +71,7 @@ import {
   pickOnBoard,
   useBoard,
 } from "../state/board.ts";
-import { useComponents } from "../state/components.ts";
+import { changeFile, useComponents } from "../state/components.ts";
 import { api } from "../state/connection.ts";
 import { boardFrameOf } from "../state/frame-ref.ts";
 import { commitStyle, draftStyle } from "../state/look.ts";
@@ -79,7 +79,6 @@ import { reportError } from "../state/project.ts";
 import { Notes } from "./component-notes.tsx";
 import { ComponentUsedIn } from "./component-used-in.tsx";
 import { OPACITY_OPTIONS, opacityOf } from "./inspector-appearance.tsx";
-import { changeFile } from "./inspector-component.tsx";
 import { Row, Section } from "./inspector-fields.tsx";
 
 /** A system component's parts, the root first, as the catalogue names them. */

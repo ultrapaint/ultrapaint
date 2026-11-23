@@ -1,5 +1,6 @@
 import type { Catalogue } from "@ultrapaint/contracts/catalogue";
 import { APP_FROM, SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
+import type { AppComponentFile } from "@ultrapaint/contracts/components";
 import type { DesignNode, PageNode } from "@ultrapaint/contracts/document";
 import type { ClassWriter } from "@ultrapaint/contracts/node-style";
 import { describe, expect, it } from "vitest";
@@ -132,28 +133,89 @@ export default function HomePage() {
 });
 
 describe("an app component's instance overrides (ADR 0114)", () => {
-  it("are written as props named for the layer and the field, a breakpoint's at its prefix", () => {
-    const none: ClassWriter = { classes: () => [] };
-    const shell: DesignNode = {
-      component: "AppShell",
-      from: "#app",
-      id: "shell",
-      overrides: {
-        nav: { props: { label: "Home" } },
-        "nav/text": { color: "red" },
-        side: { at: { md: { hidden: true } }, fill: "#000" },
+  const none: ClassWriter = { classes: () => [] };
+  const files: Record<string, AppComponentFile> = {
+    AppShell: {
+      name: "AppShell",
+      origin: "app",
+      properties: [],
+      slots: [],
+      tree: {
+        children: [
+          {
+            children: [
+              {
+                component: "NavItem",
+                from: "#app",
+                id: "i_9k2m1x",
+                name: "Nav",
+                type: "instance",
+              },
+            ],
+            id: "c_0c99hh",
+            name: "Sidebar",
+            type: "column",
+          },
+        ],
+        id: "r_root",
+        type: "row",
       },
-      props: { title: "Orders" },
-      type: "instance",
-    };
-    const code = toCode(shell, none, {
+      version: 1,
+    },
+    NavItem: {
+      name: "NavItem",
+      origin: "app",
+      properties: [],
+      slots: [],
+      tree: {
+        children: [
+          {
+            id: "t_l4bel",
+            name: "Label",
+            role: "paragraph",
+            text: "Home",
+            type: "text",
+          },
+        ],
+        id: "r_item",
+        type: "row",
+      },
+      version: 1,
+    },
+  };
+  const shell: DesignNode = {
+    component: "AppShell",
+    from: "#app",
+    id: "shell",
+    overrides: {
+      c_0c99hh: { at: { md: { hidden: true } }, fill: "#000" },
+      i_9k2m1x: { props: { label: "Home" } },
+      "i_9k2m1x/t_l4bel": { color: "red" },
+    },
+    props: { title: "Orders" },
+    type: "instance",
+  };
+  const code = () =>
+    toCode(shell, none, {
       breakpoints: [{ min: 768, name: "md" }],
+      fileOf: (name) => files[name],
     });
-    expect(code).toContain('navLabel="Home"');
-    expect(code).toContain('navTextColor="red"');
-    expect(code).toContain('sideFill="#000"');
-    expect(code).toContain('title="Orders"');
-    expect(code).toContain("sideHidden");
+
+  it("are written as props named for each layer's name and the field", () => {
+    expect(code()).toContain('sidebarFill="#000"');
+    expect(code()).toContain('navLabelColor="red"');
+  });
+
+  it("set a nested instance's prop as a prop named for its layer", () => {
+    expect(code()).toContain('navLabel="Home"');
+  });
+
+  it("are written beside the instance's own props", () => {
+    expect(code()).toContain('title="Orders"');
+  });
+
+  it("set at a breakpoint are written for that breakpoint", () => {
+    expect(code()).toContain("sidebarHidden");
   });
 });
 

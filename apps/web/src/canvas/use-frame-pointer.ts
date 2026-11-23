@@ -85,8 +85,11 @@ export const leaveHover = (frameId: string) => {
  * Whether a click goes straight to the innermost node under it: Alt, or Ctrl/⌘ as in Figma, an
  * instance's layers included (ADR 0114).
  */
-const deep = (e: { altKey: boolean; ctrlKey: boolean; metaKey: boolean }) =>
-  e.altKey || e.ctrlKey || e.metaKey;
+export const deep = (e: {
+  altKey: boolean;
+  ctrlKey: boolean;
+  metaKey: boolean;
+}) => e.altKey || e.ctrlKey || e.metaKey;
 
 /** The pointer's handlers for a frame's select and comment layers, and the marquee being drawn. */
 export const useFramePointer = ({

@@ -208,12 +208,17 @@ describe("an app component's instance and its layers (ADR 0114)", () => {
     expect(useIsolation.getState().isolated?.component).toBe("Promo");
   });
 
-  it("names the instance a layer is in, lists its overrides, and resets one", async () => {
+  it("names the instance a layer is in", () => {
     withPromo({ sale: { color: "red" } });
     act(() => select({ frame: HOME, nodeId: "promo/sale" }));
     expect(
       container.querySelector("[data-instance-layer]")?.textContent
     ).toContain("In Promo · Promo");
+  });
+
+  it("gives a layer's overridden field back to the main component", async () => {
+    withPromo({ sale: { color: "red" } });
+    act(() => select({ frame: HOME, nodeId: "promo/sale" }));
     expect(
       container.querySelector('[data-override="color"]')?.textContent
     ).toBe("red");
@@ -230,11 +235,66 @@ describe("an app component's instance and its layers (ADR 0114)", () => {
           ops: [{ id: "promo/sale", op: "update", set: { color: null } }],
         },
       ],
-      label: "Reset override",
+      label: "Reset instance override",
     });
   });
 
-  it("gives an instance's overrides back, or applies them to every instance", async () => {
+  it("gives a nested instance's overrides back, the page's instance's others kept", async () => {
+    useComponents.setState({
+      components: [
+        {
+          name: "Badge",
+          origin: "app",
+          properties: [],
+          slots: [],
+          tree: { children: [text("dot")], id: "b-root", type: "row" },
+          version: 1,
+        },
+        {
+          name: "Promo",
+          origin: "app",
+          properties: [],
+          slots: [],
+          tree: {
+            children: [
+              text("sale"),
+              {
+                component: "Badge",
+                from: "#app",
+                id: "badge",
+                type: "instance",
+              },
+            ],
+            id: "p-root",
+            type: "column",
+          },
+          version: 1,
+        },
+      ] as never,
+    });
+    withPromo({ "badge/dot": { color: "red" }, sale: { color: "blue" } });
+    act(() => select({ frame: HOME, nodeId: "promo/badge" }));
+    fakeApi.respond("documents.apply", () => ({ changes: [], created: [] }));
+    act(() => button("Reset all")?.click());
+    await act(() => fakeApi.requested("documents.apply"));
+    expect(applied()).toEqual({
+      edits: [
+        {
+          doc: HOME,
+          ops: [
+            {
+              id: "promo",
+              op: "update",
+              set: { overrides: { sale: { color: "blue" } } },
+            },
+          ],
+        },
+      ],
+      label: "Reset all instance overrides",
+    });
+  });
+
+  it("applies an instance's overrides to every instance", async () => {
     withPromo({ sale: { color: "red" } });
     act(() => select({ frame: HOME, nodeId: "promo" }));
     fakeApi.respond("documents.apply", () => ({ changes: [], created: [] }));

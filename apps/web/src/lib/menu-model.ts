@@ -364,7 +364,8 @@ export const nodeEntries = (f: NodeFacts): Entry<NodeAction>[] => {
       command: "zoomSelection",
     }),
     separator,
-    !root &&
+    // A layer of an instance is hidden there by Delete (ADR 0114).
+    !isPageRoot(node) &&
       item(
         { kind: "delete" },
         several ? `Delete ${f.count} elements` : "Delete",

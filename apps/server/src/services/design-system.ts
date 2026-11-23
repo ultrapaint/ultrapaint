@@ -1,3 +1,4 @@
+import type { AppComponentFile } from "@ultrapaint/contracts/components";
 import {
   DESIGN_SYSTEM_FILE,
   type DesignFinding,
@@ -161,7 +162,7 @@ export class DesignSystemService extends Context.Service<
       const figma = yield* FigmaBaseline;
       const styleSystem = yield* ProjectStyleSystem;
       // The Code tab lays an instance's children out as the components' slots do (ADR 0042).
-      const { catalogue } = yield* ComponentService;
+      const { catalogue, components: componentFiles } = yield* ComponentService;
       const pages = yield* PagesService;
       const events = yield* EventBus;
       const fs = yield* FileSystem.FileSystem;
@@ -476,19 +477,26 @@ export class DesignSystemService extends Context.Service<
             Effect.all([
               get,
               catalogue,
+              componentFiles,
               canvas === undefined
                 ? Effect.succeed([])
                 : Effect.map(pages.list, (all) =>
                     all.pages.filter((p) => p.canvas === canvas)
                   ),
             ]),
-            ([{ designSystem: ds }, components, inCanvas]) =>
+            ([{ designSystem: ds }, components, files, inCanvas]) =>
               toCode(node, styleSystem.nodeClasses(ds), {
                 componentsFrom: componentsImportBase(paths.settings),
                 ...options,
                 breakpoints: breakpointsOf(ds),
                 catalogue: components,
                 designSystem: ds,
+                // An instance override is written as a prop named for its layer (ADR 0114).
+                fileOf: (name) =>
+                  files.find(
+                    (f): f is AppComponentFile =>
+                      f.origin === "app" && f.name === name
+                  ),
                 hrefOf: (link) => hrefOf(inCanvas, link),
               })
           ),

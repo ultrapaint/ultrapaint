@@ -15,7 +15,7 @@ import {
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { IconButton } from "../components/icon-button.tsx";
-import { changeFile } from "./inspector-component.tsx";
+import { changeFile } from "../state/components.ts";
 
 /**
  * The component's behaviour notes (ADR 0030): what its code must do that the design cannot show,

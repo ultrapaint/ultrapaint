@@ -102,8 +102,11 @@ const setOrDrop = (
   }
 };
 
-/** What an override's draft is while it sets no type of its own. */
-const LAYER_KIND = "layer";
+/**
+ * The kind an instance override's draft is set on as, while the override gives the layer no kind
+ * of its own: a row, which a breakpoint may turn into a column, as it may a layer of the main.
+ */
+const DRAFT_KIND = "row";
 
 const DUPLICATE_OFFSET = 40;
 
@@ -419,9 +422,9 @@ export const applyOps = (
   };
 
   /**
-   * A layer of an instance (ADR 0114) is changed as the instance's override of it: `set` laid over
-   * the override (or its `at`'s breakpoint), `null` giving a field back to the main component, an
-   * override left empty taken out.
+   * A layer of an instance (ADR 0114) is changed as the instance's instance override of it: `set`
+   * laid over it (or its `at`'s breakpoint), `null` giving a field back to the main component, an
+   * instance override left empty taken out.
    */
   const overrideOp = (
     id: string,
@@ -439,20 +442,19 @@ export const applyOps = (
         | Record<string, Record<string, unknown>>
         | undefined),
     };
-    // A draft to set fields on as a node's are; its id and its kind are the layer's own.
+    // A draft to set fields on as a node's are: the layer's key, and the kind its instance
+    // override gives it, or a stand-in that is dropped again.
     const own = overrides[layer];
-    const over: Draft = {
-      ...own,
-      id: layer,
-      type: typeof own?.type === "string" ? own.type : LAYER_KIND,
-    };
+    const ownKind = typeof own?.type === "string" ? own.type : undefined;
+    const over: Draft = { ...own, id: layer, type: ownKind ?? DRAFT_KIND };
     if (at === undefined) {
       setOrDrop(over, set);
     } else {
       setAt(over, at, set);
     }
     const { id: _id, type, ...fields } = over;
-    if (type !== LAYER_KIND && type !== undefined) {
+    const setsKind = at === undefined && typeof set.type === "string";
+    if (type !== undefined && (ownKind !== undefined || setsKind)) {
       fields.type = type;
     }
     const kept = Object.fromEntries(
@@ -466,7 +468,7 @@ export const applyOps = (
     node.overrides = Object.keys(overrides).length > 0 ? overrides : undefined;
   };
 
-  /** A nested instance's props set for this instance alone, as its override's `props`. */
+  /** A nested instance's props set for this instance alone, as its instance override's `props`. */
   const setLayerProps = (
     id: string,
     props: Record<string, unknown>,
@@ -498,6 +500,14 @@ export const applyOps = (
     );
   };
 
+  /**
+   * Whether an id names a layer of an instance (ADR 0114): the way to it, and no node of the
+   * document's own, which keeps any id it was given.
+   */
+  const isLayer = (id: string) =>
+    instanceLayerOf(id) !== null &&
+    findPath(draft as unknown as DesignNode, id) === null;
+
   /** What only a document's own nodes take: a layer of an instance is the main component's. */
   const ownNodes = (op: DocOp) => {
     const named = [
@@ -505,7 +515,7 @@ export const applyOps = (
       ...("ids" in op ? op.ids : []),
       ...("parent" in op && op.parent !== null ? [op.parent] : []),
     ];
-    const layer = named.find((id) => instanceLayerOf(id) !== null);
+    const layer = named.find(isLayer);
     if (layer !== undefined) {
       fail(
         `${layer} is a layer of an instance: it is moved, wrapped or given nodes in its main component`
@@ -514,10 +524,7 @@ export const applyOps = (
   };
 
   for (const op of ops) {
-    if (
-      (op.op === "update" || op.op === "remove") &&
-      instanceLayerOf(op.id) !== null
-    ) {
+    if ((op.op === "update" || op.op === "remove") && isLayer(op.id)) {
       overrideOp(
         op.id,
         op.op === "update" ? op.set : { hidden: true },
@@ -525,7 +532,7 @@ export const applyOps = (
       );
       continue;
     }
-    if (op.op === "setProps" && instanceLayerOf(op.id) !== null) {
+    if (op.op === "setProps" && isLayer(op.id)) {
       setLayerProps(op.id, op.props, op.at);
       continue;
     }
@@ -580,6 +587,7 @@ export const touchedBy = (
   after: DesignNode
 ): string[] => {
   const ids = new Set(created);
+  const present = idsOf(after);
   for (const op of ops) {
     if (
       op.op === "update" ||
@@ -588,7 +596,7 @@ export const touchedBy = (
       op.op === "remove"
     ) {
       // A layer of an instance is changed on its instance (ADR 0114).
-      const layer = instanceLayerOf(op.id);
+      const layer = present.has(op.id) ? null : instanceLayerOf(op.id);
       if (layer) {
         ids.add(layer.instance);
       } else if (op.op !== "remove") {
@@ -596,6 +604,5 @@ export const touchedBy = (
       }
     }
   }
-  const present = idsOf(after);
   return [...ids].filter((id) => id !== after.id && present.has(id));
 };

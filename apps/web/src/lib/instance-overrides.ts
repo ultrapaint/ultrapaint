@@ -1,27 +1,39 @@
 /**
- * What the inspector does with an instance's overrides (ADR 0114): a field given back to the main
- * component, all of an instance's given back, all of them made the main component's for every
- * instance, and one field made a property of the component with this instance's value. Each is
- * one request and one undo step, but making a property, which changes the component's file first.
+ * What the inspector does with instance overrides (ADR 0114): a layer's field given back to the
+ * main component; all of an instance's given back, or made its main component's for every
+ * instance, whether the instance is the page's own or one nested in it; and one field made a
+ * property of the component, with this instance's value. Each is one request and one undo step,
+ * but making a property, which changes the component's file first.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import {
-  type AppComponentFile,
   type ComponentProperty,
   componentDocOf,
 } from "@ultrapaint/contracts/components";
-import type { DocOp, InstanceNode } from "@ultrapaint/contracts/document";
+import type {
+  DesignNode,
+  DocOp,
+  InstanceNode,
+} from "@ultrapaint/contracts/document";
 import {
+  asPropertyValue,
   componentLayerOf,
+  FIELD_OF_KIND,
   instanceLayerOf,
+  LAYER_SEPARATOR,
   layerOwner,
+  layerPath,
   overridesAsMainOps,
   throughProperties,
 } from "@ultrapaint/design-document/instance-layers";
-import { findNode, nodeLabel } from "@ultrapaint/design-document/tree";
+import {
+  findNode,
+  isRecord,
+  nodeLabel,
+} from "@ultrapaint/design-document/tree";
 import { promptDialog } from "../components/dialogs.tsx";
-import { changeFile, freeName } from "../panels/inspector-component.tsx";
+import { changeFile, freeName } from "../state/components.ts";
 import {
   appFileOf,
   applyEdits,
@@ -34,28 +46,36 @@ import { useEditor } from "../state/editor.ts";
 
 type Overrides = NonNullable<InstanceNode["overrides"]>;
 
-const now = () => ({
+/** The documents and the canvas as the editor holds them now. */
+const current = () => ({
   canvas: useEditor.getState().canvas,
   docs: useDocuments.getState().docs,
 });
 
-/** The instance of the frame's document a layer is drawn by, and the layer's key in its overrides. */
+/**
+ * The instance of the frame's document whose instance overrides hold what `id` changes: the
+ * page's own instance, for itself or for any layer or instance drawn inside it, and the key the
+ * overrides of `id` start from (empty for the page's instance itself).
+ */
 export const overriddenOn = (
   frame: string,
-  layerId: string,
-  { canvas, docs } = now()
-) => {
-  const at = instanceLayerOf(layerId);
-  if (!at) {
+  id: string,
+  { canvas, docs } = current()
+): {
+  readonly instance: InstanceNode;
+  readonly key: string;
+  readonly over: Overrides[string] | undefined;
+} | null => {
+  const at = instanceLayerOf(id);
+  const instance = nodeIn(docs, canvas, frame, at ? at.instance : id);
+  if (instance?.type !== "instance") {
     return null;
   }
-  const instance = nodeIn(docs, canvas, frame, at.instance);
-  return instance?.type === "instance"
-    ? { instance, key: at.layer, over: instance.overrides?.[at.layer] }
-    : null;
+  const key = at ? at.layer : "";
+  return { instance, key, over: instance.overrides?.[key] };
 };
 
-/** The fields of an override, each breakpoint's apart: what the inspector lists and resets. */
+/** A field of one layer's instance override, a breakpoint's apart: what the inspector lists. */
 export interface OverriddenField {
   /** The breakpoint it is set from; null for the layer's own. */
   readonly at: string | null;
@@ -63,6 +83,7 @@ export interface OverriddenField {
   readonly value: JsonValue;
 }
 
+/** The fields one layer's instance override sets, its own first, then each breakpoint's. */
 export const fieldsOf = (
   over: Overrides[string] | undefined
 ): OverriddenField[] => {
@@ -73,11 +94,11 @@ export const fieldsOf = (
   const fields: OverriddenField[] = Object.entries(own).map(
     ([field, value]) => ({ at: null, field, value })
   );
-  if (at && typeof at === "object" && !Array.isArray(at)) {
+  if (isRecord(at)) {
     for (const [name, set] of Object.entries(at)) {
-      if (set && typeof set === "object" && !Array.isArray(set)) {
+      if (isRecord(set)) {
         for (const [field, value] of Object.entries(set)) {
-          fields.push({ at: name, field, value });
+          fields.push({ at: name, field, value: value as JsonValue });
         }
       }
     }
@@ -85,8 +106,8 @@ export const fieldsOf = (
   return fields;
 };
 
-/** Fields of a layer given back to the main component, in one undo step. */
-export const resetOverride = (
+/** Fields of a layer's instance override given back to the main component, in one undo step. */
+export const resetInstanceOverride = (
   frame: string,
   layerId: string,
   fields: readonly Pick<OverriddenField, "at" | "field">[]
@@ -98,7 +119,7 @@ export const resetOverride = (
   return applyEdits(
     [
       {
-        doc: docOfFrame(frame, now().canvas),
+        doc: docOfFrame(frame, current().canvas),
         ops: [...byAt].map(
           ([at, set]): DocOp => ({
             id: layerId,
@@ -109,67 +130,130 @@ export const resetOverride = (
         ),
       },
     ],
-    fields.length > 1 ? "Reset overrides" : "Reset override"
+    fields.length > 1 ? "Reset instance overrides" : "Reset instance override"
   );
 };
 
-/** Every override of an instance of the frame's document given back to the main component. */
-export const resetOverrides = (frame: string, instance: string) =>
-  applyEdits(
-    [
-      {
-        doc: docOfFrame(frame, now().canvas),
-        ops: [{ id: instance, op: "update", set: { overrides: null } }],
-      },
-    ],
-    "Reset all overrides"
+/**
+ * The instance overrides an instance draws with, by their keys from it: all of the page's own
+ * instance's, or those of a nested one's layers (`nav/label` as `label`), and the keys they are
+ * held under on the page's instance. Its own entry (`nav`) is the instance around it's.
+ */
+export const overridesOfInstance = (
+  frame: string,
+  id: string,
+  seen = current()
+): {
+  readonly held: readonly string[];
+  readonly owner: InstanceNode;
+  readonly overrides: Overrides;
+} | null => {
+  const found = overriddenOn(frame, id, seen);
+  if (!found) {
+    return null;
+  }
+  const all = found.instance.overrides ?? {};
+  if (found.key === "") {
+    return { held: Object.keys(all), overrides: all, owner: found.instance };
+  }
+  const prefix = `${found.key}${LAYER_SEPARATOR}`;
+  const held = Object.keys(all).filter((key) => key.startsWith(prefix));
+  const overrides: Record<string, Overrides[string]> = {};
+  for (const key of held) {
+    overrides[key.slice(prefix.length)] = all[key] ?? {};
+  }
+  return { held, overrides, owner: found.instance };
+};
+
+/** The page's instance's overrides without `keys`, as its field is then set: null once none. */
+const without = (owner: InstanceNode, keys: readonly string[]) => {
+  const left = Object.fromEntries(
+    Object.entries(owner.overrides ?? {}).filter(([key]) => !keys.includes(key))
   );
+  return Object.keys(left).length > 0 ? left : null;
+};
 
 /**
- * An instance's overrides made its main component's, for every instance, and taken off it: one
- * undo step over the page and the component's tree.
+ * Every instance override of an instance given back to the main component: the page's own
+ * instance's, or a nested instance's layers'.
  */
-export const applyToMain = (frame: string, instance: InstanceNode) => {
-  const { overrides } = instance;
-  if (!(overrides && instance.from === APP_FROM)) {
+export const resetInstanceOverrides = (frame: string, id: string) => {
+  const found = overridesOfInstance(frame, id);
+  if (!found || found.held.length === 0) {
     return Promise.resolve(null);
   }
   return applyEdits(
     [
       {
-        doc: componentDocOf(instance.component),
-        ops: overridesAsMainOps(overrides),
-      },
-      {
-        doc: docOfFrame(frame, now().canvas),
-        ops: [{ id: instance.id, op: "update", set: { overrides: null } }],
+        doc: docOfFrame(frame, current().canvas),
+        ops: [
+          {
+            id: found.owner.id,
+            op: "update",
+            set: { overrides: without(found.owner, found.held) },
+          },
+        ],
       },
     ],
-    `Apply to ${instance.component}`
+    "Reset all instance overrides"
   );
 };
 
-/** The kind of property a layer's field can be, by the field. */
-const KIND_OF_FIELD: Readonly<Record<string, ComponentProperty["kind"]>> = {
-  hidden: "boolean",
-  src: "image",
-  text: "text",
+/**
+ * An instance's instance overrides made its main component's, for every instance, and taken off
+ * it: one undo step over the page and the component's tree. An override of a layer the main
+ * component no longer has is taken off with the rest, applied nowhere.
+ */
+export const applyToMain = (frame: string, instance: InstanceNode) => {
+  const file =
+    instance.from === APP_FROM ? appFileOf(instance.component) : undefined;
+  const found = overridesOfInstance(frame, instance.id);
+  if (!(file && found) || found.held.length === 0) {
+    return Promise.resolve(null);
+  }
+  const kept = Object.fromEntries(
+    Object.entries(found.overrides).filter(
+      ([key]) => layerPath(file.tree, key, appFileOf) !== null
+    )
+  );
+  return applyEdits(
+    [
+      { doc: componentDocOf(file.name), ops: overridesAsMainOps(kept) },
+      {
+        doc: docOfFrame(frame, current().canvas),
+        ops: [
+          {
+            id: found.owner.id,
+            op: "update",
+            set: { overrides: without(found.owner, found.held) },
+          },
+        ],
+      },
+    ],
+    `Apply to ${file.name}`
+  );
 };
 
-/** A new property's default: the main component's value of the field it sets. */
+/** The kind of property that sets a layer's field, when one can: a text, a layer shown, a picture. */
+const kindOfField = (field: string): ComponentProperty["kind"] | undefined =>
+  Object.entries(FIELD_OF_KIND).find(([, f]) => f === field)?.[0] as
+    | ComponentProperty["kind"]
+    | undefined;
+
+/** A new property's default: the main component's value of the field it sets, as the property's. */
 const defaultOf = (
   kind: ComponentProperty["kind"],
   mainValue: JsonValue | undefined
 ): JsonValue => {
   if (kind === "boolean") {
-    return mainValue !== true;
+    return asPropertyValue(kind, mainValue ?? null);
   }
   return typeof mainValue === "string" ? mainValue : "";
 };
 
 /** Whether an overridden field can be made a property: a text, a layer shown, a picture. */
 export const canBeProperty = ({ at, field }: OverriddenField) =>
-  at === null && field in KIND_OF_FIELD;
+  at === null && kindOfField(field) !== undefined;
 
 /**
  * A layer's overridden field made a property of the component that draws it (ADR 0114): the
@@ -180,24 +264,19 @@ export const makeProperty = async (
   layerId: string,
   { field, value }: OverriddenField
 ) => {
-  const kind = KIND_OF_FIELD[field];
-  const { canvas, docs } = now();
+  const kind = kindOfField(field);
+  const { canvas, docs } = current();
   const root = rootOfFrame(docs, canvas, frame);
   const owner = layerOwner(root, layerId, appFileOf);
-  const file: AppComponentFile | undefined = owner
-    ? appFileOf(owner.component)
-    : undefined;
+  const file = owner ? appFileOf(owner.component) : undefined;
   if (!(kind && owner && file)) {
     return;
   }
   const layer = componentLayerOf(layerId);
-  const main = findNode(file.tree, layer) as Record<string, JsonValue> | null;
+  const main: DesignNode | null = findNode(file.tree, layer);
   const name = await promptDialog({
     confirmLabel: "Make property",
-    defaultValue: freeName(
-      file,
-      main ? nodeLabel(main as never).toLowerCase() : field
-    ),
+    defaultValue: freeName(file, main ? nodeLabel(main).toLowerCase() : field),
     description: `Every ${file.name} gets it, at the main component's value; this one keeps its own.`,
     placeholder: "label",
     title: "A property",
@@ -207,12 +286,15 @@ export const makeProperty = async (
     return;
   }
   const property: ComponentProperty = {
-    default: defaultOf(kind, main?.[field]),
+    default: defaultOf(
+      kind,
+      (main as Record<string, JsonValue> | null)?.[field]
+    ),
     kind,
     name: named,
     targets: [{ node: layer }],
   };
-  // Worked out before the component changes: the field is the layer's override until then.
+  // Worked out before the component changes: the field is the layer's instance override until then.
   const ops: DocOp[] = [
     { id: layerId, op: "update", set: { [field]: null } },
     ...throughProperties(
@@ -220,7 +302,7 @@ export const makeProperty = async (
         {
           id: owner.id,
           op: "setProps",
-          props: { [named]: kind === "boolean" ? value !== true : value },
+          props: { [named]: asPropertyValue(kind, value) },
         },
       ],
       root,
