@@ -4,7 +4,8 @@
  * spinner while an agent works there and a dot while one waits on the person, the shown one's ×
  * and the others' under the pointer, and a + at the end. A project's tab is one width whatever its
  * name and marks, the name cut short with an ellipsis, narrower only when the window runs out of
- * room. The + opens a menu and never a project by itself: Recent (the projects not open,
+ * room; past that the project tabs scroll sideways, the shown one kept in view, Home and the +
+ * always in sight. The + opens a menu and never a project by itself: Recent (the projects not open,
  * each with a × that takes it off the list), Open folder…, Open over SSH…, New project…; what is
  * chosen opens in a new tab. The strip is the window's title bar on a Mac, the room for its
  * buttons left at its start. It is a page of its own (`tabs.html`), in a view over the projects'
@@ -12,7 +13,7 @@
  */
 import type { ShellTab } from "@ultrapaint/contracts/shell-bridge";
 import { House, LoaderCircle, Plus, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -290,6 +291,17 @@ export const TabStrip = () => {
     quietly(projects?.coverWindow(cover));
   }, [cover, projects]);
   const home = !tabs.some((t) => t.shown);
+  const shown = tabs.find((t) => t.shown)?.id;
+  const scroller = useRef<HTMLDivElement>(null);
+  // The shown tab scrolled into view when it changes, as when a new one opens past the edge.
+  useEffect(() => {
+    if (shown === undefined) {
+      return;
+    }
+    scroller.current
+      ?.querySelector('[aria-selected="true"]')
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [shown]);
   return (
     <div
       aria-label="Open projects"
@@ -313,9 +325,20 @@ export const TabStrip = () => {
       >
         <House className="size-4" />
       </button>
-      {tabs.map((tab) => (
-        <ProjectTab key={tab.id} tab={tab} />
-      ))}
+      {/* A mouse's wheel scrolls the tabs sideways; a trackpad does it by itself. */}
+      <div
+        className="window-no-drag flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none]"
+        onWheel={(event) => {
+          if (event.deltaX === 0) {
+            event.currentTarget.scrollLeft += event.deltaY;
+          }
+        }}
+        ref={scroller}
+      >
+        {tabs.map((tab) => (
+          <ProjectTab key={tab.id} tab={tab} />
+        ))}
+      </div>
       <NewTab onOpenChange={setMenu} open={menu} />
     </div>
   );
