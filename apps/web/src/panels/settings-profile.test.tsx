@@ -307,6 +307,27 @@ describe("Run agents in a sandbox", () => {
     expect(fakeApi.calls.some((c) => c.method === "profile.set")).toBe(false);
   });
 
+  it("keeps saying why when the profile can't be read either", async () => {
+    fakeApi.respond("profile.get", () =>
+      Promise.reject(new Error("unreadable"))
+    );
+    fakeApi.respond("agents.sandbox", () => ({
+      available: false,
+      platform: "linux",
+    }));
+    container = document.createElement("div");
+    mounted = createRoot(container);
+    act(() => {
+      mounted.render(<SandboxRow />);
+    });
+    await act(async () => {
+      await fakeApi.requested("agents.sandbox");
+      await fakeApi.requested("profile.get");
+    });
+    expect(container.textContent).toContain("Couldn’t read the setting");
+    expect(container.textContent).toContain("Install bubblewrap");
+  });
+
   it("says what stopped the sandbox, or that the system has none", () => {
     expect(
       sandboxUnavailable({

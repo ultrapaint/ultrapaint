@@ -204,12 +204,16 @@ const ProfileSwitchRow = ({
       })
       .finally(() => setSaving(false));
   };
-  let rowMessage: ReactNode = null;
-  if (failed) {
-    rowMessage = <RowMessage kind="error">{failed}</RowMessage>;
-  } else if (unavailable) {
-    rowMessage = <RowMessage kind="notice">{unavailable}</RowMessage>;
-  }
+  // Why it can't take effect stays in view when a save or a read failed too.
+  const rowMessage =
+    failed || unavailable ? (
+      <>
+        {failed ? <RowMessage kind="error">{failed}</RowMessage> : null}
+        {unavailable ? (
+          <RowMessage kind="notice">{unavailable}</RowMessage>
+        ) : null}
+      </>
+    ) : null;
   return (
     <Row
       description={description}
