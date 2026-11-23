@@ -244,6 +244,47 @@ describe("Run agents in a sandbox", () => {
     expect(toggle?.hasAttribute("data-checked")).toBe(false);
   });
 
+  it("waits for a save before taking another, and goes back to the saved value when it fails", async () => {
+    fakeApi.respond("profile.get", () => ({}));
+    fakeApi.respond("agents.sandbox", () => ({
+      available: true,
+      platform: "linux",
+    }));
+    let fail: (error: Error) => void = () => undefined;
+    fakeApi.respond(
+      "profile.set",
+      () =>
+        new Promise<never>((_, reject) => {
+          fail = reject;
+        })
+    );
+    container = document.createElement("div");
+    mounted = createRoot(container);
+    act(() => {
+      mounted.render(<SandboxRow />);
+    });
+    await act(async () => {
+      await fakeApi.requested("profile.get");
+    });
+    const toggle = container.querySelector<HTMLElement>('[role="switch"]');
+    act(() => toggle?.click());
+    await act(async () => {
+      await fakeApi.requested("profile.set");
+    });
+    expect(toggle?.hasAttribute("data-disabled")).toBe(true);
+    act(() => toggle?.click());
+    expect(
+      fakeApi.calls.filter((c) => c.method === "profile.set")
+    ).toHaveLength(1);
+    await act(async () => {
+      fail(new Error("disk full"));
+      await Promise.resolve();
+    });
+    expect(toggle?.hasAttribute("data-checked")).toBe(true);
+    expect(toggle?.hasAttribute("data-disabled")).toBe(false);
+    expect(container.textContent).toContain("Couldn’t save it (disk full)");
+  });
+
   it("shows off and says why on a computer that can't confine agents, keeping the choice", async () => {
     fakeApi.respond("profile.get", () => ({}));
     fakeApi.respond("agents.sandbox", () => ({
