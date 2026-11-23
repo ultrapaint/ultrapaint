@@ -12,7 +12,7 @@ import type {
   OffSystemKind,
   OffSystemValue,
 } from "@ultrapaint/design-document/off-system";
-import { type Found, mergeFound } from "./review-rounds.ts";
+import { type Found, mergeFound, shortPage } from "./review-rounds.ts";
 
 /** Who found a check's finding, as the round keeps it (`RoundFinding.reviewer`). */
 export const CHECK_REVIEWER = "check";
@@ -101,14 +101,15 @@ const offSystemFound = (pages: readonly CheckedPage[]): readonly Found[] => {
     {
       readonly kind: OffSystemKind;
       readonly pages: Set<string>;
-      readonly places: string[];
+      readonly places: { readonly page: string; readonly place: string }[];
       readonly value: string | number;
     }
   >();
   for (const page of pages) {
     const name = page.route ?? page.file;
     for (const v of page.checks?.offSystem ?? []) {
-      const key = `${v.kind}|${JSON.stringify(v.value)}`;
+      // One key for one value however it is written: `13` and `"13px"` are one spacing.
+      const key = valueName(v.kind, v.value);
       const entry = byValue.get(key) ?? {
         kind: v.kind,
         pages: new Set<string>(),
@@ -116,7 +117,7 @@ const offSystemFound = (pages: readonly CheckedPage[]): readonly Found[] => {
         value: v.value,
       };
       entry.pages.add(name);
-      entry.places.push(`${v.node} (\`${v.field}\`)`);
+      entry.places.push({ page: name, place: `${v.node} (\`${v.field}\`)` });
       byValue.set(key, entry);
     }
   }
@@ -125,7 +126,13 @@ const offSystemFound = (pages: readonly CheckedPage[]): readonly Found[] => {
     .map(({ kind, pages: on, places, value }) => {
       const name = valueName(kind, value);
       const count = `${places.length} ${places.length === 1 ? "place" : "places"}`;
-      const named = places.slice(0, NAMED_PLACES).join(", ");
+      // Across pages, each place names its page, so two nodes of one name stay apart.
+      const named = places
+        .slice(0, NAMED_PLACES)
+        .map((p) =>
+          on.size > 1 ? `${p.place} on ${shortPage(p.page)}` : p.place
+        )
+        .join(", ");
       const more =
         places.length > NAMED_PLACES
           ? ` and ${places.length - NAMED_PLACES} more`
@@ -144,19 +151,36 @@ const offSystemFound = (pages: readonly CheckedPage[]): readonly Found[] => {
     });
 };
 
+/** Whether two findings share a title as `mergeFound` reads it. */
+const sameTitle = (a: Found, b: Found) =>
+  a.finding.title.trim().toLowerCase() === b.finding.title.trim().toLowerCase();
+
 /**
  * Every check's finding on the pages (ADR 0081): what the editor measured on each, a problem two
  * pages share once, then the values off the system, grouped by value across the pages.
  */
 export const checkFindings = (
   pages: readonly CheckedPage[]
-): readonly Found[] => [
-  ...mergeFound(
-    pages.flatMap((page) =>
-      (page.checks?.rendered ?? []).map((f) =>
-        renderedFound(page.route ?? page.file, f)
-      )
+): readonly Found[] => {
+  const rendered = pages.flatMap((page) =>
+    (page.checks?.rendered ?? []).map((f) =>
+      renderedFound(page.route ?? page.file, f)
     )
-  ),
-  ...offSystemFound(pages),
-];
+  );
+  const onPages = new Set(rendered.map((f) => f.page)).size;
+  return [
+    ...mergeFound(rendered).map((f) =>
+      // A problem on one page of several names it; one two pages share names them already.
+      onPages > 1 && rendered.filter((r) => sameTitle(r, f)).length === 1
+        ? {
+            ...f,
+            finding: {
+              ...f.finding,
+              where: `${f.finding.where} on ${shortPage(f.page)}`,
+            },
+          }
+        : f
+    ),
+    ...offSystemFound(pages),
+  ];
+};

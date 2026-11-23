@@ -337,7 +337,7 @@ const SEVERITY_RANK: Readonly<Record<Finding["severity"], number>> = {
 };
 
 /** A page's short name in a merged finding's `where`: `share-copied`, not its whole file. */
-const shortPage = (page: string) =>
+export const shortPage = (page: string) =>
   page.split("/").at(-1)?.replace(PAGE_SUFFIX_RE, "") ?? page;
 const PAGE_SUFFIX_RE = /\.page\.json$/;
 

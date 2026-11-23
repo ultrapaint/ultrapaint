@@ -431,12 +431,20 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
       text || name || `${el.tagName.toLowerCase()}${role ? `[${role}]` : ""}`
     );
   };
+  /** The element above `at`: its parent, or across a shadow boundary, its host. */
+  const above = (at: Element): Element | null => {
+    if (at.parentElement) {
+      return at.parentElement;
+    }
+    const tree = at.getRootNode();
+    return tree instanceof ShadowRoot ? tree.host : null;
+  };
   /** The colour behind an element: its ancestors' fills composited; none past a picture. */
   const backdrop = (
     el: Element | null
   ): [number, number, number] | undefined => {
     const layers: [number, number, number, number][] = [];
-    for (let at = el; at; at = at.parentElement) {
+    for (let at = el; at; at = above(at)) {
       const style = getComputedStyle(at);
       if (style.backgroundImage !== "none") {
         return;

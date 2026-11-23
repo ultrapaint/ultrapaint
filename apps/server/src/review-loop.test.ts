@@ -711,6 +711,37 @@ describe("the checks' findings", () => {
   );
 
   drawnTest(
+    "log a reviewer's minor finding left beside them as not asked about, not as fixed",
+    () =>
+      Effect.gen(function* () {
+        yield* anEditor([TOUCHING]);
+        const { designer, threadId } = yield* designed({
+          review: { findingsLog: true },
+        });
+        const reviewing = yield* nextReviewer;
+        yield* reviewing.turn.say(
+          answer(
+            [{ ...finding("Caption a touch large"), severity: "minor" }],
+            true
+          )
+        );
+        yield* reviewing.turn.end();
+        const fixing = yield* designer.nextTurn;
+        assert.notInclude(fixing.texts.join("\n"), "Caption a touch large");
+        yield* fixing.end();
+        yield* threadWhen(threadId, turnsEnded(2));
+        const lines = yield* logged;
+        assert.deepStrictEqual(
+          lines.map((l) => [l.title, l.designer]),
+          [
+            ["Caption a touch large", { did: "unanswered" }],
+            ["Rows touching in “Files”", { did: "fixed" }],
+          ]
+        );
+      }).pipe(Effect.scoped)
+  );
+
+  drawnTest(
     "leave a design approved with a declined one left, which is not sent again",
     () =>
       Effect.gen(function* () {

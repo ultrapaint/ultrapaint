@@ -645,15 +645,23 @@ export class ReviewLoop extends Context.Service<
           }
           return null;
         }
+        const asked = [...(send ? sent : []), ...checks];
         if (review.settings.findingsLog) {
-          // In the round's order, which the designer's declines are numbered in.
-          unanswered.set(state.id, { ...logged, found: listed });
+          // Only what the designer is sent waits for its answer, in the order its declines are
+          // numbered in; the rest of the round is logged as not asked about.
+          const notAsked = listed.filter((f) => !asked.includes(f));
+          if (notAsked.length > 0) {
+            yield* logFindings({ ...logged, found: notAsked }, () => ({
+              did: "unanswered",
+            }));
+          }
+          unanswered.set(state.id, { ...logged, found: asked });
         }
         return {
           review: state.id,
           text: findingsPrompt(
             review.views,
-            [...(send ? sent : []), ...checks].map(toRoundFinding),
+            asked.map(toRoundFinding),
             send ? state.left : []
           ),
         };
