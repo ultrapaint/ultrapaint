@@ -225,10 +225,13 @@ const tabOf = (shown: LeftShown): LeftTab => {
   return "changes" in shown ? "changes" : "layers";
 };
 
-/** A thread in the chat, its draft waiting for its composer. */
+/**
+ * A thread in the chat, its draft waiting for its composer: a draft, an empty one too, puts the
+ * caret in the composer, where a new chat is typed into.
+ */
 const showThread = async (chat: string | Thread, draft: string | undefined) => {
   const id = typeof chat === "string" ? chat : chat.id;
-  if (draft) {
+  if (draft !== undefined) {
     useRequests.setState((s) => ({ drafts: { ...s.drafts, [id]: draft } }));
   }
   const agents = useAgents.getState();
