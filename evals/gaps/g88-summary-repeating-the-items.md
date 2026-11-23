@@ -22,8 +22,9 @@ checks' findings to the designer) and see whether the repeat is caught. If it is
 "A summary over items that repeats their own marks | One line of what needs action, or none".
 
 **Test.** `fresh-sprint-board` and `fresh-sales-dashboard`, 2 runs each, Opus designing with the
-skill on main: the lines of each summary that repeat a mark shown in the items under them. It
-passes when no summary has more than one such line, in all four.
+skill on main: the marks shown in the items that a summary over them repeats, as a line, a chip
+or a panel's row. It passes when no summary repeats one, in all four; one short line of what
+needs action, naming no item's mark, passes.
 
 **Result.**
 - `fx-opus-g88`: 2026-11-23, the skill on main, 2 runs each, Opus in Claude Code designing. The
