@@ -818,8 +818,8 @@ ${
    - Decorative ones (a status bar, a cursor, a placeholder image) are {kind:"skip"}.
    Where you cannot tell — a candidate that only looks alike, two candidates, a component this
    design may have under another name — ask the user ${ways.askUser}, up to four components per
-   card, each with the candidates as options, "Custom: keep its layers" and "Skip" among them, and
-   allowOther for a name you did not think of. Carry on with the answers it returns (if it says the
+   card, each with the candidates as options and "Custom: keep its layers" and "Skip" among them;
+   the user may type a name you did not think of. Carry on with the answers it returns (if it says the
    questions were shown instead, end your turn; they come as the next message). Do not ask about
    what the names settle.
 2. Once every used component is decided, write each frame with ${tools.write_figma_frame}, in the canvas the

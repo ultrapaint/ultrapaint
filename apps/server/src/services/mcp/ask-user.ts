@@ -11,6 +11,7 @@
  * way: it is put in the thread, and the agent ends its turn to hear the answers as its next
  * prompt.
  */
+import type { Question } from "@ultrapaint/contracts/threads";
 import { Effect, Schema } from "effect";
 import { McpSchema, Tool } from "effect/ai";
 import { TOOLS } from "../threads/agent-ways.ts";
@@ -24,8 +25,6 @@ const ANSWERS = "answers";
 const WAITING_REVISION = "2026-07-28";
 
 const AskQuestion = Schema.Struct({
-  /** The user may type an answer of their own instead of picking one. */
-  allowOther: opt(Schema.Boolean),
   id: Schema.String,
   options: Schema.Array(
     Schema.Struct({
@@ -39,7 +38,7 @@ const AskQuestion = Schema.Struct({
 
 export const AskUser = Tool.make("ask_user", {
   description:
-    "Ask the user up to four questions when a decision is theirs: options (short labels, your pick first), allowOther for their own. The result is the answers; if it says they were shown, end your turn.",
+    "Ask the user up to four questions when a decision is theirs: options (short labels, your pick first); they may type their own. The result is the answers; if it says they were shown, end your turn.",
   parameters: Schema.Struct({
     questions: Schema.Array(AskQuestion).check(
       Schema.isMinLength(1),
@@ -48,9 +47,14 @@ export const AskUser = Tool.make("ask_user", {
   }),
 }).annotateMerge(doing("read"));
 
+/** The questions as the card asks them: each takes an answer of the user's own (ADR 0116). */
+const openTo = (
+  questions: typeof AskUser.parametersSchema.Type.questions
+): Question[] => questions.map((q) => ({ ...q, allowOther: true }));
+
 /** What the agent hears, once the user has answered, declined or let the card go. */
 const replyOf = (
-  questions: typeof AskUser.parametersSchema.Type.questions,
+  questions: readonly Question[],
   response: Record<string, unknown>
 ) => {
   switch (response.action) {
@@ -73,9 +77,10 @@ const replyOf = (
 export const askUserTool = Effect.gen(function* () {
   const sessions = yield* ThreadSessions;
 
-  const ask = Effect.fn("AskUserTool.ask_user")(function* ({
-    questions,
-  }: typeof AskUser.parametersSchema.Type) {
+  const ask = Effect.fn("AskUserTool.ask_user")(function* (
+    params: typeof AskUser.parametersSchema.Type
+  ) {
+    const questions = openTo(params.questions);
     const request = yield* McpSchema.McpRequestContext;
     const threadId = yield* Effect.service(CallingThread);
     // The cards of the thread asking, which tell whether its agent's client shows forms.

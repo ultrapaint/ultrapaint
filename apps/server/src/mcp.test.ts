@@ -642,7 +642,6 @@ describe("the editor's MCP server, over the wire", () => {
 
 const QUESTIONS = [
   {
-    allowOther: true,
     id: "plan",
     options: [
       { id: "free", label: "Free" },

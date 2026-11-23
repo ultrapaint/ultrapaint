@@ -383,7 +383,6 @@ describe("importing a Figma file", () => {
           const asked = yield* tool("ask_user", {
             questions: [
               {
-                allowOther: true,
                 id: "button",
                 options: [
                   { id: "Button", label: "Replace with Button" },
