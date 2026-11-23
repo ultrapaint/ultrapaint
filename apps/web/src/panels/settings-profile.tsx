@@ -178,6 +178,8 @@ const ProfileSwitchRow = ({
   write: (on: boolean) => UserProfile;
 }) => {
   const [on, setOn] = useState<boolean | null>(null);
+  // One save at a time: the switch waits for it, and a failed one goes back to what was saved.
+  const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
   useEffect(() => {
     api()
@@ -189,15 +191,18 @@ const ProfileSwitchRow = ({
       });
   }, [read]);
   const change = (next: boolean) => {
+    const saved = on;
     setOn(next);
+    setSaving(true);
     setFailed(null);
     api()
       .request("profile.set", write(next))
       .then((profile) => setOn(read(profile)))
       .catch((error: Error) => {
-        setOn(!next);
+        setOn(saved);
         setFailed(`Couldn’t save it (${error.message}). Try again.`);
-      });
+      })
+      .finally(() => setSaving(false));
   };
   let rowMessage: ReactNode = null;
   if (failed) {
@@ -215,7 +220,7 @@ const ProfileSwitchRow = ({
     >
       <Switch
         checked={on === true && !unavailable}
-        disabled={on === null || Boolean(unavailable)}
+        disabled={on === null || saving || Boolean(unavailable)}
         id={id}
         onCheckedChange={change}
       />
