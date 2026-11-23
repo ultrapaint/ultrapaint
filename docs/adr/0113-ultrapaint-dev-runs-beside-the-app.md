@@ -47,10 +47,12 @@ left running, but it had to be started by hand in each project's folder first.
   the app as it was, which says why and offers Pull and restart again. A fetch that fails shows
   nothing on the item, and About says it couldn't check, as the release does. The app only reads
   git; the runner writes.
-- **It looks like Dev: "E · Blueprint"**, chosen by the maintainer from drawn directions. Past the
-  tab strip's +, blueprint paper with a grid, a construction line, a dimension and a registration
-  mark fades in from the left, with a line of its blue along the window's top edge; tabs always win
-  the room. Its icon is the mark on a blueprint tile (`resources/icon-dev.svg`). The release looks
+- **It looks like Dev: "E · Blueprint"**, chosen by the maintainer from drawn directions, then
+  moved to start from the window's left edge as T3 Code's night sky does. Blueprint paper with a
+  grid lies under the whole tab strip, behind Home and the tabs, fading out towards the right, with
+  a line of its blue along the window's top edge; a construction line, a dimension and a
+  registration mark are drawn in the room past the +, never behind a tab, and give way to tabs.
+  The light paper is as light as the canvas, so the tabs' muted names keep their contrast. Its icon is the mark on a blueprint tile (`resources/icon-dev.svg`). The release looks
   as it did. Its colours are tokens (`--blueprint`, `--blueprint-ink`, `--blueprint-line`).
 - **About names it**: Ultrapaint Dev, and the branch and commit it runs (`main · 3f2a1c9`).
 - **It leaves the `ultrapaint` command to the release**: Settings offers no install, and the

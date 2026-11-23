@@ -469,7 +469,7 @@ input[type="number"]::-webkit-inner-spin-button {
   --board-grid: oklch(0.3 0.03 262 / 20%);
   /* Ultrapaint Dev's look (ADR 0113): blueprint paper past the tab strip's +, its grid and its
      drawn lines, in the brand's blue. Never anywhere else, nor in the release. */
-  --blueprint: oklch(0.9 0.045 250);
+  --blueprint: oklch(0.94 0.03 250);
   --blueprint-ink: oklch(0.5 0.13 255 / 32%);
   --blueprint-line: oklch(0.47 0.15 258 / 85%);
   /* The paper a component's picture lies on, a step under the panel: the pictures are drawn in the

@@ -23,7 +23,7 @@ colors:
   warning: oklch(0.7 0.15 70)
   canvas: oklch(0.945 0.004 80)
   board: oklch(0.95 0.012 262)
-  blueprint: oklch(0.9 0.045 250)
+  blueprint: oklch(0.94 0.03 250)
   blueprint-ink: oklch(0.5 0.13 255 / 32%)
   blueprint-line: oklch(0.47 0.15 258 / 85%)
   specimen: oklch(0.965 0.003 80)
@@ -156,10 +156,11 @@ The editor has two themes on one set of roles, light (warm paper) and dark (warm
   tile is never the brightest thing in the chrome. The pictures are drawn in the design's light
   look, so it stays paper in both themes.
 - {colors.blueprint}, {colors.blueprint-ink} and {colors.blueprint-line} are Ultrapaint Dev's look
-  (ADR 0113), blueprint paper, its grid and its drawn lines in the tab strip's empty room past the
-  +, and a line of its blue along the window's top: `oklch(0.3 0.1 257)`, `oklch(0.85 0.06 245 /
-  30%)` and `oklch(0.88 0.07 245 / 80%)` in dark. Never anywhere else, nor in the release; nothing
-  in it moves.
+  (ADR 0113): blueprint paper and its grid under the whole tab strip from the window's left edge,
+  fading out towards the right, its drawn lines in the room past the +, and a line of its blue along
+  the window's top: `oklch(0.3 0.1 257)`, `oklch(0.85 0.06 245 / 30%)` and `oklch(0.88 0.07 245 /
+  80%)` in dark. The light paper is as light as the canvas, so the tabs' muted names keep their
+  contrast on it. Never anywhere else, nor in the release; nothing in it moves.
 - The canvas's own language: {colors.selection} on a plain element, {colors.component} on a
   component instance, {colors.agent} on an agent's work and an agent working (the rail's dot). These
   stay off the panels' chrome otherwise; the one bar that says a component is edited in place is
