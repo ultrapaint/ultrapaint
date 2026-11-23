@@ -19,7 +19,7 @@
         "id": "c_s1c0",
         "name": "Settings dialog · narrow",
         "radius": "$radius-2xl",
-        "shadow": "$shadow-overlay",
+        "shadow": "$shadow-lg",
         "width": "fill",
         "children": [
           {
@@ -95,7 +95,7 @@
                   "style": "solid",
                   "width": 1
                 },
-                "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)",
+                "fill": "$color-muted",
                 "height": 28,
                 "id": "r_3855nh3",
                 "name": "Select",
@@ -206,7 +206,7 @@
                               "style": "solid",
                               "width": 1
                             },
-                            "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)",
+                            "fill": "$color-muted",
                             "height": 28,
                             "id": "r_385889j",
                             "name": "Field",
@@ -289,7 +289,7 @@
                               "style": "solid",
                               "width": 1
                             },
-                            "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)",
+                            "fill": "$color-muted",
                             "height": 28,
                             "id": "r_385fnfe",
                             "name": "Select",

@@ -131,7 +131,7 @@
                         "type": "row"
                       },
                       {
-                        "fill": "color-mix(in oklch, var(--color-destructive) 10%, transparent)",
+                        "fill": "oklch(0.55 0.21 27 / 10%)",
                         "id": "c_cb43bdnu",
                         "margin": {
                           "bottom": 8,

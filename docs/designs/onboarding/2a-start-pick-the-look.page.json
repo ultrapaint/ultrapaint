@@ -65,7 +65,7 @@
         ]}
       ]},
       {"type": "row", "id": "r_eze4eeph", "name": "Overlay", "height": 68, "margin": {"bottom": 124, "top": -192}, "padding": {"left": 208}, "width": "fill", "children": [
-        {"type": "column", "id": "c_eze4dgg2", "name": "Menu", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-popover", "padding": 4, "radius": "$radius-lg", "shadow": "$shadow-overlay", "width": 224, "children": [
+        {"type": "column", "id": "c_eze4dgg2", "name": "Menu", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-popover", "padding": 4, "radius": "$radius-lg", "shadow": "$shadow-lg", "width": 224, "children": [
           {"type": "row", "id": "r_eze4a5qn", "crossAlign": "center", "fill": "$color-accent", "gap": 8, "height": 30, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
             {"type": "text", "id": "t_eze48xoa", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Agent picks the look", "width": "fill"},
             {"type": "image", "id": "img_eze49gl8", "name": "check", "alt": "", "height": 16, "src": "assets/icons/check.svg", "tint": "$color-foreground", "width": 16}

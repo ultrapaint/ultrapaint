@@ -1,6 +1,6 @@
 {
   "root": {"type": "page", "id": "root", "align": "center", "crossAlign": "center", "direction": "column", "fill": "#0b0b0c", "padding": 16, "children": [
-    {"type": "column", "id": "c_s1c0", "name": "Settings dialog · narrow", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-sidebar", "height": "fill", "radius": "$radius-2xl", "shadow": "$shadow-overlay", "width": "fill", "children": [
+    {"type": "column", "id": "c_s1c0", "name": "Settings dialog · narrow", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-sidebar", "height": "fill", "radius": "$radius-2xl", "shadow": "$shadow-lg", "width": "fill", "children": [
       {"type": "row", "id": "r_s1b1", "border": {"color": "$color-border", "style": "solid", "width": "0 0 1px 0"}, "crossAlign": "center", "height": 48, "padding": {"left": 20, "right": 12}, "width": "fill", "children": [
         {"type": "text", "id": "t_3840r7h", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Settings", "tracking": "0.02em", "weight": 400, "width": "fill"},
         {"type": "instance", "id": "i_38510ri", "name": "Close", "component": "Button", "from": "@ultrapaint/system", "height": 24, "props": {"variant": "ghost", "size": "icon"}, "radius": "$radius-md", "width": 24, "children": [
@@ -8,7 +8,7 @@
         ]}
       ]},
       {"type": "row", "id": "r_3856gbo", "name": "Section", "padding": {"left": 12, "right": 12, "top": 12}, "width": "fill", "children": [
-        {"type": "row", "id": "r_3855nh3", "name": "Select", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)", "gap": 6, "height": 28, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
+        {"type": "row", "id": "r_3855nh3", "name": "Select", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-muted", "gap": 6, "height": 28, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
           {"type": "text", "id": "t_3853jal", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "General", "width": "fill"},
           {"type": "image", "id": "img_3854q07", "name": "chevron-down", "alt": "", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "$color-muted-foreground", "width": 14}
         ]}
@@ -21,7 +21,7 @@
                 {"type": "text", "id": "t_3859zfo", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Display name", "tracking": "0.02em", "weight": 400},
                 {"type": "text", "id": "t_385avea", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "Signs your comments. Left empty, your name from git is used."}
               ]},
-              {"type": "row", "id": "r_385889j", "name": "Field", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)", "gap": 6, "height": 28, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
+              {"type": "row", "id": "r_385889j", "name": "Field", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-muted", "gap": 6, "height": 28, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
                 {"type": "text", "id": "t_38571k2", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Sam Rivera", "width": "fill"}
               ]}
             ]},
@@ -30,7 +30,7 @@
                 {"type": "text", "id": "t_385g73e", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Notifications", "tracking": "0.02em", "weight": 400},
                 {"type": "text", "id": "t_385hlqq", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "When an agent finishes or asks you something while the window is in the background."}
               ]},
-              {"type": "row", "id": "r_385fnfe", "name": "Select", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)", "gap": 6, "height": 28, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
+              {"type": "row", "id": "r_385fnfe", "name": "Select", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-muted", "gap": 6, "height": 28, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
                 {"type": "text", "id": "t_385ds9y", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Notification and sound", "width": "fill"},
                 {"type": "image", "id": "img_385e2qm", "name": "chevron-down", "alt": "", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "$color-muted-foreground", "width": 14}
               ]}

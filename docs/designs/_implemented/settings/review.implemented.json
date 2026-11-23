@@ -24,7 +24,7 @@
             "minHeight": 736,
             "name": "Settings dialog",
             "radius": "$radius-2xl",
-            "shadow": "$shadow-overlay",
+            "shadow": "$shadow-lg",
             "width": 960,
             "crossAlign": "stretch",
             "children": [
@@ -74,7 +74,7 @@
                           "style": "solid",
                           "width": 1
                         },
-                        "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)",
+                        "fill": "$color-muted",
                         "height": 28,
                         "id": "r_4f31ifzj",
                         "name": "Search",
@@ -787,7 +787,7 @@
                                       "style": "solid",
                                       "width": 1
                                     },
-                                    "fill": "$color-transparent",
+                                    "fill": "transparent",
                                     "height": 16,
                                     "id": "r_4f00u6y",
                                     "margin": {
@@ -864,7 +864,7 @@
                                       "style": "solid",
                                       "width": 1
                                     },
-                                    "fill": "$color-transparent",
+                                    "fill": "transparent",
                                     "height": 16,
                                     "id": "r_4f06oa6",
                                     "margin": {
@@ -1045,7 +1045,7 @@
                                       "style": "solid",
                                       "width": 1
                                     },
-                                    "fill": "$color-transparent",
+                                    "fill": "transparent",
                                     "height": 16,
                                     "id": "r_4f1ky54",
                                     "margin": {
@@ -1122,7 +1122,7 @@
                                       "style": "solid",
                                       "width": 1
                                     },
-                                    "fill": "$color-transparent",
+                                    "fill": "transparent",
                                     "height": 16,
                                     "id": "r_4f1qrbw",
                                     "margin": {
@@ -1260,7 +1260,7 @@
                                               "style": "solid",
                                               "width": 1
                                             },
-                                            "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)",
+                                            "fill": "$color-muted",
                                             "height": 28,
                                             "id": "r_4f313tgr",
                                             "name": "Select",

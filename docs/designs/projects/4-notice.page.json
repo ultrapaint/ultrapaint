@@ -2,7 +2,7 @@
   "root": {"type": "page", "id": "root", "crossAlign": "stretch", "direction": "column", "fill": "$color-canvas", "children": [
     {"type": "row", "id": "r_00173", "crossAlign": "end", "height": "fill", "padding": {"bottom": 24, "left": 24, "right": 24, "top": 24}, "width": "fill", "children": [
       {"type": "row", "id": "r_00172", "width": "fill", "children": []},
-      {"type": "row", "id": "r_00171", "name": "Toast", "border": {"color": "$color-border", "style": "solid", "width": "1px"}, "crossAlign": "center", "fill": "$color-popover", "gap": 6, "padding": {"bottom": 16, "left": 16, "right": 16, "top": 16}, "radius": "$radius-lg", "shadow": "$shadow-overlay", "width": 356, "children": [
+      {"type": "row", "id": "r_00171", "name": "Toast", "border": {"color": "$color-border", "style": "solid", "width": "1px"}, "crossAlign": "center", "fill": "$color-popover", "gap": 6, "padding": {"bottom": 16, "left": 16, "right": 16, "top": 16}, "radius": "$radius-lg", "shadow": "$shadow-lg", "width": 356, "children": [
         {"type": "row", "id": "r_y6d157b", "name": "Close", "align": "center", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-popover", "height": 20, "margin": {"left": -26, "right": -14, "top": -48}, "radius": 999, "width": 20, "children": [
           {"type": "image", "id": "img_y6d0gvy", "name": "x", "alt": "", "height": 12, "src": "assets/icons/x.svg", "tint": "$color-foreground", "width": 12}
         ]},

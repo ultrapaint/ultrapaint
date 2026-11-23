@@ -744,7 +744,7 @@
                     "name": "Review",
                     "padding": 12,
                     "radius": "$radius-lg",
-                    "shadow": "$shadow-overlay",
+                    "shadow": "$shadow-lg",
                     "width": 324,
                     "gap": 12,
                     "children": [

@@ -925,7 +925,7 @@
                 "name": "Mode tabs",
                 "padding": 4,
                 "radius": "$radius-lg",
-                "shadow": "$shadow-floating",
+                "shadow": "$shadow-md",
                 "gap": 2,
                 "children": [
                   {
@@ -2172,7 +2172,7 @@
                 "name": "Toolbar",
                 "padding": 6,
                 "radius": "$radius-lg",
-                "shadow": "$shadow-floating",
+                "shadow": "$shadow-md",
                 "crossAlign": "center",
                 "gap": 2,
                 "children": [
