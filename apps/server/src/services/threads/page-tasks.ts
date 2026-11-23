@@ -406,7 +406,7 @@ ${numbered([
         const itemByTarget = new Map(items.map((i) => [i.target, i]));
         const { picked, unknown } = pagesOf(words, canvases, pages);
         // A base page named takes its states with it; a state named alone stays alone.
-        const named = (p: Page) =>
+        const isNamed = (p: Page) =>
           picked.has(p.id) ||
           (p.state !== undefined &&
             familyOf(pages, p).some(
@@ -414,7 +414,7 @@ ${numbered([
             ));
         const behind = pages.filter(
           (p) =>
-            (words.length === 0 || named(p)) &&
+            (words.length === 0 || isNamed(p)) &&
             behindItsCode(itemByTarget.get(p.id))
         );
         // A state is a page of its own: it is taken when it is behind, and only then.
