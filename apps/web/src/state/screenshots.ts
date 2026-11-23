@@ -4,24 +4,31 @@
  * cannot draw says why, so the server is not left waiting on it.
  */
 import type { ScreenshotRequest } from "@ultrapaint/contracts/screenshots";
-import { drawSpecimen } from "../canvas/specimens.ts";
+import { drawMeasuredSpecimen, drawSpecimen } from "../canvas/specimens.ts";
 import { api } from "./connection.ts";
 import { useDesignSystem } from "./design-system.ts";
 
+/**
+ * The picture asked for, and with `checks` what the checks measured on it (ADR 0081): the
+ * review's picture of a page.
+ */
 const draw = async (request: ScreenshotRequest) => {
-  const dataUrl = await drawSpecimen(
-    request.root,
-    useDesignSystem.getState().designSystem,
-    {
-      canvas: request.canvas,
-      height: request.height,
-      mode: request.mode,
-      width: request.width,
-      ...(request.nodeId !== undefined && { nodeId: request.nodeId }),
-    }
-  );
+  const { designSystem } = useDesignSystem.getState();
+  const options = {
+    canvas: request.canvas,
+    height: request.height,
+    mode: request.mode,
+    width: request.width,
+    ...(request.nodeId !== undefined && { nodeId: request.nodeId }),
+  };
+  const { findings, picture: dataUrl } = request.checks
+    ? await drawMeasuredSpecimen(request.root, designSystem, options)
+    : {
+        findings: undefined,
+        picture: await drawSpecimen(request.root, designSystem, options),
+      };
   return dataUrl
-    ? { dataUrl }
+    ? { dataUrl, ...(findings !== undefined && { findings }) }
     : {
         problem:
           "the preview could not draw it: it did not render in time, or the node draws nothing",

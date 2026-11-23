@@ -2,14 +2,14 @@
  * The pages as a review model is shown them (ADR 0063): each page's design document, and its
  * picture as the editor draws it at its frame's size (as `get_screenshot` draws a page). The
  * editor draws the pictures: with none open, or one that can't, the page goes without one and
- * the review says why.
+ * the review says why. Beside them, for the designer and never for the reviewers (ADR 0081), what
+ * the checks measured: the values its document sets by hand where the design system has a token,
+ * and what the editor measured on the page it drew, when it could.
  */
 import { PageDocument } from "@ultrapaint/contracts/document";
 import { presetSize } from "@ultrapaint/contracts/pages";
-import {
-  type OffSystemValue,
-  offSystemValues,
-} from "@ultrapaint/design-document/off-system";
+import type { RenderedFinding } from "@ultrapaint/contracts/screenshots";
+import { offSystemValues } from "@ultrapaint/design-document/off-system";
 import {
   Effect,
   FileSystem,
@@ -32,35 +32,15 @@ const decodeDocument = Schema.decodeUnknownEffect(
   Schema.fromJsonString(Schema.Unknown)
 );
 
-/** How many of the values off the system a reviewer is shown, the rest counted. */
-const SHOWN_OFF_SYSTEM = 12;
-
-/**
- * What the checks measured on a page's document (ADR 0061), as facts for the reviewer: the
- * values set by hand where the design system has a token, counted by kind, the first few named.
- */
-export const documentChecks = (values: readonly OffSystemValue[]): string => {
-  if (values.length === 0) {
-    return "No value is set by hand where the design system has a token.";
-  }
-  const kinds = new Map<string, number>();
-  for (const v of values) {
-    kinds.set(v.kind, (kinds.get(v.kind) ?? 0) + 1);
-  }
-  const counted = [...kinds].map(([kind, n]) => `${n} ${kind}`).join(", ");
-  const named = values
-    .slice(0, SHOWN_OFF_SYSTEM)
-    .map((v) => `- ${v.node}: \`${v.field}\` ${JSON.stringify(v.value)}`);
-  return [
-    `${values.length} values are set by hand where the design system has a token (${counted}):`,
-    ...named,
-    ...(values.length > SHOWN_OFF_SYSTEM
-      ? [`- and ${values.length - SHOWN_OFF_SYSTEM} more.`]
-      : []),
-  ].join("\n");
-};
-
 const decodePage = Schema.decodeUnknownEffect(PageDocument);
+
+/** What the editor measured on a page it did not draw: nothing. */
+const UNMEASURED: readonly RenderedFinding[] = [];
+
+/** A page's picture, or why it has none, and what the editor measured on the page it drew. */
+type Drawn = Pick<PageView, "picture" | "route"> & {
+  readonly rendered: readonly RenderedFinding[];
+};
 
 /** Why a page has no picture when no editor is open. */
 const NO_EDITOR = "no editor is open to draw it.";
@@ -93,15 +73,16 @@ export const makePageViews = Effect.fnUntraced(function* () {
           const documents = yield* DocumentService;
           const page = (yield* pages.list).pages.find((p) => p.file === file);
           if (!page) {
-            return { picture: null, route: undefined };
+            return { picture: null, rendered: UNMEASURED, route: undefined };
           }
           const state = yield* documents.get(page.id);
           if (!state.root) {
-            return { picture: null, route: page.route };
+            return { picture: null, rendered: UNMEASURED, route: page.route };
           }
           const layout = yield* pages.readCanvas(page.canvas);
           const frame = layout.frames[page.path] ?? presetSize.desktop;
-          const bytes = yield* screenshots.capture({
+          // Measured as it is drawn: the checks on the rendered page (ADR 0081).
+          const { findings, png } = yield* screenshots.captureChecked({
             canvas: page.canvas,
             height: frame.height,
             mode: "page",
@@ -109,37 +90,41 @@ export const makePageViews = Effect.fnUntraced(function* () {
             width: frame.width,
           });
           return {
-            picture: Buffer.from(bytes).toString("base64"),
+            picture: Buffer.from(png).toString("base64"),
+            rendered: findings,
             route: page.route,
           };
         })
       )
       .pipe(Effect.result);
 
-  /** The page's picture, or why it has none. */
+  /** The page's picture, or why it has none, and what the editor measured on it. */
   const pictureOf = Effect.fnUntraced(function* (
     file: string,
     editors: number
   ) {
     if (editors === 0) {
-      const none: Pick<PageView, "picture" | "route"> = {
+      const none: Drawn = {
         picture: { kind: "none", why: NO_EDITOR },
+        rendered: UNMEASURED,
       };
       return none;
     }
     const result = yield* drawn(file);
     if (Result.isFailure(result)) {
-      const failed: Pick<PageView, "picture" | "route"> = {
+      const failed: Drawn = {
         picture: { kind: "none", why: `${result.failure.message}.` },
+        rendered: UNMEASURED,
       };
       return failed;
     }
-    const { picture, route } = result.success;
-    const view: Pick<PageView, "picture" | "route"> = {
+    const { picture, rendered, route } = result.success;
+    const view: Drawn = {
       picture:
         picture === null
           ? { kind: "none", why: "the editor couldn't draw it." }
           : { data: picture, kind: "png" },
+      rendered,
       route,
     };
     return view;
@@ -172,13 +157,17 @@ export const makePageViews = Effect.fnUntraced(function* () {
         const page = Option.isSome(json)
           ? yield* decodePage(json.value).pipe(Effect.option)
           : Option.none();
+        const { rendered, ...drawnView } = yield* pictureOf(file, editors);
         views.push({
-          ...(Option.isSome(page)
-            ? { checks: documentChecks(offSystemValues(page.value.root)) }
-            : {}),
+          checks: {
+            offSystem: Option.isSome(page)
+              ? offSystemValues(page.value.root)
+              : [],
+            rendered,
+          },
           document,
           file,
-          ...(yield* pictureOf(file, editors)),
+          ...drawnView,
         });
       }
     }

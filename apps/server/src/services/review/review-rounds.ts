@@ -7,6 +7,7 @@
 import {
   type Approval,
   Category,
+  type CheckKind,
   Finding,
   formatReviewModel,
   type ReviewerRound,
@@ -321,6 +322,8 @@ export const declinedOf = (
 
 /** A finding, with who found it and on which page, as the round keeps it until it is answered. */
 export interface Found {
+  /** The check that measured it (ADR 0081); none for a reviewer's. */
+  readonly check?: CheckKind | undefined;
   readonly finding: Finding;
   readonly page: string;
   readonly reviewer: string;
@@ -373,6 +376,7 @@ export const mergeFound = (found: readonly Found[]): readonly Found[] => {
 /** A finding as the transcript shows it. */
 export const toRoundFinding = (f: Found): RoundFinding => ({
   category: f.finding.category,
+  ...(f.check !== undefined && { check: f.check }),
   fix: f.finding.fix,
   problem: f.finding.problem,
   reviewer: f.reviewer,
@@ -392,12 +396,17 @@ export interface ReviewerResult {
 }
 
 /**
- * The findings the designer is sent (ADR 0063, the lighter review): blockers and majors. Minor
- * ones and nits stay in the round for the person to see; in the lab, demanding them made the
- * designer churn without leaving fewer problems.
+ * The findings the designer is sent (ADR 0063, the lighter review): blockers and majors, and the
+ * checks' (ADR 0081), which are minor. A reviewer's minor ones and nits stay in the round for the
+ * person to see; in the lab, demanding them made the designer churn without leaving fewer problems.
  */
-export const isSent = (finding: Pick<Finding, "severity">) =>
-  finding.severity === "blocker" || finding.severity === "major";
+export const isSent = (finding: {
+  readonly check?: CheckKind | undefined;
+  readonly severity: Finding["severity"];
+}) =>
+  finding.check !== undefined ||
+  finding.severity === "blocker" ||
+  finding.severity === "major";
 
 /** A round's findings, those sent first and the worst first, so the prompt numbers them as the round lists them. */
 export const bySeverity = <T extends { readonly finding: Finding }>(
@@ -407,6 +416,46 @@ export const bySeverity = <T extends { readonly finding: Finding }>(
     (a, b) =>
       SEVERITY_RANK[a.finding.severity] - SEVERITY_RANK[b.finding.severity]
   );
+
+/**
+ * A round's findings as it lists them and the designer's prompt numbers them: the reviewers' it
+ * sends, the worst first; then the checks' (ADR 0081); then the reviewers' it keeps. A round that
+ * sends none of the reviewers' (`sending` false) lists the checks' first: they are all it sends.
+ */
+export const listedInRound = (
+  found: readonly Found[],
+  checks: readonly Found[],
+  sending: boolean
+): readonly Found[] => {
+  const sorted = bySeverity(found);
+  return sending
+    ? [
+        ...sorted.filter((f) => isSent(f.finding)),
+        ...checks,
+        ...sorted.filter((f) => !isSent(f.finding)),
+      ]
+    : [...checks, ...sorted];
+};
+
+/**
+ * The checks' findings the designer declined in a run's rounds, by title: what the checks
+ * measure again is not sent again once declined (ADR 0081).
+ */
+export const declinedChecksOf = (
+  rounds: readonly ReviewItem[]
+): readonly string[] =>
+  rounds.flatMap((r) =>
+    r.findings.flatMap((f) =>
+      f.check !== undefined && f.declined !== undefined ? [normal(f.title)] : []
+    )
+  );
+
+/** The checks' findings not declined before, by their titles (`declinedChecksOf`). */
+export const notDeclined = (
+  checks: readonly Found[],
+  declined: readonly string[]
+): readonly Found[] =>
+  checks.filter((f) => !declined.includes(normal(f.finding.title)));
 
 /**
  * In a round that looks again (the second), what a model may give: a finding it was sent before
@@ -478,7 +527,8 @@ export const answeredRound = (
     const reason = declined.get(i);
     return reason === undefined ? f : { ...f, declined: reason };
   }),
-  // What the designer was sent: blockers and majors (ADR 0063), less what it declined.
+  // What the designer was sent: blockers and majors (ADR 0063) and the checks' findings
+  // (ADR 0081), less what it declined.
   fixed:
     item.findings.filter(isSent).length -
     [...declined.keys()].filter((i) => {

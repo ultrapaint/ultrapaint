@@ -214,6 +214,7 @@ export interface AuditFinding {
   readonly detail: string;
   /** The element's first words, or its tag and role: to find it. */
   readonly label: string;
+  /** What it measured: a contrast ratio, a size in pixels, the height of rows that touch. */
   readonly value: number;
 }
 
@@ -795,7 +796,7 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
           check: "touching-rows",
           detail: `rows of ${typical}px, rounded or filled, with no gap between them`,
           label: labelOf(el).slice(0, 40),
-          value: 0,
+          value: typical,
         },
         el
       );

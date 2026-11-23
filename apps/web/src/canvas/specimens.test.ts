@@ -1,16 +1,26 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import type { RenderedFinding } from "@ultrapaint/contracts/screenshots";
 import type {
   FrameEvents,
   FrameRuntime,
   Preview,
 } from "@ultrapaint/preview-core/preview";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { drawSpecimen, pictureKey } from "./specimens.ts";
+import { drawMeasuredSpecimen, drawSpecimen, pictureKey } from "./specimens.ts";
 
 /** The preview the specimens draw with, the one a test gives. */
 let preview: Preview | null = null;
 vi.mock("./preview-module.ts", () => ({
   thePreview: () => preview,
+}));
+
+/**
+ * What the checks find on the frame, the test's: happy-dom lays nothing out, so the measuring
+ * itself is the design checks' own tests' and the lab's `measure` on real pages.
+ */
+let checks: () => readonly RenderedFinding[] = () => [];
+vi.mock("./rendered-checks.ts", () => ({
+  renderedChecks: () => checks(),
 }));
 
 /** A preview whose frame draws on its own turn, as React does, and is captured as `picture`. */
@@ -56,6 +66,8 @@ beforeEach(() => {
       dataset: {},
       remove: () => undefined,
       setAttribute: () => undefined,
+      // The frame's shadow root, which the checks measure.
+      shadowRoot: {},
       style: {},
     }),
   });
@@ -68,6 +80,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  checks = () => [];
 });
 
 describe("drawSpecimen", () => {
@@ -94,6 +107,38 @@ describe("drawSpecimen", () => {
     await vi.advanceTimersByTimeAsync(200);
     await expect(again).resolves.toBe("data:image/png;base64,AA");
     expect(fake.drawn).toHaveLength(1);
+  });
+});
+
+describe("drawMeasuredSpecimen", () => {
+  const touching: RenderedFinding = {
+    box: { height: 84, width: 200, x: 0, y: 40 },
+    kind: "touching-rows",
+    list: "Files",
+    rowHeight: 28,
+  };
+
+  it("gives what the checks found on the frame with its picture", async () => {
+    preview = fakePreview("data:image/png;base64,AA").value;
+    checks = () => [touching];
+    const drawn = drawMeasuredSpecimen(node, null, { canvas: "m" });
+    await vi.advanceTimersByTimeAsync(200);
+    await expect(drawn).resolves.toEqual({
+      findings: [touching],
+      picture: "data:image/png;base64,AA",
+    });
+  });
+
+  it("gives its picture alone when the checks throw", async () => {
+    preview = fakePreview("data:image/png;base64,AA").value;
+    checks = () => {
+      throw new Error("no layout");
+    };
+    const drawn = drawMeasuredSpecimen(node, null, { canvas: "t" });
+    await vi.advanceTimersByTimeAsync(200);
+    await expect(drawn).resolves.toEqual({
+      picture: "data:image/png;base64,AA",
+    });
   });
 });
 

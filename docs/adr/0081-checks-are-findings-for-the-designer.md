@@ -1,8 +1,9 @@
 # ADR 0081: The checks' findings go to the designer, not to the reviewers
 
-Status: proposed, 2026-11-11, by the design lab. Amends [0061](0061-designs-are-checked-before-they-are-reviewed.md),
-whose third layer gives the review models the checks' results as facts. The editor's side is for
-the editor's thread to build. In the lab, `recall` counts both ways already (`--inputs checks`).
+Status: accepted, 2026-11-23, built with UP-75 (see "As built"). Proposed 2026-11-11 by the
+design lab. Amends [0061](0061-designs-are-checked-before-they-are-reviewed.md), whose third layer
+gave the review models the checks' results as facts. In the lab, `recall` counts both ways
+already (`--inputs checks`).
 
 ## Context
 
@@ -66,3 +67,20 @@ detector results shown first "anchor judgment".
   rate includes its false alarms.
 - The lab measures the same arrangement in a loop round (`recall --inputs checks` counts it
   without a model); the editor's review loop is not changed by this ADR until it is accepted.
+
+## As built
+
+- **The editor measures the review's picture.** Asked for a page's picture with `checks`
+  (contracts' `ScreenshotRequest`), it draws the page in its hidden frame and, once the frame has
+  settled, runs `design-checks` on the frame's shadow root: `spacingFindings` (3× between stacked
+  groups of rows, 2× between other groups) and the `touching-rows` audit. Their findings come back
+  with the picture (`RenderedFinding`); an answer without them is valid, and the round goes on
+  with the reviewers' findings and the document's.
+- **What the designer is sent.** The checks' findings follow the reviewers' in the findings
+  prompt, numbered on, each marked as a check's with what it measured and the element it names;
+  the document's values off the system are one finding a value ("13px spacing, 9 places").
+  They go beside the reviewers' findings, or alone once the review is over (approved, or at a
+  cap), when the review still ends there; a review no model could score sends nothing.
+- **Declines.** A check's finding declined (`Declined: <title> — <reason>`) is kept on the
+  round and in the findings log with its kind (`check`), and is not sent again in the same run.
+  A second look is never shown the checks' findings.
