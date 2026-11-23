@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hintsOf, matches } from "./style-combobox.tsx";
+import { hintsOf, itemsFor, matches } from "./style-combobox.tsx";
 import { isOutsideDesignSystem, withClear } from "./value-field.tsx";
 
 describe("a field's value", () => {
@@ -41,6 +41,16 @@ describe("a field's Clear option", () => {
     expect(clear && hintsOf(clear)).toEqual([]);
     expect(clear && matches(clear, "clear")).toBe(true);
     expect(clear && matches(clear, "unset")).toBe(false);
+  });
+
+  it("is not brought up by typing its internal value, where the field takes any text", () => {
+    const list = withClear(options, "16");
+    const anyText = (q: string) => q;
+    expect(itemsFor(list, "__unset", anyText)).toEqual([]);
+    expect(itemsFor(list, "Inter", anyText).map((o) => o.value)).toEqual([
+      "Inter",
+    ]);
+    expect(itemsFor(list, "16", anyText).map((o) => o.label)).toEqual(["16"]);
   });
 
   it("leaves the other options' hints as they were: the description, then a value that says more", () => {
