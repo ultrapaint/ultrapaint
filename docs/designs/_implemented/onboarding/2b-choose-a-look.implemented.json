@@ -1781,7 +1781,7 @@
                             "children": [
                               {
                                 "id": "t_p204048k",
-                                "color": "$color-foreground",
+                                "color": "#1c1917",
                                 "font": "'Figtree Variable', system-ui, sans-serif",
                                 "lineHeight": 1.25,
                                 "size": 11,
@@ -1803,7 +1803,7 @@
                               },
                               {
                                 "id": "t_p2042rgj",
-                                "color": "$color-foreground",
+                                "color": "#1c1917",
                                 "font": "'Figtree Variable', system-ui, sans-serif",
                                 "lineHeight": 1.333,
                                 "size": 8,
@@ -1828,7 +1828,7 @@
                                 "children": [
                                   {
                                     "id": "t_p2043ta1",
-                                    "color": "$color-foreground",
+                                    "color": "#1c1917",
                                     "font": "'Figtree Variable', system-ui, sans-serif",
                                     "lineHeight": 1.333,
                                     "size": 8,
@@ -1841,7 +1841,7 @@
                               },
                               {
                                 "id": "t_p204540t",
-                                "color": "$color-foreground",
+                                "color": "#1c1917",
                                 "font": "'Figtree Variable', system-ui, sans-serif",
                                 "lineHeight": 1.333,
                                 "size": 8,
@@ -1866,7 +1866,7 @@
                                 "children": [
                                   {
                                     "id": "t_p20463vu",
-                                    "color": "$color-foreground",
+                                    "color": "#1c1917",
                                     "font": "'Figtree Variable', system-ui, sans-serif",
                                     "lineHeight": 1.333,
                                     "size": 8,
@@ -1885,7 +1885,7 @@
                                   {
                                     "id": "t_p2048ehv",
                                     "width": "fill",
-                                    "color": "$color-foreground",
+                                    "color": "#1c1917",
                                     "font": "'Figtree Variable', system-ui, sans-serif",
                                     "lineHeight": 1.333,
                                     "size": 8,
@@ -1923,7 +1923,7 @@
                                       "top": 4
                                     },
                                     "radius": 4,
-                                    "color": "$color-foreground",
+                                    "color": "#1c1917",
                                     "font": "'Figtree Variable', system-ui, sans-serif",
                                     "lineHeight": 1.333,
                                     "size": 8,

@@ -141,13 +141,6 @@
           ]},
           {"type": "text", "id": "t_s45", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Preferences was a grab bag (theme, name, send key, findings). It becomes four sections under ‘You’: General, Appearance, Chats and Shortcuts, yours in every project."}
         ]},
-        {"type": "column", "id": "c_s4b", "gap": 4, "width": "fill", "children": [
-          {"type": "row", "id": "r_s49", "crossAlign": "center", "gap": 6, "children": [
-            {"type": "row", "id": "r_s47", "fill": "#3d7bff", "height": 8, "radius": 999, "width": 8, "children": []},
-            {"type": "text", "id": "t_s48", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Changed", "weight": 500}
-          ]},
-          {"type": "text", "id": "t_s4a", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Display name shows the avatar it draws, beside the field."}
-        ]},
         {"type": "column", "id": "c_s4g", "gap": 4, "width": "fill", "children": [
           {"type": "row", "id": "r_s4e", "crossAlign": "center", "gap": 6, "children": [
             {"type": "row", "id": "r_s4c", "fill": "#ec4899", "height": 8, "radius": 999, "width": 8, "children": []},

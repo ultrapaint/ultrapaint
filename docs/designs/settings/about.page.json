@@ -205,7 +205,7 @@
             {"type": "row", "id": "r_s16x", "fill": "#ec4899", "height": 8, "radius": 999, "width": 8, "children": []},
             {"type": "text", "id": "t_s16y", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "New", "weight": 500}
           ]},
-          {"type": "text", "id": "t_s170", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Your folder and Logs open in the file manager; a bug report needs both."}
+          {"type": "text", "id": "t_s170", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Each folder opens in the file manager."}
         ]}
       ]}
     ]}

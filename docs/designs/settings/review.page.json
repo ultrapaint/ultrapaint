@@ -176,20 +176,6 @@
             {"type": "text", "id": "t_suc", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Changed", "weight": 500}
           ]},
           {"type": "text", "id": "t_sue", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Custom’s rows sit indented under Custom, shown when it is chosen; the score field follows ‘A score’."}
-        ]},
-        {"type": "column", "id": "c_suk", "gap": 4, "width": "fill", "children": [
-          {"type": "row", "id": "r_sui", "crossAlign": "center", "gap": 6, "children": [
-            {"type": "row", "id": "r_sug", "fill": "#3d7bff", "height": 8, "radius": 999, "width": 8, "children": []},
-            {"type": "text", "id": "t_suh", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Changed", "weight": 500}
-          ]},
-          {"type": "text", "id": "t_suj", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "Review models are chips in their order, each removable, with Add a model."}
-        ]},
-        {"type": "column", "id": "c_sup", "gap": 4, "width": "fill", "children": [
-          {"type": "row", "id": "r_sun", "crossAlign": "center", "gap": 6, "children": [
-            {"type": "row", "id": "r_sul", "fill": "#ec4899", "height": 8, "radius": 999, "width": 8, "children": []},
-            {"type": "text", "id": "t_sum", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "New", "weight": 500}
-          ]},
-          {"type": "text", "id": "t_suo", "color": "#a1a1aa", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": "16px", "role": "paragraph", "size": 12, "text": "A reset arrow beside a setting changed from its default (T3 Code’s ↺)."}
         ]}
       ]}
     ]}
