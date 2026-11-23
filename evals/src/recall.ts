@@ -926,6 +926,24 @@ const judgesOf = (options: RecallOptions): readonly string[] => {
 };
 
 /**
+ * The checkout a round's skill trees were taken from: they are written once (`writeSkillTree`), so
+ * a round run again keeps the commit its record holds, and a record from before rounds kept one
+ * says `unknown` rather than naming a checkout its trees may not come from.
+ */
+const firstCommitOf = Effect.fn("firstCommitOf")(function* (out: string) {
+  const fs = yield* FileSystem.FileSystem;
+  const file = path.join(out, "recall.json");
+  if (!(yield* fs.exists(file))) {
+    return yield* commitOf;
+  }
+  const record = yield* readJson(
+    Schema.Struct({ commit: Schema.optional(Schema.String) }),
+    file
+  );
+  return record.commit ?? "unknown";
+});
+
+/**
  * The round's record, `recall.json`, left to the run that judges when this one only reviews: its
  * settings, the checkout's commit, and each version's skill tree (`skills/<version>/`) with the
  * hash of every file, so what each version said is known after the checkout and candidates move.
@@ -985,7 +1003,7 @@ export const recall = Effect.fn("recall")(function* (options: RecallOptions) {
     trees.set(skills, path.join(out, tree.dir));
     skillTrees[versionName(skills)] = tree;
   }
-  const commit = yield* commitOf;
+  const commit = yield* firstCommitOf(out);
   yield* writeRecord(out, options, {
     commit,
     judges,
