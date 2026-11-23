@@ -45,6 +45,15 @@ Open with it, before the first element: `references/components.md`, `references/
 - On a long form on a phone, the primary stays reachable, fixed to the bottom; a full-width
   button keeps the page's margins and its radius.
 
+## A long form
+
+A form of more than about twelve fields (registering a patient, a customer, an order by hand) is
+in steps, one or two sections each, wherever it is filled in and however fast: a vertical stepper
+beside the form names every step and what is left in each, so nothing missing is hidden; Back and
+Continue follow each step's last field, so Tab runs from one step into the next; any step reopens
+from the stepper. The last step ends in the primary, which checks every step and opens the first
+with a problem. A form this long is never one page, even for someone who types fast.
+
 ## Password
 
 - Its rules as a checklist under the field, each check filling as it is met, or a meter of four
@@ -77,6 +86,7 @@ Open with it, before the first element: `references/components.md`, `references/
 | You see | Fix |
 | --- | --- |
 | A field drawn as an underline only | The system's field, its label above |
+| A form of more than about twelve fields on one page | In steps, a stepper beside naming what's left in each |
 | A long form's primary in a bar fixed to a desktop window, above the fields or in a panel beside the form | After the last field |
 | A selected card tinted, bordered, coloured and checked | The border and the check only |
 | Code digits or the active step in the accent | Digits in the foreground; the ring marks the active cell |
