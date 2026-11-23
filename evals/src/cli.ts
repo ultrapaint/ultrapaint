@@ -1155,8 +1155,12 @@ const tidyCommand = Command.make(
       yield* Console.log("Nothing removed: --apply removes them.");
       return;
     }
-    yield* removeScratch(found);
-    yield* Console.log("Removed.");
+    const stopped = yield* removeScratch(found);
+    yield* Console.log(
+      stopped === undefined
+        ? "Removed."
+        : `Stopped part way: ${stopped}. Run it again once it ends.`
+    );
   })
 ).pipe(
   Command.withDescription(

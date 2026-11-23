@@ -118,6 +118,20 @@ describe("changesOf", () => {
     assert.isTrue(changes[2]?.unread);
   });
 
+  it("reads a file renamed and edited as a change that is not one of lines", () => {
+    const diff = [
+      "diff --git a/evals/gaps/old.md b/evals/gaps/new.md",
+      "similarity index 90%",
+      "rename from evals/gaps/old.md",
+      "rename to evals/gaps/new.md",
+      "--- a/evals/gaps/old.md",
+      "+++ b/evals/gaps/new.md",
+      "@@ -3 +2,0 @@",
+      "-a line",
+    ].join("\n");
+    assert.isTrue(changesOf(diff)[0]?.unread);
+  });
+
   it("keeps a path git quotes as it is, so it is never found on main", () => {
     const diff = [
       'diff --git "a/odd\\tname.md" "b/odd\\tname.md"',

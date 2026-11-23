@@ -28,10 +28,12 @@ removed, and the same will happen to every round from now on.
     since a line is reworded when it is carried over), each line it removes is gone from `main`
     too, and each file it deletes. A checkout on a branch, at another commit, with files git does
     not track, with a change that is not one of lines (a rename, a binary file), or that git
-    cannot read is kept, and `tidy` says why; each is judged again at the moment it would go;
+    cannot read or whose diff leaves out a file git says changed is kept, and `tidy` says why; each is judged again at the moment it would go;
   - a long job's log, and the process group it wrote down, 30 days after it was last written.
-- **`pnpm evals tidy` applies it.** It lists what would go; `--apply` removes it, and refuses while
-  a `lab-*` unit runs, since a job may be reading it, or when systemd cannot say whether one does.
+- **`pnpm evals tidy` applies it.** It lists what would go; `--apply` removes it, and asks systemd
+  before each removal, stopping while a `lab-*` unit runs, since a job may be reading it, or when
+  systemd cannot say whether one does. A job started in the moment between the question and the
+  removal is not seen: start none while `tidy --apply` runs.
 - **A checkout is removed by the thread that made it** once the round's results land: `tidy`
   catches what is left.
 
