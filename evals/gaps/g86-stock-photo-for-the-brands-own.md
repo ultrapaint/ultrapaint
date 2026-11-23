@@ -43,6 +43,8 @@ one fails.
   both runs, where `fx-opus-new20` drew it in code.
 - `fresh-changelog`, the clause's brief: in `fx-opus-c20`, without the clause, its timing chart
   was a placeholder in 2 of 2 runs; in `fx-opus-new20` (the skill before g86) drawn in code in 2 of
-  2. The clause itself is not yet run.
+  2. With the clause, in `fx-opus-main23` (2026-11-23, the skill as merged in PR #92, 2 runs, Opus
+  in Claude Code designing): the timing chart and the insights page drawn in code in 2 of 2 runs,
+  no placeholder.
 - Decision of 2026-11-22 (`decisions/new20-ship`): shipped, with the clause "A chart, a diagram or
   a screen of the product the page can draw is drawn, not left as a placeholder".
