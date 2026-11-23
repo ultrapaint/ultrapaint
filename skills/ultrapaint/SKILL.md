@@ -132,7 +132,9 @@ says what the content already shows is noise: remove it, rather than shrinking o
 - No decoration: an icon beside every label, a box around one element, a divider between things
   already apart, a badge that says nothing, an icon inside a field its label names.
 - A value appears once, where it is read or set: not a file's size on its row and again in a
-  caption, not a count on a group and on its heading.
+  caption, not a count on a group and on its heading. A mark an item shows (blocked, failing,
+  urgent, over its limit) is read on the item: no panel or row of chips over the items repeats
+  it. Above the items, one short line of what needs action, or none.
 - An object's page shows in view the facts a task on it needs. Facts needed only sometimes
   (identifiers, build or machine details, sizes, codes another team uses, checks that passed) go
   under one "Details" disclosure at the end of the side column, or on another tab: one step away,

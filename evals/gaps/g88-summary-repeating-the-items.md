@@ -2,7 +2,7 @@
 id: g88
 title: A summary panel repeating the marks of the items under it
 kind: missed
-status: open
+status: done
 found: 2026-11-21
 source: the person, on fx-opus-new20 (decisions/new20)
 skill: [SKILL.md]
@@ -26,3 +26,14 @@ skill on main: the lines of each summary that repeat a mark shown in the items u
 passes when no summary has more than one such line, in all four.
 
 **Result.**
+- `fx-opus-g88`: 2026-11-23, the skill on main, 2 runs each, Opus in Claude Code designing. The
+  board failed in 2 of 2: run 1 a row of three chips over the columns (the urgent bug, the
+  blocked card, the failing check), run 2 a "Needs attention" panel of four marks and a panel of
+  points per person. The sales dashboard passed in 2 of 2: its flagged deals are the list itself,
+  not a summary over one. The review step was not run; the Check row was tried instead.
+- `fx-opus-g88once`: 2026-11-23, `candidates/g88-once` (the skill on main with a sentence on
+  `SKILL.md`'s "A value appears once": a mark is read on its item, one short line above or
+  none), `fresh-sprint-board`, 2 runs, Opus in Claude Code designing: no summary in 2 of 2, the
+  marks on the cards and over limit on the column's header.
+- Decision of 2026-11-23 (`decisions/g88`): ship, as the agent called it. Shipped as that
+  sentence in `SKILL.md`.
