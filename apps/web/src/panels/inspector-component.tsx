@@ -10,7 +10,6 @@ import { metaOf, type PropMeta } from "@ultrapaint/contracts/catalogue";
 import type {
   AppComponentFile,
   ComponentChange,
-  ComponentFile,
   ComponentProperty,
   PropertyKind,
   PropertyTarget,
@@ -39,29 +38,14 @@ import {
 } from "@/components/ui/tooltip";
 import { promptDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
-import { appComponentOf, useComponents } from "../state/components.ts";
-import { api } from "../state/connection.ts";
+import {
+  appComponentOf,
+  changeFile,
+  freeName,
+  useComponents,
+} from "../state/components.ts";
 import { useIsolation } from "../state/isolation.ts";
-import { reportError } from "../state/project.ts";
 import { Row, Section } from "./inspector-fields.tsx";
-
-/**
- * Changes a component's file on the server, an app component's or a system component's, on the
- * file as it is there now (ADR 0042), so a change made meanwhile stays; what the server refuses is
- * said. True when it went through.
- */
-export const changeFile = async (
-  file: Pick<ComponentFile, "name">,
-  change: ComponentChange
-): Promise<boolean> => {
-  try {
-    await api().request("components.change", { change, name: file.name });
-    return true;
-  } catch (error) {
-    reportError(error);
-    return false;
-  }
-};
 
 /** A members list edited as text: one member renamed, or the list as it now is. */
 const membersChange = (
@@ -85,17 +69,6 @@ const membersChange = (
     };
   }
   return { members, name: property.name, op: "setProperty" };
-};
-
-/** A name no property has yet: `base`, else `base 2`, `base 3`… */
-/** A name for a new property of `file`: `base`, or `base 2`, `base 3`… while it is taken. */
-export const freeName = (file: AppComponentFile, base: string) => {
-  const taken = new Set(file.properties.map((p) => p.name));
-  let name = base;
-  for (let i = 2; taken.has(name); i += 1) {
-    name = `${base} ${i}`;
-  }
-  return name;
 };
 
 export const KINDS: readonly {

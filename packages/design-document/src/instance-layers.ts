@@ -18,7 +18,7 @@ import type {
   InstanceNode,
 } from "@ultrapaint/contracts/document";
 import { expandAppInstance } from "./app-components.ts";
-import { childrenOf, findPath } from "./tree.ts";
+import { childrenOf, findPath, isRecord } from "./tree.ts";
 
 /** What separates an instance from its layer in a layer's id. */
 export const LAYER_SEPARATOR = "/";
@@ -144,15 +144,22 @@ export const layerOwner = (
 };
 
 /** The field of a layer a property of each kind sets, when it sets the layer's own. */
-const FIELD_OF_KIND: Readonly<Record<string, string>> = {
+export const FIELD_OF_KIND: Readonly<Record<string, string>> = {
   boolean: "hidden",
   image: "src",
   text: "text",
 };
 
 /** A field's value as its property's: a layer hidden is its boolean property off. */
-const asPropertyValue = (kind: string, value: JsonValue): JsonValue =>
+export const asPropertyValue = (kind: string, value: JsonValue): JsonValue =>
   kind === "boolean" ? value !== true : value;
+
+/** An instance's props set, from a breakpoint on when one is named. */
+const setPropsOp = (
+  id: string,
+  props: Record<string, JsonValue>,
+  at: string | undefined
+): DocOp => ({ id, op: "setProps", props, ...(at !== undefined && { at }) });
 
 /**
  * Edits of instances' layers made what they are for (ADR 0114): a field a property of the
@@ -178,7 +185,7 @@ export const throughProperties = (
   ): DocOp[] => {
     const found = isInstanceLayer(id) ? ownerOf(id) : null;
     if (!found) {
-      return [{ id, op: "setProps", props, ...(at !== undefined && { at }) }];
+      return [setPropsOp(id, props, at)];
     }
     const layer = componentLayerOf(id);
     const outer: Record<string, JsonValue> = {};
@@ -197,16 +204,7 @@ export const throughProperties = (
       ...(Object.keys(outer).length > 0
         ? setProps(found.owner.id, outer, at)
         : []),
-      ...(Object.keys(own).length > 0
-        ? [
-            {
-              id,
-              op: "setProps",
-              props: own,
-              ...(at !== undefined && { at }),
-            } as DocOp,
-          ]
-        : []),
+      ...(Object.keys(own).length > 0 ? [setPropsOp(id, own, at)] : []),
     ];
   };
   return ops.flatMap((op): DocOp[] => {
@@ -244,15 +242,9 @@ export const throughProperties = (
   });
 };
 
-/** Whether a value is a JSON object, not an array. */
-const isRecord = (
-  value: JsonValue | undefined
-): value is { readonly [key: string]: JsonValue } =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 /**
- * An instance's overrides as operations on its component's own document (ADR 0114, "Apply to main
- * component"): each layer's fields set on the layer, a breakpoint's at it, a nested instance's
+ * An instance's instance overrides as operations on its component's own document (ADR 0114,
+ * "Apply to main component"): each layer's fields set on the layer, a breakpoint's at it, a nested instance's
  * props as its props; a nested instance's layer as that instance's override in the component.
  */
 export const overridesAsMainOps = (
@@ -265,12 +257,21 @@ export const overridesAsMainOps = (
       ops.push({ id: layer, op: "update", set: own });
     }
     if (isRecord(props)) {
-      ops.push({ id: layer, op: "setProps", props });
+      ops.push({
+        id: layer,
+        op: "setProps",
+        props: props as Record<string, JsonValue>,
+      });
     }
     if (isRecord(at)) {
       for (const [name, set] of Object.entries(at)) {
         if (isRecord(set)) {
-          ops.push({ at: name, id: layer, op: "update", set });
+          ops.push({
+            at: name,
+            id: layer,
+            op: "update",
+            set: set as Record<string, JsonValue>,
+          });
         }
       }
     }

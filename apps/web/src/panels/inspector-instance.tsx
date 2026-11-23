@@ -1,8 +1,8 @@
 /**
  * The inspector's parts for an app component's instance and its layers (ADR 0114): the instance a
- * layer is in, named under the header in the component colour; a layer's overrides, each given
- * back to the main component or made a property; and the instance's way to its main component,
- * with its overrides reset or applied to every instance.
+ * layer is in, named under the header in the component colour; a layer's instance overrides, each
+ * given back to the main component or made a property; and the instance's way to its main
+ * component, with its instance overrides reset or applied to every instance.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
@@ -23,36 +23,37 @@ import {
   makeProperty,
   type OverriddenField,
   overriddenOn,
-  resetOverride,
-  resetOverrides,
+  overridesOfInstance,
+  resetInstanceOverride,
+  resetInstanceOverrides,
 } from "../lib/instance-overrides.ts";
 import { openBoard } from "../state/board.ts";
-import {
-  appFileOf,
-  nodeIn,
-  rootOfFrame,
-  useDocuments,
-} from "../state/documents.ts";
+import { appComponentOf, useComponents } from "../state/components.ts";
+import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { isolate } from "../state/isolation.ts";
 import { Row, Section } from "./inspector-fields.tsx";
 
-/** The instance a layer is drawn by, as the frame's document holds it now. */
+/**
+ * The instance a layer is drawn by, as the frame's document and the components' files hold it
+ * now: either changing draws it again.
+ */
 const useOwner = (frame: string, id: string): InstanceNode | null => {
   const canvas = useEditor((s) => s.canvas);
-  return useDocuments((s) =>
-    isInstanceLayer(id)
-      ? layerOwner(rootOfFrame(s.docs, canvas, frame), id, appFileOf)
-      : null
-  );
+  const docs = useDocuments((s) => s.docs);
+  const components = useComponents((s) => s.components);
+  return isInstanceLayer(id)
+    ? layerOwner(rootOfFrame(docs, canvas, frame), id, (name) =>
+        appComponentOf(components, name)
+      )
+    : null;
 };
 
-/** The override of a layer, as its instance in the frame's document holds it now. */
-const useOverride = (frame: string, id: string) => {
-  const canvas = useEditor((s) => s.canvas);
-  const docs = useDocuments((s) => s.docs);
-  return isInstanceLayer(id) ? overriddenOn(frame, id, { canvas, docs }) : null;
-};
+/** What the frame's document holds now, read anew as it changes. */
+const useSeen = () => ({
+  canvas: useEditor((s) => s.canvas),
+  docs: useDocuments((s) => s.docs),
+});
 
 /** Under the header: the instance a layer is in, so a change is plainly this instance's alone. */
 export const InstanceLayerNote = ({
@@ -92,15 +93,18 @@ const shown = (value: JsonValue): string => {
 const fieldLabel = ({ at, field }: OverriddenField) =>
   at === null ? field : `${field} · ${at}`;
 
-/** A layer's overrides on this instance: each given back, or made a property. */
-export const OverridesSection = ({
+/** A layer's instance override on this instance: each field given back, or made a property. */
+export const InstanceOverridesSection = ({
   frame,
   node,
 }: {
   frame: string;
   node: DesignNode;
 }) => {
-  const found = useOverride(frame, node.id);
+  const seen = useSeen();
+  const found = isInstanceLayer(node.id)
+    ? overriddenOn(frame, node.id, seen)
+    : null;
   const fields = fieldsOf(found?.over);
   if (!found || fields.length === 0) {
     return null;
@@ -110,14 +114,14 @@ export const OverridesSection = ({
       action={
         <IconButton
           className="text-muted-foreground"
-          onClick={() => resetOverride(frame, node.id, fields)}
+          onClick={() => resetInstanceOverride(frame, node.id, fields)}
           size="icon-sm"
-          tooltip="Reset all of this layer's overrides"
+          tooltip="Reset this layer to the main component"
         >
           <RotateCcw />
         </IconButton>
       }
-      title="Overrides"
+      title="Instance overrides"
     >
       {fields.map((f) => (
         <Row key={`${f.at ?? ""}:${f.field}`} label={fieldLabel(f)}>
@@ -138,7 +142,7 @@ export const OverridesSection = ({
           ) : null}
           <IconButton
             className="text-muted-foreground"
-            onClick={() => resetOverride(frame, node.id, [f])}
+            onClick={() => resetInstanceOverride(frame, node.id, [f])}
             tooltip="Reset to the main component"
           >
             <RotateCcw />
@@ -151,7 +155,8 @@ export const OverridesSection = ({
 
 /**
  * An app component's instance's way to its main component, which is edited only when asked (ADR
- * 0114), and, on the page's own instance, its overrides reset or applied to every instance.
+ * 0114), and its instance overrides, the page's own instance's or a nested one's, reset or
+ * applied to every instance.
  */
 export const MainComponentRows = ({
   frame,
@@ -160,18 +165,11 @@ export const MainComponentRows = ({
   frame: string;
   node: InstanceNode;
 }) => {
-  const canvas = useEditor((s) => s.canvas);
-  // The page's own instance holds the overrides of every layer it draws.
-  const own = useDocuments((s) => {
-    const found = nodeIn(s.docs, canvas, frame, node.id);
-    return isInstanceLayer(node.id) || found?.type !== "instance"
-      ? null
-      : found;
-  });
+  const seen = useSeen();
   if (node.from !== APP_FROM) {
     return null;
   }
-  const count = Object.keys(own?.overrides ?? {}).length;
+  const count = overridesOfInstance(frame, node.id, seen)?.held.length ?? 0;
   return (
     <>
       <Row label="Main">
@@ -192,21 +190,21 @@ export const MainComponentRows = ({
           </Button>
         </div>
       </Row>
-      {own && count > 0 ? (
+      {count > 0 ? (
         <Row label="Overrides">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
             <span className="shrink-0 px-2 font-body tabular-nums">
               {count === 1 ? "1 layer" : `${count} layers`}
             </span>
             <Button
-              onClick={() => resetOverrides(frame, own.id)}
+              onClick={() => resetInstanceOverrides(frame, node.id)}
               size="sm"
               variant="ghost"
             >
               Reset all
             </Button>
             <Button
-              onClick={() => applyToMain(frame, own)}
+              onClick={() => applyToMain(frame, node)}
               size="sm"
               variant="ghost"
             >

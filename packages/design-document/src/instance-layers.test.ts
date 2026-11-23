@@ -85,7 +85,7 @@ const PAGE: DesignNode = {
 };
 
 describe("an instance's layers (ADR 0114)", () => {
-  it("are reached through the instances that draw them, the overrides laid over them", () => {
+  it("are reached through the instances that draw them, as they draw them", () => {
     const path = layerPath(PAGE, "shell/nav/text", fileOf);
     expect(path?.map((n) => n.id)).toEqual([
       "page",
@@ -112,14 +112,17 @@ describe("an instance's layers (ADR 0114)", () => {
     ]);
   });
 
-  it("are nothing where the component has no such layer, or is not an app component", () => {
+  it("are nothing where no app component has such a layer", () => {
     expect(findLayer(PAGE, "shell/gone", fileOf)).toBeNull();
     expect(findLayer(PAGE, "title/x", fileOf)).toBeNull();
   });
 
-  it("name the instance that draws them, and the key of their overrides", () => {
+  it("name the instance that draws them, innermost first", () => {
     expect(layerOwner(PAGE, "shell/nav/text", fileOf)?.id).toBe("shell/nav");
     expect(layerOwner(PAGE, "shell/side", fileOf)?.id).toBe("shell");
+  });
+
+  it("are kept on the page's instance under the way to them from it", () => {
     expect(instanceLayerOf("shell/nav/text")).toEqual({
       instance: "shell",
       layer: "nav/text",
@@ -203,7 +206,7 @@ describe("an edit of an instance's layer (ADR 0114)", () => {
 });
 
 describe("an instance's overrides applied to its main component (ADR 0114)", () => {
-  it("set each layer's fields, breakpoints and props in the component, a nested layer as its instance's override", () => {
+  it("are each layer's fields, breakpoints and props set in the component", () => {
     expect(
       overridesAsMainOps({
         nav: { props: { label: "Home" } },
@@ -220,7 +223,7 @@ describe("an instance's overrides applied to its main component (ADR 0114)", () 
 });
 
 describe("an instance's own layers (ADR 0114)", () => {
-  it("are the component's as the instance draws them, the page's nodes in its slots left out", () => {
+  it("are the component's as the instance draws them, without the page's nodes in its slots", () => {
     const [shell] = childrenOf(PAGE);
     const layers = shell ? ownLayersOf(shell, fileOf) : [];
     expect(JSON.stringify(layers)).not.toContain('"title"');

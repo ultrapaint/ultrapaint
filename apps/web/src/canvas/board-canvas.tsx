@@ -17,6 +17,7 @@ import type { Box } from "@ultrapaint/contracts/canvas-layout";
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import { APP_FROM, type ComponentFile } from "@ultrapaint/contracts/components";
 import type { DesignDocument } from "@ultrapaint/contracts/design-system";
+import type { DesignNode } from "@ultrapaint/contracts/document";
 import { layerIdOf } from "@ultrapaint/design-document/instance-layers";
 import { walk } from "@ultrapaint/design-document/tree";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
@@ -86,7 +87,7 @@ import {
 } from "./frame.tsx";
 import { Highlights, useHoverIn } from "./frame-highlights.tsx";
 import { PreviewSurface } from "./preview-surface.tsx";
-import { useFramePointer } from "./use-frame-pointer.ts";
+import { deep, useFramePointer } from "./use-frame-pointer.ts";
 import { CHOOSING_LIFT, VariationPreviewChrome } from "./variation-preview.tsx";
 import { VariationsBeside } from "./variations-beside.tsx";
 
@@ -134,41 +135,64 @@ const useBoards = (open: BoardPlace): Boards => {
 };
 
 /**
- * The frame of the first page that places the app component open, which one filling a page is
- * drawn at on its board (ADR 0114); undefined when no page places it.
+ * Whether a tree places the app component `name`, itself or inside the app components it places,
+ * however deep.
+ */
+const placesComponent = (
+  root: DesignNode,
+  name: string,
+  components: readonly ComponentFile[],
+  seen: ReadonlySet<string> = new Set()
+): boolean =>
+  [...walk(root)].some((n) => {
+    if (!(n.type === "instance" && n.from === APP_FROM)) {
+      return false;
+    }
+    if (n.component === name) {
+      return true;
+    }
+    const file = fileOf(components, n.component);
+    return (
+      file?.origin === "app" &&
+      !seen.has(n.component) &&
+      placesComponent(
+        file.tree,
+        name,
+        components,
+        new Set([...seen, n.component])
+      )
+    );
+  });
+
+/**
+ * The frame of the first page that places the app component open, itself or inside another, which
+ * one filling a page is drawn at on its board (ADR 0114); the default when no page places it.
  */
 const usePlacingPage = (open: BoardPlace): PageSize | undefined => {
   const docs = useDocuments((s) => s.docs);
   const frames = useEditor((s) => s.frames);
   const pages = useProject((s) => s.pages);
-  // Said as text, so the boards are made again only when the size itself changes.
-  const size = useMemo(() => {
+  const components = useComponents((s) => s.components);
+  const placing = useMemo(() => {
     if (open.view !== "library") {
       return;
     }
-    for (const page of pages) {
+    return pages.find((page) => {
       const root = docs[page.id]?.root;
-      const frame = frames[page.id];
-      const places =
-        root &&
-        [...walk(root)].some(
-          (n) =>
-            n.type === "instance" &&
-            n.from === APP_FROM &&
-            n.component === open.item
-        );
-      if (places && frame) {
-        return `${frame.width}x${frame.height}`;
-      }
-    }
-  }, [docs, frames, open, pages]);
-  return useMemo(() => {
-    if (size === undefined) {
-      return;
-    }
-    const [w, h] = size.split("x").map(Number);
-    return { height: h ?? 900, width: w ?? 1440 };
-  }, [size]);
+      return root ? placesComponent(root, open.item, components) : false;
+    })?.id;
+  }, [components, docs, open, pages]);
+  const frame = placing === undefined ? undefined : frames[placing];
+  const width = frame?.width;
+  const height = frame?.height;
+  // The same size while its numbers are: the boards are made again only when it changes.
+  return useMemo(
+    () =>
+      width === undefined || height === undefined
+        ? undefined
+        : { height, width },
+    [height, width]
+  );
 };
 
 /**
@@ -362,14 +386,7 @@ const BoardFrame = memo(
           useEditor.getState().canvas,
           frameId
         );
-        const id =
-          stepInto(
-            inside,
-            root,
-            null,
-            e.altKey || e.ctrlKey || e.metaKey,
-            appFileOf
-          ) ?? root?.id;
+        const id = stepInto(inside, root, null, deep(e), appFileOf) ?? root?.id;
         select(id ? { frame: frameId, nodeId: id } : null);
         return;
       }

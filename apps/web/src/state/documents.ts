@@ -309,9 +309,9 @@ export const nodeIn = (
   docs: Record<string, DocumentState>,
   canvas: string | null,
   frame: string,
-  id: string
-): DesignNode | null =>
-  findLayer(rootOfFrame(docs, canvas, frame), id, appFileOf);
+  id: string,
+  fileOf: AppFileOf = appFileOf
+): DesignNode | null => findLayer(rootOfFrame(docs, canvas, frame), id, fileOf);
 
 /**
  * The way down to a node inside the frame's document, the frame's root first; to a layer of an

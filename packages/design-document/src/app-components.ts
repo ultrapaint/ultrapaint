@@ -1,10 +1,10 @@
 /**
  * An app component's instance as the nodes it draws (ADR 0041): the component's tree with the
- * instance's property values in it, the overrides of each choice's member laid over the nodes
- * that keep them (`at["size=lg"]`, as a breakpoint's), and the instance's children in the slots
- * they name, and the instance's own overrides of its layers over all of it (ADR 0114). The renderer
+ * instance's property values in it, the values of each choice's member laid over the nodes that
+ * keep them (`at["size=lg"]`, as a breakpoint's), the instance's children in the slots they name,
+ * and its instance overrides of its layers over all of it (ADR 0114). The renderer
  * draws it in the instance's place; "Detach" puts it there for good, with ids of its own. Nested
- * app components stay instances, handed the overrides of their layers: each is drawn as its own
+ * app components stay instances, handed the instance overrides of their layers: each is drawn as its own
  * when it is.
  *
  * Pure, and free of the catalogue: the server, the renderer and the editor share it.
@@ -80,6 +80,13 @@ const withVariants = (node: DesignNode, chosen: readonly string[]): Fields => {
 
 type Overrides = NonNullable<InstanceNode["overrides"]>;
 
+/** The kinds of layer an instance override can turn into one another. */
+const CONTAINER_KINDS: ReadonlySet<string> = new Set([
+  "group",
+  "row",
+  "column",
+]);
+
 /**
  * A layer's instance override laid over it (ADR 0114): its fields over the layer's, a breakpoint's
  * beside the layer's own at that breakpoint, a nested instance's props over its own.
@@ -91,6 +98,8 @@ const layOverride = (fields: Fields, over: Fields) => {
     }
     if (key === "props" && typeof value === "object") {
       fields.props = { ...(fields.props as Fields | undefined), ...value };
+    } else if (key === "type" && !CONTAINER_KINDS.has(String(fields.type))) {
+      // Only a container's kind is turned, a group, a row or a column into another of the three.
     } else if (key === "at" && typeof value === "object") {
       const at = { ...(fields.at as Record<string, Fields> | undefined) };
       for (const [name, set] of Object.entries(

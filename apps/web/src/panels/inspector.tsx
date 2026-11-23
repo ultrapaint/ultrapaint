@@ -99,8 +99,8 @@ import {
 } from "./inspector-fields.tsx";
 import {
   InstanceLayerNote,
+  InstanceOverridesSection,
   MainComponentRows,
-  OverridesSection,
 } from "./inspector-instance.tsx";
 import {
   LayoutSection,
@@ -156,7 +156,9 @@ export const Inspector = () => {
           <BehaviourSection frame={frame} node={node} />
         )}
         {nodes.length === 1 && <BreakpointSection frame={frame} node={node} />}
-        {nodes.length === 1 && <OverridesSection frame={frame} node={node} />}
+        {nodes.length === 1 && (
+          <InstanceOverridesSection frame={frame} node={node} />
+        )}
         {oneComponent(nodes) && <InstanceSection frame={frame} nodes={nodes} />}
         {allOf(nodes, "text") && <TextSection nodes={nodes} />}
         {allOf(nodes, "image") && <ImageSection nodes={nodes} />}

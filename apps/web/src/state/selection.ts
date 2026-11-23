@@ -15,9 +15,13 @@ import {
   breakpointAt,
   resolveAtBreakpoint,
 } from "@ultrapaint/design-document/breakpoints";
+import type { AppFileOf } from "@ultrapaint/design-document/instance-layers";
+import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { appComponentOf, useComponents } from "./components.ts";
 import { currentBreakpoints, useBreakpoints } from "./design-system.ts";
 import {
+  appFileOf,
   drawnRootOf,
   editedAtOf,
   nodeIn,
@@ -330,12 +334,25 @@ const drawnAt = (
   docs: Seen["docs"],
   canvas: string | null,
   breakpoints: readonly Breakpoint[],
-  at: string | null
+  at: string | null,
+  fileOf: AppFileOf = appFileOf
 ): DesignNode[] =>
   targets.flatMap((t) => {
-    const node = nodeIn(docs, canvas, t.frame, t.nodeId);
+    const node = nodeIn(docs, canvas, t.frame, t.nodeId, fileOf);
     return node ? [resolveAtBreakpoint(node, breakpoints, at)] : [];
   });
+
+/**
+ * The app components' files as the editor holds them, the same function while they stay the
+ * same: what a layer of an instance is drawn from (ADR 0114).
+ */
+const useAppFileOf = (): AppFileOf => {
+  const components = useComponents((s) => s.components);
+  return useMemo(
+    () => (name: string) => appComponentOf(components, name),
+    [components]
+  );
+};
 
 /**
  * The nodes named, as their frame draws them: a selection's, all of one frame, and the same list
@@ -347,8 +364,10 @@ export const useDrawnNodes = (
   const breakpoints = useBreakpoints();
   const canvas = useEditor((s) => s.canvas);
   const at = useFrameBreakpoint(targets[0]?.frame ?? null);
+  // A layer of an instance is drawn from its component's file too (ADR 0114).
+  const fileOf = useAppFileOf();
   return useDocuments(
-    useShallow((s) => drawnAt(targets, s.docs, canvas, breakpoints, at))
+    useShallow((s) => drawnAt(targets, s.docs, canvas, breakpoints, at, fileOf))
   );
 };
 
@@ -373,10 +392,11 @@ const inspectedNodes = (
   docs: Seen["docs"],
   canvas: string | null,
   breakpoints: readonly Breakpoint[],
-  at: string | null
+  at: string | null,
+  fileOf: AppFileOf = appFileOf
 ): DesignNode[] =>
   s.selection
-    ? drawnAt([s.selection, ...s.also], docs, canvas, breakpoints, at)
+    ? drawnAt([s.selection, ...s.also], docs, canvas, breakpoints, at, fileOf)
     : [];
 
 const inspectedOf = (
@@ -413,8 +433,11 @@ export const useInspected = (): Inspected | null => {
   const breakpoints = useBreakpoints();
   const frame = inspectedFrame(picked);
   const at = useFrameBreakpoint(frame);
+  const fileOf = useAppFileOf();
   const nodes = useDocuments(
-    useShallow((s) => inspectedNodes(picked, s.docs, canvas, breakpoints, at))
+    useShallow((s) =>
+      inspectedNodes(picked, s.docs, canvas, breakpoints, at, fileOf)
+    )
   );
   return inspectedOf(frame, nodes);
 };

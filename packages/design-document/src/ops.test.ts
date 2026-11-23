@@ -474,7 +474,7 @@ describe("an instance's layers (ADR 0114)", () => {
     });
   });
 
-  it("are given back to the main component's value by a null, the override gone once empty", () => {
+  it("are given back to the main component's value by a null, field by field", () => {
     const { root } = applyOps(
       shell({ "nav/text": { color: "red" }, side: { fill: "#111", gap: 4 } }),
       [
@@ -505,6 +505,31 @@ describe("an instance's layers (ADR 0114)", () => {
       options()
     ).root;
     expect(overridesOf(back)).toBeUndefined();
+  });
+
+  it("turn a layer's row into a column from a breakpoint on", () => {
+    const { root } = applyOps(
+      shell(),
+      [{ at: "md", id: "shell/side", op: "update", set: { type: "column" } }],
+      options()
+    );
+    expect(overridesOf(root)).toEqual({
+      side: { at: { md: { type: "column" } } },
+    });
+  });
+
+  it("leave a node of the document whose own id has a slash a node", () => {
+    const slashed: PageNode = {
+      children: [text("a/b", "Slashed")],
+      id: "root",
+      type: "page",
+    };
+    const { root } = applyOps(
+      slashed,
+      [{ id: "a/b", op: "update", set: { text: "Still a node" } }],
+      options()
+    );
+    expect(findNode(root, "a/b")).toMatchObject({ text: "Still a node" });
   });
 
   it("set a nested instance's props for this instance alone", () => {

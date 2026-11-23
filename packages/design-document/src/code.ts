@@ -40,8 +40,9 @@ import {
   type StyleContext,
   tagOf,
 } from "./css.ts";
+import { type AppFileOf, LAYER_SEPARATOR } from "./instance-layers.ts";
 import { fillSlots, slotLayoutOf } from "./slots.ts";
-import { childrenOf, nodeLabel, walk } from "./tree.ts";
+import { childrenOf, findNode, isRecord, nodeLabel, walk } from "./tree.ts";
 
 const INDENT = "  ";
 /** Past this width an opening tag puts each attribute on a line of its own. */
@@ -78,6 +79,11 @@ export interface CodeOptions {
   readonly componentsFrom?: string | undefined;
   /** The design system the node is drawn with, whose text styles a text is set in. */
   readonly designSystem?: DesignSystem | null | undefined;
+  /**
+   * The app components' files (ADR 0114): an instance override is written as a prop named for
+   * its layer's name. Left out, it is named for the layer's id.
+   */
+  readonly fileOf?: AppFileOf | undefined;
   /**
    * The `href` a link is written with: a link naming a page file is the URL that page serves.
    * Left out, the link is written as it is.
@@ -145,6 +151,8 @@ export const componentsImportBase = (settings: {
 interface Written {
   readonly base: string;
   readonly catalogue: Catalogue;
+  /** The app components' files, which name the layers an instance overrides. */
+  readonly fileOf: AppFileOf;
   /** How the slot each instance's child fills lays it out. */
   readonly inSlots: InSlots;
   readonly levels: Levels;
@@ -256,7 +264,7 @@ const asAppComponentCode = (
   w.modules.set(node.id, `${parent}/${applicationFileOf(node.component)}`);
   // What a breakpoint sets of a property is laid over the base's by name: both under the prop's.
   // The instance's overrides are props too, named for their layer and field (ADR 0114).
-  const over = overrideProps(node.overrides);
+  const over = overrideProps(node, w.fileOf);
   const breakpoints = new Set([
     ...Object.keys(node.at ?? {}),
     ...Object.keys(over.at),
@@ -288,53 +296,68 @@ const asAppComponentCode = (
 };
 
 /**
- * An instance's overrides as the props the application's component takes for them (ADR 0114):
- * each field by its layer's way and its name (`side fill` as `sideFill`, a nested instance's prop
- * `nav label` as `navLabel`), a breakpoint's apart.
+ * The words a layer's way is named by in a prop: each layer's name as the component's tree has it
+ * (`side`, a nested instance's `label`), its id where the component is not known.
+ */
+const layerWords = (
+  instance: InstanceNode,
+  way: string,
+  fileOf: AppFileOf
+): string => {
+  const words: string[] = [];
+  let component: string | undefined = instance.component;
+  for (const id of way.split(LAYER_SEPARATOR)) {
+    const layer: DesignNode | null = component
+      ? findNode(fileOf(component)?.tree, id)
+      : null;
+    words.push(layer ? nodeLabel(layer) : id);
+    component = layer?.type === "instance" ? layer.component : undefined;
+  }
+  return words.join(" ");
+};
+
+/**
+ * An instance's instance overrides as the props the application's component takes for them (ADR
+ * 0114): each field by its layer's name and its own (`side fill` as `sideFill`, a nested
+ * instance's prop `nav label` as `navLabel`), a breakpoint's apart.
  */
 const overrideProps = (
-  overrides: InstanceNode["overrides"]
+  instance: InstanceNode,
+  fileOf: AppFileOf
 ): {
   readonly at: Record<string, Record<string, JsonValue>>;
   readonly base: Record<string, JsonValue>;
 } => {
   const base: Record<string, JsonValue> = {};
   const at: Record<string, Record<string, JsonValue>> = {};
-  const named = (layer: string, field: string) =>
-    propNameOf(`${layer.split("/").join(" ")} ${field}`);
   const add = (
     into: Record<string, JsonValue>,
-    layer: string,
+    words: string,
     fields: Readonly<Record<string, JsonValue>>
   ) => {
     for (const [field, value] of Object.entries(fields)) {
-      if (field === "props" && isJsonRecord(value)) {
-        add(into, layer, value);
+      if (field === "props" && isRecord(value)) {
+        add(into, words, value as Record<string, JsonValue>);
       } else if (field !== "at") {
-        into[named(layer, field)] = value;
+        into[propNameOf(`${words} ${field}`)] = value;
       }
     }
   };
-  for (const [layer, fields] of Object.entries(overrides ?? {})) {
-    add(base, layer, fields);
+  for (const [way, fields] of Object.entries(instance.overrides ?? {})) {
+    const words = layerWords(instance, way, fileOf);
+    add(base, words, fields);
     const byBreakpoint = fields.at;
-    if (isJsonRecord(byBreakpoint)) {
+    if (isRecord(byBreakpoint)) {
       for (const [breakpoint, set] of Object.entries(byBreakpoint)) {
-        if (isJsonRecord(set)) {
+        if (isRecord(set)) {
           at[breakpoint] ??= {};
-          add(at[breakpoint], layer, set);
+          add(at[breakpoint], words, set as Record<string, JsonValue>);
         }
       }
     }
   }
   return { at, base };
 };
-
-/** Whether a JSON value is an object, not an array. */
-const isJsonRecord = (
-  value: JsonValue | undefined
-): value is { readonly [key: string]: JsonValue } =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 /** Property values by the props they are written as. */
 const asProps = (
@@ -700,6 +723,7 @@ export const toCode = (
   const node = asApplicationCode(given, {
     base: options.componentsFrom ?? DEFAULT_COMPONENTS_FROM,
     catalogue: options.catalogue ?? [],
+    fileOf: options.fileOf ?? (() => undefined),
     inSlots,
     levels: { breakpoints, names: levels },
     modules,

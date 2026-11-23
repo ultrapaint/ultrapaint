@@ -1,5 +1,5 @@
 import type { AppComponentFile } from "@ultrapaint/contracts/components";
-import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
+import type { InstanceNode } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
 import {
   appComponentCycle,
@@ -52,9 +52,6 @@ const PLAN: AppComponentFile = {
   },
   version: 1,
 };
-
-/** The layers right under a tree's root. */
-const layers = (tree: DesignNode) => childrenOf(tree);
 
 const instance = (fields: Partial<InstanceNode> = {}): InstanceNode => ({
   component: "Plan",
@@ -109,16 +106,16 @@ describe("an instance's overrides (ADR 0114)", () => {
       PLAN,
       instance({ overrides: { g: { color: "blue", text: "Hot" } } })
     );
-    expect(layers(tree)[1]).toMatchObject({
+    expect(childrenOf(tree)[1]).toMatchObject({
       color: "blue",
       hidden: false,
       role: "paragraph",
       text: "Hot",
     });
-    expect(layers(tree)[0]).toMatchObject({ text: "Pro" });
+    expect(childrenOf(tree)[0]).toMatchObject({ text: "Pro" });
   });
 
-  it("win over what the chosen member sets, and keep the main's breakpoints beside their own", () => {
+  it("win over what the chosen member sets, the main's breakpoints kept beside theirs", () => {
     const { tree } = expandAppInstance(
       PLAN,
       instance({
@@ -128,7 +125,7 @@ describe("an instance's overrides (ADR 0114)", () => {
         props: { tone: "primary" },
       })
     );
-    expect(layers(tree)[0]).toMatchObject({
+    expect(childrenOf(tree)[0]).toMatchObject({
       at: { lg: { size: 40 }, md: { size: 24, weight: 700 } },
       color: "green",
     });
@@ -145,11 +142,20 @@ describe("an instance's overrides (ADR 0114)", () => {
         },
       })
     );
-    expect(layers(tree)[2]).toMatchObject({
+    expect(childrenOf(tree)[2]).toMatchObject({
       id: "b",
       overrides: { label: { color: "red" }, "label/deeper": { hidden: true } },
       props: { size: "sm", variant: "outline" },
     });
+  });
+
+  it("turn a container's kind, never a text's", () => {
+    const { tree } = expandAppInstance(
+      PLAN,
+      instance({ overrides: { g: { type: "row" }, s: { type: "row" } } })
+    );
+    expect(childrenOf(tree)[1]?.type).toBe("text");
+    expect(childrenOf(tree)[3]?.type).toBe("row");
   });
 
   it("are left out for a layer the main component no longer has", () => {
@@ -157,7 +163,17 @@ describe("an instance's overrides (ADR 0114)", () => {
       PLAN,
       instance({ overrides: { gone: { color: "red" } } })
     );
-    expect(JSON.stringify(tree)).not.toContain("red");
+    expect(childrenOf(tree).map((layer) => layer.id)).toEqual([
+      "t",
+      "g",
+      "b",
+      "s",
+    ]);
+    expect(
+      childrenOf(tree).some(
+        (layer) => "color" in layer && layer.color === "red"
+      )
+    ).toBe(false);
   });
 
   it("are baked in when the instance is detached", () => {
@@ -166,7 +182,7 @@ describe("an instance's overrides (ADR 0114)", () => {
       instance({ overrides: { g: { text: "Hot" } } }),
       makeIdGenerator()
     );
-    expect(JSON.stringify(tree)).toContain('"Hot"');
+    expect(childrenOf(tree)[1]).toMatchObject({ text: "Hot" });
   });
 });
 
