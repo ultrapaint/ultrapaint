@@ -24,7 +24,7 @@
   },
   "frames": {
     "about.page.json": {
-      "height": 860,
+      "height": 1000,
       "preset": "custom",
       "width": 1440,
       "x": 15200,
@@ -38,7 +38,7 @@
       "y": 0
     },
     "appearance.page.json": {
-      "height": 860,
+      "height": 1000,
       "preset": "custom",
       "width": 1440,
       "x": 0,
@@ -101,14 +101,14 @@
       "y": 0
     },
     "shortcuts.page.json": {
-      "height": 940,
+      "height": 3320,
       "preset": "custom",
       "width": 1440,
       "x": 3040,
       "y": 0
     },
     "skills.page.json": {
-      "height": 860,
+      "height": 1200,
       "preset": "custom",
       "width": 1440,
       "x": 9120,
