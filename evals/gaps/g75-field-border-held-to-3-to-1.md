@@ -41,3 +41,8 @@ at 1.4:1 with no fill and no label.
 - `up88-told`: 2026-11-22, caught: main+told 0/3 (+1 partly), up88-2+told 0/3 (opus, effort high; runs/up88-told/report.md)
 - `up88-names`: 2026-11-22, caught: main 0/3, up88-1 0/3, up88-2 0/3 (+1 partly) (opus, effort high; runs/up88-names/report.md)
 - `p15-told`: 2026-11-23, caught: shipped+told 0/3, p15-fix-adds-a-needed-control+told 0/3 (+1 partly) (opus, effort high; runs/p15-told/report.md)
+- `fx-opus-new23`: 2026-11-23, `fresh-recipe-cooking`, 2 runs, Opus in Claude Code, the skill on
+  main: both runs drew the outline buttons (Back, Pause, +1 min) with a solid mid-grey border. The
+  person, choosing between them: "In both I also don't like the heavy grey of the buttons border"
+  (`decisions/new23`). The same fault as the fields', on an outline button: a border held to 3:1
+  where the button's label and shape already show it is there.
