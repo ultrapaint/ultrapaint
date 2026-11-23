@@ -1,7 +1,7 @@
 # ADR 0113: Ultrapaint Dev runs beside the app, live and updated from main
 
 Status: accepted, 2026-11-23. Amends 0078 (a third way to update) and 0100 (which editor a
-project opens in). Story UP-109.
+project opens in). Stories UP-109, UP-116.
 
 ## Context
 
@@ -63,17 +63,22 @@ left running, but it had to be started by hand in each project's folder first.
 - **About names it**: Ultrapaint Dev, and the branch and commit it runs (`main · 3f2a1c9`).
 - **It leaves the `ultrapaint` command to the release**: Settings offers no install, and the
   bridge refuses one.
-- **On a Mac, `pnpm desktop:dev-app` writes `~/Applications/Ultrapaint Dev.app`**: a copy of the
-  checkout's Electron, with Ultrapaint Dev's name, icon and bundle id (`dev.ultrapaint.desktop.dev`),
-  signed ad hoc for this machine, around a small app. Opened from the Dock, it hands over to the
-  runner through the login shell (for its `PATH`) and exits, the runner's output going to
-  `~/Library/Logs/Ultrapaint Dev.log`; started by the runner, it loads the checkout's build, only
-  then, so a Dock launch never needs a build that is not there yet, and the Dock shows one
-  Ultrapaint Dev. The runner starts the app inside it when it was made for this checkout and its
-  Electron: another checkout's would load that checkout's build. For another Electron it says to
-  run the command again. Its Electron executable keeps
-  its name: Electron finds its helper apps by it. A shell `.app` that runs `pnpm desktop:dev` was
-  rejected: it shows two Dock icons and Electron's name in the menu bar.
+- **On a Mac, `pnpm desktop:dev` makes Ultrapaint Dev's own app** (amended by UP-116; first
+  `pnpm desktop:dev-app` wrote one into `~/Applications`). As T3 Code's dev run makes "T3 Code
+  (Dev).app" and VS Code `Code - OSS.app`, the runner makes `apps/desktop/.dev-app/Ultrapaint
+  Dev.app` in the checkout (ignored by git) from the checkout's Electron, and makes it again only
+  when its stamp changes (a launcher version, the checkout, the Electron app, the icon, the bundle
+  id). It carries Ultrapaint Dev's name and icon, a bundle id per checkout
+  (`dev.ultrapaint.desktop.dev.<folder>`), helper apps named after it, and is signed ad hoc and
+  registered with LaunchServices, so Spotlight finds it and it can be kept in the Dock. Its
+  executable is a launcher script that reads the run the runner saved last (`.dev-app/run.sh`)
+  and opens the checkout's last build in the bundle's Electron, which keeps its own name: Electron
+  finds its helper apps by it. The runner starts the app through that launcher. Opened from the
+  Dock, it starts at once on the last build, with no runner: asked to update, it starts one
+  (`scripts/dev.ts --pull-first --after <pid>`, through the login shell, its output in the app's
+  log folder), which waits for it to exit, pulls and runs it again (the runner says it is there by
+  `ULTRAPAINT_DESKTOP_RUNNER`, which the saved run never holds). Rejected: `~/Applications`, one per
+  Mac and outside the checkout; a Dock launch through the runner, which waits for a build.
 
 ## Consequences
 
@@ -81,7 +86,8 @@ left running, but it had to be started by hand in each project's folder first.
   of what changed take, with no Actions minutes spent.
 - Both apps open the same project as one server: the second attaches to the first's, and shows the
   editor that server serves.
-- An Electron upgrade in the checkout needs `pnpm desktop:dev-app` again; until then Ultrapaint Dev
-  runs on the checkout's own Electron, under its name.
+- An Electron upgrade in the checkout makes the next `pnpm desktop:dev` make its app again, a few
+  seconds more once. An `~/Applications/Ultrapaint Dev.app` written before UP-116 is no longer used
+  and can be deleted.
 - A Nightly channel built by CI remains possible as its own story. Its look is chosen already:
   "D · Northern lights", aurora curtains past the + and a green line along the top edge.

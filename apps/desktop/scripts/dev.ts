@@ -8,37 +8,62 @@
  *
  * The runner stays while the app runs. When the app exits to be updated (Pull and restart), it
  * pulls `main`, runs `pnpm install` when the lockfile changed, builds again and starts it again,
- * telling it why when the pull failed. On a Mac, the app runs inside `Ultrapaint Dev.app` when
- * `pnpm desktop:dev-app` made one for this Electron, so the Dock shows it by its name and icon.
+ * telling it why when the pull failed.
+ *
+ * On a Mac it runs the app inside Ultrapaint Dev's own app (`src/dev-launcher.ts`), made in the
+ * checkout when its stamp changed and registered so the Dock and Spotlight know it, and saves the
+ * run there for a launch from the Dock, which opens the last build without a runner (UP-116). Such
+ * an app, asked to update, starts `--pull-first --after <pid>`: wait for it to exit, pull, then
+ * run as above.
  */
 import { execFileSync, spawn } from "node:child_process";
 import {
+  chmodSync,
+  cpSync,
   existsSync,
+  mkdirSync,
+  mkdtempSync,
   readFileSync,
   rmSync,
   statSync,
   writeFileSync,
 } from "node:fs";
 import { createRequire } from "node:module";
-import { homedir } from "node:os";
+import { tmpdir } from "node:os";
 import path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { NodeServices } from "@effect/platform-node";
 import { Effect } from "effect";
 import { pullMain } from "../src/checkout.ts";
 import {
-  devAppDir,
-  devAppExecutable,
+  type DevAppStamp,
+  devAppHome,
   devAppPath,
-  madeFor,
+  devBundleId,
+  devElectronPath,
+  devHelperPlists,
+  devLauncherPath,
+  devPlist,
+  devRunFile,
+  devStampFile,
+  ICON_FILE,
+  LAUNCHER_VERSION,
+  launcherScript,
+  needsRemaking,
+  runScript,
 } from "../src/dev-launcher.ts";
-import { DEV_RUN_ENV, type DevRun, RESTART_EXIT_CODE } from "../src/edition.ts";
+import {
+  DEV_RUN_ENV,
+  type DevRun,
+  RESTART_EXIT_CODE,
+  RUNNER_ENV,
+} from "../src/edition.ts";
 import {
   appDir,
   buildAdapters,
   buildShell,
   buildWeb,
   desktopDir,
-  electronVersion,
   hasWeb,
   root,
   version,
@@ -46,10 +71,16 @@ import {
 } from "./parts.ts";
 
 const args = process.argv.slice(2).filter((arg) => arg !== "--");
-const OWN = new Set(["--web", "--build-only"]);
+/** `--after <pid>`: the app opened from the Dock that asked for the update, to wait for. */
+const afterAt = args.indexOf("--after");
+const after = afterAt === -1 ? undefined : Number(args[afterAt + 1]);
+const OWN = new Set(["--web", "--build-only", "--pull-first"]);
 const forceWeb = args.includes("--web");
 const buildOnly = args.includes("--build-only");
-const appArgs = args.filter((arg) => !OWN.has(arg));
+const pullFirst = args.includes("--pull-first");
+const appArgs = args.filter(
+  (arg, i) => !(OWN.has(arg) || i === afterAt || i === afterAt + 1)
+);
 
 const git = (...gitArgs: string[]) =>
   execFileSync("git", gitArgs, { cwd: root, stdio: "pipe" }).toString().trim();
@@ -104,34 +135,146 @@ const tsx = createRequire(path.join(serverDir, "package.json")).resolve(
   "tsx/cli"
 );
 
-/**
- * The Electron the app runs on: `Ultrapaint Dev.app`'s, on a Mac where it was made for this
- * checkout and its Electron, else the checkout's own.
- */
-const electron = () => {
-  const checkouts = createRequire(path.join(desktopDir, "package.json"))(
+/** The checkout's own Electron. */
+const checkoutElectron = () =>
+  createRequire(path.join(desktopDir, "package.json"))(
     "electron"
   ) as unknown as string;
-  if (process.platform !== "darwin") {
-    return checkouts;
+
+const run = (command: string, commandArgs: readonly string[]) =>
+  execFileSync(command, commandArgs, { stdio: "pipe" });
+
+/** The `.icns` of Ultrapaint Dev's icon, at every size macOS asks for, made from its 1024px PNG. */
+const writeIcon = (picture: string, icns: string) => {
+  const iconset = path.join(
+    mkdtempSync(path.join(tmpdir(), "ultrapaint-dev-")),
+    "icon.iconset"
+  );
+  mkdirSync(iconset);
+  for (const size of [16, 32, 128, 256, 512]) {
+    for (const scale of [1, 2]) {
+      const pixels = String(size * scale);
+      run("sips", [
+        "-z",
+        pixels,
+        pixels,
+        picture,
+        "--out",
+        path.join(
+          iconset,
+          `icon_${size}x${size}${scale === 2 ? "@2x" : ""}.png`
+        ),
+      ]);
+    }
   }
-  const bundle = devAppPath(homedir());
-  const made = path.join(devAppDir(bundle), "package.json");
-  if (!existsSync(made)) {
-    return checkouts;
+  run("iconutil", ["-c", "icns", iconset, "-o", icns]);
+  rmSync(path.dirname(iconset), { force: true, recursive: true });
+};
+
+/** Sets each string of `values` in the `Info.plist` at `plist`. */
+const setPlist = (plist: string, values: Readonly<Record<string, string>>) => {
+  for (const [key, value] of Object.entries(values)) {
+    run("plutil", ["-replace", key, "-string", value, plist]);
   }
-  const launcher = madeFor(readFileSync(made, "utf8"));
-  // Another checkout's: it would load that checkout's build.
-  if (launcher?.checkout !== root) {
-    return checkouts;
+};
+
+/**
+ * Tells LaunchServices of the app, at every start as T3 Code does, so that the Dock and Spotlight
+ * know its name and icon now rather than when they look again.
+ */
+const register = (bundle: string) =>
+  run(
+    "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister",
+    ["-f", bundle]
+  );
+
+/**
+ * Ultrapaint Dev's Mac app, in the checkout: made again from the checkout's Electron when its
+ * stamp changed, as T3 Code's dev run does, else kept. Its launcher, the executable.
+ */
+const macApp = () => {
+  const electronApp = path.resolve(checkoutElectron(), "..", "..", "..");
+  const icon = path.join(desktopDir, "resources", "icon-dev.png");
+  const bundle = devAppPath(root);
+  const launcher = devLauncherPath(bundle);
+  const stampFile = devStampFile(root);
+  const stamp: DevAppStamp = {
+    bundleId: devBundleId(root),
+    checkout: root,
+    electronApp,
+    electronAppTime: statSync(electronApp).mtimeMs,
+    iconTime: statSync(icon).mtimeMs,
+    launcher: LAUNCHER_VERSION,
+  };
+  const kept = existsSync(stampFile)
+    ? readFileSync(stampFile, "utf8")
+    : undefined;
+  if (existsSync(launcher) && !needsRemaking(kept, stamp)) {
+    register(bundle);
+    return launcher;
   }
-  if (launcher.electron !== electronVersion) {
-    warn(
-      `${bundle} was made for another Electron than this checkout's ${electronVersion}: run pnpm desktop:dev-app again. Ultrapaint Dev runs on the checkout's Electron meanwhile.`
+  console.log(`[desktop] making ${bundle}`);
+  rmSync(bundle, { force: true, recursive: true });
+  mkdirSync(devAppHome(root), { recursive: true });
+  // Its links kept as they are: pointing outside the bundle, they would crash the helpers.
+  cpSync(electronApp, bundle, { recursive: true, verbatimSymlinks: true });
+  const contents = path.join(bundle, "Contents");
+  setPlist(path.join(contents, "Info.plist"), devPlist(stamp.bundleId));
+  for (const helper of devHelperPlists(stamp.bundleId)) {
+    const plist = path.join(
+      contents,
+      "Frameworks",
+      helper.bundle,
+      "Contents",
+      "Info.plist"
     );
-    return checkouts;
+    if (existsSync(plist)) {
+      setPlist(plist, helper.values);
+    }
   }
-  return devAppExecutable(bundle);
+  const icns = path.join(contents, "Resources", ICON_FILE);
+  writeIcon(icon, icns);
+  // Electron's own icon too, which some of macOS's views read before the bundle's.
+  cpSync(icns, path.join(contents, "Resources", "electron.icns"));
+  writeFileSync(
+    launcher,
+    launcherScript({
+      appDir,
+      electron: devElectronPath(bundle),
+      runFile: devRunFile(root),
+    })
+  );
+  chmodSync(launcher, 0o755);
+  // Its Info.plist changed: signed again, for this machine, so that macOS runs it.
+  run("codesign", [
+    "--force",
+    "--deep",
+    "--sign",
+    "-",
+    "--timestamp=none",
+    bundle,
+  ]);
+  writeFileSync(stampFile, `${JSON.stringify(stamp)}\n`);
+  register(bundle);
+  return launcher;
+};
+
+/**
+ * What the app runs on: Ultrapaint Dev's own app on a Mac (`mac`), so the Dock shows it by its
+ * name and icon; else, or when that app cannot be made, the checkout's Electron.
+ */
+const electron = (): { readonly binary: string; readonly mac: boolean } => {
+  if (process.platform !== "darwin") {
+    return { binary: checkoutElectron(), mac: false };
+  }
+  try {
+    return { binary: macApp(), mac: true };
+  } catch (error) {
+    warn(
+      `Ultrapaint Dev's app could not be made, so it runs as Electron: ${error instanceof Error ? error.message : String(error)}`
+    );
+    return { binary: checkoutElectron(), mac: false };
+  }
 };
 
 /**
@@ -168,15 +311,34 @@ const setuidSandbox = (binary: string) => {
   }
 };
 
+/** How the app starts the server from its sources. */
+const SERVER_ARGS = JSON.stringify([
+  tsx,
+  "--tsconfig",
+  path.join(serverDir, "tsconfig.json"),
+  path.join(serverDir, "src", "bin.ts"),
+]);
+
 /** Runs the app once, to its exit: its exit code. */
-const runApp = (run: DevRun) =>
+const runApp = (devRun: DevRun) =>
   new Promise<number>((resolve) => {
-    const binary = electron();
+    const { binary, mac } = electron();
+    if (mac) {
+      // What a launch from the Dock opens with: this run, without a failure that is this one's.
+      const { updateFailed: _once, ...saved } = devRun;
+      writeFileSync(
+        devRunFile(root),
+        runScript({
+          [DEV_RUN_ENV]: JSON.stringify(saved),
+          ULTRAPAINT_DESKTOP_SERVER_ARGS: SERVER_ARGS,
+        })
+      );
+    }
     const child = spawn(
       binary,
       [
-        // The app's own path, which `Ultrapaint Dev.app` ignores and loads the same build.
-        appDir,
+        // The app's own path; Ultrapaint Dev's Mac app's launcher gives it itself.
+        ...(mac ? [] : [appDir]),
         ...(process.platform === "linux" && !setuidSandbox(binary)
           ? ["--no-sandbox"]
           : []),
@@ -185,13 +347,9 @@ const runApp = (run: DevRun) =>
       {
         env: {
           ...process.env,
-          [DEV_RUN_ENV]: JSON.stringify(run),
-          ULTRAPAINT_DESKTOP_SERVER_ARGS: JSON.stringify([
-            tsx,
-            "--tsconfig",
-            path.join(serverDir, "tsconfig.json"),
-            path.join(serverDir, "src", "bin.ts"),
-          ]),
+          [DEV_RUN_ENV]: JSON.stringify(devRun),
+          [RUNNER_ENV]: "1",
+          ULTRAPAINT_DESKTOP_SERVER_ARGS: SERVER_ARGS,
         },
         stdio: "inherit",
       }
@@ -221,7 +379,7 @@ const runAgain = (updateFailed: string | undefined) =>
   new Promise<number>((resolve) => {
     const next = spawn(
       process.execPath,
-      [import.meta.filename, ...process.argv.slice(2)],
+      [import.meta.filename, ...appArgs, ...(forceWeb ? ["--web"] : [])],
       {
         env: { ...process.env, [UPDATE_FAILED_ENV]: updateFailed ?? "" },
         stdio: "inherit",
@@ -230,11 +388,35 @@ const runAgain = (updateFailed: string | undefined) =>
     next.on("exit", (code) => resolve(code ?? 0));
   });
 
+/** Whether the process `pid` still runs. */
+const running = (pid: number) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** Waits for the app opened from the Dock that asked for the update to exit. */
+const appGone = (pid: number): Promise<void> =>
+  running(pid)
+    ? // real clock: a process outside this one, polled until it exits.
+      sleep(200).then(() => appGone(pid))
+    : Promise.resolve();
+
 /**
  * Builds and runs the app; when it exits to be updated, pulls `main` and hands over to a new
- * runner, telling it why the pull failed when it did.
+ * runner, telling it why the pull failed when it did. With `--pull-first`, pulls before anything.
  */
 const session = async () => {
+  if (pullFirst) {
+    if (after !== undefined && Number.isInteger(after)) {
+      await appGone(after);
+    }
+    console.log("[desktop] pulling main, then starting Ultrapaint Dev again");
+    process.exit(await runAgain(await pull()));
+  }
   await build();
   if (buildOnly) {
     return;

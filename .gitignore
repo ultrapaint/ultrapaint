@@ -10,5 +10,7 @@ coverage
 # The desktop app staged for Electron, and its installers.
 apps/desktop/build
 apps/desktop/release
+# Ultrapaint Dev's Mac app and the run it opens with, made by pnpm desktop:dev (ADR 0113).
+apps/desktop/.dev-app
 # Claude Code's worktrees: checkouts of this repository, each with a root biome.json.
 .claude/worktrees/

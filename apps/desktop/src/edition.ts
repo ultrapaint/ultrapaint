@@ -11,6 +11,12 @@ import { Schema } from "effect";
 /** The variable the runner sets: the checkout it runs, as JSON (`DevRun`). */
 export const DEV_RUN_ENV = "ULTRAPAINT_DESKTOP_DEV_RUN";
 
+/**
+ * Set by the runner on the app it starts, and waits for: an app opened from the Dock has none,
+ * and starts one to be updated (UP-116).
+ */
+export const RUNNER_ENV = "ULTRAPAINT_DESKTOP_RUNNER";
+
 /** What Ultrapaint Dev exits with to be pulled, rebuilt and started again by its runner. */
 export const RESTART_EXIT_CODE = 75;
 
@@ -34,7 +40,11 @@ export type DevRun = typeof DevRun.Type;
 
 export type Edition =
   | { readonly _tag: "Release" }
-  | ({ readonly _tag: "Dev" } & DevRun);
+  | ({
+      readonly _tag: "Dev";
+      /** A runner started it and waits for it to exit; none when opened from the Dock. */
+      readonly runner: boolean;
+    } & DevRun);
 
 const decodeRun = Schema.decodeUnknownSync(Schema.fromJsonString(DevRun));
 
@@ -48,7 +58,11 @@ export const editionOf = (
   const run = env[DEV_RUN_ENV];
   return run === undefined
     ? { _tag: "Release" }
-    : { _tag: "Dev", ...decodeRun(run) };
+    : {
+        _tag: "Dev",
+        ...decodeRun(run),
+        runner: env[RUNNER_ENV] !== undefined,
+      };
 };
 
 /**
