@@ -45,8 +45,8 @@ export interface AgentLaunchOptions {
    */
   readonly tmpDir?: string | undefined;
   /**
-   * The only part of the repository the agent may write, when not all of it: a design thread's
-   * designs directory (ADR 0030).
+   * The only part of the repository the agent may write, when not all of it: a reviewer's scratch
+   * directory; a thread's agent writes the repository (ADR 0118).
    */
   readonly writable?: string | undefined;
 }

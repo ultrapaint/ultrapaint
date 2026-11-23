@@ -32,19 +32,12 @@ import { recapOf } from "./recap.ts";
 
 const DATA_URL_RE = /^data:([^;]+);base64,(.*)$/s;
 
-/** What a design thread whose agent is running is told when asked to implement. */
-const DESIGN_THREAD_IMPLEMENT = `<ultrapaint-task command="implement">
-The user ran /implement in a thread that designs: its agent can write the designs directory only,
-not the application's code (ADR 0030). Do not try to write the code. Tell the user, in a sentence,
-to press Implement on the page (or start a new chat with /implement), which opens a thread that
-can, and stop.
-</ultrapaint-task>`;
-
 /**
  * What a prompt that is a command makes its thread for, before its session starts, which it
  * decides (ADR 0030): a task that implements makes a thread that has not started its agent an
- * implement thread, whose session is then started with the repository writable. One already
- * running keeps its purpose and its sandbox. Null when the prompt is not a command.
+ * implement thread, briefed and left out of the review as one. One already running keeps its
+ * purpose, and runs the task as it is: every thread writes the repository (ADR 0118). Null when
+ * the prompt is not a command.
  */
 export const purposeFor = (
   thread: Thread,
@@ -328,8 +321,7 @@ export const makePromptContent = Effect.fnUntraced(function* () {
 
   /**
    * The task a prompt stands for, worded for an agent with the editor's tools (`tools`) or
-   * without them; null when the prompt is not a command. A thread whose agent was started to
-   * design is told to send the user to an implement thread instead (`purposeFor`).
+   * without them; null when the prompt is not a command.
    */
   const taskFor = Effect.fnUntraced(function* (
     thread: Thread,
@@ -337,12 +329,7 @@ export const makePromptContent = Effect.fnUntraced(function* () {
     tools: boolean
   ): Effect.fn.Return<string | null> {
     const task = yield* commands.expand(text, { thread: thread.id, tools });
-    if (task === null) {
-      return null;
-    }
-    const designing =
-      task.purpose === "implement" && purposeFor(thread, text) !== "implement";
-    return designing ? DESIGN_THREAD_IMPLEMENT : task.text;
+    return task === null ? null : task.text;
   });
 
   return { attachmentBlocks, sessionContext, skillsChange, taskFor };

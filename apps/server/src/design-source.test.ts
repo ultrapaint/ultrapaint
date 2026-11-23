@@ -688,7 +688,7 @@ describe("the design as the source, and its link to the code (ADR 0028–0030)",
   );
 
   onAServer.effect(
-    "lets a design thread write its designs only, and an implement thread the repository",
+    "lets a design thread write the repository, as an implement thread does (ADR 0118)",
     () =>
       Effect.gen(function* () {
         const { client, repo } = yield* TestEnv;
@@ -713,9 +713,9 @@ describe("the design as the source, and its link to the code (ADR 0028–0030)",
           agentId: "fake",
         });
         assert.isUndefined(designing.purpose);
-        const refused = yield* run(designing, "write src/agent.tsx");
-        assert.include(refused.join(""), "outside the designs directory");
-        assert.isFalse(yield* fs.exists(path.join(repo, "src/agent.tsx")));
+        const designed = yield* run(designing, "write src/design.tsx");
+        assert.include(designed.join(""), "written");
+        assert.isTrue(yield* fs.exists(path.join(repo, "src/design.tsx")));
 
         const implementing = yield* client["threads.create"]({
           agentId: "fake",
