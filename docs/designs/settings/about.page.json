@@ -1,13 +1,13 @@
 {
   "root": {"type": "page", "id": "root", "align": "center", "crossAlign": "center", "direction": "column", "fill": "#0b0b0c", "padding": 0, "children": [
     {"type": "row", "id": "r_s173", "crossAlign": "start", "gap": 32, "children": [
-      {"type": "row", "id": "r_s16r", "name": "Settings dialog", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "stretch", "fill": "$color-rail", "minHeight": 720, "radius": "$radius-2xl", "shadow": "$shadow-overlay", "width": 960, "children": [
+      {"type": "row", "id": "r_s16r", "name": "Settings dialog", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "stretch", "fill": "$color-rail", "minHeight": 720, "radius": "$radius-2xl", "shadow": "$shadow-lg", "width": 960, "children": [
         {"type": "column", "id": "c_692ewjfs", "name": "Sections", "fill": "$color-rail", "width": 224, "children": [
           {"type": "row", "id": "r_692dlpb9", "crossAlign": "center", "height": 48, "padding": {"left": 20, "right": 20}, "width": "fill", "children": [
             {"type": "text", "id": "t_692dk1r7", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Settings", "tracking": "0.02em", "weight": 400}
           ]},
           {"type": "row", "id": "r_692dr8nu", "padding": {"bottom": 8, "left": 12, "right": 12}, "width": "fill", "children": [
-            {"type": "row", "id": "r_692dq887", "name": "Search", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)", "gap": 6, "height": 28, "padding": {"left": 8, "right": 6}, "radius": "$radius-md", "width": "fill", "children": [
+            {"type": "row", "id": "r_692dq887", "name": "Search", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-muted", "gap": 6, "height": 28, "padding": {"left": 8, "right": 6}, "radius": "$radius-md", "width": "fill", "children": [
               {"type": "image", "id": "img_692dm4qo", "name": "search", "alt": "", "height": 14, "src": "assets/icons/search.svg", "tint": "$color-muted-foreground", "width": 14},
               {"type": "text", "id": "t_692dn76s", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Search", "width": "fill"},
               {"type": "row", "id": "r_692dpi4t", "align": "center", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-muted", "height": 20, "padding": {"left": 5, "right": 5}, "radius": "$radius-sm", "children": [

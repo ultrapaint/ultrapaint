@@ -1,13 +1,13 @@
 {
   "root": {"type": "page", "id": "root", "align": "center", "crossAlign": "center", "direction": "column", "fill": "#0b0b0c", "padding": 0, "children": [
     {"type": "row", "id": "r_sd0", "crossAlign": "start", "gap": 32, "children": [
-      {"type": "row", "id": "r_scj", "name": "Settings dialog", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "stretch", "fill": "$color-rail", "minHeight": 736, "radius": "$radius-2xl", "shadow": "$shadow-overlay", "width": 960, "children": [
+      {"type": "row", "id": "r_scj", "name": "Settings dialog", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "stretch", "fill": "$color-rail", "minHeight": 736, "radius": "$radius-2xl", "shadow": "$shadow-lg", "width": 960, "children": [
         {"type": "column", "id": "c_2z3b6h5o", "name": "Sections", "fill": "$color-rail", "width": 224, "children": [
           {"type": "row", "id": "r_2z39vwhv", "crossAlign": "center", "height": 48, "padding": {"left": 20, "right": 20}, "width": "fill", "children": [
             {"type": "text", "id": "t_2z39un6o", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Settings", "tracking": "0.02em", "weight": 400}
           ]},
           {"type": "row", "id": "r_2z3a1xer", "padding": {"bottom": 8, "left": 12, "right": 12}, "width": "fill", "children": [
-            {"type": "row", "id": "r_2z3a0c38", "name": "Search", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)", "gap": 6, "height": 28, "padding": {"left": 8, "right": 6}, "radius": "$radius-md", "width": "fill", "children": [
+            {"type": "row", "id": "r_2z3a0c38", "name": "Search", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-muted", "gap": 6, "height": 28, "padding": {"left": 8, "right": 6}, "radius": "$radius-md", "width": "fill", "children": [
               {"type": "image", "id": "img_2z39wx69", "name": "search", "alt": "", "height": 14, "src": "assets/icons/search.svg", "tint": "$color-muted-foreground", "width": 14},
               {"type": "text", "id": "t_2z39xmy9", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Search", "width": "fill"},
               {"type": "row", "id": "r_2z39zgr5", "align": "center", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-muted", "height": 20, "padding": {"left": 5, "right": 5}, "radius": "$radius-sm", "children": [
@@ -91,7 +91,7 @@
                       {"type": "text", "id": "t_2z286xss", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Agent", "tracking": "0.02em", "weight": 400}
                     ]},
                     {"type": "row", "id": "r_2z288hhc", "align": "end", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
-                      {"type": "row", "id": "r_2z285t2u", "name": "Select", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)", "gap": 6, "height": 28, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": 208, "children": [
+                      {"type": "row", "id": "r_2z285t2u", "name": "Select", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-muted", "gap": 6, "height": 28, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": 208, "children": [
                         {"type": "text", "id": "t_2z283kqn", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Claude Code", "width": "fill"},
                         {"type": "image", "id": "img_2z284b1b", "name": "chevron-down", "alt": "", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "$color-muted-foreground", "width": 14}
                       ]}
@@ -104,7 +104,7 @@
                       {"type": "text", "id": "t_2z28e63b", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Model", "tracking": "0.02em", "weight": 400}
                     ]},
                     {"type": "row", "id": "r_2z28gfud", "align": "end", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
-                      {"type": "row", "id": "r_2z28dlla", "name": "Select", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)", "gap": 6, "height": 28, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": 208, "children": [
+                      {"type": "row", "id": "r_2z28dlla", "name": "Select", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-muted", "gap": 6, "height": 28, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": 208, "children": [
                         {"type": "text", "id": "t_2z28b221", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Opus 5.5", "width": "fill"},
                         {"type": "image", "id": "img_2z28c301", "name": "chevron-down", "alt": "", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "$color-muted-foreground", "width": 14}
                       ]}
@@ -144,7 +144,7 @@
                       {"type": "text", "id": "t_2z293eux", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "Claude handles permission decisions"}
                     ]},
                     {"type": "row", "id": "r_2z295a0k", "align": "end", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
-                      {"type": "row", "id": "r_2z29128c", "name": "Select", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)", "gap": 6, "height": 28, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": 208, "children": [
+                      {"type": "row", "id": "r_2z29128c", "name": "Select", "border": {"color": "$color-input", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-muted", "gap": 6, "height": 28, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": 208, "children": [
                         {"type": "text", "id": "t_2z28zf0i", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Auto", "width": "fill"},
                         {"type": "image", "id": "img_2z2905w4", "name": "chevron-down", "alt": "", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "$color-muted-foreground", "width": 14}
                       ]}

@@ -121,7 +121,7 @@
     ]},
     {"type": "column", "id": "c_xx8olypd", "name": "Canvas", "crossAlign": "center", "height": "fill", "width": "fill", "children": [
       {"type": "row", "id": "r_xx8nx7n6", "name": "Top", "align": "center", "width": "fill", "children": [
-        {"type": "row", "id": "r_xx8nwg3a", "name": "Mode tabs", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-background", "gap": 2, "padding": 4, "radius": "$radius-lg", "shadow": "$shadow-floating", "children": [
+        {"type": "row", "id": "r_xx8nwg3a", "name": "Mode tabs", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-background", "gap": 2, "padding": 4, "radius": "$radius-lg", "shadow": "$shadow-md", "children": [
           {"type": "row", "id": "r_xx8nrm10", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": "$radius-md", "children": [
             {"type": "text", "id": "t_xx8nqx11", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Canvas"}
           ]},
@@ -311,7 +311,7 @@
         ]}
       ]},
       {"type": "row", "id": "r_xx8okeco", "name": "Bottom", "padding": {"bottom": 0}, "children": [
-        {"type": "row", "id": "r_xx8ojtm4", "name": "Toolbar", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-background", "gap": 2, "padding": 6, "radius": "$radius-lg", "shadow": "$shadow-floating", "children": [
+        {"type": "row", "id": "r_xx8ojtm4", "name": "Toolbar", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-background", "gap": 2, "padding": 6, "radius": "$radius-lg", "shadow": "$shadow-md", "children": [
           {"type": "row", "id": "r_xx8o0vc2", "align": "center", "crossAlign": "center", "fill": "$color-primary", "height": 32, "radius": "$radius-md", "width": 32, "children": [
             {"type": "image", "id": "img_xx8nza0t", "name": "mouse-pointer-2", "alt": "", "height": 18, "src": "assets/icons/mouse-pointer-2.svg", "tint": "$color-primary-foreground", "width": 18}
           ]},

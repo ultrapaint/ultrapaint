@@ -16,7 +16,7 @@
               {"type": "text", "id": "t_cb436vkn", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Connecting to naf-mini", "weight": 500, "width": "fill"},
               {"type": "text", "id": "t_cb437n0u", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "1.4 s"}
             ]},
-            {"type": "column", "id": "c_cb43bdnu", "name": "Why it failed", "fill": "color-mix(in oklch, var(--color-destructive) 10%, transparent)", "gap": 2, "margin": {"bottom": 8, "top": 4}, "padding": 12, "radius": "$radius-lg", "width": "fill", "children": [
+            {"type": "column", "id": "c_cb43bdnu", "name": "Why it failed", "fill": "oklch(0.55 0.21 27 / 10%)", "gap": 2, "margin": {"bottom": 8, "top": 4}, "padding": 12, "radius": "$radius-lg", "width": "fill", "children": [
               {"type": "text", "id": "t_cb439pc0", "color": "$color-destructive", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "naf-mini accepted none of your keys.", "weight": 500},
               {"type": "text", "id": "t_cb43aadu", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Add your key with ssh-add, then try again."}
             ]}

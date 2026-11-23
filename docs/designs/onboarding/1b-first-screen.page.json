@@ -135,7 +135,7 @@
     ]},
     {"type": "column", "id": "c_ibq3gfac", "name": "Canvas", "crossAlign": "center", "height": "fill", "width": "fill", "children": [
       {"type": "row", "id": "r_ibq2otfs", "name": "Top", "align": "center", "width": "fill", "children": [
-        {"type": "row", "id": "r_ibq2nin7", "name": "Mode tabs", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-background", "gap": 2, "padding": 4, "radius": "$radius-lg", "shadow": "$shadow-floating", "children": [
+        {"type": "row", "id": "r_ibq2nin7", "name": "Mode tabs", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-background", "gap": 2, "padding": 4, "radius": "$radius-lg", "shadow": "$shadow-md", "children": [
           {"type": "row", "id": "r_ibq2it2k", "crossAlign": "center", "fill": "$color-accent", "gap": 6, "height": 28, "padding": {"left": 12, "right": 12}, "radius": "$radius-md", "children": [
             {"type": "text", "id": "t_ibq2hejp", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Canvas", "weight": 500}
           ]},
@@ -236,7 +236,7 @@
         ]}
       ]},
       {"type": "row", "id": "r_ibq3fp2i", "name": "Bottom", "padding": {"bottom": 0}, "children": [
-        {"type": "row", "id": "r_ibq3eetl", "name": "Toolbar", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-background", "gap": 2, "padding": 6, "radius": "$radius-lg", "shadow": "$shadow-floating", "children": [
+        {"type": "row", "id": "r_ibq3eetl", "name": "Toolbar", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-background", "gap": 2, "padding": 6, "radius": "$radius-lg", "shadow": "$shadow-md", "children": [
           {"type": "row", "id": "r_ibq2r6c9", "align": "center", "crossAlign": "center", "height": 32, "radius": "$radius-md", "width": 32, "children": [
             {"type": "image", "id": "img_ibq2q0hd", "name": "plus", "alt": "", "height": 18, "src": "assets/icons/plus.svg", "tint": "$color-foreground", "width": 18}
           ]},

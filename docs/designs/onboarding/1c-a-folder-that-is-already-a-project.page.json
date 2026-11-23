@@ -66,7 +66,7 @@
       ]}
     ]},
     {"type": "row", "id": "r_ywb2zhr5", "name": "Scrim", "align": "center", "crossAlign": "center", "fill": "rgb(0 0 0 / 0.1)", "height": 900, "margin": {"top": -668}, "width": 1440, "children": [
-      {"type": "column", "id": "c_ywb2y713", "name": "Dialog", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-popover", "gap": 20, "padding": 24, "radius": "$radius-xl", "shadow": "$shadow-overlay", "width": 448, "children": [
+      {"type": "column", "id": "c_ywb2y713", "name": "Dialog", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-popover", "gap": 20, "padding": 24, "radius": "$radius-xl", "shadow": "$shadow-lg", "width": 448, "children": [
         {"type": "column", "id": "c_ywb2slca", "gap": 6, "children": [
           {"type": "text", "id": "t_ywb2q1sz", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.25, "role": "paragraph", "size": 16, "text": "bike-shop is already an Ultrapaint project", "tracking": "0.02em", "weight": 400},
           {"type": "text", "id": "t_ywb2r1s7", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Open it, and your prompt goes to a new chat there."}

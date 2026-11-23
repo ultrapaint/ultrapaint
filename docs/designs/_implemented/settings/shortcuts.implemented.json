@@ -24,7 +24,7 @@
             "minHeight": 720,
             "name": "Settings dialog",
             "radius": "$radius-2xl",
-            "shadow": "$shadow-overlay",
+            "shadow": "$shadow-lg",
             "width": 960,
             "crossAlign": "stretch",
             "children": [
@@ -74,7 +74,7 @@
                           "style": "solid",
                           "width": 1
                         },
-                        "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)",
+                        "fill": "$color-muted",
                         "height": 28,
                         "id": "r_6kypz9a4",
                         "name": "Search",

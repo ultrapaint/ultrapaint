@@ -744,7 +744,7 @@
                     "name": "Menu",
                     "padding": 4,
                     "radius": "$radius-lg",
-                    "shadow": "$shadow-overlay",
+                    "shadow": "$shadow-lg",
                     "width": 290,
                     "children": [
                       {

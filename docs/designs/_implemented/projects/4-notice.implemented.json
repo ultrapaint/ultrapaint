@@ -40,7 +40,7 @@
               "top": 16
             },
             "radius": "$radius-lg",
-            "shadow": "$shadow-overlay",
+            "shadow": "$shadow-lg",
             "width": 356,
             "crossAlign": "center",
             "gap": 6,

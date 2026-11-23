@@ -86,7 +86,7 @@
           ]}
         ]},
         {"type": "row", "id": "r_zokaptav", "name": "Overlay", "align": "start", "height": 258, "margin": {"bottom": 48, "top": -306}, "padding": {"left": 20, "right": 20}, "width": "fill", "children": [
-          {"type": "column", "id": "c_zokaog91", "name": "Menu", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-popover", "padding": 4, "radius": "$radius-lg", "shadow": "$shadow-overlay", "width": 290, "children": [
+          {"type": "column", "id": "c_zokaog91", "name": "Menu", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-popover", "padding": 4, "radius": "$radius-lg", "shadow": "$shadow-lg", "width": 290, "children": [
             {"type": "text", "id": "t_zoka8g3g", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "padding": {"bottom": 2, "left": 8, "top": 6}, "role": "paragraph", "size": 12, "text": "Design skills"},
             {"type": "row", "id": "r_zokacgoq", "crossAlign": "center", "fill": "$color-accent", "gap": 8, "height": 32, "padding": {"bottom": 0, "left": 8, "right": 8, "top": 0}, "radius": "$radius-md", "width": "fill", "children": [
               {"type": "text", "id": "t_zoka96zp", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Ultrapaint", "width": "fill"},

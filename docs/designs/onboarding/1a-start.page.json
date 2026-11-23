@@ -65,7 +65,7 @@
         ]}
       ]},
       {"type": "row", "id": "r_ezd1fm96", "name": "Overlay", "height": 77, "margin": {"bottom": 115, "top": -192}, "padding": {"left": 40}, "width": "fill", "children": [
-        {"type": "column", "id": "c_ezd1e12a", "name": "Menu", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-popover", "padding": 4, "radius": "$radius-lg", "shadow": "$shadow-overlay", "width": 240, "children": [
+        {"type": "column", "id": "c_ezd1e12a", "name": "Menu", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-popover", "padding": 4, "radius": "$radius-lg", "shadow": "$shadow-lg", "width": 240, "children": [
           {"type": "row", "id": "r_ezd1aw95", "crossAlign": "center", "fill": "$color-accent", "gap": 8, "height": 30, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
             {"type": "text", "id": "t_ezd182x4", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "New folder in Ultrapaint", "width": "fill"},
             {"type": "image", "id": "img_ezd190l1", "name": "check", "alt": "", "height": 16, "src": "assets/icons/check.svg", "tint": "$color-foreground", "width": 16}

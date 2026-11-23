@@ -747,7 +747,7 @@
                             "font": "'Figtree Variable', system-ui, sans-serif",
                             "lineHeight": 1.429,
                             "size": 14,
-                            "weight": 600,
+                            "weight": 400,
                             "role": "paragraph",
                             "text": "Where should the yearly price show?",
                             "type": "text"

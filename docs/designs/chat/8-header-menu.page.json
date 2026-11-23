@@ -86,7 +86,7 @@
           ]}
         ]},
         {"type": "row", "id": "r_zopel8du", "name": "Overlay", "align": "end", "height": 82, "margin": {"bottom": 738, "top": -820}, "padding": {"left": 4, "right": 4}, "width": "fill", "children": [
-          {"type": "column", "id": "c_zopekv2g", "name": "Menu", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-popover", "padding": 4, "radius": "$radius-lg", "shadow": "$shadow-overlay", "width": 226, "children": [
+          {"type": "column", "id": "c_zopekv2g", "name": "Menu", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-popover", "padding": 4, "radius": "$radius-lg", "shadow": "$shadow-lg", "width": 226, "children": [
             {"type": "row", "id": "r_zopeg4kx", "crossAlign": "center", "fill": "$color-accent", "gap": 8, "height": 32, "padding": {"bottom": 0, "left": 8, "right": 8, "top": 0}, "radius": "$radius-md", "width": "fill", "children": [
               {"type": "text", "id": "t_zopef9ot", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Show every step", "width": "fill"}
             ]},

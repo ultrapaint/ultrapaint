@@ -555,7 +555,7 @@
             "name": "Dialog",
             "padding": 24,
             "radius": "$radius-xl",
-            "shadow": "$shadow-overlay",
+            "shadow": "$shadow-lg",
             "width": 448,
             "gap": 20,
             "children": [

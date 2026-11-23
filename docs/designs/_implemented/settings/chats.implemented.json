@@ -24,7 +24,7 @@
             "minHeight": 736,
             "name": "Settings dialog",
             "radius": "$radius-2xl",
-            "shadow": "$shadow-overlay",
+            "shadow": "$shadow-lg",
             "width": 960,
             "crossAlign": "stretch",
             "children": [
@@ -74,7 +74,7 @@
                           "style": "solid",
                           "width": 1
                         },
-                        "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)",
+                        "fill": "$color-muted",
                         "height": 28,
                         "id": "r_2z3a0c38",
                         "name": "Search",
@@ -831,7 +831,7 @@
                                               "style": "solid",
                                               "width": 1
                                             },
-                                            "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)",
+                                            "fill": "$color-muted",
                                             "height": 28,
                                             "id": "r_2z285t2u",
                                             "name": "Select",
@@ -934,7 +934,7 @@
                                               "style": "solid",
                                               "width": 1
                                             },
-                                            "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)",
+                                            "fill": "$color-muted",
                                             "height": 28,
                                             "id": "r_2z28dlla",
                                             "name": "Select",
@@ -1236,7 +1236,7 @@
                                               "style": "solid",
                                               "width": 1
                                             },
-                                            "fill": "color-mix(in oklch, var(--color-input) 30%, transparent)",
+                                            "fill": "$color-muted",
                                             "height": 28,
                                             "id": "r_2z29128c",
                                             "name": "Select",

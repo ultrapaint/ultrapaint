@@ -65,7 +65,7 @@
         ]}
       ]},
       {"type": "row", "id": "r_eze5tcv1", "name": "Overlay", "height": 68, "margin": {"bottom": 52, "top": -120}, "padding": {"left": 400}, "width": "fill", "children": [
-        {"type": "column", "id": "c_eze5s32k", "name": "Menu", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-popover", "padding": 4, "radius": "$radius-lg", "shadow": "$shadow-overlay", "width": 224, "children": [
+        {"type": "column", "id": "c_eze5s32k", "name": "Menu", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-popover", "padding": 4, "radius": "$radius-lg", "shadow": "$shadow-lg", "width": 224, "children": [
           {"type": "row", "id": "r_eze5pt03", "crossAlign": "center", "fill": "$color-accent", "gap": 8, "height": 30, "padding": {"left": 8, "right": 8}, "radius": "$radius-md", "width": "fill", "children": [
             {"type": "text", "id": "t_eze5olg7", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "A folder on this computer…", "width": "fill"}
           ]},

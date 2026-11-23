@@ -86,7 +86,7 @@
           ]}
         ]},
         {"type": "row", "id": "r_zolcw464", "name": "Overlay", "align": "start", "height": 184, "margin": {"bottom": 210, "top": -394}, "padding": {"left": 8, "right": 8}, "width": "fill", "children": [
-          {"type": "column", "id": "c_zolcvoef", "name": "Review", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-popover", "gap": 12, "padding": 12, "radius": "$radius-lg", "shadow": "$shadow-overlay", "width": 324, "children": [
+          {"type": "column", "id": "c_zolcvoef", "name": "Review", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-popover", "gap": 12, "padding": 12, "radius": "$radius-lg", "shadow": "$shadow-lg", "width": 324, "children": [
             {"type": "row", "id": "r_zolcbzkk", "crossAlign": "center", "width": "fill", "children": [
               {"type": "text", "id": "t_zolc822f", "color": "$color-foreground", "font": "'Cal Sans', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Review", "tracking": "0.02em", "weight": 400, "width": "fill"},
               {"type": "instance", "id": "i_zolc9gve", "border": {"color": "$color-border", "style": "solid", "width": 1}, "component": "Button", "fill": "transparent", "from": "@ultrapaint/system", "height": 24, "padding": {"left": 8, "right": 8}, "props": {"variant": "outline", "size": "sm"}, "radius": "$radius-md", "text": "Project settings"}

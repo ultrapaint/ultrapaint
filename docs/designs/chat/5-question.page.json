@@ -91,7 +91,7 @@
                 {"type": "text", "id": "t_zoj8wowc", "color": "$color-muted-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.333, "role": "paragraph", "size": 12, "text": "The agent asks", "width": "fill"},
                 {"type": "image", "id": "img_zoj8xqin", "name": "chevron-down", "alt": "", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "$color-muted-foreground", "width": 14}
               ]},
-              {"type": "text", "id": "t_zok8zkav", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Where should the yearly price show?", "weight": 600},
+              {"type": "text", "id": "t_zok8zkav", "color": "$color-foreground", "font": "'Figtree Variable', system-ui, sans-serif", "lineHeight": 1.429, "role": "paragraph", "size": 14, "text": "Where should the yearly price show?", "weight": 400},
               {"type": "column", "id": "c_zok9ci0g", "width": "fill", "children": [
                 {"type": "row", "id": "r_zok95jwc", "crossAlign": "center", "gap": 8, "padding": {"bottom": 6, "left": 6, "right": 6, "top": 6}, "radius": "$radius-md", "width": "fill", "children": [
                   {"type": "column", "id": "c_zok92e35", "width": "fill", "children": [
