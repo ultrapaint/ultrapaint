@@ -61,7 +61,7 @@ export const DevBlueprintDrawing = () => (
     data-look="blueprint-drawing"
   >
     <svg
-      className="absolute top-0 left-2 h-full w-[230px] fill-none stroke-blueprint-line"
+      className="absolute top-0 left-2 h-full w-[230px] fill-none stroke-blueprint-line opacity-50"
       role="presentation"
       viewBox="0 0 230 44"
     >
