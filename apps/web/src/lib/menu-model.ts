@@ -6,6 +6,7 @@
  */
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import { isBound } from "@ultrapaint/contracts/implementation";
 import type { ViewportPreset } from "@ultrapaint/contracts/pages";
 import {
   isContainer,
@@ -484,11 +485,12 @@ const codeEntries = (f: PageFacts): (Entry<PageAction> | false)[] => {
       item({ kind: "updateFromCode" }, `Update ${f.count} pages from code`),
     ];
   }
-  const bound =
-    f.implementation === "implemented" || f.implementation === "changed";
+  const bound = isBound(f.implementation);
   return [
     item({ kind: "implement" }, "Implement with an agent"),
     !bound && item({ kind: "adopt" }, "Find its code with an agent"),
+    // As the Code tab's ⋯ menu has it (ADR 0102): a page whose code changed has its button there.
+    !bound && item({ kind: "updateFromCode" }, "Update from code"),
     f.implementation === "draft" &&
       item({ kind: "ready", ready: true }, "Mark ready to implement"),
     f.implementation === "ready" &&

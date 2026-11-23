@@ -352,6 +352,15 @@ describe("the page menu", () => {
       find(pageEntries({ ...base, count: 3 }), "updateFromCode")
     ).toMatchObject({ label: "Update 3 pages from code" });
   });
+
+  it("updates one page not linked yet from its code, as its Code tab's menu does (ADR 0102)", () => {
+    expect(find(pageEntries(base), "updateFromCode")).toMatchObject({
+      label: "Update from code",
+    });
+    expect(
+      kinds(pageEntries({ ...base, implementation: "changed" }))
+    ).not.toContain("updateFromCode");
+  });
 });
 
 describe("the menu of a canvas in the list", () => {
