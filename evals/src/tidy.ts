@@ -22,8 +22,11 @@ const RESULT_LINE_RE = /^- `([^`]+)`:/;
 /** An entry of `git worktree list --porcelain`: its path. */
 const WORKTREE_RE = /^worktree (.+)$/m;
 const SPACES_RE = /\s+/;
-/** A diff's header line for a file renamed or copied from another. */
-const RENAME_RE = /^(rename|copy) (from|to) /;
+/**
+ * A diff's header line that says more than lines can: a file renamed or copied from another, or
+ * its mode changed.
+ */
+const BEYOND_LINES_RE = /^((rename|copy) (from|to)|(old|new) mode) /;
 
 /** The first group a pattern matches in a text, if it matches. */
 const firstGroup = (re: RegExp, text: string): string | undefined => {
@@ -113,13 +116,13 @@ const whyNotOnMain = (
 /** One file's part of a diff, as it is read. */
 interface Reading {
   added: string[];
+  /** A rename, a copy, a mode, or a path git quotes: none of it is checked against main. */
+  beyondLines: boolean;
   deleted: boolean;
   file: string | undefined;
   hunks: boolean;
   old: string | undefined;
   removed: string[];
-  /** A rename or a copy: the file it came from is not checked against main. */
-  renamed: boolean;
 }
 
 const changeRead = (r: Reading): FileChange => ({
@@ -127,11 +130,14 @@ const changeRead = (r: Reading): FileChange => ({
   deleted: r.deleted,
   file: r.file ?? r.old ?? "(a file git named oddly)",
   removed: r.removed,
-  unread: r.renamed || (!r.deleted && (r.file === undefined || !r.hunks)),
+  unread: r.beyondLines || (!r.deleted && (r.file === undefined || !r.hunks)),
 });
 
 /** A line of a file's header; true when it opens the first hunk. */
 const readHeader = (r: Reading, line: string): boolean => {
+  if (line.startsWith('--- "') || line.startsWith('+++ "')) {
+    r.beyondLines = true;
+  }
   if (line.startsWith("--- ")) {
     r.old = line.startsWith("--- a/") ? line.slice(6) : line.slice(4);
   } else if (line === "+++ /dev/null") {
@@ -141,8 +147,8 @@ const readHeader = (r: Reading, line: string): boolean => {
   } else if (line.startsWith("@@")) {
     r.hunks = true;
     return true;
-  } else if (RENAME_RE.test(line)) {
-    r.renamed = true;
+  } else if (BEYOND_LINES_RE.test(line)) {
+    r.beyondLines = true;
   }
   return false;
 };
@@ -156,12 +162,12 @@ export const changesOf = (diff: string): FileChange[] => {
     if (line.startsWith("diff --git ")) {
       current = {
         added: [],
+        beyondLines: false,
         deleted: false,
         file: undefined,
         hunks: false,
         old: undefined,
         removed: [],
-        renamed: false,
       };
       readings.push(current);
       inHunk = false;
