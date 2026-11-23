@@ -285,11 +285,13 @@ export class ProjectBriefing extends Context.Service<
      * the design skills is told too, unless no review will run for it (`ReviewLoop.enabled`).
      * `skills`: the chat's own choice (`Thread.skills`), told exactly, the project's defaults when
      * absent; a choice that names no skill there briefs the thread as one not told the design
-     * skills.
+     * skills. `confined`: the thread's agent was launched in the sandbox (`Thread.sandboxed`,
+     * ADR 0119); not said, whether an agent started now would be.
      */
     readonly text: (
       purpose: ThreadPurpose,
       options?: {
+        readonly confined?: boolean;
         readonly designs?: boolean;
         readonly reviewed?: boolean;
         readonly skills?: readonly string[];
@@ -369,7 +371,8 @@ export class ProjectBriefing extends Context.Service<
         tools: boolean,
         wanted: boolean,
         reviewed: boolean,
-        chosen: readonly string[] | undefined
+        chosen: readonly string[] | undefined,
+        launched: boolean | undefined
       ) {
         const ways = agentWays(tools);
         const paths = yield* RepoPaths;
@@ -377,7 +380,7 @@ export class ProjectBriefing extends Context.Service<
         const { settings } = paths;
         // A folder without git has no .git to tell the agent about.
         const gitRepository = yield* (yield* GitService).repository;
-        const confined = yield* sandbox.confines;
+        const confined = launched ?? (yield* sandbox.confines);
 
         const system = yield* Effect.orElseSucceed(
           Effect.flatMap(DesignSystemService, (service) => service.get),
@@ -494,7 +497,8 @@ never write it; when styles are missing, send the user to Sync in the Design sys
               options.tools ?? mcp,
               purpose === "design" && options.designs !== false,
               options.reviewed !== false,
-              options.skills
+              options.skills,
+              options.confined
             )
           ),
         told: (skills) =>

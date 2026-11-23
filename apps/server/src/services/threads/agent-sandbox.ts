@@ -75,6 +75,11 @@ interface Machine {
 interface AgentSandboxSession {
   /** Puts a command the agent asked us to run in the same sandbox as the agent itself. */
   readonly confine: (launch: AgentLaunch) => AgentLaunch;
+  /**
+   * Whether this launch is confined: the one answer, asked once, that the agent's session and
+   * the thread follow (ADR 0119).
+   */
+  readonly confined: boolean;
   /** The command that starts the agent. */
   readonly launch: AgentLaunch;
 }
@@ -94,6 +99,8 @@ export class AgentSandbox extends Context.Service<
   {
     /** Whether this machine can confine an agent. Elsewhere the agent runs unconfined. */
     readonly available: boolean;
+    /** The platform it confines on (`linux`, `darwin`, `win32`), which says what would give it one. */
+    readonly platform: string;
     /**
      * Whether an agent started now is confined: the machine can, and the person has not turned
      * the sandbox off (ADR 0119). Asked at each launch, so a change holds from the next agent.
@@ -319,6 +326,7 @@ export class AgentSandbox extends Context.Service<
         return AgentSandbox.of({
           available,
           confines,
+          platform: tools.platform,
           problem,
           session: Effect.fnUntraced(function* ({
             config,
@@ -332,7 +340,11 @@ export class AgentSandbox extends Context.Service<
               env: config.env,
             };
             if (!(yield* confines)) {
-              return { confine: (launch: AgentLaunch) => launch, launch: base };
+              return {
+                confine: (launch: AgentLaunch) => launch,
+                confined: false,
+                launch: base,
+              };
             }
             // A directory the agent keeps its state in has to exist before the sandbox can let
             // it in; a file (a login) is the agent's own to make, outside.
@@ -416,6 +428,7 @@ export class AgentSandbox extends Context.Service<
               sandboxLaunch(launch, policy, tools);
             return {
               confine,
+              confined: true,
               launch: confine({
                 ...base,
                 env: { ...base.env, ...config.sandboxEnv },
@@ -432,10 +445,12 @@ export class AgentSandbox extends Context.Service<
     AgentSandbox.of({
       available: false,
       confines: Effect.succeed(false),
+      platform: "test",
       problem: undefined,
       session: ({ config }) =>
         Effect.succeed({
           confine: (launch: AgentLaunch) => launch,
+          confined: false,
           launch: {
             args: config.args,
             command: config.command,
@@ -454,10 +469,12 @@ export class AgentSandbox extends Context.Service<
     AgentSandbox.of({
       available: true,
       confines: Effect.succeed(true),
+      platform: "test",
       problem: undefined,
       session: ({ config }) =>
         Effect.succeed({
           confine: (launch: AgentLaunch) => launch,
+          confined: true,
           launch: {
             args: config.args,
             command: config.command,

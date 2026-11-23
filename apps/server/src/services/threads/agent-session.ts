@@ -26,7 +26,7 @@ import {
 } from "@ultrapaint/contracts/threads";
 import { Effect } from "effect";
 import { AppLog } from "../../app-log.ts";
-import { AgentSandbox } from "./agent-sandbox.ts";
+import type { LaunchedAcpAgent } from "./agent-launcher.ts";
 import { ChatPreferences } from "./chat-preferences.ts";
 import { ThreadStore } from "./thread-store.ts";
 import { mapConfigOptions, optionValue } from "./transcript.ts";
@@ -71,7 +71,6 @@ interface OpenedSession {
 
 export const makeSessionOpener = Effect.fnUntraced(function* () {
   const store = yield* ThreadStore;
-  const sandbox = yield* AgentSandbox;
   const preferences = yield* ChatPreferences;
   const log = yield* AppLog;
 
@@ -160,7 +159,7 @@ export const makeSessionOpener = Effect.fnUntraced(function* () {
    * server is offered where the agent says it reaches one over http.
    */
   const open = Effect.fnUntraced(function* (options: {
-    readonly agent: AcpAgent;
+    readonly agent: LaunchedAcpAgent;
     readonly config: AgentConfig;
     readonly editorMcp: McpServerConfig | null;
     readonly root: string;
@@ -168,8 +167,8 @@ export const makeSessionOpener = Effect.fnUntraced(function* () {
   }) {
     const { agent, config, editorMcp, root, thread } = options;
     const threadId = thread.id;
-    // As the launcher asked it: the machine can, and the person has not turned it off.
-    const confined = yield* sandbox.confines;
+    // As the launch was: the one answer the sandbox gave for it (ADR 0119).
+    const { confined } = agent;
     const agreed = negotiated(
       yield* Effect.mapError(agent.initialize, agentFailure)
     );

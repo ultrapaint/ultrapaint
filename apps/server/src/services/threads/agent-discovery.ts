@@ -6,7 +6,6 @@ import { ServerConfig } from "../../config.ts";
 import { makeKeyedLock } from "../../keyed-lock.ts";
 import { AgentConfigs } from "./agent-configs.ts";
 import { AgentLauncher } from "./agent-launcher.ts";
-import { AgentSandbox } from "./agent-sandbox.ts";
 import { ChatPreferences } from "./chat-preferences.ts";
 import { ThreadStore } from "./thread-store.ts";
 import { mapConfigOptions } from "./transcript.ts";
@@ -39,7 +38,6 @@ export class AgentDiscovery extends Context.Service<
     Effect.gen(function* () {
       const { discovery } = yield* ServerConfig;
       const agents = yield* AgentConfigs;
-      const sandbox = yield* AgentSandbox;
       const launcher = yield* AgentLauncher;
       const preferences = yield* ChatPreferences;
       const store = yield* ThreadStore;
@@ -66,7 +64,7 @@ export class AgentDiscovery extends Context.Service<
           yield* agent.initialize;
           // No `authenticate`: signing in is the user's to start, from a thread.
           const info = yield* agent.newSession(dir, {
-            meta: (yield* sandbox.confines) ? config.sandboxMeta : undefined,
+            meta: agent.confined ? config.sandboxMeta : undefined,
           });
           return {
             agentId: config.id,

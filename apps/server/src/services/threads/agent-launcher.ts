@@ -70,13 +70,19 @@ export const hostless = (options: AgentLaunchOptions): AcpHandlers =>
     ? { ...refusingHandlers(ONLY_LOOKS), onUpdate: options.listen }
     : refusingHandlers(LISTING_ONLY);
 
+/**
+ * An agent launched, and whether its launch was confined: what its session's `_meta` and the
+ * thread's `sandboxed` say, from the one answer the sandbox gave (ADR 0119).
+ */
+export type LaunchedAcpAgent = AcpAgent & { readonly confined: boolean };
+
 export class AgentLauncher extends Context.Service<
   AgentLauncher,
   {
     /** The agent of this launch, until the scope closes. */
     readonly launch: (
       options: AgentLaunchOptions
-    ) => Effect.Effect<AcpAgent, AcpSpawnError, Scope.Scope>;
+    ) => Effect.Effect<LaunchedAcpAgent, AcpSpawnError, Scope.Scope>;
   }
 >()("ultrapaint/server/AgentLauncher") {
   /** The agent's own process, in the sandbox `AgentSandbox` makes for the session. */
@@ -111,7 +117,7 @@ export class AgentLauncher extends Context.Service<
                 writable,
               })
             : hostless(options);
-          return yield* spawnAcpAgent(confined.launch, {
+          const agent = yield* spawnAcpAgent(confined.launch, {
             clientVersion: version,
             cwd: root,
             env: { ...machine.env, [EDITOR_AGENT_ENV]: "1" },
@@ -122,6 +128,7 @@ export class AgentLauncher extends Context.Service<
               spawner
             )
           );
+          return { ...agent, confined: confined.confined };
         }),
       });
     })

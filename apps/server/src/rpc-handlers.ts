@@ -117,7 +117,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "agents.sandbox": () =>
         Effect.succeed({
           available: sandbox.available,
-          platform: process.platform,
+          platform: sandbox.platform,
           ...(sandbox.problem !== undefined && { problem: sandbox.problem }),
         }),
       "assets.upload": (input) => documents((d) => d.upload(input)),

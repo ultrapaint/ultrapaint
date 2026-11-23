@@ -9,8 +9,8 @@ Settings › Agents holds).
 out but a machine that has none. The sandbox keeps an agent's reads and writes in the project, its
 own files and its tools. That is the right default, but it also stops an agent from reaching
 what a person may want it to reach: a sibling checkout, a package linked from elsewhere, a tool
-installed somewhere the sandbox does not list. Other agent hosts (T3 Code among them) run their
-agents unconfined. On 2026-11-23 the person asked for the sandbox to be their choice.
+installed somewhere the sandbox does not list. Other agent hosts run their agents unconfined. On
+2026-11-23 the person asked for the sandbox to be their choice.
 
 ## Decision
 
@@ -25,10 +25,11 @@ agents unconfined. On 2026-11-23 the person asked for the sandbox to be their ch
   sandbox, and why: bubblewrap refused to start, bubblewrap not installed on Linux (install it
   and restart Ultrapaint), or a system with no sandbox (macOS and Linux only). The person's
   choice is kept for when it can.
-- **It is asked at each launch.** `AgentSandbox.confines` is true when the machine can confine an
-  agent and the person has not turned the sandbox off. A session's launch, the `_meta` that stops
-  an agent from starting its own sandbox, the thread's `sandboxed` and the briefing's note on
-  `.git` all follow it. An agent already running stays as it started.
+- **It is asked once at each launch.** `AgentSandbox.confines` is true when the machine can
+  confine an agent and the person has not turned the sandbox off. The launch asks it once and
+  carries the answer (`confined`): the `_meta` that stops an agent from starting its own sandbox,
+  the thread's `sandboxed` and the briefing's note on `.git` all follow that answer, so a switch
+  flipped mid-launch cannot split them. An agent already running stays as it started.
 - **Off means off for every agent the editor starts**: a thread's, a review model's and the probe
   that lists an agent's models. The editor's own checks still hold where they do not depend on
   the sandbox: its ACP writes stay in the repository and out of `.git`, and a reviewer's ACP

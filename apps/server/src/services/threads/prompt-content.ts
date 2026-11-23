@@ -247,6 +247,7 @@ export const makePromptContent = Effect.fnUntraced(function* () {
    * conversation back, and the briefing with it if anything was ever asked: `briefed` is false.
    * A new one is told the project, then what was said before it. `reviewed`: the editor reviews
    * what the thread's turns make. `skills`: the chat's own design skills (`Thread.skills`).
+   * `confined`: its agent was launched in the sandbox (`Thread.sandboxed`).
    * `told`: the design skills the briefing told, by name, the thread's record of them
    * (`Thread.toldSkills`); absent when it told nothing of them.
    */
@@ -257,7 +258,8 @@ export const makePromptContent = Effect.fnUntraced(function* () {
     tools: boolean,
     text: string,
     reviewed: boolean,
-    skills: readonly string[] | undefined
+    skills: readonly string[] | undefined,
+    confined: boolean
   ): Effect.fn.Return<{
     readonly blocks: readonly ContentBlock[];
     readonly briefed: boolean;
@@ -272,7 +274,13 @@ export const makePromptContent = Effect.fnUntraced(function* () {
     const designs =
       parsed?._tag !== "Request" || toldTheDesignSkill(parsed.request);
     const about = briefingEnabled
-      ? yield* briefing.text(purpose, { designs, reviewed, skills, tools })
+      ? yield* briefing.text(purpose, {
+          confined,
+          designs,
+          reviewed,
+          skills,
+          tools,
+        })
       : undefined;
     const told =
       about !== undefined && purpose === "design" && designs
