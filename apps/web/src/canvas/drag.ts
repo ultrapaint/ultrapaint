@@ -14,6 +14,7 @@ import type { Box } from "@ultrapaint/contracts/canvas-layout";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
 import { runsInRow } from "@ultrapaint/design-document/css";
+import { isInstanceLayer } from "@ultrapaint/design-document/instance-layers";
 import {
   canvasDocOf,
   childrenOf,
@@ -294,7 +295,8 @@ const placementIn = (
   const doc = docOfFrame(frameId, s.canvas);
   const exclude = draggedIn(dragged, doc);
   const chain = frameOf(frameId).hitTest(px - frame.x, py - frame.y);
-  const innermost = chain.at(-1) ?? root.id;
+  // A layer of an instance takes nothing dropped (ADR 0114): its instance does, in its slot.
+  const innermost = chain.findLast((id) => !isInstanceLayer(id)) ?? root.id;
   const path = findPath(root, innermost) ?? [root];
   for (let i = path.length - 1; i >= 0; i -= 1) {
     if (exclude && path.slice(0, i + 1).some((n) => n.id === exclude)) {

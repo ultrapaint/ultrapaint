@@ -7,6 +7,7 @@
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { ViewportPreset } from "@ultrapaint/contracts/pages";
+import { isInstanceLayer } from "@ultrapaint/design-document/instance-layers";
 import {
   isContainer,
   nodeKind,
@@ -275,7 +276,10 @@ const addressEntries = (f: NodeFacts): (Item<NodeAction> | false)[] => {
 
 export const nodeEntries = (f: NodeFacts): Entry<NodeAction>[] => {
   const { node } = f;
-  const root = isPageRoot(node);
+  // A page's root, and a layer of an instance (ADR 0114), stay where they are: the layer is
+  // moved, copied or made anything else in its main component.
+  const layer = isInstanceLayer(node.id);
+  const root = isPageRoot(node) || layer;
   const several = f.count > 1;
   // About one node only: greyed out when the menu acts on several.
   const one = { disabled: several };
@@ -285,14 +289,14 @@ export const nodeEntries = (f: NodeFacts): Entry<NodeAction>[] => {
     { kind: "label", label: several ? `${f.count} selected` : headingOf(node) },
     item({ kind: "ask", newChat: false }, "Add to chat"),
     item({ kind: "ask", newChat: true }, "Add to a new chat"),
-    item({ kind: "variations" }, "Make variations…", one),
+    !layer && item({ kind: "variations" }, "Make variations…", one),
     node.type === "text" &&
       item({ kind: "editText" }, "Edit text", {
         ...one,
         command: "editText",
       }),
-    item({ kind: "rename" }, "Rename…", one),
-    ...frameEntries(f),
+    !layer && item({ kind: "rename" }, "Rename…", one),
+    ...(layer ? [] : frameEntries(f)),
     ...instanceEntries(f),
     linkEntries(f),
     f.parentSelectable &&
@@ -305,10 +309,11 @@ export const nodeEntries = (f: NodeFacts): Entry<NodeAction>[] => {
     separator,
     !root && item({ kind: "copy" }, "Copy", { command: "copy" }),
     !root && item({ kind: "cut" }, "Cut", { command: "cut" }),
-    item({ kind: "paste" }, "Paste", {
-      command: "paste",
-      disabled: !f.canPaste,
-    }),
+    !layer &&
+      item({ kind: "paste" }, "Paste", {
+        command: "paste",
+        disabled: !f.canPaste,
+      }),
     !root && item({ kind: "duplicate" }, "Duplicate", { command: "duplicate" }),
     separator,
     !root && {

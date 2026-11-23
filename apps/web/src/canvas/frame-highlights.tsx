@@ -6,12 +6,12 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
 import { resolveAtBreakpoint } from "@ultrapaint/design-document/breakpoints";
-import { findNode } from "@ultrapaint/design-document/tree";
+import { findLayer } from "@ultrapaint/design-document/instance-layers";
 import { AlertTriangle } from "lucide-react";
 import { kindColor, selectionKindOf } from "../lib/selection-kind.ts";
 import { useInv } from "../state/camera.ts";
 import { useBreakpoints } from "../state/design-system.ts";
-import { rootOfFrame, useDocuments } from "../state/documents.ts";
+import { appFileOf, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
 import { useFrameError } from "./editor-frame.ts";
@@ -48,14 +48,16 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
   const breakpoint = useFrameBreakpoint(frameId);
   const breakpoints = useBreakpoints();
   const root = own && resolveAtBreakpoint(own, breakpoints, breakpoint);
-  const selectedNode = selectedId === null ? null : findNode(root, selectedId);
-  const hoverNode = hoverId === null ? null : findNode(root, hoverId);
+  const selectedNode =
+    selectedId === null ? null : findLayer(root, selectedId, appFileOf);
+  const hoverNode =
+    hoverId === null ? null : findLayer(root, hoverId, appFileOf);
   const selectedRect = selectedId === null ? undefined : rects?.[selectedId];
   const hoverRect =
     hoverId !== null && hoverId !== selectedId ? rects?.[hoverId] : undefined;
   // Several selected: each is outlined, and a dashed box goes around them.
   const others = alsoIds.flatMap((nodeId) => {
-    const node = findNode(root, nodeId);
+    const node = findLayer(root, nodeId, appFileOf);
     const rect = rects?.[nodeId];
     return node && rect
       ? [{ node, rect, target: { frame: frameId, nodeId } }]

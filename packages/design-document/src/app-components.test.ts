@@ -1,5 +1,5 @@
 import type { AppComponentFile } from "@ultrapaint/contracts/components";
-import type { InstanceNode } from "@ultrapaint/contracts/document";
+import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
 import {
   appComponentCycle,
@@ -7,6 +7,7 @@ import {
   expandAppInstance,
 } from "./app-components.ts";
 import { makeIdGenerator } from "./ids.ts";
+import { childrenOf } from "./tree.ts";
 
 const PLAN: AppComponentFile = {
   name: "Plan",
@@ -52,6 +53,9 @@ const PLAN: AppComponentFile = {
   version: 1,
 };
 
+/** The layers right under a tree's root. */
+const layers = (tree: DesignNode) => childrenOf(tree);
+
 const instance = (fields: Partial<InstanceNode> = {}): InstanceNode => ({
   component: "Plan",
   from: "#app",
@@ -96,6 +100,73 @@ describe("expandAppInstance", () => {
         { children: [{ id: "x" }] },
       ],
     });
+  });
+});
+
+describe("an instance's overrides (ADR 0114)", () => {
+  it("lay a field over a layer, the main component's other fields kept", () => {
+    const { tree } = expandAppInstance(
+      PLAN,
+      instance({ overrides: { g: { color: "blue", text: "Hot" } } })
+    );
+    expect(layers(tree)[1]).toMatchObject({
+      color: "blue",
+      hidden: false,
+      role: "paragraph",
+      text: "Hot",
+    });
+    expect(layers(tree)[0]).toMatchObject({ text: "Pro" });
+  });
+
+  it("win over what the chosen member sets, and keep the main's breakpoints beside their own", () => {
+    const { tree } = expandAppInstance(
+      PLAN,
+      instance({
+        overrides: {
+          t: { at: { lg: { size: 40 }, md: { weight: 700 } }, color: "green" },
+        },
+        props: { tone: "primary" },
+      })
+    );
+    expect(layers(tree)[0]).toMatchObject({
+      at: { lg: { size: 40 }, md: { size: 24, weight: 700 } },
+      color: "green",
+    });
+  });
+
+  it("set a nested instance's props over its own, and hand it the overrides of its layers", () => {
+    const { tree } = expandAppInstance(
+      PLAN,
+      instance({
+        overrides: {
+          b: { props: { size: "sm" } },
+          "b/label": { color: "red" },
+          "b/label/deeper": { hidden: true },
+        },
+      })
+    );
+    expect(layers(tree)[2]).toMatchObject({
+      id: "b",
+      overrides: { label: { color: "red" }, "label/deeper": { hidden: true } },
+      props: { size: "sm", variant: "outline" },
+    });
+  });
+
+  it("are left out for a layer the main component no longer has", () => {
+    const { tree } = expandAppInstance(
+      PLAN,
+      instance({ overrides: { gone: { color: "red" } } })
+    );
+    expect(JSON.stringify(tree)).not.toContain("red");
+  });
+
+  it("are baked in when the instance is detached", () => {
+    const tree = detachedOf(
+      PLAN,
+      instance({ overrides: { g: { text: "Hot" } } }),
+      makeIdGenerator()
+    );
+    expect(JSON.stringify(tree)).toContain('"Hot"');
   });
 });
 

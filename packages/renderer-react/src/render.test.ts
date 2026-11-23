@@ -336,7 +336,7 @@ describe("an app component (ADR 0041)", () => {
   const placed = (fields: Partial<Extract<DesignNode, { type: "instance" }>>) =>
     instance("promo", "Promo", { from: APP_FROM, ...fields });
 
-  it("draws its tree with the instance's properties, only its instance selectable", async () => {
+  it("draws its tree with the instance's properties, its layers selectable by the way to them (ADR 0114)", async () => {
     const { at, canvas } = await draw(
       column([
         placed({
@@ -348,8 +348,8 @@ describe("an app component (ADR 0041)", () => {
     const drawn = at("promo");
     expect(drawn?.getAttribute("data-ed-c")).toBe("Promo");
     expect(at("d-title")).toBeNull();
-    const node = (id: string) =>
-      canvas.querySelector(`[data-ed-app-node="${id}"]`) as HTMLElement | null;
+    expect(canvas.querySelector("[data-ed-app-node]")).toBeNull();
+    const node = (id: string) => at(`promo/${id}`) as HTMLElement | null;
     expect(node("d-title")?.textContent).toBe("Spring sale");
     expect(node("d-body")?.style.display).toBe("none");
     expect(node("d-go")?.textContent).toBe("Order");
@@ -366,16 +366,16 @@ describe("an app component (ADR 0041)", () => {
       ]),
       { components: [promo] }
     );
-    const title = canvas.querySelector(
-      '[data-ed-app-node="d-title"]'
-    ) as HTMLElement | null;
+    const title = at("promo/d-title") as HTMLElement | null;
     expect(title?.style.fontSize).toBe("32px");
     // The page's own node is the page's: selectable, in the slot in place of what it held.
     expect(
-      canvas.querySelector('[data-ed-app-node="d-extra"] [data-ed-node="mine"]')
+      canvas.querySelector(
+        '[data-ed-node="promo/d-extra"] [data-ed-node="mine"]'
+      )
     ).not.toBeNull();
     expect(at("mine")).not.toBeNull();
-    expect(canvas.querySelector('[data-ed-app-node="d-none"]')).toBeNull();
+    expect(at("promo/d-none")).toBeNull();
   });
 
   it("draws its tree at the page's breakpoint, over the choice's overrides", async () => {
@@ -386,7 +386,7 @@ describe("an app component (ADR 0041)", () => {
       });
       const size = (
         canvas.querySelector(
-          '[data-ed-app-node="d-title"]'
+          '[data-ed-node="promo/d-title"]'
         ) as HTMLElement | null
       )?.style.fontSize;
       mounted?.unmount();
@@ -422,16 +422,19 @@ describe("an app component (ADR 0041)", () => {
       },
       version: 1,
     };
-    const { canvas } = await draw(
-      column([instance("outer", "Outer", { from: APP_FROM })]),
+    const { at } = await draw(
+      column([
+        instance("outer", "Outer", {
+          from: APP_FROM,
+          overrides: { "o-promo/d-body": { text: "Mine" } },
+        }),
+      ]),
       { components: [promo, outer] }
     );
-    expect(
-      canvas.querySelector('[data-ed-app-node="d-title"]')?.textContent
-    ).toBe("Inside");
-    expect(
-      canvas.querySelector('[data-ed-app-node="o-me"]')?.textContent
-    ).toContain("drawn inside itself");
+    // A nested instance's layers are named by the way to them, its overrides handed down.
+    expect(at("outer/o-promo/d-title")?.textContent).toBe("Inside");
+    expect(at("outer/o-promo/d-body")?.textContent).toBe("Mine");
+    expect(at("outer/o-me")?.textContent).toContain("drawn inside itself");
   });
 });
 

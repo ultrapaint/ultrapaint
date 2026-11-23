@@ -29,6 +29,7 @@ import {
   newElement,
 } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
+import { throughProperties } from "@ultrapaint/design-document/instance-layers";
 import { foldOps, wrapperOf } from "@ultrapaint/design-document/page-root";
 import {
   canvasDocOf,
@@ -44,6 +45,7 @@ import {
   useComponents,
 } from "../state/components.ts";
 import {
+  appFileOf,
   applyEdits,
   canvasNodes,
   docOfFrame,
@@ -604,10 +606,14 @@ const applyToEach = (
   asStored = false
 ) => {
   const byDoc = new Map<string, DocOp[]>();
-  const { selection } = useEditor.getState();
+  const { selection, canvas } = useEditor.getState();
+  const { docs } = useDocuments.getState();
   for (const { doc, frame: named, node } of nodesOf(targets)) {
+    // A layer of an instance's field that is a property is set as the property (ADR 0114).
+    const landed = (made: readonly DocOp[]) =>
+      throughProperties(made, rootOfFrame(docs, canvas, named), appFileOf);
     if (asStored) {
-      byDoc.set(doc, [...(byDoc.get(doc) ?? []), ...opsOf(node)]);
+      byDoc.set(doc, [...(byDoc.get(doc) ?? []), ...landed(opsOf(node))]);
       continue;
     }
     const frame = editedFrameOf(selection, named);
@@ -620,7 +626,7 @@ const applyToEach = (
       }
       return [op];
     });
-    byDoc.set(doc, [...(byDoc.get(doc) ?? []), ...ops]);
+    byDoc.set(doc, [...(byDoc.get(doc) ?? []), ...landed(ops)]);
   }
   const edits = [...byDoc].flatMap(([doc, ops]) =>
     ops.length > 0 ? [{ doc, ops }] : []

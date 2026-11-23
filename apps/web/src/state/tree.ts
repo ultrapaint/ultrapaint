@@ -4,13 +4,18 @@
  * preview.
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import { findPath, walk } from "@ultrapaint/design-document/tree";
+import {
+  type AppFileOf,
+  layerPath,
+} from "@ultrapaint/design-document/instance-layers";
+import { walk } from "@ultrapaint/design-document/tree";
 
 /**
  * The first of the chain is the outermost node under the pointer, the root of the frame left
  * out. Clicking what is already selected goes one step further in, the way entering a group
  * does on a canvas, so the parts of a row are reached by clicking them again rather than by
- * hunting for them in the layers panel. The step is measured from the deepest node of the chain
+ * hunting for them in the layers panel; an instance's layers are stepped into the same way (ADR
+ * 0114). The step is measured from the deepest node of the chain
  * the selection already sits under, not from the selection itself: having opened one item of a
  * list, pointing at its neighbour offers that neighbour and not the list again. Alt goes
  * straight to the innermost node.
@@ -19,7 +24,8 @@ export const stepInto = (
   chain: readonly string[],
   root: DesignNode | null | undefined,
   selectedId: string | null,
-  alt: boolean
+  alt: boolean,
+  fileOf: AppFileOf = () => undefined
 ): string | null => {
   const rows =
     root && chain[0] === root.id && root.type === "page"
@@ -30,7 +36,7 @@ export const stepInto = (
     return last;
   }
   const open = new Set(
-    (selectedId ? findPath(root, selectedId) : null)?.map((n) => n.id)
+    (selectedId ? layerPath(root, selectedId, fileOf) : null)?.map((n) => n.id)
   );
   let depth = -1;
   rows.forEach((id, i) => {

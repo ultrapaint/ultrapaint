@@ -6,6 +6,7 @@ import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useComments } from "../state/comments.ts";
+import { useComponents } from "../state/components.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { nodeFrameOf, viewFrameOf } from "../state/frame-ref.ts";
@@ -239,6 +240,121 @@ describe("a component edited in place", () => {
       frame: HOME,
       nodeId: "t1",
     });
+  });
+});
+
+describe("an instance's layers on a page (ADR 0114)", () => {
+  const click = (x: number, fields: Partial<Record<string, unknown>> = {}) =>
+    ({ ...pointerAt(x, 20), detail: 1, ...fields }) as unknown as Parameters<
+      Handlers["onSelectClick"]
+    >[0];
+  const selected = () => useEditor.getState().selection?.nodeId;
+
+  beforeEach(() => {
+    useComponents.setState({
+      components: [
+        {
+          name: "NavItem",
+          origin: "app",
+          properties: [],
+          slots: [],
+          tree: {
+            children: [
+              { id: "text", role: "paragraph", text: "Home", type: "text" },
+            ],
+            id: "item",
+            type: "row",
+          },
+          version: 1,
+        },
+        {
+          name: "Shell",
+          origin: "app",
+          properties: [],
+          slots: [],
+          tree: {
+            children: [
+              {
+                children: [
+                  {
+                    component: "NavItem",
+                    from: "#app",
+                    id: "nav",
+                    type: "instance",
+                  },
+                ],
+                id: "side",
+                type: "column",
+              },
+            ],
+            id: "root",
+            type: "row",
+          },
+          version: 1,
+        },
+      ],
+    });
+    useDocuments.setState({
+      docs: {
+        [HOME]: {
+          ...homeDoc,
+          root: {
+            children: [
+              {
+                component: "Shell",
+                from: "#app",
+                id: "shell",
+                type: "instance",
+              },
+            ],
+            id: "home-root",
+            type: "page",
+          },
+        },
+      },
+    });
+    useEditor.setState({ selection: null });
+    under.chain = [
+      "home-root",
+      "shell",
+      "shell/side",
+      "shell/nav",
+      "shell/nav/text",
+    ];
+  });
+
+  it("are stepped into a click at a time, nested instances' too", () => {
+    const steps: (string | undefined)[] = [];
+    for (let i = 0; i < 4; i += 1) {
+      act(() => current().onSelectClick(click(20)));
+      steps.push(selected());
+    }
+    expect(steps).toEqual([
+      "shell",
+      "shell/side",
+      "shell/nav",
+      "shell/nav/text",
+    ]);
+  });
+
+  it("are reached at once with Ctrl or ⌘, as with Alt", () => {
+    act(() => current().onSelectClick(click(20, { metaKey: true })));
+    expect(selected()).toBe("shell/nav/text");
+    useEditor.setState({ selection: null });
+    act(() => current().onSelectClick(click(20, { ctrlKey: true })));
+    expect(selected()).toBe("shell/nav/text");
+  });
+
+  it("are never moved on the page, and a double-click opens no main component", () => {
+    useEditor.setState({ selection: { frame: HOME, nodeId: "shell/side" } });
+    under.chain = ["home-root", "shell", "shell/side"];
+    current().onPointerDown(pointerAt(20, 20));
+    current().onPointerMove(pointerAt(400, 400));
+    expect(useDrag.getState().dragged).toBeNull();
+    current().onPointerUp();
+    under.chain = ["home-root", "shell"];
+    act(() => current().onDoubleClick(click(20)));
+    expect(useIsolation.getState().isolated).toBeNull();
   });
 });
 

@@ -7,6 +7,7 @@
 import type { DesignNode, DocOp } from "@ultrapaint/contracts/document";
 import { FIXED_FIELDS } from "./breakpoints.ts";
 import { type IdGenerator, idPrefix, withNewIds } from "./ids.ts";
+import { instanceLayerOf } from "./instance-layers.ts";
 import { acceptsChildren, findPath, idsOf, isContainer, walk } from "./tree.ts";
 
 export class DocumentOpError extends Error {
@@ -69,6 +70,38 @@ const setAt = (node: Draft, name: string, set: Record<string, unknown>) => {
 };
 
 /** How far a copy on the canvas lands from its original. */
+/** What a layer of an instance may have set: any field, but its structure or its kind. */
+const checkLayerFields = (set: Record<string, unknown>) => {
+  for (const [key, value] of Object.entries(set)) {
+    if (STRUCTURAL.has(key)) {
+      fail(
+        `${key} of a layer of an instance cannot be set: change its main component`
+      );
+    }
+    if (
+      key === "type" &&
+      value !== null &&
+      !(typeof value === "string" && CONTAINER_TYPES.has(value))
+    ) {
+      fail("only a group, a row or a column can become another of the three");
+    }
+  }
+};
+
+/** A field set or taken out of `fields`: `null` takes it out. */
+const setOrDrop = (
+  fields: Record<string, unknown>,
+  set: Record<string, unknown>
+) => {
+  for (const [key, value] of Object.entries(set)) {
+    if (value === null) {
+      delete fields[key];
+    } else {
+      fields[key] = value;
+    }
+  }
+};
+
 const DUPLICATE_OFFSET = 40;
 
 interface ApplyOptions {
@@ -382,7 +415,109 @@ export const applyOps = (
     created.push(copy.id);
   };
 
+  /**
+   * A layer of an instance (ADR 0114) is changed as the instance's override of it: `set` laid over
+   * the override (or its `at`'s breakpoint), `null` giving a field back to the main component, an
+   * override left empty taken out.
+   */
+  const overrideOp = (
+    id: string,
+    set: Record<string, unknown>,
+    at: string | undefined
+  ) => {
+    const { instance, layer } = instanceLayerOf(id) ?? fail(`no layer ${id}`);
+    const [node] = pathTo(draft, instance).slice(-1) as [Draft];
+    if (node.type !== "instance") {
+      fail(`${instance} is a ${node.type}: only an instance has layers`);
+    }
+    checkLayerFields(set);
+    const overrides = {
+      ...(node.overrides as
+        | Record<string, Record<string, unknown>>
+        | undefined),
+    };
+    const over: Draft = { ...overrides[layer], id: layer, type: "layer" };
+    if (at === undefined) {
+      setOrDrop(over, set);
+    } else {
+      setAt(over, at, set);
+    }
+    const { id: _id, type: _type, ...fields } = over;
+    const kept = Object.fromEntries(
+      Object.entries(fields).filter(([, value]) => value !== undefined)
+    );
+    if (Object.keys(kept).length > 0) {
+      overrides[layer] = kept;
+    } else {
+      delete overrides[layer];
+    }
+    node.overrides = Object.keys(overrides).length > 0 ? overrides : undefined;
+  };
+
+  /** A nested instance's props set for this instance alone, as its override's `props`. */
+  const setLayerProps = (
+    id: string,
+    props: Record<string, unknown>,
+    at: string | undefined
+  ) => {
+    const { instance, layer } = instanceLayerOf(id) ?? fail(`no layer ${id}`);
+    const [node] = pathTo(draft, instance).slice(-1) as [Draft];
+    const over = (
+      node.overrides as Record<string, Record<string, unknown>> | undefined
+    )?.[layer];
+    const held =
+      at === undefined
+        ? over?.props
+        : (over?.at as Record<string, Record<string, unknown>> | undefined)?.[
+            at
+          ]?.props;
+    const merged = { ...(held as Record<string, unknown> | undefined) };
+    for (const [key, value] of Object.entries(props)) {
+      if (value === null) {
+        delete merged[key];
+      } else {
+        merged[key] = value;
+      }
+    }
+    overrideOp(
+      id,
+      { props: Object.keys(merged).length > 0 ? merged : null },
+      at
+    );
+  };
+
+  /** What only a document's own nodes take: a layer of an instance is the main component's. */
+  const ownNodes = (op: DocOp) => {
+    const named = [
+      ...("id" in op ? [op.id] : []),
+      ...("ids" in op ? op.ids : []),
+      ...("parent" in op && op.parent !== null ? [op.parent] : []),
+    ];
+    const layer = named.find((id) => instanceLayerOf(id) !== null);
+    if (layer !== undefined) {
+      fail(
+        `${layer} is a layer of an instance: it is moved, wrapped or given nodes in its main component`
+      );
+    }
+  };
+
   for (const op of ops) {
+    if (
+      (op.op === "update" || op.op === "remove") &&
+      instanceLayerOf(op.id) !== null
+    ) {
+      overrideOp(
+        op.id,
+        op.op === "update" ? op.set : { hidden: true },
+        op.op === "update" ? op.at : undefined
+      );
+      continue;
+    }
+    if (op.op === "setProps" && instanceLayerOf(op.id) !== null) {
+      setLayerProps(op.id, op.props, op.at);
+      continue;
+    }
+    ownNodes(op);
     switch (op.op) {
       case "insert":
         insertOp(op);
@@ -434,8 +569,19 @@ export const touchedBy = (
 ): string[] => {
   const ids = new Set(created);
   for (const op of ops) {
-    if (op.op === "update" || op.op === "setProps" || op.op === "move") {
-      ids.add(op.id);
+    if (
+      op.op === "update" ||
+      op.op === "setProps" ||
+      op.op === "move" ||
+      op.op === "remove"
+    ) {
+      // A layer of an instance is changed on its instance (ADR 0114).
+      const layer = instanceLayerOf(op.id);
+      if (layer) {
+        ids.add(layer.instance);
+      } else if (op.op !== "remove") {
+        ids.add(op.id);
+      }
     }
   }
   const present = idsOf(after);

@@ -244,6 +244,15 @@ export interface InstanceNode extends BoxFields {
   readonly component: string;
   /** Its origin (ADR 0041): one of the editor's system components, or one of the project's. */
   readonly from: InstanceFrom;
+  /**
+   * An app component's instance overrides (ADR 0114): fields of the component's layers changed on
+   * this instance alone, by the layer's id in the component's tree (`"title"`), a nested
+   * instance's layer by the way to it (`"nav/label"`). Each is laid over the layer as the main
+   * component draws it; its `at` holds breakpoints', its `props` a nested instance's.
+   */
+  readonly overrides?:
+    | { readonly [layer: string]: { readonly [field: string]: JsonValue } }
+    | undefined;
   readonly props?: { readonly [name: string]: JsonValue } | undefined;
   /** Text rendered as the component's children. */
   readonly text?: string | undefined;
@@ -436,6 +445,9 @@ const InstanceNodeSchema = Schema.Struct({
   children: Schema.optional(children),
   component: Schema.String,
   from: InstanceFrom,
+  overrides: Schema.optional(
+    Schema.Record(Schema.String, Schema.Record(Schema.String, Json))
+  ),
   type: Schema.Literal("instance"),
 });
 

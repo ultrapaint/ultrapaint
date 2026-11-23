@@ -10,6 +10,10 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
 import { resolveAtBreakpoint } from "@ultrapaint/design-document/breakpoints";
+import {
+  findLayer,
+  layerIdOf,
+} from "@ultrapaint/design-document/instance-layers";
 import { findNode, nodeLabel } from "@ultrapaint/design-document/tree";
 import {
   type ReactNode,
@@ -23,7 +27,7 @@ import { askTaken, freshAsk, useAsk } from "../lib/ask-variations.ts";
 import { kindColor, selectionKindOf } from "../lib/selection-kind.ts";
 import { sizeLabel } from "../lib/size-label.ts";
 import { useBreakpoints } from "../state/design-system.ts";
-import { rootOfFrame, useDocuments } from "../state/documents.ts";
+import { appFileOf, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
 import { AskAgent } from "./ask-agent.tsx";
@@ -96,7 +100,13 @@ const useHoverIn = (frame: string) =>
 
 /** Whether the pointer is over one of `nodes` or something inside it. */
 const holdsHover = (nodes: readonly DesignNode[], hoverId: string | null) =>
-  hoverId !== null && nodes.some((n) => findNode(n, hoverId) !== null);
+  hoverId !== null &&
+  nodes.some(
+    (n) =>
+      findNode(n, hoverId) !== null ||
+      // A layer of an instance is inside the instance, and of each layer around it (ADR 0114).
+      hoverId.startsWith(layerIdOf(n.id, ""))
+  );
 
 /** The size, centred under the box, in the selection's colour. */
 const SizeTag = ({ color, label }: { color: string; label: string }) => (
@@ -317,7 +327,7 @@ export const SelectionChrome = ({
   }
   const root = resolveAtBreakpoint(own, breakpoints, breakpoint);
   const nodes = [leadId, ...alsoIds].flatMap((id) => {
-    const node = findNode(root, id);
+    const node = findLayer(root, id, appFileOf);
     return node ? [node] : [];
   });
   const [lead] = nodes;

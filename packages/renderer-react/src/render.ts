@@ -38,6 +38,7 @@ import {
   type StyleContext,
   tagOf,
 } from "@ultrapaint/design-document/css";
+import { layerIdOf } from "@ultrapaint/design-document/instance-layers";
 import { fillSlots, slotLayoutOf } from "@ultrapaint/design-document/slots";
 import { childrenOf } from "@ultrapaint/design-document/tree";
 import {
@@ -352,7 +353,8 @@ const marksOf = (scope: Scope, node: InstanceNode) => ({
  * An app component's instance (ADR 0041): its tree drawn in its place, with the instance's
  * property values, its choices' overrides and its children in their slots (`expandAppInstance`).
  * The root carries the instance's id, marks and box, so the instance is what is selected; the
- * tree's own nodes are not the page's, and an app component drawn inside itself is refused.
+ * tree's layers are selected as the page's are, by the way to them (`shell/side`, ADR 0114), and
+ * an app component drawn inside itself is refused.
  */
 const AppView = ({
   node,
@@ -379,12 +381,16 @@ const AppView = ({
     });
   }
   const editing = scope.isolating?.instance === node.id;
-  // Edited in place, it draws the component's own values, at the variant being edited; its tree
-  // at the page's breakpoint, as the page is.
-  const expanded = expandAppInstance(
-    file,
-    editing ? { ...node, props: scope.isolating?.props ?? {} } : node
-  );
+  // Edited in place, it draws the component's own values, at the variant being edited, under the
+  // component's ids; otherwise its layers are named by the way to them from the instance (ADR
+  // 0114). Its tree at the page's breakpoint, as the page is.
+  const expanded = editing
+    ? expandAppInstance(file, {
+        ...node,
+        overrides: undefined,
+        props: scope.isolating?.props ?? {},
+      })
+    : expandAppInstance(file, node, (id) => layerIdOf(node.id, id));
   const { filled } = expanded;
   const tree = resolveAtBreakpoint(expanded.tree, scope.breakpoints, scope.at);
   if (editing) {
@@ -397,7 +403,6 @@ const AppView = ({
         ...scope,
         drawing: [...scope.drawing, node.component],
         filled,
-        nodeAttribute: APP_NODE_ATTRIBUTE,
       },
     },
     createElement(NodeView, {

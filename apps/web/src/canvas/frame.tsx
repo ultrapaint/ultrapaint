@@ -1,6 +1,7 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
-import { findNode, nodeLabel } from "@ultrapaint/design-document/tree";
+import { findLayer } from "@ultrapaint/design-document/instance-layers";
+import { nodeLabel } from "@ultrapaint/design-document/tree";
 import type { Preview } from "@ultrapaint/preview-core/preview";
 import { X } from "lucide-react";
 import {
@@ -31,7 +32,12 @@ import { isPicked, useCanvasPicks } from "../state/canvas-picks.ts";
 import { holdsCard, useComments } from "../state/comments.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
-import { drawnRootOf, rootOfFrame, useDocuments } from "../state/documents.ts";
+import {
+  appFileOf,
+  drawnRootOf,
+  rootOfFrame,
+  useDocuments,
+} from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf, ownFrameOf, pageOfRef } from "../state/frame-ref.ts";
 import { useIsolatedRequest } from "../state/isolation.ts";
@@ -221,7 +227,7 @@ export const Frame = memo(
     // A selection whose node is gone (an undo, an agent) is let go of.
     useEffect(() => {
       const [lead] = selectedHere;
-      if (lead !== undefined && root && !findNode(root, lead)) {
+      if (lead !== undefined && root && !findLayer(root, lead, appFileOf)) {
         select(null);
       }
     }, [selectedHere, root]);

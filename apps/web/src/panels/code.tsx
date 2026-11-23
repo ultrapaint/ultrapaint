@@ -9,12 +9,9 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { pageComponentName } from "@ultrapaint/design-document/code";
 import { layoutOf, type ParentLayout } from "@ultrapaint/design-document/css";
+import { layerPath } from "@ultrapaint/design-document/instance-layers";
 import { slotLayoutOf } from "@ultrapaint/design-document/slots";
-import {
-  findPath,
-  nodeKind,
-  nodeLabel,
-} from "@ultrapaint/design-document/tree";
+import { nodeKind, nodeLabel } from "@ultrapaint/design-document/tree";
 import { routeOf } from "@ultrapaint/shared/route";
 import { Check, Code as CodeIcon, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -22,7 +19,7 @@ import { IconButton } from "../components/icon-button.tsx";
 import { useComponents } from "../state/components.ts";
 import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
-import { rootOfFrame, useDocuments } from "../state/documents.ts";
+import { appFileOf, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { ownFrameOf } from "../state/frame-ref.ts";
 import { reportError, useProject } from "../state/project.ts";
@@ -168,7 +165,9 @@ const useSubject = () => {
   });
   // The page's own frame, not a view of it, is where it is implemented from.
   const page = useProject((s) => s.pages.find((p) => p.id === frame));
-  const path = root ? findPath(root, selection?.nodeId ?? root.id) : null;
+  const path = root
+    ? layerPath(root, selection?.nodeId ?? root.id, appFileOf)
+    : null;
   const node = path?.at(-1);
   if (!node) {
     return null;

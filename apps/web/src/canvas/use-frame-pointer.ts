@@ -5,6 +5,7 @@
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
+import { isInstanceLayer } from "@ultrapaint/design-document/instance-layers";
 import { childrenOf, isContainer } from "@ultrapaint/design-document/tree";
 import {
   type MouseEvent as ReactMouseEvent,
@@ -13,10 +14,15 @@ import {
   useState,
 } from "react";
 import { holdMenu, openMenuAt, showMenu } from "../state/context-menu.ts";
-import { nodeIn, rootOfFrame, useDocuments } from "../state/documents.ts";
+import {
+  appFileOf,
+  nodeIn,
+  rootOfFrame,
+  useDocuments,
+} from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf, takesComments } from "../state/frame-ref.ts";
-import { isolate, leaveIsolation, useIsolation } from "../state/isolation.ts";
+import { leaveIsolation, useIsolation } from "../state/isolation.ts";
 import {
   isSelected,
   select,
@@ -75,6 +81,13 @@ export const leaveHover = (frameId: string) => {
   }
 };
 
+/**
+ * Whether a click goes straight to the innermost node under it: Alt, or Ctrl/⌘ as in Figma, an
+ * instance's layers included (ADR 0114).
+ */
+const deep = (e: { altKey: boolean; ctrlKey: boolean; metaKey: boolean }) =>
+  e.altKey || e.ctrlKey || e.metaKey;
+
 /** The pointer's handlers for a frame's select and comment layers, and the marquee being drawn. */
 export const useFramePointer = ({
   canvas,
@@ -119,7 +132,7 @@ export const useFramePointer = ({
     const { x, y } = toFrame(e);
     const chain = hitUnlocked(frameId, x, y);
     const [selected = null] = selectedIn(frameId);
-    return stepInto(chain, currentRoot(), selected, e.altKey);
+    return stepInto(chain, currentRoot(), selected, deep(e), appFileOf);
   };
   const onMove = (e: ReactPointerEvent) => {
     const now = performance.now();
@@ -173,7 +186,9 @@ export const useFramePointer = ({
   };
   const onDoubleClick = (e: ReactMouseEvent) => {
     const { x, y } = toFrame(e);
-    // Text is edited where it is written, whatever the two clicks before this selected.
+    // Text is edited where it is written, whatever the two clicks before this selected, a layer
+    // of an instance's too. A double-click only goes deeper: the main component is opened by
+    // asking for it (ADR 0114).
     const id = hitUnlocked(frameId, x, y).at(-1);
     const node = id
       ? nodeIn(useDocuments.getState().docs, canvas, frameId, id)
@@ -181,10 +196,6 @@ export const useFramePointer = ({
     if (id && node?.type === "text") {
       selectId(id);
       frameOf(frameId).editText(id);
-    }
-    // An app component's instance is edited in place (ADR 0041).
-    if (node?.type === "instance") {
-      isolate(frameId, node);
     }
   };
 
@@ -199,7 +210,7 @@ export const useFramePointer = ({
     const pageSelected = kind === "page" && selected === currentRoot()?.id;
     return selected !== null && !pageSelected && chain.includes(selected)
       ? selected
-      : stepInto(chain, currentRoot(), selected, alt);
+      : stepInto(chain, currentRoot(), selected, alt, appFileOf);
   };
 
   /**
@@ -221,7 +232,8 @@ export const useFramePointer = ({
         origin: { x: frame.x, y: frame.y },
       };
     }
-    if (id === current.id) {
+    // A layer of an instance is moved in its main component, never on the page (ADR 0114).
+    if (id === current.id || isInstanceLayer(id)) {
       return null;
     }
     const rect = frameOf(frameId).measure([id])[id];
