@@ -23,6 +23,8 @@ const RESULT_LINE_RE = /^- `([^`]+)`:/;
 const WORKTREE_RE = /^worktree (.+)$/m;
 const BRANCH_RE = /^branch refs\/heads\/(.+)$/m;
 const SPACES_RE = /\s+/;
+/** A diff's header line for a file renamed or copied from another. */
+const RENAME_RE = /^(rename|copy) (from|to) /;
 
 /** The first group a pattern matches in a text, if it matches. */
 const firstGroup = (re: RegExp, text: string): string | undefined => {
@@ -117,6 +119,8 @@ interface Reading {
   hunks: boolean;
   old: string | undefined;
   removed: string[];
+  /** A rename or a copy: the file it came from is not checked against main. */
+  renamed: boolean;
 }
 
 const changeRead = (r: Reading): FileChange => ({
@@ -124,7 +128,7 @@ const changeRead = (r: Reading): FileChange => ({
   deleted: r.deleted,
   file: r.file ?? r.old ?? "(a file git named oddly)",
   removed: r.removed,
-  unread: !r.deleted && (r.file === undefined || !r.hunks),
+  unread: r.renamed || (!r.deleted && (r.file === undefined || !r.hunks)),
 });
 
 /** A line of a file's header; true when it opens the first hunk. */
@@ -138,6 +142,8 @@ const readHeader = (r: Reading, line: string): boolean => {
   } else if (line.startsWith("@@")) {
     r.hunks = true;
     return true;
+  } else if (RENAME_RE.test(line)) {
+    r.renamed = true;
   }
   return false;
 };
@@ -156,6 +162,7 @@ export const changesOf = (diff: string): FileChange[] => {
         hunks: false,
         old: undefined,
         removed: [],
+        renamed: false,
       };
       readings.push(current);
       inHunk = false;
@@ -235,11 +242,25 @@ export const whyKept = Effect.fn("whyKept")(function* (at: string) {
     if (!onMainline) {
       return Option.some(`its commit ${head.slice(0, 8)} is not on main`);
     }
-    const status = yield* git(at, "status", "--porcelain");
-    if (status.split("\n").some((line) => line.startsWith("??"))) {
+    // Asked for outright: a setting can hide untracked files from `status`.
+    const status = (yield* git(
+      at,
+      "status",
+      "--porcelain",
+      "--untracked-files=all"
+    ))
+      .split("\n")
+      .filter((line) => line !== "");
+    if (status.some((line) => line.startsWith("??"))) {
       return Option.some("it has files git does not track");
     }
-    const changes = changesOf(yield* git(at, "diff", "-U0", "HEAD"));
+    // Git's own patch, never a renderer a setting names, of the files as stored.
+    const changes = changesOf(
+      yield* git(at, "diff", "--no-ext-diff", "--no-textconv", "-U0", "HEAD")
+    );
+    if (changes.length < status.length) {
+      return Option.some("git says it changed files its diff does not show");
+    }
     const main = new Map<string, string | undefined>();
     for (const change of changes) {
       if (!change.unread) {
@@ -359,16 +380,41 @@ export const findScratch = Effect.fn("findScratch")(function* () {
   } satisfies Tidy;
 });
 
-/** Removes what `findScratch` found. */
+/** Why removing must stop now: a lab job runs, or systemd cannot say; nothing when it may go on. */
+const jobsInTheWay = Effect.gen(function* () {
+  const running = yield* runningLabJobs.pipe(
+    Effect.catch(() => Effect.succeed(undefined))
+  );
+  if (running === undefined) {
+    return "systemd could not say whether a lab job runs";
+  }
+  return running.length > 0
+    ? `${running.join(", ")} may be reading it`
+    : undefined;
+});
+
+/**
+ * Removes what `findScratch` found, asking systemd before each removal and stopping when a lab job
+ * runs; the reason it stopped, or nothing when it removed all of it. A job that starts in the moment
+ * between the question and the removal is not seen.
+ */
 export const removeScratch = Effect.fn("removeScratch")(function* (
   found: Tidy
 ) {
   const { checkout } = yield* EvalsConfig;
   const fs = yield* FileSystem.FileSystem;
   for (const install of found.installs) {
+    const stop = yield* jobsInTheWay;
+    if (stop !== undefined) {
+      return stop;
+    }
     yield* fs.remove(install, { force: true, recursive: true });
   }
   for (const at of found.checkouts) {
+    const stop = yield* jobsInTheWay;
+    if (stop !== undefined) {
+      return stop;
+    }
     // Judged again at the moment it goes: it may have changed since it was listed.
     const why = yield* whyKept(at);
     if (Option.isSome(why)) {
@@ -379,6 +425,10 @@ export const removeScratch = Effect.fn("removeScratch")(function* (
     yield* git(checkout, "worktree", "remove", "--force", at);
   }
   for (const log of found.logs) {
+    const stop = yield* jobsInTheWay;
+    if (stop !== undefined) {
+      return stop;
+    }
     yield* fs.remove(log, { force: true });
   }
 });
