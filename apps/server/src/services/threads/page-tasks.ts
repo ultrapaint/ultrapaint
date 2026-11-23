@@ -132,6 +132,16 @@ const leftOut = (unknown: readonly string[]) =>
     : "";
 
 /** What a task says of the names it was given that name no component. */
+/**
+ * What a task says of the components a named page places whose code changed, the page itself up
+ * to date: not taken here, their own update's (ADR 0122).
+ */
+const pointedToTheirOwn = (names: readonly string[]) =>
+  names.length > 0
+    ? `
+(A page named is up to date with its own code, but places ${names.join(", ")}, whose code changed: they are ${componentsOwnUpdate(names)}.)`
+    : "";
+
 const leftOutComponents = (unknown: readonly string[]) =>
   unknown.length > 0
     ? `
@@ -621,13 +631,21 @@ ${numbered([
           components.changed.length > 0
             ? yield* placingOf(pages, files)
             : new Map<string, ReadonlySet<string>>();
+        // The components a named page up to date with its own code places whose code changed, and
+        // that are not taken here: their own update's, pointed to whether or not anything is taken.
+        const chosenIds = new Set(taken.chosen.map((p) => p.id));
+        const chosenComponents = new Set(components.chosen.map((c) => c.name));
+        const theirOwn = components.changed
+          .filter(
+            (c) =>
+              !chosenComponents.has(c.name) &&
+              taken.named.some(
+                (p) =>
+                  !chosenIds.has(p.id) && placedByPage.get(p.id)?.has(c.name)
+              )
+          )
+          .map((c) => c.name);
         if (taken.chosen.length === 0 && components.chosen.length === 0) {
-          // The components the pages named place whose code changed: their own update's.
-          const theirOwn = components.changed
-            .filter((c) =>
-              taken.named.some((p) => placedByPage.get(p.id)?.has(c.name))
-            )
-            .map((c) => c.name);
           return yield* taskFailure(
             "update-from-code",
             nothingToUpdate(words, taken, components, theirOwn),
@@ -656,6 +674,7 @@ ${numbered([
           entries,
           noSuchComponent: components.noSuchComponent,
           pages: taken.chosen,
+          theirOwn,
           unknown: taken.unknown,
           unlinked: taken.chosen.some(
             (p) => !isBound(itemByTarget.get(p.id)?.status)
@@ -892,6 +911,8 @@ ${ways.editPages(canvas)}
     readonly noSuchComponent: readonly string[];
     /** The pages taken. */
     readonly pages: readonly Page[];
+    /** Components named pages up to date with their own code place, whose code changed (ADR 0122). */
+    readonly theirOwn: readonly string[];
     readonly unknown: readonly string[];
     /** A page is not linked to its code yet: its files are found first. */
     readonly unlinked: boolean;
@@ -910,7 +931,7 @@ ${ways.editPages(canvas)}
 These ${several} of the design have fallen behind the application's code${anyPage ? ", or were never linked to it" : ""}.
 Bring each one up to date: rewrite it in place to show what the code draws now, and link it to
 the files that draw it. Change the designs only, never the application's code. Each ${singular}'s
-version from before stays in the designs' history, where the user can restore it.${leftOut(update.unknown)}${leftOutComponents(update.noSuchComponent)}
+version from before stays in the designs' history, where the user can restore it.${leftOut(update.unknown)}${leftOutComponents(update.noSuchComponent)}${pointedToTheirOwn(update.theirOwn)}
 ${pagesSection(update.pages, update.entries)}${componentsSection(update.components, update.componentEntries)}
 ${numbered([...readingSteps(flags), ...writingSteps(flags), ...closingSteps(flags)])}
 </ultrapaint-task>`;
