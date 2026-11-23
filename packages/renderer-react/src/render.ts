@@ -396,7 +396,13 @@ const AppView = ({
       })
     : expandAppInstance(
         file,
-        around ? { ...node, overrides: undefined, props: {} } : node,
+        around
+          ? {
+              ...node,
+              overrides: undefined,
+              props: scope.isolating?.around?.[node.id] ?? {},
+            }
+          : node,
         (id) => layerIdOf(node.id, id)
       );
   const { filled } = expanded;

@@ -97,6 +97,13 @@ export interface RenderRequest {
    */
   readonly isolate?:
     | {
+        /**
+         * The props each level around it is edited at (ADR 0114), by the instance as the page
+         * draws it: what the main components around one edited inside them are drawn with.
+         */
+        readonly around?:
+          | Readonly<Record<string, Readonly<Record<string, JsonValue>>>>
+          | undefined;
         readonly instance: string;
         readonly props?: Readonly<Record<string, JsonValue>> | undefined;
       }

@@ -271,7 +271,7 @@ describe("an app component's instance and its layers (ADR 0114)", () => {
     });
   });
 
-  it("gives a nested instance's overrides back, the page's instance's others kept", async () => {
+  it("gives a nested instance's overrides back field by field, the page's instance's others kept", async () => {
     useComponents.setState({
       components: [
         {
@@ -313,13 +313,7 @@ describe("an app component's instance and its layers (ADR 0114)", () => {
       edits: [
         {
           doc: HOME,
-          ops: [
-            {
-              id: "promo",
-              op: "update",
-              set: { overrides: { sale: { color: "blue" } } },
-            },
-          ],
+          ops: [{ id: "promo/badge/dot", op: "update", set: { color: null } }],
         },
       ],
       label: "Reset all instance overrides",
@@ -340,7 +334,7 @@ describe("an app component's instance and its layers (ADR 0114)", () => {
         },
         {
           doc: HOME,
-          ops: [{ id: "promo", op: "update", set: { overrides: null } }],
+          ops: [{ id: "promo/sale", op: "update", set: { color: null } }],
         },
       ],
       label: "Apply to Promo",

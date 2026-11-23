@@ -259,7 +259,8 @@ const instanceEntries = (f: NodeFacts): (Entry<NodeAction> | false)[] => {
       item({ kind: "editComponent" }, "Edit main component", {
         disabled: several,
       }),
-    app && item({ kind: "detach" }, "Detach"),
+    // A nested instance is detached in its main component, never on the page (ADR 0114).
+    app && !isInstanceLayer(node.id) && item({ kind: "detach" }, "Detach"),
   ];
 };
 

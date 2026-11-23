@@ -22,6 +22,7 @@ import {
   FIELD_OF_KIND,
   instanceLayerOf,
   LAYER_SEPARATOR,
+  layerIdOf,
   layerOwner,
   layerPath,
   overridesAsMainOps,
@@ -130,12 +131,14 @@ export const fieldsOf = (
 export const fieldName = (field: string) =>
   field.startsWith(PROPS) ? field.slice(PROPS.length) : field;
 
-/** Fields of a layer's instance override given back to the main component, in one undo step. */
-export const resetInstanceOverride = (
-  frame: string,
+/**
+ * The operations that give fields of a layer's instance override back to the main component,
+ * those fields alone: what another edit set meanwhile stays.
+ */
+const resetOps = (
   layerId: string,
   fields: readonly Pick<OverriddenField, "at" | "field">[]
-) => {
+): DocOp[] => {
   const sets = new Map<string | null, Record<string, null>>();
   const props = new Map<string | null, Record<string, null>>();
   for (const { at, field } of fields) {
@@ -146,33 +149,36 @@ export const resetInstanceOverride = (
     }
   }
   const atOf = (at: string | null) => (at === null ? {} : { at });
-  return applyEdits(
+  return [
+    ...[...sets].map(
+      ([at, set]): DocOp => ({ id: layerId, op: "update", set, ...atOf(at) })
+    ),
+    ...[...props].map(
+      ([at, given]): DocOp => ({
+        id: layerId,
+        op: "setProps",
+        props: given,
+        ...atOf(at),
+      })
+    ),
+  ];
+};
+
+/** Fields of a layer's instance override given back to the main component, in one undo step. */
+export const resetInstanceOverride = (
+  frame: string,
+  layerId: string,
+  fields: readonly Pick<OverriddenField, "at" | "field">[]
+) =>
+  applyEdits(
     [
       {
         doc: docOfFrame(frame, current().canvas),
-        ops: [
-          ...[...sets].map(
-            ([at, set]): DocOp => ({
-              id: layerId,
-              op: "update",
-              set,
-              ...atOf(at),
-            })
-          ),
-          ...[...props].map(
-            ([at, given]): DocOp => ({
-              id: layerId,
-              op: "setProps",
-              props: given,
-              ...atOf(at),
-            })
-          ),
-        ],
+        ops: resetOps(layerId, fields),
       },
     ],
     fields.length > 1 ? "Reset instance overrides" : "Reset instance override"
   );
-};
 
 /**
  * The instance overrides an instance draws with, by their keys from it: all of the page's own
@@ -205,13 +211,14 @@ export const overridesOfInstance = (
   return { held, overrides, owner: found.instance };
 };
 
-/** The page's instance's overrides without `keys`, as its field is then set: null once none. */
-const without = (owner: InstanceNode, keys: readonly string[]) => {
-  const left = Object.fromEntries(
-    Object.entries(owner.overrides ?? {}).filter(([key]) => !keys.includes(key))
+/**
+ * The operations that give back every field the instance overrides held under `keys` set, as they
+ * were read: an override another edit made meanwhile stays.
+ */
+const resetAllOps = (owner: InstanceNode, keys: readonly string[]): DocOp[] =>
+  keys.flatMap((key) =>
+    resetOps(layerIdOf(owner.id, key), fieldsOf(owner.overrides?.[key]))
   );
-  return Object.keys(left).length > 0 ? left : null;
-};
 
 /**
  * Every instance override of an instance given back to the main component: the page's own
@@ -226,13 +233,7 @@ export const resetInstanceOverrides = (frame: string, id: string) => {
     [
       {
         doc: docOfFrame(frame, current().canvas),
-        ops: [
-          {
-            id: found.owner.id,
-            op: "update",
-            set: { overrides: without(found.owner, found.held) },
-          },
-        ],
+        ops: resetAllOps(found.owner, found.held),
       },
     ],
     "Reset all instance overrides"
@@ -261,13 +262,7 @@ export const applyToMain = (frame: string, instance: InstanceNode) => {
       { doc: componentDocOf(file.name), ops: overridesAsMainOps(kept) },
       {
         doc: docOfFrame(frame, current().canvas),
-        ops: [
-          {
-            id: found.owner.id,
-            op: "update",
-            set: { overrides: without(found.owner, found.held) },
-          },
-        ],
+        ops: resetAllOps(found.owner, found.held),
       },
     ],
     `Apply to ${file.name}`

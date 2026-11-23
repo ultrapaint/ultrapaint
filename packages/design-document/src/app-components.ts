@@ -87,18 +87,23 @@ const CONTAINER_KINDS: ReadonlySet<string> = new Set([
   "column",
 ]);
 
+/** Whether a layer of kind `from` may be drawn as `to`: a container as another container. */
+const turnsKind = (from: unknown, to: unknown) =>
+  CONTAINER_KINDS.has(String(from)) && CONTAINER_KINDS.has(String(to));
+
 /**
  * A layer's instance override laid over it (ADR 0114): its fields over the layer's, a breakpoint's
- * beside the layer's own at that breakpoint, a nested instance's props over its own.
+ * beside the layer's own at that breakpoint, a nested instance's props over its own. Laid over
+ * another override (`onLayer` false), it is merged as it is.
  */
-const layOverride = (fields: Fields, over: Fields) => {
+const layOverride = (fields: Fields, over: Fields, onLayer = true) => {
   for (const [key, value] of Object.entries(over)) {
     if (value === undefined || value === null) {
       continue;
     }
     if (key === "props" && typeof value === "object") {
       fields.props = { ...(fields.props as Fields | undefined), ...value };
-    } else if (key === "type" && !CONTAINER_KINDS.has(String(fields.type))) {
+    } else if (key === "type" && onLayer && !turnsKind(fields.type, value)) {
       // Only a container's kind is turned, a group, a row or a column into another of the three.
     } else if (key === "at" && typeof value === "object") {
       const at = { ...(fields.at as Record<string, Fields> | undefined) };
@@ -133,8 +138,9 @@ const handedOn = (
   const out: Record<string, Fields> = { ...own };
   for (const [key, over] of handed) {
     const inner = key.slice(prefix.length);
+    // Merged as they are: what they may change is checked on the layer they are laid over.
     const fields: Fields = { ...out[inner] };
-    layOverride(fields, over);
+    layOverride(fields, over, false);
     out[inner] = fields;
   }
   return out as Overrides;

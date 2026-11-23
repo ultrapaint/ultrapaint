@@ -31,6 +31,15 @@ export const isInstanceLayer = (id: string): boolean =>
   id.includes(LAYER_SEPARATOR);
 
 /**
+ * Whether an id names a layer of an instance in this tree: the way to one, and no node of the
+ * tree's own, which keeps any id it was given, a slash in it or not.
+ */
+export const isLayerOf = (
+  root: DesignNode | null | undefined,
+  id: string
+): boolean => isInstanceLayer(id) && findPath(root, id) === null;
+
+/**
  * A layer's instance in the document and the layer's key among that instance's overrides:
  * `shell/nav/label` is `nav/label` of `shell`.
  */
@@ -151,8 +160,13 @@ export const FIELD_OF_KIND: Readonly<Record<string, string>> = {
 };
 
 /** A field's value as its property's: a layer hidden is its boolean property off. */
-export const asPropertyValue = (kind: string, value: JsonValue): JsonValue =>
-  kind === "boolean" ? value !== true : value;
+export const asPropertyValue = (kind: string, value: JsonValue): JsonValue => {
+  if (value === null) {
+    // Given back: the property's own default, not a value of its own.
+    return null;
+  }
+  return kind === "boolean" ? value !== true : value;
+};
 
 /** An instance's props set, from a breakpoint on when one is named. */
 const setPropsOp = (
@@ -207,11 +221,20 @@ export const throughProperties = (
       ...(Object.keys(own).length > 0 ? [setPropsOp(id, own, at)] : []),
     ];
   };
-  return ops.flatMap((op): DocOp[] => {
+  return ops.flatMap((given): DocOp[] => {
+    // A node of the document keeps its own id, slash or not.
+    if (!("id" in given && isLayerOf(root, given.id))) {
+      return [given];
+    }
+    // A layer removed is hidden there, through the property that shows it when one does.
+    const op: DocOp =
+      given.op === "remove"
+        ? { id: given.id, op: "update", set: { hidden: true } }
+        : given;
     if (op.op === "setProps") {
       return setProps(op.id, op.props, op.at);
     }
-    if (op.op !== "update" || !isInstanceLayer(op.id)) {
+    if (op.op !== "update") {
       return [op];
     }
     const found = ownerOf(op.id);
@@ -243,6 +266,33 @@ export const throughProperties = (
 };
 
 /**
+ * A breakpoint's part of an instance override as operations on the main component's layer: its
+ * props set one by one, the main's other props there kept, then its other fields.
+ */
+const breakpointOps = (
+  layer: string,
+  at: string,
+  set: Readonly<Record<string, unknown>>
+): DocOp[] => {
+  const { props, ...rest } = set as Record<string, JsonValue>;
+  return [
+    ...(Object.keys(rest).length > 0
+      ? [{ at, id: layer, op: "update", set: rest } as DocOp]
+      : []),
+    ...(isRecord(props)
+      ? [
+          {
+            at,
+            id: layer,
+            op: "setProps",
+            props: props as Record<string, JsonValue>,
+          } as DocOp,
+        ]
+      : []),
+  ];
+};
+
+/**
  * An instance's instance overrides as operations on its component's own document (ADR 0114,
  * "Apply to main component"): each layer's fields set on the layer, a breakpoint's at it, a nested instance's
  * props as its props; a nested instance's layer as that instance's override in the component.
@@ -266,12 +316,7 @@ export const overridesAsMainOps = (
     if (isRecord(at)) {
       for (const [name, set] of Object.entries(at)) {
         if (isRecord(set)) {
-          ops.push({
-            at: name,
-            id: layer,
-            op: "update",
-            set: set as Record<string, JsonValue>,
-          });
+          ops.push(...breakpointOps(layer, name, set));
         }
       }
     }

@@ -47,7 +47,7 @@ import {
   useEditor,
 } from "./editor.ts";
 import { boardFrameOf, frameRefOf } from "./frame-ref.ts";
-import { isolate, leaveIsolation, useIsolation } from "./isolation.ts";
+import { isolate, leaveTo, useIsolation } from "./isolation.ts";
 import { type BoardUrl, onUrlChange, readUrl, writeBoard } from "./url.ts";
 import type { Picked } from "./workspace-memory.ts";
 
@@ -265,9 +265,9 @@ export const openBoard = (place: BoardPlace, history: History = "push") => {
     useEditor.setState({ leftTab: PANEL_OF[place.view] });
     return;
   }
-  // Left before the page is put aside: the instance it was entered from is what is selected.
-  // From item to item, a tree edited in place on a board is left with its board.
-  leaveIsolation();
+  // Left before the page is put aside, every level: the page's instance it was entered from is
+  // what is selected. From item to item, a tree edited in place on a board is left with its board.
+  leaveTo(0);
   const now = useEditor.getState();
   const left: Left = board.left ?? {
     leftTab: now.leftTab,
@@ -317,7 +317,8 @@ const close = (): { left: Left | null; view: BoardView } | null => {
   if (!open) {
     return null;
   }
-  leaveIsolation();
+  // Every level edited on a board goes with it.
+  leaveTo(0);
   useBoard.setState({
     boards: NO_BOARDS,
     cameras: { ...cameras, [boardKey(open)]: useEditor.getState().view },

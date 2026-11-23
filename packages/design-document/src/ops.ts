@@ -113,6 +113,11 @@ const DUPLICATE_OFFSET = 40;
 interface ApplyOptions {
   /** The document is a canvas: its top-level nodes have a position. */
   readonly canvas: boolean;
+  /**
+   * The kind of a layer of an instance as the instance draws it (ADR 0114), when the components
+   * are known: what its kind may be turned into, as a node's may.
+   */
+  readonly kindOf?: ((layer: string) => string | undefined) | undefined;
   readonly next: IdGenerator;
 }
 
@@ -174,7 +179,7 @@ export const applyOps = (
 ): Applied => {
   const draft = cloneJson(root) as unknown as Draft;
   const created: string[] = [];
-  const { canvas, next } = options;
+  const { canvas, kindOf, next } = options;
 
   const parentId = (parent: string | null) => parent ?? draft.id;
   /** On the canvas's top level a node has a position; anywhere else it has none. */
@@ -437,6 +442,15 @@ export const applyOps = (
       fail(`${instance} is a ${node.type}: only an instance has layers`);
     }
     checkLayerFields(set);
+    const kind = kindOf?.(id);
+    if (
+      at === undefined &&
+      typeof set.type === "string" &&
+      kind !== undefined &&
+      !CONTAINER_TYPES.has(kind)
+    ) {
+      fail(`a ${kind} layer cannot become a ${set.type}`);
+    }
     const overrides = {
       ...(node.overrides as
         | Record<string, Record<string, unknown>>
@@ -446,7 +460,11 @@ export const applyOps = (
     // override gives it, or a stand-in that is dropped again.
     const own = overrides[layer];
     const ownKind = typeof own?.type === "string" ? own.type : undefined;
-    const over: Draft = { ...own, id: layer, type: ownKind ?? DRAFT_KIND };
+    const over: Draft = {
+      ...own,
+      id: layer,
+      type: ownKind ?? kind ?? DRAFT_KIND,
+    };
     if (at === undefined) {
       setOrDrop(over, set);
     } else {

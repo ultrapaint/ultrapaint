@@ -26,6 +26,7 @@ import { variationsFileOf } from "@ultrapaint/contracts/variations";
 import { serialiseDocument } from "@ultrapaint/design-document/format";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import {
+  findLayer,
   isInstanceLayer,
   LAYER_SEPARATOR,
   throughProperties,
@@ -589,6 +590,9 @@ export class DocumentService extends Context.Service<
                   throughProperties(change.ops, loaded.root, fileOfLayer),
                   {
                     canvas: canvas !== null,
+                    // What a layer of an instance may be turned into is its own kind's to say.
+                    kindOf: (layer) =>
+                      findLayer(loaded.root, layer, fileOfLayer)?.type,
                     next: makeIdGenerator(idsOf(loaded.root as DesignNode)),
                   }
                 ),

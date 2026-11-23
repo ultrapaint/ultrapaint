@@ -5,7 +5,7 @@
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
-import { isInstanceLayer } from "@ultrapaint/design-document/instance-layers";
+import { isLayerOf } from "@ultrapaint/design-document/instance-layers";
 import { childrenOf, isContainer } from "@ultrapaint/design-document/tree";
 import {
   type MouseEvent as ReactMouseEvent,
@@ -236,7 +236,7 @@ export const useFramePointer = ({
       };
     }
     // A layer of an instance is moved in its main component, never on the page (ADR 0114).
-    if (id === current.id || isInstanceLayer(id)) {
+    if (id === current.id || isLayerOf(current, id)) {
       return null;
     }
     const rect = frameOf(frameId).measure([id])[id];

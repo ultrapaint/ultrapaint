@@ -518,6 +518,33 @@ describe("an instance's layers (ADR 0114)", () => {
     });
   });
 
+  it("turn only a container's kind, from a breakpoint on only a row or a column's", () => {
+    const kinds = (kind: string) => ({ ...options(), kindOf: () => kind });
+    expect(() =>
+      applyOps(
+        shell(),
+        [{ id: "shell/title", op: "update", set: { type: "row" } }],
+        kinds("text")
+      )
+    ).toThrow(DocumentOpError);
+    expect(() =>
+      applyOps(
+        shell(),
+        [{ at: "md", id: "shell/side", op: "update", set: { type: "row" } }],
+        kinds("group")
+      )
+    ).toThrow(DocumentOpError);
+    expect(
+      overridesOf(
+        applyOps(
+          shell(),
+          [{ id: "shell/side", op: "update", set: { type: "group" } }],
+          kinds("column")
+        ).root
+      )
+    ).toEqual({ side: { type: "group" } });
+  });
+
   it("leave a node of the document whose own id has a slash a node", () => {
     const slashed: PageNode = {
       children: [text("a/b", "Slashed")],

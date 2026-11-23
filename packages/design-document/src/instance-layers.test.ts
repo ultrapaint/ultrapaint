@@ -1,9 +1,10 @@
 import type { AppComponentFile } from "@ultrapaint/contracts/components";
-import type { DesignNode } from "@ultrapaint/contracts/document";
+import type { DesignNode, DocOp } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
 import {
   findLayer,
   instanceLayerOf,
+  isLayerOf,
   layerOwner,
   layerPath,
   overridesAsMainOps,
@@ -229,5 +230,64 @@ describe("an instance's own layers (ADR 0114)", () => {
     expect(JSON.stringify(layers)).not.toContain('"title"');
     expect(layers.map((l) => l.id)).toEqual(["shell/side", "shell/main"]);
     expect(layers[0]).toMatchObject({ fill: "#000" });
+  });
+});
+
+describe("an edit of an instance's layer, at its edges (ADR 0114)", () => {
+  const OUTER: AppComponentFile = {
+    ...SHELL,
+    name: "Outer",
+    properties: [
+      {
+        default: false,
+        kind: "boolean",
+        name: "aside",
+        targets: [{ node: "side" }],
+      },
+    ],
+  };
+  const files = new Map([...FILES, [OUTER.name, OUTER]]);
+  const page = (extra: DesignNode[] = []): DesignNode => ({
+    children: [
+      { component: "Outer", from: "#app", id: "shell", type: "instance" },
+      ...extra,
+    ],
+    id: "page",
+    type: "page",
+  });
+  const routed = (ops: DocOp[], root = page()) =>
+    throughProperties(ops, root, (n) => files.get(n));
+
+  it("gives a boolean property back to its default when the layer's visibility is", () => {
+    expect(
+      routed([{ id: "shell/side", op: "update", set: { hidden: null } }])
+    ).toEqual([{ id: "shell", op: "setProps", props: { aside: null } }]);
+  });
+
+  it("hides a layer through the property that shows it", () => {
+    expect(routed([{ id: "shell/side", op: "remove" }])).toEqual([
+      { id: "shell", op: "setProps", props: { aside: false } },
+    ]);
+  });
+
+  it("leaves an edit of a page's node whose own id has a slash to that node", () => {
+    const op: DocOp = { id: "shell/side", op: "update", set: { hidden: true } };
+    const slashed = page([
+      { id: "shell/side", role: "paragraph", text: "Mine", type: "text" },
+    ]);
+    expect(routed([op], slashed)).toEqual([op]);
+    expect(isLayerOf(slashed, "shell/side")).toBe(false);
+    expect(isLayerOf(page(), "shell/side")).toBe(true);
+  });
+
+  it("applies a breakpoint's props to the main component prop by prop", () => {
+    expect(
+      overridesAsMainOps({
+        nav: { at: { md: { gap: 4, props: { label: "Hi" } } } },
+      })
+    ).toEqual([
+      { at: "md", id: "nav", op: "update", set: { gap: 4 } },
+      { at: "md", id: "nav", op: "setProps", props: { label: "Hi" } },
+    ]);
   });
 });
