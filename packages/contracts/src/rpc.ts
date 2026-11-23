@@ -108,6 +108,7 @@ import {
   McpConnection,
   PromptInput,
   QueuedPrompt,
+  SandboxStatus,
   SlashCommand,
   Thread,
   ThreadItem,
@@ -656,6 +657,8 @@ const requestRpcs = [
   Rpc.make("agents.list", { success: Schema.Array(AgentConfig) }),
   /** The options each agent's sessions offer, for the agents that have run here before. */
   Rpc.make("agents.options", { success: Schema.Array(AgentOptions) }),
+  /** Whether this computer can confine agents at all, whatever the person chose (ADR 0119). */
+  Rpc.make("agents.sandbox", { success: SandboxStatus }),
   /** What an agent's sessions offer, starting one to ask when it has not answered this run. */
   Rpc.make("agents.discover", {
     error: ThreadError,

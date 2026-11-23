@@ -9,6 +9,7 @@ import {
   KeepFindingsRow,
   ProfileRow,
   SandboxRow,
+  sandboxUnavailable,
 } from "./settings-profile.tsx";
 
 vi.mock(
@@ -219,6 +220,10 @@ describe("Run agents in a sandbox", () => {
   it("is on while the profile says nothing, and saves turning it off (ADR 0119)", async () => {
     fakeApi.respond("profile.get", () => ({}));
     fakeApi.respond("profile.set", (input) => ({ ...input }));
+    fakeApi.respond("agents.sandbox", () => ({
+      available: true,
+      platform: "linux",
+    }));
     container = document.createElement("div");
     mounted = createRoot(container);
     act(() => {
@@ -237,5 +242,44 @@ describe("Run agents in a sandbox", () => {
       { input: { sandbox: false }, method: "profile.set" },
     ]);
     expect(toggle?.hasAttribute("data-checked")).toBe(false);
+  });
+
+  it("shows off and says why on a computer that can't confine agents, keeping the choice", async () => {
+    fakeApi.respond("profile.get", () => ({}));
+    fakeApi.respond("agents.sandbox", () => ({
+      available: false,
+      platform: "linux",
+    }));
+    container = document.createElement("div");
+    mounted = createRoot(container);
+    act(() => {
+      mounted.render(<SandboxRow />);
+    });
+    await act(async () => {
+      await fakeApi.requested("agents.sandbox");
+      await fakeApi.requested("profile.get");
+    });
+    const toggle = container.querySelector<HTMLElement>('[role="switch"]');
+    expect(toggle?.hasAttribute("data-checked")).toBe(false);
+    expect(toggle?.hasAttribute("data-disabled")).toBe(true);
+    expect(container.textContent).toContain("Install bubblewrap");
+    expect(fakeApi.calls.some((c) => c.method === "profile.set")).toBe(false);
+  });
+
+  it("says what stopped the sandbox, or that the system has none", () => {
+    expect(
+      sandboxUnavailable({
+        available: false,
+        platform: "linux",
+        problem:
+          "bwrap refused to start: setting up uid map: Permission denied",
+      })
+    ).toContain("setting up uid map: Permission denied. Once it can start");
+    expect(
+      sandboxUnavailable({ available: false, platform: "win32" })
+    ).toContain("macOS and Linux only");
+    expect(sandboxUnavailable({ available: true, platform: "darwin" })).toBe(
+      null
+    );
   });
 });
