@@ -358,7 +358,7 @@ const QuestionCard = ({
         </IconButton>
       </div>
       <div className="flex flex-col gap-0.5">
-        <span className="font-heading-xsmall text-foreground">
+        <span className="wrap-break-word font-body text-foreground">
           {question.question}
           {question.optional ? (
             <span className="font-body text-muted-foreground"> (optional)</span>
