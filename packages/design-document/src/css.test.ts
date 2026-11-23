@@ -165,11 +165,11 @@ describe("declarationsOf", () => {
     const ctx = makeStyleContext(ds);
     expect(declarationsOf(page, ctx).minHeight).toBe("100vh");
     // In its frame, the screen is the frame.
-    expect(nodeStyle(page, ctx)).toEqual({
+    expect(nodeStyle(page, { ...ctx, screen: "100cqh" })).toEqual({
       ...baseStyle(page),
       display: "flex",
       flexDirection: "column",
-      minHeight: "100%",
+      minHeight: "100cqh",
     });
   });
 });
@@ -187,6 +187,23 @@ describe("a page as its own container", () => {
     expect(declarationsOf(page, ctx).flexDirection).toBe("column");
     expect(runsInRow(row, [])).toBe(true);
     expect(runsInRow(page, [])).toBe(false);
+  });
+
+  it("is at least as tall as the screen, its own minimum taller only (ADR 0075)", () => {
+    const page: DesignNode = {
+      children: [],
+      id: "p",
+      minHeight: 1024,
+      type: "page",
+    };
+    const ctx = makeStyleContext(ds);
+    expect(declarationsOf(page, ctx).minHeight).toBe("max(1024px, 100vh)");
+    expect(declarationsOf(page, { ...ctx, screen: "100cqh" }).minHeight).toBe(
+      "max(1024px, 100cqh)"
+    );
+    // Any other node's minimum is its own.
+    const column: DesignNode = { ...page, type: "column" };
+    expect(declarationsOf(column, ctx).minHeight).toBe(1024);
   });
 });
 

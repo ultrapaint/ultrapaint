@@ -395,6 +395,18 @@ export default function PricingPage() {
 }`);
   });
 
+  it("writes a page's own minimum as the screen's height at least (ADR 0075)", () => {
+    const tall: DesignNode = {
+      children: [],
+      id: "root",
+      minHeight: 1024,
+      type: "page",
+    };
+    expect(toCode(tall, ds, { component: "TallPage" })).toContain(
+      'className="flex flex-col min-h-[max(1024px,_100vh)]"'
+    );
+  });
+
   it("writes a node below the page as its markup alone", () => {
     const hero = page.children[0] as DesignNode;
     expect(
