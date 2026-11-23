@@ -308,6 +308,18 @@ describe("a frame gesture", () => {
     useCanvasPicks.setState({ ids: [] });
   });
 
+  it("adds a frame by its name pressed with Shift, its click keeping it so with the key let go (ADR 0121)", () => {
+    const about = "about.page.json";
+    useCanvasPicks.setState({ ids: [home.id, NODE] });
+    beginFrameGesture({ ...press(0, 0), shiftKey: true }, about, "move");
+    expect(useCanvasPicks.getState().ids).toEqual([home.id, NODE, about]);
+    expect(listeners.size).toBe(0);
+    // The click after it, Shift let go of by then, picks nothing; asked once.
+    expect(pickedFramesMoved()).toBe(true);
+    expect(pickedFramesMoved()).toBe(false);
+    useCanvasPicks.setState({ ids: [] });
+  });
+
   it("a cancelled pointer puts the frame back and saves nothing", async () => {
     beginFrameGesture(press(0, 0), home.id, "resize", "se");
     fire("pointermove", 100, 50);
