@@ -150,6 +150,7 @@ export class ProfileService extends Context.Service<
         const next: UserProfile = {
           ...(name ? { displayName: name } : {}),
           ...(merged.keepFindings === true && { keepFindings: true }),
+          ...(merged.sandbox === false && { sandbox: false }),
           ...(Object.keys(preferences).length > 0 && { preferences }),
         };
         const text = yield* encodeProfile(next).pipe(Effect.orDie);

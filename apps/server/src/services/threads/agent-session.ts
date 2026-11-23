@@ -168,6 +168,8 @@ export const makeSessionOpener = Effect.fnUntraced(function* () {
   }) {
     const { agent, config, editorMcp, root, thread } = options;
     const threadId = thread.id;
+    // As the launcher asked it: the machine can, and the person has not turned it off.
+    const confined = yield* sandbox.confines;
     const agreed = negotiated(
       yield* Effect.mapError(agent.initialize, agentFailure)
     );
@@ -176,7 +178,7 @@ export const makeSessionOpener = Effect.fnUntraced(function* () {
       agent,
       thread.sessionId,
       root,
-      sandbox.available ? config.sandboxMeta : undefined,
+      confined ? config.sandboxMeta : undefined,
       mcpServers
     ).pipe(
       Effect.mapError((error) =>
@@ -243,7 +245,7 @@ export const makeSessionOpener = Effect.fnUntraced(function* () {
         ...(resumed ? {} : { context: undefined }),
         currentModeId,
         modes,
-        sandboxed: sandbox.available,
+        sandboxed: confined,
         sessionId: info.sessionId,
       },
       resumed,

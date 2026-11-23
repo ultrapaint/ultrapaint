@@ -236,5 +236,11 @@ export const UserProfile = Schema.Struct({
    * the kept ones, one name at a time.
    */
   preferences: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  /**
+   * Whether the agents the editor starts on this computer run in the operating system's sandbox
+   * (ADR 0013, 0119). Absent is on; the person turns it off, never a project, which could turn
+   * off the sandbox of whoever opens it. An agent started since the change follows it.
+   */
+  sandbox: Schema.optional(Schema.Boolean),
 });
 export type UserProfile = typeof UserProfile.Type;
