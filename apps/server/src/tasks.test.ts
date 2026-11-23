@@ -509,6 +509,22 @@ describe("bringing pages up to date from their code (ADR 0115)", () => {
         })
     );
 
+    it.effect(
+      "refuses, named by nothing, when no linked page's code changed, saying how to take one not linked yet",
+      () =>
+        Effect.gen(function* () {
+          assert.deepStrictEqual(
+            yield* failureOf({ _tag: "UpdateFromCode", targets: [] }),
+            {
+              command: "update-from-code",
+              message:
+                "every page linked to its code is up to date with it; a page not linked yet is taken only when it or its canvas is named",
+              next: "Say so, and stop.",
+            }
+          );
+        })
+    );
+
     it.effect("refuses when every page named is up to date with its code", () =>
       Effect.gen(function* () {
         yield* behindItsCode;
