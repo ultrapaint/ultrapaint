@@ -495,7 +495,7 @@ export const appVariantOfBoard = (name: string): AppVariant | null => {
     : { member: name.slice(eq + 1), property: name.slice(0, eq) };
 };
 
-/** The instance a board of an app component draws, which a double-click edits in place. */
+/** The instance a board of an app component draws, which a click edits in place (ADR 0114). */
 const APP_INSTANCE = "instance";
 
 /**

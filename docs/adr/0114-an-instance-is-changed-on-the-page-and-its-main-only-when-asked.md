@@ -1,6 +1,6 @@
 # ADR 0114: An instance's layers are selected on the page and changed for it alone; its main component is edited only when asked
 
-Status: accepted, 2026-11-23; not yet built. Supersedes 0041's "Editing an app component happens
+Status: accepted, 2026-11-23. Supersedes 0041's "Editing an app component happens
 in place" (a double-click isolating an instance, every edit going to the main component). The rest
 of 0041 stands: properties, slots, variants, nesting, Detach and implementing.
 

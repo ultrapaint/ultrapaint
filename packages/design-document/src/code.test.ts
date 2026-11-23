@@ -131,6 +131,32 @@ export default function HomePage() {
   });
 });
 
+describe("an app component's instance overrides (ADR 0114)", () => {
+  it("are written as props named for the layer and the field, a breakpoint's at its prefix", () => {
+    const none: ClassWriter = { classes: () => [] };
+    const shell: DesignNode = {
+      component: "AppShell",
+      from: "#app",
+      id: "shell",
+      overrides: {
+        nav: { props: { label: "Home" } },
+        "nav/text": { color: "red" },
+        side: { at: { md: { hidden: true } }, fill: "#000" },
+      },
+      props: { title: "Orders" },
+      type: "instance",
+    };
+    const code = toCode(shell, none, {
+      breakpoints: [{ min: 768, name: "md" }],
+    });
+    expect(code).toContain('navLabel="Home"');
+    expect(code).toContain('navTextColor="red"');
+    expect(code).toContain('sideFill="#000"');
+    expect(code).toContain('title="Orders"');
+    expect(code).toContain("sideHidden");
+  });
+});
+
 describe("a tinted image", () => {
   it("is written as its file masking its tint, the tint taking the fill's classes", () => {
     const fills: ClassWriter = {

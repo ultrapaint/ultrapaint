@@ -169,3 +169,89 @@ describe("the inspector's spacing fields", () => {
     expect(picked()).toBe(0);
   });
 });
+
+describe("an app component's instance and its layers (ADR 0114)", () => {
+  /** What the last edit asked the server for. */
+  const applied = () =>
+    fakeApi.calls.findLast((c) => c.method === "documents.apply")?.input;
+  const withPromo = (overrides?: Record<string, Record<string, unknown>>) =>
+    useDocuments.setState({
+      docs: {
+        [HOME]: {
+          ...home,
+          root: {
+            children: [
+              {
+                component: "Promo",
+                from: "#app",
+                id: "promo",
+                type: "instance",
+                ...(overrides && { overrides }),
+              },
+            ],
+            id: "home",
+            type: "page",
+          } as DesignNode,
+        },
+      },
+    });
+  const button = (label: string) =>
+    [...container.querySelectorAll("button")].find(
+      (b) => b.textContent === label
+    );
+
+  it("offers the main component, though it has no properties", () => {
+    withPromo();
+    act(() => select({ frame: HOME, nodeId: "promo" }));
+    expect(button("Edit main component")).toBeDefined();
+    act(() => button("Edit main component")?.click());
+    expect(useIsolation.getState().isolated?.component).toBe("Promo");
+  });
+
+  it("names the instance a layer is in, lists its overrides, and resets one", async () => {
+    withPromo({ sale: { color: "red" } });
+    act(() => select({ frame: HOME, nodeId: "promo/sale" }));
+    expect(
+      container.querySelector("[data-instance-layer]")?.textContent
+    ).toContain("In Promo · Promo");
+    expect(
+      container.querySelector('[data-override="color"]')?.textContent
+    ).toBe("red");
+    fakeApi.respond("documents.apply", () => ({ changes: [], created: [] }));
+    const reset = container.querySelector(
+      '[data-override="color"] ~ button'
+    ) as HTMLButtonElement | null;
+    act(() => reset?.click());
+    await act(() => fakeApi.requested("documents.apply"));
+    expect(applied()).toEqual({
+      edits: [
+        {
+          doc: HOME,
+          ops: [{ id: "promo/sale", op: "update", set: { color: null } }],
+        },
+      ],
+      label: "Reset override",
+    });
+  });
+
+  it("gives an instance's overrides back, or applies them to every instance", async () => {
+    withPromo({ sale: { color: "red" } });
+    act(() => select({ frame: HOME, nodeId: "promo" }));
+    fakeApi.respond("documents.apply", () => ({ changes: [], created: [] }));
+    act(() => button("Apply to main")?.click());
+    await act(() => fakeApi.requested("documents.apply"));
+    expect(applied()).toEqual({
+      edits: [
+        {
+          doc: "component:Promo",
+          ops: [{ id: "sale", op: "update", set: { color: "red" } }],
+        },
+        {
+          doc: HOME,
+          ops: [{ id: "promo", op: "update", set: { overrides: null } }],
+        },
+      ],
+      label: "Apply to Promo",
+    });
+  });
+});

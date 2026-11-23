@@ -10,6 +10,7 @@ import {
   ownLayersOf,
   throughProperties,
 } from "./instance-layers.ts";
+import { childrenOf } from "./tree.ts";
 
 const NAV_ITEM: AppComponentFile = {
   name: "NavItem",
@@ -220,7 +221,7 @@ describe("an instance's overrides applied to its main component (ADR 0114)", () 
 
 describe("an instance's own layers (ADR 0114)", () => {
   it("are the component's as the instance draws them, the page's nodes in its slots left out", () => {
-    const [shell] = (PAGE as { children: DesignNode[] }).children;
+    const [shell] = childrenOf(PAGE);
     const layers = shell ? ownLayersOf(shell, fileOf) : [];
     expect(JSON.stringify(layers)).not.toContain('"title"');
     expect(layers.map((l) => l.id)).toEqual(["shell/side", "shell/main"]);

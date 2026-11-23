@@ -7,7 +7,7 @@
  */
 import { isVariantKey } from "@ultrapaint/contracts/component-names";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
-import type { DesignNode } from "@ultrapaint/contracts/document";
+import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import { shortName, tokensOfKind } from "@ultrapaint/contracts/token-table";
 import { ROOT_PX, toPx } from "@ultrapaint/contracts/token-value";
 import { childrenOf } from "./tree.ts";
@@ -141,6 +141,12 @@ export const resolveAtBreakpoint = (
   return resolveWith(node, holding, holding.join(" "));
 };
 
+/** The breakpoints an instance's overrides set anything at, in their own `at` (ADR 0114). */
+const overrideBreakpoints = (node: InstanceNode): string[] =>
+  Object.values(node.overrides ?? {}).flatMap(({ at }) =>
+    at && typeof at === "object" && !Array.isArray(at) ? Object.keys(at) : []
+  );
+
 /** The breakpoints the tree sets anything at, smallest first: what its code has prefixes for. */
 export const breakpointsUsed = (
   node: DesignNode,
@@ -150,6 +156,11 @@ export const breakpointsUsed = (
   const visit = (n: DesignNode) => {
     for (const name of Object.keys(n.at ?? {})) {
       names.add(name);
+    }
+    if (n.type === "instance") {
+      for (const name of overrideBreakpoints(n)) {
+        names.add(name);
+      }
     }
     for (const child of childrenOf(n)) {
       visit(child);

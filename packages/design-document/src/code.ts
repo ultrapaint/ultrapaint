@@ -255,21 +255,86 @@ const asAppComponentCode = (
   const parent = w.base.endsWith("/ui") ? w.base.slice(0, -3) : w.base;
   w.modules.set(node.id, `${parent}/${applicationFileOf(node.component)}`);
   // What a breakpoint sets of a property is laid over the base's by name: both under the prop's.
-  const at = node.at
-    ? Object.fromEntries(
-        Object.entries(node.at).map(([breakpoint, fields]) => [
-          breakpoint,
-          fields.props ? { ...fields, props: asProps(fields.props) } : fields,
-        ])
-      )
-    : undefined;
+  // The instance's overrides are props too, named for their layer and field (ADR 0114).
+  const over = overrideProps(node.overrides);
+  const breakpoints = new Set([
+    ...Object.keys(node.at ?? {}),
+    ...Object.keys(over.at),
+  ]);
+  const at =
+    breakpoints.size > 0
+      ? Object.fromEntries(
+          [...breakpoints].map((breakpoint) => {
+            const fields = node.at?.[breakpoint] ?? {};
+            const props = {
+              ...(fields.props && asProps(fields.props)),
+              ...over.at[breakpoint],
+            };
+            return [
+              breakpoint,
+              Object.keys(props).length > 0 ? { ...fields, props } : fields,
+            ];
+          })
+        )
+      : undefined;
+  const props = { ...(node.props && asProps(node.props)), ...over.base };
+  const { overrides: _overrides, ...own } = node;
   return {
-    ...node,
-    ...(node.props && { props: asProps(node.props) }),
+    ...own,
+    ...(Object.keys(props).length > 0 && { props }),
     ...(at && { at }),
     ...(node.children && { children }),
-  };
+  } as DesignNode;
 };
+
+/**
+ * An instance's overrides as the props the application's component takes for them (ADR 0114):
+ * each field by its layer's way and its name (`side fill` as `sideFill`, a nested instance's prop
+ * `nav label` as `navLabel`), a breakpoint's apart.
+ */
+const overrideProps = (
+  overrides: InstanceNode["overrides"]
+): {
+  readonly at: Record<string, Record<string, JsonValue>>;
+  readonly base: Record<string, JsonValue>;
+} => {
+  const base: Record<string, JsonValue> = {};
+  const at: Record<string, Record<string, JsonValue>> = {};
+  const named = (layer: string, field: string) =>
+    propNameOf(`${layer.split("/").join(" ")} ${field}`);
+  const add = (
+    into: Record<string, JsonValue>,
+    layer: string,
+    fields: Readonly<Record<string, JsonValue>>
+  ) => {
+    for (const [field, value] of Object.entries(fields)) {
+      if (field === "props" && isJsonRecord(value)) {
+        add(into, layer, value);
+      } else if (field !== "at") {
+        into[named(layer, field)] = value;
+      }
+    }
+  };
+  for (const [layer, fields] of Object.entries(overrides ?? {})) {
+    add(base, layer, fields);
+    const byBreakpoint = fields.at;
+    if (isJsonRecord(byBreakpoint)) {
+      for (const [breakpoint, set] of Object.entries(byBreakpoint)) {
+        if (isJsonRecord(set)) {
+          at[breakpoint] ??= {};
+          add(at[breakpoint], layer, set);
+        }
+      }
+    }
+  }
+  return { at, base };
+};
+
+/** Whether a JSON value is an object, not an array. */
+const isJsonRecord = (
+  value: JsonValue | undefined
+): value is { readonly [key: string]: JsonValue } =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
 /** Property values by the props they are written as. */
 const asProps = (

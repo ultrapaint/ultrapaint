@@ -207,7 +207,10 @@ them as they are; their look is implemented on its own (/implement <Component>),
       ? `
 App components (from "${APP_FROM}"): ${apps.map((c) => c.name).join(", ")}. Each is a component of the
 application, implemented on its own (/implement <Component>): use it, with its instance's props as its
-properties and its children in its slots; one the application does not have yet is implemented first.`
+properties and its children in its slots; one the application does not have yet is implemented first.
+An instance's \`overrides\` (ADR 0114) change its component's layers for it alone: give the component a
+prop for each field they change, named for the layer and the field (\`side fill\` as \`sideFill\`), and
+pass the instance's value.`
       : ""
   }
 `;

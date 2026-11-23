@@ -40,12 +40,15 @@ const now = () => ({
 });
 
 /** The instance of the frame's document a layer is drawn by, and the layer's key in its overrides. */
-export const overriddenOn = (frame: string, layerId: string) => {
+export const overriddenOn = (
+  frame: string,
+  layerId: string,
+  { canvas, docs } = now()
+) => {
   const at = instanceLayerOf(layerId);
   if (!at) {
     return null;
   }
-  const { canvas, docs } = now();
   const instance = nodeIn(docs, canvas, frame, at.instance);
   return instance?.type === "instance"
     ? { instance, key: at.layer, over: instance.overrides?.[at.layer] }
