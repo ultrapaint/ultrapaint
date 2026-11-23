@@ -243,6 +243,41 @@ describe("an app component's instance and its layers (ADR 0114)", () => {
     });
   });
 
+  it("writes a field's default on a layer, so it overrides what the main component sets", async () => {
+    useComponents.setState({
+      components: [
+        {
+          name: "Promo",
+          origin: "app",
+          properties: [],
+          slots: [],
+          tree: {
+            children: [{ ...text("sale"), align: "center" } as DesignNode],
+            id: "p-root",
+            type: "column",
+          },
+          version: 1,
+        },
+      ] as never,
+    });
+    withPromo();
+    act(() => select({ frame: HOME, nodeId: "promo/sale" }));
+    fakeApi.respond("documents.apply", () => ({ changes: [], created: [] }));
+    const start = [...container.querySelectorAll("button")].find(
+      (b) => b.getAttribute("aria-label") === "Start" || b.title === "Start"
+    );
+    act(() => start?.click());
+    await act(() => fakeApi.requested("documents.apply"));
+    expect(applied()).toMatchObject({
+      edits: [
+        {
+          doc: HOME,
+          ops: [{ id: "promo/sale", op: "update", set: { align: "start" } }],
+        },
+      ],
+    });
+  });
+
   it("marks nothing on the page's own nodes", () => {
     act(() => select({ frame: HOME, nodeId: "title" }));
     expect(container.querySelector("[data-overridden]")).toBeNull();

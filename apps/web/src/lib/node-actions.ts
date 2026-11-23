@@ -29,7 +29,10 @@ import {
   newElement,
 } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
-import { throughProperties } from "@ultrapaint/design-document/instance-layers";
+import {
+  isLayerOf,
+  throughProperties,
+} from "@ultrapaint/design-document/instance-layers";
 import { foldOps, wrapperOf } from "@ultrapaint/design-document/page-root";
 import {
   canvasDocOf,
@@ -67,7 +70,7 @@ import {
 } from "../state/selection.ts";
 import { insertedAt, propsOpsAt, updateOpsAt } from "./breakpoint-edits.ts";
 import { isPageRoot } from "./menu-model.ts";
-import type { NodeField } from "./node-fields.ts";
+import { type NodeField, unsetValueOf } from "./node-fields.ts";
 
 interface Context {
   readonly activePage: string | null;
@@ -593,6 +596,31 @@ export const detachInstances = (target?: Selection) => {
 };
 
 /**
+ * A field taken off a layer of an instance (ADR 0114) as the value it then has: its default, so
+ * that it overrides what the main component sets (No wrap `false`, a text's align `start`), rather
+ * than giving the main component's value back. A field without a default is taken off.
+ */
+const withDefaults = (
+  node: DesignNode,
+  set: Record<string, JsonValue>
+): Record<string, JsonValue> =>
+  Object.fromEntries(
+    Object.entries(set).map(([key, value]) => {
+      const drawn = (node as unknown as Record<string, JsonValue | undefined>)[
+        key
+      ];
+      if (value !== null || drawn === undefined || drawn === null) {
+        return [key, value];
+      }
+      const unset = unsetValueOf(node, key);
+      if (unset !== undefined) {
+        return [key, unset];
+      }
+      return [key, typeof drawn === "boolean" ? false : null];
+    })
+  );
+
+/**
  * The same operations for each node, one undo step for all of them. A field lands at the
  * breakpoint of the view it is edited in (ADR 0036), and what an edit works out from the node
  * (the rest of its border) is the node as drawn there; `asStored` is for the edits that name
@@ -617,9 +645,14 @@ const applyToEach = (
       continue;
     }
     const frame = editedFrameOf(selection, named);
+    const layer = isLayerOf(rootOfFrame(docs, canvas, named), node.id);
     const ops = opsOf(asDrawnIn(node, frame)).flatMap((op): DocOp[] => {
       if (op.op === "update" && op.at === undefined) {
-        return updateOpsAt(node, frame, op.set);
+        return updateOpsAt(
+          node,
+          frame,
+          layer ? withDefaults(node, op.set) : op.set
+        );
       }
       if (op.op === "setProps" && op.at === undefined) {
         return propsOpsAt(node, frame, op.props);

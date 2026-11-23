@@ -21,6 +21,7 @@ import {
   componentLayerOf,
   FIELD_OF_KIND,
   instanceLayerOf,
+  isLayerOf,
   LAYER_SEPARATOR,
   layerIdOf,
   layerOwner,
@@ -67,7 +68,10 @@ export const overriddenOn = (
   readonly key: string;
   readonly over: Overrides[string] | undefined;
 } | null => {
-  const at = instanceLayerOf(id);
+  // A node of the document is itself, whatever its id; only a layer's id is the way to it.
+  const at = isLayerOf(rootOfFrame(docs, canvas, frame), id)
+    ? instanceLayerOf(id)
+    : null;
   const instance = nodeIn(docs, canvas, frame, at ? at.instance : id);
   if (instance?.type !== "instance") {
     return null;
@@ -329,7 +333,9 @@ export const makeProperty = async (
     name: named,
     targets: [{ node: layer }],
   };
-  // Worked out before the component changes: the field is the layer's instance override until then.
+  // Made before the component changes: until the property is there, taking the field off the
+  // layer is the instance override's alone, never routed to the new property, and the value
+  // waits on the instance under the property's name.
   const ops: DocOp[] = [
     { id: layerId, op: "update", set: { [field]: null } },
     ...throughProperties(
@@ -344,10 +350,11 @@ export const makeProperty = async (
       appFileOf
     ),
   ];
-  if (await changeFile(file, { op: "addProperty", property })) {
-    await applyEdits(
-      [{ doc: docOfFrame(frame, canvas), ops }],
-      `Make ${named} a property`
-    );
+  const moved = await applyEdits(
+    [{ doc: docOfFrame(frame, canvas), ops }],
+    `Make ${named} a property`
+  );
+  if (moved) {
+    await changeFile(file, { op: "addProperty", property });
   }
 };
