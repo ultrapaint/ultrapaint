@@ -2,7 +2,9 @@
  * The desktop app's tabs over the window (ADR 0107, `docs/designs/projects/1-tabs`): Home first
  * (the start page), then one per open project in the order opened, with its icon and name, a
  * spinner while an agent works there and a dot while one waits on the person, the shown one's ×
- * and the others' under the pointer, and a + at the end. The + opens a menu and never a project by itself: Recent (the projects not open,
+ * and the others' under the pointer, and a + at the end. A project's tab is one width whatever its
+ * name and marks, the name cut short with an ellipsis, narrower only when the window runs out of
+ * room. The + opens a menu and never a project by itself: Recent (the projects not open,
  * each with a × that takes it off the list), Open folder…, Open over SSH…, New project…; what is
  * chosen opens in a new tab. The strip is the window's title bar on a Mac, the room for its
  * buttons left at its start. It is a page of its own (`tabs.html`), in a view over the projects'
@@ -84,7 +86,7 @@ const ProjectTab = ({ tab }: { tab: ShellTab }) => {
       aria-selected={tab.shown}
       className={cn(
         TAB,
-        "cursor-default pr-1.5",
+        "w-48 min-w-24 shrink cursor-default pr-1.5",
         tab.shown
           ? "bg-accent text-foreground"
           : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
@@ -106,7 +108,7 @@ const ProjectTab = ({ tab }: { tab: ShellTab }) => {
         name={tab.name}
         size={16}
       />
-      <span className="max-w-37.5 truncate">{tab.name}</span>
+      <span className="min-w-0 flex-1 truncate">{tab.name}</span>
       {tab.shown ? <TabMark tab={tab} /> : null}
       {/* The shown tab's ×; another's under the pointer, in place of its spinner. */}
       <span className="relative flex size-5 shrink-0 items-center justify-center">
