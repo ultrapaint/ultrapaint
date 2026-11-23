@@ -42,6 +42,7 @@ import { useDesignSystem } from "../state/design-system.ts";
 import {
   ColorField,
   nullIfMixed,
+  OverrideMark,
   Row,
   Section,
   set,
@@ -123,7 +124,7 @@ const TextStyleRow = ({
   const none = styles.length === 0 ? "No text styles" : "None";
   const placeholder = stale ? `${named} (missing)` : none;
   return (
-    <Row label="Style">
+    <Row fields={["textStyle"]} label="Style">
       <OptionSelect
         onChange={onStyle}
         options={options}
@@ -202,7 +203,10 @@ export const TextSection = ({ nodes }: { nodes: readonly TextNode[] }) => {
     />
   );
   return (
-    <Section title="Text">
+    <Section
+      action={<OverrideMark fields={["text"]} label="Text" />}
+      title="Text"
+    >
       <div className="pb-1">
         <TextInput
           multiline
@@ -211,7 +215,7 @@ export const TextSection = ({ nodes }: { nodes: readonly TextNode[] }) => {
         />
       </div>
       <TextStyleRow named={named} nodes={nodes} style={style} styles={styles} />
-      <Row label="Role">
+      <Row fields={["role", "level"]} label="Role">
         <OptionSelect
           onChange={onRole}
           options={ROLE_OPTIONS}
@@ -219,19 +223,29 @@ export const TextSection = ({ nodes }: { nodes: readonly TextNode[] }) => {
           value={role === MIXED ? null : (role ?? "p")}
         />
       </Row>
-      <Row label="Font">{setting("font", "font", false)}</Row>
-      <Row label="Size">{setting("size", "fontSize")}</Row>
-      <Row label="Weight">{setting("weight", "fontWeight")}</Row>
-      <Row label="Line height">{setting("lineHeight", "leading")}</Row>
-      <Row label="Tracking">{setting("tracking", "tracking")}</Row>
-      <Row label="Colour">
+      <Row fields={["font"]} label="Font">
+        {setting("font", "font", false)}
+      </Row>
+      <Row fields={["size"]} label="Size">
+        {setting("size", "fontSize")}
+      </Row>
+      <Row fields={["weight"]} label="Weight">
+        {setting("weight", "fontWeight")}
+      </Row>
+      <Row fields={["lineHeight"]} label="Line height">
+        {setting("lineHeight", "leading")}
+      </Row>
+      <Row fields={["tracking"]} label="Tracking">
+        {setting("tracking", "tracking")}
+      </Row>
+      <Row fields={["color"]} label="Colour">
         <ColorField
           field={TOKEN_FIELDS.color}
           nodes={nodes}
           placeholder="Inherited"
         />
       </Row>
-      <Row label="Align">
+      <Row fields={["align"]} label="Align">
         <Segmented
           onChange={(v) => setField(ALIGN, v)}
           options={[

@@ -216,6 +216,38 @@ describe("an app component's instance and its layers (ADR 0114)", () => {
     ).toContain("In Promo · Promo");
   });
 
+  it("marks each field the instance overrides, and gives it back from its mark", async () => {
+    withPromo({ sale: { at: { md: { size: 20 } }, color: "red" } });
+    act(() => select({ frame: HOME, nodeId: "promo/sale" }));
+    const marks = [...container.querySelectorAll("[data-overridden]")].map(
+      (m) => m.getAttribute("data-overridden")
+    );
+    expect(marks.sort()).toEqual(["color", "size"]);
+    fakeApi.respond("documents.apply", () => ({ changes: [], created: [] }));
+    act(() =>
+      (
+        container.querySelector('[data-overridden="size"]') as HTMLElement
+      ).click()
+    );
+    await act(() => fakeApi.requested("documents.apply"));
+    expect(applied()).toEqual({
+      edits: [
+        {
+          doc: HOME,
+          ops: [
+            { at: "md", id: "promo/sale", op: "update", set: { size: null } },
+          ],
+        },
+      ],
+      label: "Reset instance override",
+    });
+  });
+
+  it("marks nothing on the page's own nodes", () => {
+    act(() => select({ frame: HOME, nodeId: "title" }));
+    expect(container.querySelector("[data-overridden]")).toBeNull();
+  });
+
   it("gives a layer's overridden field back to the main component", async () => {
     withPromo({ sale: { color: "red" } });
     act(() => select({ frame: HOME, nodeId: "promo/sale" }));

@@ -108,7 +108,7 @@ export const LayoutSection = ({ nodes }: { nodes: readonly Stack[] }) => {
     <Section title="Layout">
       {nodes.every((n) => n.type === "page") && (
         // The page is the screen's container, a row or a column (ADR 0075).
-        <Row label="Direction">
+        <Row fields={["direction"]} label="Direction">
           <Segmented
             onChange={(v) => set("direction", v === "row" ? "row" : null)}
             options={[
@@ -122,7 +122,7 @@ export const LayoutSection = ({ nodes }: { nodes: readonly Stack[] }) => {
         </Row>
       )}
       {nodes.every((n) => n.type !== "page") && (
-        <Row label="Type">
+        <Row fields={["type"]} label="Type">
           <Segmented
             onChange={(v) => set("type", v)}
             options={[
@@ -136,14 +136,14 @@ export const LayoutSection = ({ nodes }: { nodes: readonly Stack[] }) => {
       )}
       {flex ? (
         <>
-          <Row label="Gap">
+          <Row fields={["gap"]} label="Gap">
             <NodeValueField
               field={TOKEN_FIELDS.gap}
               nodes={nodes}
               placeholder="0"
             />
           </Row>
-          <Row label="Align">
+          <Row fields={["align"]} label="Align">
             <Segmented
               onChange={(v) => set("align", v)}
               options={[
@@ -161,7 +161,7 @@ export const LayoutSection = ({ nodes }: { nodes: readonly Stack[] }) => {
               )}
             />
           </Row>
-          <Row label="Across">
+          <Row fields={["crossAlign"]} label="Across">
             <Segmented
               onChange={(v) => set("crossAlign", v)}
               options={[
@@ -176,7 +176,7 @@ export const LayoutSection = ({ nodes }: { nodes: readonly Stack[] }) => {
             />
           </Row>
           {nodes.every(runsAsRow) && (
-            <Row label="Wrap">
+            <Row fields={["wrap"]} label="Wrap">
               <Segmented
                 onChange={(v) => set("wrap", v === "wrap" ? true : null)}
                 options={[
@@ -302,14 +302,14 @@ export const SizeSection = ({
       }
       title="Size"
     >
-      <Row>
+      <Row fields={["width", "height"]} label="">
         <SizeField field="width" value={of("width")} />
         <SizeField field="height" value={of("height")} />
       </Row>
       {nodes.length === 1 && only && <FillWarnings frame={frame} node={only} />}
       {bounded || revealed ? (
         <>
-          <Row label="Min">
+          <Row fields={["minWidth", "minHeight"]} label="Min">
             <LengthField
               field="minWidth"
               options={containers}
@@ -324,7 +324,7 @@ export const SizeSection = ({
               value={of("minHeight")}
             />
           </Row>
-          <Row label="Max">
+          <Row fields={["maxWidth", "maxHeight"]} label="Max">
             <LengthField
               field="maxWidth"
               options={containers}
@@ -474,7 +474,11 @@ const SidesRows = ({
   };
   const rows = four ? [FOUR.slice(0, 2), FOUR.slice(2)] : [AXES];
   return rows.map((row, i) => (
-    <Row key={row.map((p) => p.key).join()} label={i === 0 ? title : undefined}>
+    <Row
+      fields={i === 0 ? [field] : undefined}
+      key={row.map((p) => p.key).join()}
+      label={i === 0 ? title : undefined}
+    >
       {row.map(fieldFor)}
     </Row>
   ));

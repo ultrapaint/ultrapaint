@@ -63,7 +63,7 @@ export const ComponentProps = ({
         const propMeta = meta?.props.find((p) => p.name === name);
         const value: JsonValue = props[name] ?? null;
         return (
-          <Row key={name} label={name}>
+          <Row fields={[`props.${name}`]} key={name} label={name}>
             <PropControl
               meta={propMeta}
               mixed={mixed.has(name)}
