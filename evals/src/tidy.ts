@@ -19,9 +19,8 @@ const LOG_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** A result line a lab round writes into a gap: "- `<round>`: …". */
 const RESULT_LINE_RE = /^- `([^`]+)`:/;
-/** An entry of `git worktree list --porcelain`: its path, and its branch when it has one. */
+/** An entry of `git worktree list --porcelain`: its path. */
 const WORKTREE_RE = /^worktree (.+)$/m;
-const BRANCH_RE = /^branch refs\/heads\/(.+)$/m;
 const SPACES_RE = /\s+/;
 /** A diff's header line for a file renamed or copied from another. */
 const RENAME_RE = /^(rename|copy) (from|to) /;
@@ -228,6 +227,13 @@ const onMain = Effect.fn("onMain")(function* (checkout: string, file: string) {
 export const whyKept = Effect.fn("whyKept")(function* (at: string) {
   const { checkout } = yield* EvalsConfig;
   return yield* Effect.gen(function* () {
+    // On a branch, it is someone's work, whatever it holds; asked again each time it is judged.
+    const branch = yield* git(at, "symbolic-ref", "-q", "--short", "HEAD").pipe(
+      Effect.catchTag("EvalsError", () => Effect.succeed(""))
+    );
+    if (branch.trim() !== "") {
+      return Option.some(`on the branch ${branch.trim()}`);
+    }
     const head = (yield* git(at, "rev-parse", "HEAD")).trim();
     const onMainline = yield* git(
       checkout,
@@ -331,11 +337,7 @@ const findCheckouts = Effect.fn("findCheckouts")(function* () {
     if (at === undefined || !at.startsWith(data.work + path.sep)) {
       continue;
     }
-    const branch = firstGroup(BRANCH_RE, entry);
-    const why =
-      branch === undefined
-        ? yield* whyKept(at)
-        : Option.some(`on the branch ${branch}`);
+    const why = yield* whyKept(at);
     if (Option.isSome(why)) {
       kept.push({ path: at, why: why.value });
     } else {
