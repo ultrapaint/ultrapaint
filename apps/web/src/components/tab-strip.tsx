@@ -9,7 +9,8 @@
  * each with a × that takes it off the list), Open folder…, Open over SSH…, New project…; what is
  * chosen opens in a new tab. The strip is the window's title bar on a Mac, the room for its
  * buttons left at its start. It is a page of its own (`tabs.html`), in a view over the projects'
- * pages, that covers the window while a menu or dialog of its is open.
+ * pages, that covers the window while a menu or dialog of its is open. Ultrapaint Dev draws its
+ * blueprint in the room past the + (ADR 0113).
  */
 import type { ShellTab } from "@ultrapaint/contracts/shell-bridge";
 import { House, LoaderCircle, Plus, X } from "lucide-react";
@@ -26,10 +27,12 @@ import {
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { removeFromList } from "../lib/remove-project.ts";
+import { devCheckout } from "../lib/ultrapaint-dev.ts";
 import { type PlatformProject, platform } from "../platform.ts";
 import { useShellTabs } from "../state/shell-tabs.ts";
 import { useWindowChrome } from "../state/window-controls.ts";
 import { CutPath } from "./cut-path.tsx";
+import { DevBlueprint } from "./dev-blueprint.tsx";
 import { DialogHost, useDialogOpen } from "./dialogs.tsx";
 import { ProjectIcon } from "./project-icon.tsx";
 import {
@@ -340,6 +343,7 @@ export const TabStrip = () => {
         ))}
       </div>
       <NewTab onOpenChange={setMenu} open={menu} />
+      {devCheckout() ? <DevBlueprint /> : null}
     </div>
   );
 };

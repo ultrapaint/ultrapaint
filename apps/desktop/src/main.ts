@@ -7,6 +7,7 @@
  * connects them to Electron.
  */
 import { existsSync, statSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { NodeServices } from "@effect/platform-node";
@@ -47,7 +48,19 @@ import {
   stateMessage,
 } from "./bridge-server.ts";
 import { Caller } from "./caller.ts";
-import { CommandLine, commandApp } from "./command-line.ts";
+import {
+  CommandInstallError,
+  CommandLine,
+  commandApp,
+} from "./command-line.ts";
+import {
+  DEV_NAME,
+  dataDirsOf,
+  editionOf,
+  folderArgument,
+  RELEASE_NAME,
+  RESTART_EXIT_CODE,
+} from "./edition.ts";
 import { UpdateCheckError } from "./errors.ts";
 import { Folders } from "./folders.ts";
 import { bridgeHandlers, callerRemote } from "./handlers.ts";
@@ -64,12 +77,25 @@ import { RemoteServers } from "./ssh-server.ts";
 import { tabKey } from "./tab-keys.ts";
 import { type InstallMode, Updater } from "./updater.ts";
 
-// A data directory of its own, for trying the app without touching the user's.
-if (process.env.ULTRAPAINT_DESKTOP_USER_DATA) {
-  app.setPath(
-    "userData",
-    path.resolve(process.env.ULTRAPAINT_DESKTOP_USER_DATA)
-  );
+/** The release, or Ultrapaint Dev run from a checkout beside it (ADR 0113). */
+const edition = editionOf(process.env);
+const appName = edition._tag === "Dev" ? DEV_NAME : RELEASE_NAME;
+
+/**
+ * Where the app keeps its data: Ultrapaint Dev a folder of its own, so that it runs beside the
+ * release (one instance per folder), with a Keychain entry of its own under its name; a folder of
+ * its own for a throwaway run, without touching the user's.
+ */
+const dataDirs = dataDirsOf(
+  edition,
+  app.getPath("appData"),
+  process.env.ULTRAPAINT_DESKTOP_USER_DATA
+);
+if (edition._tag === "Dev") {
+  app.setName(DEV_NAME);
+}
+if (edition._tag === "Dev" || process.env.ULTRAPAINT_DESKTOP_USER_DATA) {
+  app.setPath("userData", dataDirs.own);
 }
 
 /**
@@ -83,8 +109,14 @@ const sshConfig = process.env.ULTRAPAINT_DESKTOP_SSH_CONFIG
 /** In development, how the server is started from its sources; packaged, its bundle beside this. */
 const DevServerArgs = Schema.fromJsonString(Schema.Array(Schema.String));
 
-const appDir = app.getAppPath();
+/**
+ * The app's parts, beside this file: Electron's app path, but for Ultrapaint Dev started from
+ * `Ultrapaint Dev.app`, whose own small app loads this one from the checkout.
+ */
+const appDir = import.meta.dirname;
 const dataDir = app.getPath("userData");
+/** The version running: Ultrapaint Dev's checkout names it, not the app that loaded it. */
+const appVersion = edition._tag === "Dev" ? edition.version : app.getVersion();
 const devServer = process.env.ULTRAPAINT_DESKTOP_SERVER_ARGS;
 const serverArgs = devServer
   ? Schema.decodeUnknownSync(DevServerArgs)(devServer)
@@ -122,7 +154,14 @@ let covered = false;
  * What every view is told as it changes: an update of the app, the open tabs, and the notice of
  * another project's agent.
  */
-const shared: BridgeStates = { projectNotice: null, tabs: [], update: null };
+const shared: BridgeStates = {
+  projectNotice: null,
+  tabs: [],
+  update: null,
+  ...(edition._tag === "Dev"
+    ? { dev: { branch: edition.branch, commit: edition.commit } }
+    : {}),
+};
 /** What a view of no project is told of one: nothing. */
 const NO_PROJECT: BridgeStates = {
   editorServer: null,
@@ -597,6 +636,15 @@ const ElectronSecrets = Layer.sync(Secrets, () =>
  * development.
  */
 const installMode = ((): InstallMode => {
+  if (edition._tag === "Dev") {
+    return {
+      _tag: "Checkout",
+      dir: edition.checkout,
+      ...(edition.updateFailed === undefined
+        ? {}
+        : { failed: edition.updateFailed }),
+    };
+  }
   if (!app.isPackaged) {
     return { _tag: "None" };
   }
@@ -650,25 +698,54 @@ const serverLaunch = {
   webDist: webDir,
 };
 
+/**
+ * How a local project's server starts: Ultrapaint Dev's runs the checkout's `ultrapaint --dev`,
+ * which restarts the server and reloads the editor as the checkout changes (ADR 0113).
+ */
+const projectLaunch =
+  edition._tag === "Dev"
+    ? {
+        args: [
+          createRequire(
+            path.join(edition.checkout, "apps", "server", "package.json")
+          ).resolve("tsx/cli"),
+          path.join(edition.checkout, "scripts", "cli.ts"),
+          "--dev",
+        ],
+        command: process.execPath,
+        webDist: webDir,
+      }
+    : serverLaunch;
+
 const runtime = ManagedRuntime.make(
   Layer.mergeAll(
     NewDesigns.layer({ home: app.getPath("home"), launch: serverLaunch }).pipe(
       Layer.provideMerge(
-        OpenProjects.layer(dataDir, {
-          url: APP_EDITOR_URL,
-          version: app.getVersion(),
-        })
+        OpenProjects.layer(
+          dataDir,
+          // Ultrapaint Dev opens each project in the editor its `--dev` serves, live.
+          edition._tag === "Dev"
+            ? undefined
+            : { url: APP_EDITOR_URL, version: appVersion }
+        )
       )
     ),
     Notices.layer,
     Updater.layer({
-      current: app.getVersion(),
+      current: appVersion,
       fetch,
       mode: installMode,
       publish: (update) => tellAll("update", update),
     })
   ).pipe(
-    Layer.provideMerge(ProjectStore.layer(dataDir)),
+    Layer.provideMerge(
+      ProjectStore.layer(
+        dataDir,
+        dataDirs.firstFrom === undefined
+          ? {}
+          : { firstFrom: dataDirs.firstFrom }
+      )
+    ),
     Layer.provideMerge(
       Folders.layer({
         dataDir,
@@ -684,7 +761,7 @@ const runtime = ManagedRuntime.make(
       Agents.layer({
         adaptersDir: path.join(appDir, "adapters"),
         node: process.execPath,
-        version: app.getVersion(),
+        version: appVersion,
       })
     ),
     Layer.provideMerge(AgentSettings.layer(dataDir)),
@@ -716,7 +793,7 @@ const runtime = ManagedRuntime.make(
     ),
     // Read once, as the app starts.
     Layer.provideMerge(LoginShell.layer),
-    Layer.provideMerge(ProjectServer.layer(serverLaunch)),
+    Layer.provideMerge(ProjectServer.layer(projectLaunch)),
     Layer.provideMerge(ElectronShell),
     Layer.provideMerge(NodeServices.layer)
   )
@@ -741,23 +818,34 @@ ipcMain.on(INFO_CHANNEL, (event) => {
     });
 });
 
+const handlers = bridgeHandlers({
+  coverWindow: (cover) => Effect.sync(() => coverWindow(cover)),
+  home: app.getPath("home"),
+  installUpdate: Effect.sync(() => quit(true, true)),
+  sshConfig: sshConfig ?? path.join(app.getPath("home"), ".ssh", "config"),
+});
+
 serveBridge({
-  handlers: bridgeHandlers({
-    coverWindow: (cover) => Effect.sync(() => coverWindow(cover)),
-    home: app.getPath("home"),
-    installUpdate: Effect.sync(() => quit(true, true)),
-    sshConfig: sshConfig ?? path.join(app.getPath("home"), ".ssh", "config"),
-  }),
+  handlers:
+    edition._tag === "Dev"
+      ? {
+          ...handlers,
+          // The command on the PATH runs the release: Ultrapaint Dev never writes over it.
+          "command.install": () =>
+            Effect.fail(
+              new CommandInstallError({
+                message:
+                  "Ultrapaint Dev leaves the command to the installed Ultrapaint.",
+              })
+            ),
+        }
+      : handlers,
   ipc: ipcMain,
   remote: callerRemote,
   run: (effect, from) =>
     runtime.runPromise(effect.pipe(Effect.provide(callerOf(from)))),
   viewOf: trustedViewOf,
 });
-
-/** A folder named on the command line, after the app's own path in development. */
-const folderArgument = (argv: readonly string[]) =>
-  argv.slice(app.isPackaged ? 1 : 2).find((arg) => !arg.startsWith("-"));
 
 /**
  * The window, its own page left empty: the strip, Home and the projects' projectViews are views over it,
@@ -777,7 +865,7 @@ const makeWindow = () => {
     ...(ownTitleBar
       ? { titleBarStyle: "hidden", trafficLightPosition: TRAFFIC_LIGHTS }
       : {}),
-    title: "Ultrapaint",
+    title: appName,
     webPreferences: { contextIsolation: true, sandbox: true },
     width: 1500,
   });
@@ -826,7 +914,7 @@ const start = async () => {
         .catch(() => undefined);
     });
   }
-  const folder = folderArgument(process.argv);
+  const folder = folderArgument(process.argv, edition);
   await runtime.runPromise(
     OpenProjects.use((o) => o.start(folder ? path.resolve(folder) : undefined))
   );
@@ -839,7 +927,7 @@ if (app.requestSingleInstanceLock()) {
       window.restore();
     }
     window?.focus();
-    const folder = folderArgument(argv);
+    const folder = folderArgument(argv, edition);
     if (folder) {
       runtime
         .runPromise(
@@ -862,7 +950,7 @@ if (app.requestSingleInstanceLock()) {
  * signal does not wait for an answer, and answers no to a question already on screen
  * (`OpenProjects`).
  * `quitting` lets the close and the quit through once that is done. With `update`, the app
- * comes back as the release it downloaded (ADR 0078).
+ * comes back as the release it downloaded (ADR 0078), or Ultrapaint Dev as `main` (ADR 0113).
  */
 let quitting = false;
 const quit = (ask: boolean, update = false) => {
@@ -878,10 +966,15 @@ const quit = (ask: boolean, update = false) => {
       }
       quitting = true;
       // The macOS app: a script waits for it to exit, then puts the new bundle in its place.
-      if (update) {
-        await runtime.runPromise(Updater.use((u) => u.install));
-      }
+      // Ultrapaint Dev: its runner pulls the checkout once it exits, and starts it again.
+      const restart = update
+        ? await runtime.runPromise(Updater.use((u) => u.install))
+        : false;
       await runtime.dispose();
+      if (restart && edition._tag === "Dev") {
+        app.exit(RESTART_EXIT_CODE);
+        return;
+      }
       if (update && installMode._tag === "Feed") {
         autoUpdater.quitAndInstall(false, true);
         return;
@@ -916,7 +1009,7 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 if (app.hasSingleInstanceLock()) {
   start().catch((error: unknown) => {
     dialog.showErrorBox(
-      "Ultrapaint could not start",
+      `${appName} could not start`,
       error instanceof Error ? error.message : String(error)
     );
     app.exit(1);

@@ -1,7 +1,7 @@
 # ADR 0078: The desktop app updates itself, and shows what a release brings
 
 Status: accepted, 2026-11-11. Amends 0051 (how the macOS app and an AppImage are updated, and the
-release's notes).
+release's notes). Amended by 0113: Ultrapaint Dev updates from `main`, pulled by its runner.
 
 ## Context
 

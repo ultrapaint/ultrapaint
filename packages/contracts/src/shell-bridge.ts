@@ -223,15 +223,19 @@ export type AppRelease = typeof AppRelease.Type;
  * A newer release of the app (ADR 0078), once there is something to do about it: `restart` when
  * it is downloaded and the app replaces itself on a restart, `download` when this copy cannot (a
  * deb, a macOS app in a folder it cannot write), with `reason` saying why when there is one.
+ *
+ * Ultrapaint Dev's (ADR 0113) is `main` ahead of its checkout: `pull` when a restart pulls it,
+ * `manual` when the checkout cannot be pulled without touching the person's work (`reason` says
+ * what), its releases the commits `main` has, each its short hash and its subject.
  */
 export const AppUpdate = Schema.Struct({
-  /** The version running. */
+  /** The version running; Ultrapaint Dev's commit. */
   current: Schema.String,
-  install: Schema.Literals(["restart", "download"]),
+  install: Schema.Literals(["restart", "download", "pull", "manual"]),
   reason: Schema.optional(Schema.String),
   /** Every release since the one running, newest first: the first is the one installed. */
   releases: Schema.NonEmptyArray(AppRelease),
-  /** The newest release's page, where it is downloaded by hand. */
+  /** The newest release's page, where it is downloaded by hand; `main`'s changes since, for Dev. */
   url: Schema.String,
 });
 export type AppUpdate = typeof AppUpdate.Type;
@@ -313,6 +317,13 @@ const WindowControlsState = Schema.Struct({
   /** How far from the window's left edge the buttons reach, in CSS pixels. */
   inset: Schema.Number,
 });
+
+/** Ultrapaint Dev's checkout (ADR 0113): its branch, and the commit it runs, short. */
+export const DevCheckout = Schema.Struct({
+  branch: Schema.String,
+  commit: Schema.String,
+});
+export type DevCheckout = typeof DevCheckout.Type;
 
 /** A capability the page calls and the main process answers. */
 interface Invoke<
@@ -453,6 +464,11 @@ export const SHELL_BRIDGE = {
   "command.install": invoke([], InstalledCommand, LOCAL),
   /** The `ultrapaint` command on the PATH, this app's or another; null when there is none. */
   "command.installed": invoke([], Schema.NullOr(InstalledCommand), LOCAL),
+  /**
+   * The checkout this app runs, when it is Ultrapaint Dev, the app run from a checkout of
+   * Ultrapaint beside the release (ADR 0113); not shown in the release.
+   */
+  dev: state(DevCheckout),
   /**
    * The address of the server the editor talks to when the page is the app's own editor, served
    * under the app's scheme (ADR 0100); null when the page is served by its server, whose own

@@ -304,6 +304,79 @@ describe("ProjectStore", () => {
   );
 });
 
+describe("ProjectStore's first list (Ultrapaint Dev)", () => {
+  /** Two data folders: the release's, which the first start copies from, and this app's own. */
+  const inTwo = <A, E>(
+    body: (dirs: {
+      readonly own: string;
+      readonly release: string;
+    }) => Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>
+  ) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const own = yield* fs.makeTempDirectoryScoped();
+      const release = yield* fs.makeTempDirectoryScoped();
+      return yield* body({ own, release });
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
+
+  it.effect(
+    "starts with the release's projects, local and over SSH, none of them open",
+    () =>
+      inTwo(({ own, release }) =>
+        Effect.gen(function* () {
+          const [a, remote] = yield* Effect.gen(function* () {
+            const store = yield* ProjectStore;
+            const added = yield* store.add("/work/a");
+            const ssh = yield* store.addRemote({
+              host: "box",
+              path: "~/b",
+            });
+            yield* store.setTabs({ open: [added.id, ssh.id], shown: ssh.id });
+            return [added, ssh] as const;
+          }).pipe(Effect.provide(ProjectStore.layer(release)));
+          const store = yield* Effect.provide(
+            ProjectStore,
+            ProjectStore.layer(own, { firstFrom: release })
+          );
+          assert.deepStrictEqual(
+            (yield* store.list).map((p) => p.id).sort(),
+            [a.id, remote.id].sort()
+          );
+          assert.deepStrictEqual(yield* store.tabs, { open: [], shown: null });
+        })
+      )
+  );
+
+  it.effect("copies nothing once it has a list of its own", () =>
+    inTwo(({ own, release }) =>
+      Effect.gen(function* () {
+        yield* ProjectStore.use((s) => s.add("/work/mine")).pipe(
+          Effect.provide(ProjectStore.layer(own))
+        );
+        yield* ProjectStore.use((s) => s.add("/work/theirs")).pipe(
+          Effect.provide(ProjectStore.layer(release))
+        );
+        const names = yield* ProjectStore.use((s) => s.list).pipe(
+          Effect.provide(ProjectStore.layer(own, { firstFrom: release })),
+          Effect.map((projects) => projects.map((p) => p.name))
+        );
+        assert.deepStrictEqual(names, ["mine"]);
+      })
+    )
+  );
+
+  it.effect("starts empty where the release has no list", () =>
+    inTwo(({ own, release }) =>
+      Effect.gen(function* () {
+        const listed = yield* ProjectStore.use((s) => s.list).pipe(
+          Effect.provide(ProjectStore.layer(own, { firstFrom: release }))
+        );
+        assert.deepStrictEqual(listed, []);
+      })
+    )
+  );
+});
+
 describe("remoteInputOf", () => {
   it("splits the host's port off and keeps the path as typed", () => {
     assert.deepStrictEqual(

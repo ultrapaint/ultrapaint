@@ -117,4 +117,56 @@ describe("the app's update", () => {
       "Download"
     );
   });
+  it("offers Ultrapaint Dev main's commits since the one it runs, and pulls them on a restart", async () => {
+    const { installs } = shell({
+      current: "9b1e2d0",
+      install: "pull",
+      releases: [
+        {
+          date: "2026-11-23T10:00:00Z",
+          notes: "fix: the tab strip keeps its tabs",
+          version: "3f2a1c9",
+        },
+        {
+          date: "2026-11-23T09:00:00Z",
+          notes: "feat: a blueprint for Ultrapaint Dev",
+          version: "7c0d4e1",
+        },
+      ],
+      url: "https://github.com/ultrapaint/ultrapaint/compare/9b1e2d0...main",
+    });
+    await render();
+    await press(button("Update from main"));
+    const popup = document.body.textContent ?? "";
+    expect(popup).toContain("main · 3f2a1c9");
+    expect(popup).toContain("You have 9b1e2d0");
+    expect(popup).toContain("2 new commits");
+    expect(popup).toContain("fix: the tab strip keeps its tabs");
+    expect(popup).toContain("feat: a blueprint for Ultrapaint Dev");
+    await press(button("Pull and restart"));
+    expect(installs).toEqual(["install"]);
+  });
+
+  it("says why Ultrapaint Dev cannot pull main, with nothing to click", async () => {
+    shell({
+      current: "9b1e2d0",
+      install: "manual",
+      reason:
+        "Your checkout has changes that aren’t committed. Commit or stash them to update from main.",
+      releases: [
+        {
+          date: "2026-11-23T10:00:00Z",
+          notes: "fix: one",
+          version: "3f2a1c9",
+        },
+      ],
+      url: "https://github.com/ultrapaint/ultrapaint/compare/9b1e2d0...main",
+    });
+    await render();
+    await press(button("Update from main"));
+    expect(document.body.textContent).toContain("aren’t committed");
+    expect(document.body.textContent).toContain("1 new commit");
+    expect(button("Pull and restart")).toBeUndefined();
+    expect(button("Download")).toBeUndefined();
+  });
 });

@@ -40,6 +40,7 @@ import { Markdown } from "../components/markdown.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { isMac } from "../lib/keys.ts";
+import { devCheckout } from "../lib/ultrapaint-dev.ts";
 import {
   type AgentSetup,
   type InstalledCommand,
@@ -182,7 +183,7 @@ export const CopyLine = ({
  * Whether the `ultrapaint` command the lines start is on this computer, where the shell can tell
  * (the desktop app), with the way to install it when it is not (ADR 0083).
  */
-const CommandRow = () => {
+export const CommandRow = () => {
   const { command } = platform();
   const [installed, setInstalled] = useState<InstalledCommand | null>();
   const [installing, setInstalling] = useState(false);
@@ -215,6 +216,18 @@ const CommandRow = () => {
       )}
     </Button>
   );
+  if (devCheckout()) {
+    // The command on the PATH runs the release; Ultrapaint Dev never writes over it (ADR 0113).
+    return (
+      <Row
+        description="Ultrapaint Dev leaves the command to the installed Ultrapaint."
+        setting="command"
+        title="Command line"
+      >
+        {installed ? <Status tone="success">Installed</Status> : null}
+      </Row>
+    );
+  }
   let description: ReactNode;
   let control: ReactNode;
   let message: ReactNode = problem ? (

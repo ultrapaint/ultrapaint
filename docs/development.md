@@ -22,6 +22,16 @@ install:cli` here, then in the app an SSH project on this machine (over Tailscal
 command `ultrapaint --dev`. The editor reloads and the server restarts as files change; only
 `apps/desktop` itself needs the app rebuilt there.
 
+**Ultrapaint Dev** is the desktop app from a checkout, beside the installed one
+([ADR 0113](adr/0113-ultrapaint-dev-runs-beside-the-app.md)): `pnpm desktop:dev` starts it, with
+its own name, data and a blueprint past the tab strip's +. Each local project it opens runs this
+checkout's `ultrapaint --dev`, live. When `main` moves ahead, its update item lists the new
+commits, and Pull and restart pulls them (fast-forward only, `pnpm install` when the lockfile
+changed), builds what changed and starts it again. On a Mac, `pnpm desktop:dev-app` once puts
+`Ultrapaint Dev.app` in `~/Applications`, to open it from the Dock or Spotlight; run it again when
+the checkout's Electron changes. The checkout to keep for it is a clone on `main`, such as
+`~/Code/ultrapaint/ultrapaint`.
+
 `pnpm pack:local` makes the package a release carries, in `dist/ultrapaint-<version>.tgz`. A
 release is made by hand: a PR raises the version in `package.json`, then the **Release** workflow
 in the Actions tab tags the version `main` holds and attaches the package.
