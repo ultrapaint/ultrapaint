@@ -2,7 +2,7 @@
 id: p08
 title: The review step skipped when an agent could be started
 kind: process
-status: open
+status: done
 found: 2026-11-04
 source: design round `design-after` (three product screens remade from a picture, skill at 1d8977c)
 skill: [SKILL.md]
@@ -31,3 +31,11 @@ the sections' findings compared.
   Claude Code, 8 runs each), where no review loop starts a reviewer: a designer had a fresh agent
   review its sections in 1 run of 8 with main's skill and 2 of 8 with p14's change, which puts
   the review's method in the skill. Reopened: outside the editor the step is still skipped.
+- `p08-fx-main`, `p08-fx`: 2026-11-23, fresh briefs outside the editor (the four of UP-88, plain
+  host, Opus in Claude Code, 2 runs each), main's skill (68ae8e97) against
+  `candidates/p08-review-before-done`, whose step 6 makes the review part of finishing and has the
+  last message give each section's verdict: a fresh reviewer started in 3 runs of 8 with main's
+  skill and 8 of 8 with the candidate, the last message giving the verdicts in 2 and 7. Runs about
+  as long (561 s and 582 s on average); tells about the same; pairwise (both orders) the candidate
+  2, main 1, 5 ties.
+- Decision of 2026-11-23 (the person): the candidate's step 6 ships; done.
