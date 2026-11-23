@@ -50,6 +50,7 @@ import {
   LAUNCHER_VERSION,
   launcherScript,
   needsRemaking,
+  runnerOptions,
   runScript,
 } from "../src/dev-launcher.ts";
 import {
@@ -70,16 +71,8 @@ import {
   writeManifest,
 } from "./parts.ts";
 
-const args = process.argv.slice(2).filter((arg) => arg !== "--");
-/** `--after <pid>`: the app opened from the Dock that asked for the update, to wait for. */
-const afterAt = args.indexOf("--after");
-const after = afterAt === -1 ? undefined : Number(args[afterAt + 1]);
-const OWN = new Set(["--web", "--build-only", "--pull-first"]);
-const forceWeb = args.includes("--web");
-const buildOnly = args.includes("--build-only");
-const pullFirst = args.includes("--pull-first");
-const appArgs = args.filter(
-  (arg, i) => !(OWN.has(arg) || i === afterAt || i === afterAt + 1)
+const { after, appArgs, buildOnly, forceWeb, pullFirst } = runnerOptions(
+  process.argv.slice(2).filter((arg) => arg !== "--")
 );
 
 const git = (...gitArgs: string[]) =>
@@ -411,7 +404,7 @@ const appGone = (pid: number): Promise<void> =>
  */
 const session = async () => {
   if (pullFirst) {
-    if (after !== undefined && Number.isInteger(after)) {
+    if (after !== undefined) {
       await appGone(after);
     }
     console.log("[desktop] pulling main, then starting Ultrapaint Dev again");

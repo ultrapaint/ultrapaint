@@ -7,6 +7,7 @@
  * script: it reads the run the runner saved last and opens the checkout's last build in the
  * bundle's Electron, at once. Electron keeps its own name there: it finds its helper apps by it.
  */
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { Option, Schema } from "effect";
 import { DEV_NAME } from "./edition.ts";
@@ -40,14 +41,34 @@ export const devLauncherPath = (bundle: string) =>
 export const devElectronPath = (bundle: string) =>
   path.join(bundle, "Contents", "MacOS", "Electron");
 
-/** One bundle id per checkout, from its folder's name: two checkouts never share an app. */
+/**
+ * One bundle id per checkout: its folder's name, to read, and a hash of its whole path, so that
+ * two checkouts in folders of one name never share an app.
+ */
 export const devBundleId = (checkout: string) =>
   `dev.ultrapaint.desktop.dev.${
     path
       .basename(checkout)
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "") || "local"
-  }`;
+  }.${createHash("sha256").update(path.resolve(checkout)).digest("hex").slice(0, 8)}`;
+
+/** The runner's own flags, and everything else, which goes to the app. */
+export const runnerOptions = (argv: readonly string[]) => {
+  const at = argv.indexOf("--after");
+  const after = at === -1 ? undefined : Number(argv[at + 1]);
+  const own = new Set(["--web", "--build-only", "--pull-first"]);
+  return {
+    /** The app opened from the Dock that asked for the update, waited for before pulling. */
+    after: after !== undefined && Number.isInteger(after) ? after : undefined,
+    appArgs: argv.filter(
+      (arg, i) => !(own.has(arg) || (at !== -1 && (i === at || i === at + 1)))
+    ),
+    buildOnly: argv.includes("--build-only"),
+    forceWeb: argv.includes("--web"),
+    pullFirst: argv.includes("--pull-first"),
+  };
+};
 
 /** What the app's `Info.plist` says, over what Electron's own says. */
 export const devPlist = (bundleId: string) => ({
