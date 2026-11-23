@@ -4,7 +4,7 @@ description: Delivers the stories you marked to start — in sequence in this th
 disable-model-invocation: true
 metadata:
   pack: epicparty/skills
-  version: 0.2.0
+  version: 0.4.0
 ---
 
 # Deliver
@@ -133,7 +133,7 @@ Done when every in-flight story has a row whose stage, age and blocker match the
 
 Steering is a **comment**. It survives a crashed session, it works from every tool, and it lands where the decision belongs.
 
-Each beat, read new comments on the in-flight issues and their PRs. A comment that changes what a worker should do gets relayed to the worker holding that story. A question counts as answered once a later comment answers it: written by a person with write access to the repository (on GitHub, `gh api repos/<owner>/<repo>/collaborators/<login>/permission`) — not a bot account, such as a review bot on the PR, and not a worker, whose every comment opens with a bold marker line — and taking a position on the question it follows. A comment that does not — a review, a thank-you, a note about something else — is relayed where it changes the work, and the story stays parked. An answer moves that story on: drop the label the question added, where it added one, move a Parked card to the stage its branch or PR reads in § 1, and say so in the report. The next free worker resumes it from there.
+Each beat, read new comments on the in-flight issues and their PRs. A comment that changes what a worker should do gets relayed to the worker holding that story. A question counts as answered once a later comment answers it: written by a person with write access to the repository (on GitHub, `gh api repos/<owner>/<repo>/collaborators/<login>/permission`) — not a bot account, such as a review bot on the PR, and not one an agent wrote — a worker's, or a note from [`/up-triage`](../up-triage/SKILL.md), each of which opens with a bold marker line — and taking a position on the question it follows. A comment that does not — a review, a thank-you, a note about something else — is relayed where it changes the work, and the story stays parked. An answer moves that story on: drop the label the question added, where it added one, move a Parked card to the stage its branch or PR reads in § 1, and say so in the report. The next free worker resumes it from there.
 
 Where a worker is reachable through the harness — a thread this coordinator started — relay immediately and say you did. Where it is not, the comment stands on the issue and the worker picks it up at its next stage boundary. Say that too, because the difference is whether your instruction lands in seconds or in twenty minutes.
 
@@ -191,7 +191,7 @@ Two things earn a question, and each has exactly one surface.
 
 **A question about the spec** → the **issue**. The story is ambiguous, contradicts itself, or never decided something the build turns on. That is a defect in the spec, so the answer belongs where the spec lives. Add the discovery label for an unmade decision or the info label for a missing fact. Never open a PR to carry a spec question: a PR is where work is reviewed, never where it is proposed.
 
-**A go/no-go on the work** → the **PR**. Take the branch to a normal reviewable PR through `/up-to-pr`, then ask in a comment on it. Nobody can answer *is this safe to run* without the diff in front of them.
+**A go/no-go on the work** → the **PR**. Take the branch to a normal reviewable PR through `/up-to-pr`, then ask in a comment on it. Nobody can answer *is this safe to run* without the diff in front of them. An **open question** in the PR body takes the same surface: `/up-babysit` holds the merge until it has an answer, so ask it on the PR when the gate stops on it, then park.
 
 Either way, one comment opening with the literal line `**A worker needs a decision**`, then the single question, the options, your recommendation, and what you will do if no answer comes. That first line is how the coordinator finds the question and tells a reply from silence.
 

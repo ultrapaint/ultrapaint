@@ -16,7 +16,7 @@ The score is Vladimir Khorikov's four pillars (*Unit Testing: Principles, Practi
 | --- | --- |
 | 3 | It covers logic where a defect changes what a person sees, the data stored, a permission, or money, and it fails on that defect. |
 | 2 | It covers real logic with a narrower reach: a branch of a formatter, an edge case, a refusal code. |
-| 1 | It covers code with little logic (wiring, a pass-through, a constant), or it asserts so loosely that most defects pass. |
+| 1 | It covers code with little logic (wiring, a pass-through, a constant), or it asserts so loosely that most defects pass, such as an absence with no sibling test where the thing happens. |
 | 0 | It cannot fail on a plausible defect: it asserts a mock it set up, a guarantee of the framework, a type the compiler already checks, or nothing. |
 
 **R — Resistance to refactoring.** Does it still pass when the code changes and the behaviour does not?
@@ -25,7 +25,7 @@ The score is Vladimir Khorikov's four pillars (*Unit Testing: Principles, Practi
 | --- | --- |
 | 3 | It asserts only what its level observes: what the person sees (journey), the API result and the stored data (integration), the return value or the emitted output (unit). |
 | 2 | Mostly behaviour, with one incidental detail: an exact call count that is not a contract, a class name. |
-| 1 | It is coupled to structure: a mock of the project's own module, an internal call order, DOM structure or a test id where a role or label exists. |
+| 1 | It is coupled to structure: a mock of the project's own module, an internal call order, DOM structure or a test id where a role or label exists, or an error matched by its message where callers branch on its type. |
 | 0 | It asserts the implementation itself. Any refactor breaks it. |
 
 **F — Fast feedback.** Measured, per test, against its own level. A journey is never fast next to a unit test; that trade-off is why the levels exist.
