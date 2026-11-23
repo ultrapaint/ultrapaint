@@ -271,6 +271,55 @@ describe("a frame unmounted", () => {
   });
 });
 
+describe("a frame's watched nodes", () => {
+  const waiting: (() => void)[] = [];
+  const nextFrame = () => {
+    for (const callback of waiting.splice(0)) {
+      callback();
+    }
+  };
+  beforeEach(() => {
+    vi.stubGlobal("requestAnimationFrame", (callback: () => void) =>
+      waiting.push(callback)
+    );
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    waiting.length = 0;
+  });
+
+  it("are measured again as a box inside the page scrolls, which the host never hears", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const rects = vi.fn();
+    const runtime = preview.mountFrame(host, {
+      canvas: "canvas",
+      events: { rects },
+      frame: "a",
+    });
+    opened.push(runtime);
+    const list = document.createElement("div");
+    const item = document.createElement("p");
+    item.setAttribute(NODE_ATTRIBUTE, "n");
+    item.textContent = "Row";
+    let top = 40;
+    item.getBoundingClientRect = () => new DOMRect(0, top, 100, 20);
+    list.append(item);
+    host.shadowRoot?.querySelector(`[${BODY_ATTRIBUTE}]`)?.append(list);
+    runtime.watchRects(["n"]);
+    nextFrame();
+    expect(rects).toHaveBeenCalledTimes(1);
+
+    top = 10;
+    list.dispatchEvent(new Event("scroll"));
+    nextFrame();
+    expect(rects).toHaveBeenCalledTimes(2);
+    expect(rects.mock.lastCall?.[0].n.y).toBeLessThan(
+      rects.mock.calls[0]?.[0].n.y
+    );
+  });
+});
+
 describe("a frame's error", () => {
   it("is the page's when its renderer reports it", () => {
     const host = document.createElement("div");
