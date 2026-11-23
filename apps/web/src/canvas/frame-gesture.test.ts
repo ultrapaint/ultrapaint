@@ -20,6 +20,7 @@ import {
   beginFrameGesture,
   cancelGesture,
   followLooseDrag,
+  nameClickSelects,
   pickedFramesMoved,
   placeFrame,
   resizeFrom,
@@ -317,6 +318,14 @@ describe("a frame gesture", () => {
     // The click after it, Shift let go of by then, picks nothing; asked once.
     expect(pickedFramesMoved()).toBe(true);
     expect(pickedFramesMoved()).toBe(false);
+    // A Shift press let go off the name, no click after it: the name activated from the keyboard
+    // still selects, and a pointer's click after a press that toggled does not.
+    beginFrameGesture({ ...press(0, 0), shiftKey: true }, about, "move");
+    expect(nameClickSelects(0)).toBe(true);
+    expect(pickedFramesMoved()).toBe(false);
+    beginFrameGesture({ ...press(0, 0), shiftKey: true }, about, "move");
+    expect(nameClickSelects(1)).toBe(false);
+    expect(nameClickSelects(1)).toBe(true);
     // Let go elsewhere, no click asks: the next press forgets it.
     beginFrameGesture({ ...press(0, 0), shiftKey: true }, about, "move");
     beginFrameGesture(press(0, 0), home.id, "resize", "se");

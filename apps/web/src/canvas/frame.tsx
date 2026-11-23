@@ -56,7 +56,7 @@ import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
 import { onScreen, screenPx, UNZOOM } from "./camera.ts";
 import { CARD_LIFT, commentCursor, FrameComments } from "./comments.tsx";
 import { frameOf, useFrameDrawing, useFrameEvents } from "./editor-frame.ts";
-import { pickedFramesMoved } from "./frame-gesture.ts";
+import { nameClickSelects } from "./frame-gesture.ts";
 import { Highlights, useHoverIn } from "./frame-highlights.tsx";
 import { pageRequest } from "./page-request.ts";
 import { usePreview } from "./preview-module.ts";
@@ -735,8 +735,7 @@ const FrameChrome = ({
     // The click after a press that moved the picked frames together, or added this one to them or
     // took it out (Shift or ⌘/Ctrl), keeps what is picked, the keys let go of by then or not. A
     // click from the keyboard, or the right-click's, is no press's: it selects.
-    const settled = pickedFramesMoved();
-    if (settled && e !== undefined && e.detail > 0) {
+    if (!nameClickSelects(e?.detail)) {
       return;
     }
     if (!isNode) {

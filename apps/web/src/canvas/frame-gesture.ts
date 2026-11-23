@@ -236,6 +236,16 @@ export const pickedFramesMoved = () => {
 };
 
 /**
+ * Whether a click on a frame's name selects the frame: not the click after a press that settled
+ * what is picked (`pickedFramesMoved`), whose flag it takes; always one that no press made, from
+ * the keyboard (`detail` 0) or the right-click's (none).
+ */
+export const nameClickSelects = (detail: number | undefined): boolean => {
+  const settled = pickedFramesMoved();
+  return !settled || detail === undefined || detail === 0;
+};
+
+/**
  * Moves the frames picked together (`canvas-picks.ts`) by a press on any one's name: pages by
  * their frames, saved as one step, nodes on the canvas held where they go until their documents
  * have them. A locked node stays where it is.
