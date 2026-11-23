@@ -14,6 +14,24 @@ const PX_RE = /^(-?\d*\.?\d+)px$/;
 /** What the option list offers to take the value off the node. */
 const UNSET = "__unset";
 
+/**
+ * The value a query types, or null: pixels and tokens always, other text when the field
+ * accepts it, and never the field's own internal value, with Clear on the list or not.
+ */
+export const typedValue = (
+  query: string,
+  accept?: (query: string) => boolean
+): string | null => {
+  const q = query.trim();
+  if (!q || q === UNSET) {
+    return null;
+  }
+  if (NUMBER_RE.test(q) || PX_RE.test(q) || isToken(q)) {
+    return q;
+  }
+  return accept?.(q) ? q : null;
+};
+
 /** A field's options, with Clear last while it holds a value. */
 export const withClear = (
   options: readonly StyleOption[],
@@ -108,16 +126,7 @@ export const ValueField = ({
   title?: string;
 }) => {
   const current = optionOf(value);
-  const custom = (query: string) => {
-    const q = query.trim();
-    if (!q) {
-      return null;
-    }
-    if (NUMBER_RE.test(q) || PX_RE.test(q) || isToken(q)) {
-      return q;
-    }
-    return accept?.(q) ? q : null;
-  };
+  const custom = (query: string) => typedValue(query, accept);
   const withUnset = withClear(options, current);
   return (
     <StyleCombobox

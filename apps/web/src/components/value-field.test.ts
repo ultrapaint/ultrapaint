@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { hintsOf, itemsFor, matches } from "./style-combobox.tsx";
-import { isOutsideDesignSystem, withClear } from "./value-field.tsx";
+import {
+  isOutsideDesignSystem,
+  typedValue,
+  withClear,
+} from "./value-field.tsx";
 
 describe("a field's value", () => {
   const options = [
@@ -51,6 +55,17 @@ describe("a field's Clear option", () => {
       "Inter",
     ]);
     expect(itemsFor(list, "16", anyText).map((o) => o.label)).toEqual(["16"]);
+  });
+
+  it("can't be typed as a value, even where the field is empty and takes any text", () => {
+    const anyText = () => true;
+    expect(typedValue("__unset", anyText)).toBeNull();
+    expect(
+      itemsFor(withClear(options, ""), "__unset", (q) => typedValue(q, anyText))
+    ).toEqual([]);
+    expect(typedValue("Inter", anyText)).toBe("Inter");
+    expect(typedValue("Inter")).toBeNull();
+    expect(typedValue("12px")).toBe("12px");
   });
 
   it("leaves the other options' hints as they were: the description, then a value that says more", () => {
