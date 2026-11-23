@@ -731,10 +731,12 @@ const FrameChrome = ({
   const picked = useCanvasPicks((s) => isPicked(s.ids, frameId));
   const lit = isSelected || picked;
   const [titleHover, setTitleHover] = useState(false);
-  const selectFrame = () => {
+  const selectFrame = (e?: ReactMouseEvent) => {
     // The click after a press that moved the picked frames together, or added this one to them or
-    // took it out (Shift or ⌘/Ctrl), keeps what is picked, the keys let go of by then or not.
-    if (pickedFramesMoved()) {
+    // took it out (Shift or ⌘/Ctrl), keeps what is picked, the keys let go of by then or not. A
+    // click from the keyboard, or the right-click's, is no press's: it selects.
+    const settled = pickedFramesMoved();
+    if (settled && e !== undefined && e.detail > 0) {
       return;
     }
     if (!isNode) {

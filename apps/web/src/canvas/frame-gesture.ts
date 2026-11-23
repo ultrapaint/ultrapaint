@@ -225,7 +225,8 @@ let toggledPick = false;
 /**
  * Whether the press before this click on a frame's name settled what is picked (the frames picked
  * moved together, or one added or taken out with Shift or ⌘/Ctrl): its click then picks nothing,
- * whatever keys are held by then. Asked once, by that click.
+ * whatever keys are held by then. Asked once, by that click; the next press forgets it, when the
+ * pointer was let go elsewhere and no click came.
  */
 export const pickedFramesMoved = () => {
   const was = movedPicks || toggledPick;
@@ -403,6 +404,9 @@ export const beginFrameGesture = (
   }
   e.preventDefault();
   e.stopPropagation();
+  // A press starts afresh: what the last one settled is forgotten, its click there or not.
+  movedPicks = false;
+  toggledPick = false;
   // A name pressed with Shift or ⌘/Ctrl adds its frame to the frames picked, or takes it out.
   if (kind === "move" && e.button === 0 && picksWith(e)) {
     togglePick(frameId);
