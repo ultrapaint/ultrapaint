@@ -42,7 +42,6 @@ import {
   exportTokens,
   statusLabel,
   tokensWaiting,
-  useComponentCodeChanged,
   useImplementation,
 } from "../state/implementation.ts";
 import { Row, Section } from "./inspector-fields.tsx";
@@ -196,15 +195,6 @@ const FilesRow = ({ files }: { files: readonly string[] }) => (
     </CutText>
   </Row>
 );
-
-/** Update from code in a component's ⋯ menu, while its code changed since it was implemented (ADR 0122). */
-export const UpdateComponentItem = ({ name }: { name: string }) =>
-  useComponentCodeChanged(name) ? (
-    <DropdownMenuItem onClick={() => updateComponentFromCode(name)}>
-      <RefreshCw />
-      Update from code
-    </DropdownMenuItem>
-  ) : null;
 
 /**
  * Where a component stands with the code that implements it, on its board in the Library (ADR

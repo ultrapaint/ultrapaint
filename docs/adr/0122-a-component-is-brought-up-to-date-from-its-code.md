@@ -48,15 +48,19 @@ makes such a change.
   pointer to their update (`/update-from-code component:<Name>`).
 - **The editor offers it on the component's board** in the Library: an Implementation section,
   once the component is implemented, with its status and files and, for *Code changed*, the
-  **Update from code** button under the same words as a page's. The board's ⋯ menu and the
-  component's right-click menu in the Library have the entry too. Each drafts the task in a new
-  chat for the person to send (0074).
+  **Update from code** button under the same words as a page's. Each drafts the task in a new
+  chat for the person to send (0074). The board is the component's place: there is no Code tab
+  for it (decided with the person, 2026-11-23).
+- **A component has one menu** (0102): the board's ⋯ opens the menu its row in the Library opens
+  on a right-click. Insert, Open board, Implement, Update from code (when its code changed) and
+  Copy its name, then Delete component for an app component, or for a system component Reset to
+  default look when the look is the project's own and Take the look over when it is not (decided
+  with the person, 2026-11-23).
 
 ## Consequences
 
 - A change to a layout component in the code reaches every page that places it in one run, without
   redrawing a page.
 - An agent's renames of a component's properties reach the pages from any task, not only this one.
-- The board view has no Code tab, and the Code tab shows a page's implementation only (0102): the
-  issue's offer "in the component's place in the Code tab" is not built here, and is left to the
-  person to place.
+- The two menus a component had, which had drifted apart (the ⋯ with Implement and Delete, the
+  right-click with Insert, Open board and Copy), are one.
