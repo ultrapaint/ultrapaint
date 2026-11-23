@@ -377,6 +377,7 @@ export class ProjectBriefing extends Context.Service<
         const { settings } = paths;
         // A folder without git has no .git to tell the agent about.
         const gitRepository = yield* (yield* GitService).repository;
+        const confined = yield* sandbox.confines;
 
         const system = yield* Effect.orElseSucceed(
           Effect.flatMap(DesignSystemService, (service) => service.get),
@@ -459,7 +460,7 @@ ${ways.changingDesigns}
 ${componentsOf(settings.designsDir, files)}Your shell already starts in ${paths.root}, the repository: use paths relative to it, and
 stay inside it. Changes land on the canvas as you make them, so make them one
 step at a time rather than rewriting a page wholesale. ultrapaint.config.json is the user's:
-never write it; when styles are missing, send the user to Sync in the Design system panel.${dotGitNote(sandbox.available, gitRepository)}
+never write it; when styles are missing, send the user to Sync in the Design system panel.${dotGitNote(confined, gitRepository)}
 </ultrapaint>`;
       });
 

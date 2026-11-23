@@ -91,7 +91,7 @@ export const makeReviewer = Effect.fnUntraced(function* () {
     const agreed = negotiated(yield* Effect.mapError(agent.initialize, failed));
     const session = yield* Effect.mapError(
       agent.newSession(root, {
-        meta: sandbox.available ? config.sandboxMeta : undefined,
+        meta: (yield* sandbox.confines) ? config.sandboxMeta : undefined,
       }),
       failed
     );

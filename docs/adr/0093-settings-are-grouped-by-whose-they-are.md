@@ -4,6 +4,9 @@ Status: accepted, 2026-11-13. Amends 0079 (where Repository says where changes g
 and New chats leave Settings › Agents) and 0066 (Keep findings moves to General). Shortcuts are
 0090's.
 
+> Amended by [0119](0119-the-person-may-turn-the-sandbox-off.md), 2026-11-23: Agents also holds
+> *Run agents in a sandbox*, the person's, on by default.
+
 ## Context
 
 The Settings dialog had four sections: Repository, Design system, Preferences and Agents. Nothing

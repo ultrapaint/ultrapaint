@@ -1,3 +1,4 @@
+import type { UserProfile } from "@ultrapaint/contracts/settings";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -147,46 +148,98 @@ export const ProfileRow = () => {
 };
 
 /**
- * Whether review models' findings are kept, in every project (ADR 0066): the log is in the user's
- * own directory, so the choice is the user's, saved at once with the rest of the profile.
+ * A switch over one of the person's own settings, in every project, saved at once with the rest
+ * of the profile: `read` says it from the profile, `write` is what saves a change.
  */
-export const KeepFindingsRow = () => {
-  const [kept, setKept] = useState<boolean | null>(null);
+const ProfileSwitchRow = ({
+  description,
+  id,
+  read,
+  setting,
+  title,
+  write,
+}: {
+  description: string;
+  id: string;
+  read: (profile: UserProfile) => boolean;
+  setting: string;
+  title: string;
+  write: (on: boolean) => UserProfile;
+}) => {
+  const [on, setOn] = useState<boolean | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   useEffect(() => {
     api()
       .request("profile.get", undefined)
-      .then((profile) => setKept(profile.keepFindings === true))
+      .then((profile) => setOn(read(profile)))
       .catch((error: Error) => {
-        setKept(false);
+        setOn(read({}));
         setFailed(`Couldn’t read the setting (${error.message}).`);
       });
-  }, []);
+  }, [read]);
   const change = (next: boolean) => {
-    setKept(next);
+    setOn(next);
     setFailed(null);
     api()
-      .request("profile.set", { keepFindings: next })
-      .then((profile) => setKept(profile.keepFindings === true))
+      .request("profile.set", write(next))
+      .then((profile) => setOn(read(profile)))
       .catch((error: Error) => {
-        setKept(!next);
+        setOn(!next);
         setFailed(`Couldn’t save it (${error.message}). Try again.`);
       });
   };
   return (
     <Row
-      description="Saves what review models find, so the design skill can learn from it."
-      htmlFor="settings-keep-findings"
+      description={description}
+      htmlFor={id}
       message={failed ? <RowMessage kind="error">{failed}</RowMessage> : null}
-      setting="keep-findings"
-      title="Keep review findings"
+      setting={setting}
+      title={title}
     >
       <Switch
-        checked={kept === true}
-        disabled={kept === null}
-        id="settings-keep-findings"
+        checked={on === true}
+        disabled={on === null}
+        id={id}
         onCheckedChange={change}
       />
     </Row>
   );
 };
+
+const keepsFindings = (profile: UserProfile) => profile.keepFindings === true;
+const writeKeepFindings = (on: boolean): UserProfile => ({
+  keepFindings: on,
+});
+
+/**
+ * Whether review models' findings are kept, in every project (ADR 0066): the log is in the user's
+ * own directory, so the choice is the user's.
+ */
+export const KeepFindingsRow = () => (
+  <ProfileSwitchRow
+    description="Saves what review models find, so the design skill can learn from it."
+    id="settings-keep-findings"
+    read={keepsFindings}
+    setting="keep-findings"
+    title="Keep review findings"
+    write={writeKeepFindings}
+  />
+);
+
+const sandboxed = (profile: UserProfile) => profile.sandbox !== false;
+const writeSandbox = (on: boolean): UserProfile => ({ sandbox: on });
+
+/**
+ * Whether the agents the editor starts on this computer run in its sandbox (ADR 0119): the
+ * person's, never a project's, and on until they turn it off.
+ */
+export const SandboxRow = () => (
+  <ProfileSwitchRow
+    description="Agents reach only this project, their own files and the tools they need. Off, they can read and change anything you can. Agents already running stay as they started."
+    id="settings-sandbox"
+    read={sandboxed}
+    setting="sandbox"
+    title="Run agents in a sandbox"
+    write={writeSandbox}
+  />
+);

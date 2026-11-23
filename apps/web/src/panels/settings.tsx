@@ -56,6 +56,7 @@ import { FoldersGroup } from "./settings-folders.tsx";
 import { GeneralSection } from "./settings-general.tsx";
 import { Group, PathList, Row, RowMessage, Status } from "./settings-group.tsx";
 import { NameAndIconSection } from "./settings-name-and-icon.tsx";
+import { SandboxRow } from "./settings-profile.tsx";
 import { ReviewGroup } from "./settings-review.tsx";
 import {
   labelOf,
@@ -1198,7 +1199,14 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
         }
       />
     ),
-    agents: <MachineAgentsGroup />,
+    agents: (
+      <>
+        <MachineAgentsGroup />
+        <Group>
+          <SandboxRow />
+        </Group>
+      </>
+    ),
     appearance: <AppearanceSection />,
     chats: (
       <>

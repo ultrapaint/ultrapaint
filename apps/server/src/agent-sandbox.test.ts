@@ -218,3 +218,53 @@ describe("AgentSandbox, in a folder without .git", () => {
       )
   );
 });
+
+describe("AgentSandbox, turned off by the person (ADR 0119)", () => {
+  const config = {
+    args: [],
+    builtIn: false,
+    command: "agent",
+    env: {},
+    id: "a",
+    name: "A",
+  };
+  const withWanted = (wanted: boolean) =>
+    Layer.provideMerge(
+      AgentSandbox.layerFor(machine, { wanted: Effect.succeed(wanted) }),
+      NodeServices.layer
+    );
+
+  it.effect(
+    "starts the agent unconfined on a machine that could confine it",
+    () =>
+      Effect.gen(function* () {
+        const sandbox = yield* AgentSandbox;
+        if (!sandbox.available) {
+          return;
+        }
+        assert.isFalse(yield* sandbox.confines);
+        const session = yield* sandbox.session({
+          config,
+          root: tmpdir(),
+          tmpDir: tmpdir(),
+        });
+        assert.strictEqual(session.launch.command, "agent");
+      }).pipe(Effect.provide(withWanted(false)))
+  );
+
+  it.effect("confines it again once turned back on", () =>
+    Effect.gen(function* () {
+      const sandbox = yield* AgentSandbox;
+      if (!sandbox.available) {
+        return;
+      }
+      assert.isTrue(yield* sandbox.confines);
+      const session = yield* sandbox.session({
+        config,
+        root: tmpdir(),
+        tmpDir: tmpdir(),
+      });
+      assert.notStrictEqual(session.launch.command, "agent");
+    }).pipe(Effect.provide(withWanted(true)))
+  );
+});

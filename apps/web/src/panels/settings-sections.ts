@@ -326,6 +326,13 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     title: "Agents on this computer",
   },
   {
+    id: "sandbox",
+    section: "agents",
+    terms:
+      "sandbox confine isolate permissions access files bubblewrap seatbelt",
+    title: "Run agents in a sandbox",
+  },
+  {
     id: "mcp",
     section: "connections",
     terms: "mcp outside terminal claude code codex command",

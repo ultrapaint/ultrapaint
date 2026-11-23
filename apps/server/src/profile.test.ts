@@ -48,6 +48,34 @@ describe("the user's profile", () => {
   );
 
   it.effect(
+    "keeps the sandbox turned off, and forgets it once turned back on (ADR 0119)",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const user = yield* fs.makeTempDirectoryScoped();
+        const kept = yield* Effect.scoped(
+          ProfileService.use((profile) =>
+            Effect.gen(function* () {
+              yield* profile.set({ sandbox: false });
+              yield* profile.set({ displayName: "Ada" });
+              return yield* profile.get;
+            })
+          ).pipe(Effect.provide(profileOf(user)))
+        );
+        assert.deepStrictEqual(kept, { displayName: "Ada", sandbox: false });
+        const on = yield* Effect.scoped(
+          ProfileService.use((profile) =>
+            Effect.gen(function* () {
+              yield* profile.set({ sandbox: true });
+              return yield* profile.get;
+            })
+          ).pipe(Effect.provide(profileOf(user)))
+        );
+        assert.deepStrictEqual(on, { displayName: "Ada" });
+      }).pipe(Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
     "keeps the editor's preferences across servers, each one apart from the others (ADR 0093)",
     () =>
       Effect.gen(function* () {

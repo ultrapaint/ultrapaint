@@ -4,6 +4,10 @@ Status: accepted, 2026-09-19.
 
 > Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: the agent is spawned by Effect's spawner in a process group of its own, with the terminals' kill policy and an environment `ServerConfig` gives; the sandbox's `_meta` goes on a reopened session too.
 
+> Amended by [0119](0119-the-person-may-turn-the-sandbox-off.md), 2026-11-23: the person may turn
+> the sandbox off in Settings › Agents (their profile, never a project's); an agent started since
+> runs unconfined.
+
 > Amended by [0118](0118-every-thread-writes-the-repository.md), 2026-11-23: a thread's sandbox is this one again whatever
 > its purpose; only a reviewer is kept to one directory (`rewritable`).
 

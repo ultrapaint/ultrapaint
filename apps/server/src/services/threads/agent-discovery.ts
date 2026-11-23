@@ -66,7 +66,7 @@ export class AgentDiscovery extends Context.Service<
           yield* agent.initialize;
           // No `authenticate`: signing in is the user's to start, from a thread.
           const info = yield* agent.newSession(dir, {
-            meta: sandbox.available ? config.sandboxMeta : undefined,
+            meta: (yield* sandbox.confines) ? config.sandboxMeta : undefined,
           });
           return {
             agentId: config.id,

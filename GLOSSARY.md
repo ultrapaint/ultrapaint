@@ -194,7 +194,8 @@ refactor and the board view left.
   (`PendingCards`, ADR 0022). The editor never answers a permission from memory: "always" is the
   agent's own option. A card the agent withdraws reads cancelled, a question No longer asked
   (ADR 0109).
-- **Agent launcher**: the seam an agent is started through: its sandboxed process (ADR 0013),
+- **Agent launcher**: the seam an agent is started through: its sandboxed process (ADR 0013,
+  unless the person turned the sandbox off, ADR 0119),
   or a scripted in-memory agent in tests. It is given a **host** (the cards, the paths, what the
   agent may write) and builds the editor's side of the launch from it, the terminals confined.
   Each adapter keeps the order of the agent's updates itself (acp's `updates`), and a prompt

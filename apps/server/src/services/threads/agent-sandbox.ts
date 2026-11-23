@@ -6,7 +6,8 @@
  * This service knows the machine: the home directory, the toolchain the agent's shell needs, the
  * files git reads its configuration from, and which sandbox this platform has. Those are read
  * once — they do not change while the server runs — and turned into a launch through
- * `packages/acp`'s pure profile builder.
+ * `packages/acp`'s pure profile builder. Whether it is used is the person's, asked at each launch
+ * (`confines`, ADR 0119).
  */
 
 import {
@@ -21,6 +22,7 @@ import { ChildProcessSpawner } from "effect/process";
 import { ServerConfig } from "../../config.ts";
 import { runCommand } from "../../process.ts";
 import { skillDirOf } from "../../skills/index.ts";
+import { ProfileService } from "../profile.ts";
 
 /** Interpreters and version managers a shell reaches for. Read only. */
 const COMMON_TOOLCHAIN = [
@@ -77,11 +79,26 @@ interface AgentSandboxSession {
   readonly launch: AgentLaunch;
 }
 
+/**
+ * Whether a launch is confined: never where the machine cannot, else as the person wants, which is
+ * on unless they said otherwise (ADR 0119).
+ */
+const confinesWhen = (
+  available: boolean,
+  wanted: Effect.Effect<boolean> | undefined
+): Effect.Effect<boolean> =>
+  available ? (wanted ?? Effect.succeed(true)) : Effect.succeed(false);
+
 export class AgentSandbox extends Context.Service<
   AgentSandbox,
   {
     /** Whether this machine can confine an agent. Elsewhere the agent runs unconfined. */
     readonly available: boolean;
+    /**
+     * Whether an agent started now is confined: the machine can, and the person has not turned
+     * the sandbox off (ADR 0119). Asked at each launch, so a change holds from the next agent.
+     */
+    readonly confines: Effect.Effect<boolean>;
     /**
      * Why it cannot, when there is a sandbox that should have worked and did not: bubblewrap
      * installed but refused, say, by a kernel that restricts user namespaces.
@@ -118,6 +135,8 @@ export class AgentSandbox extends Context.Service<
        */
       readonly reads?: readonly string[];
       readonly tools?: SandboxTools;
+      /** Whether the person wants agents confined; left out, they do. */
+      readonly wanted?: Effect.Effect<boolean>;
     }
   ) =>
     Layer.effect(
@@ -295,9 +314,11 @@ export class AgentSandbox extends Context.Service<
           yield* Effect.logWarning(`agents will not be confined: ${problem}`);
         }
         const available = possible && problem === undefined;
+        const confines = confinesWhen(available, options?.wanted);
 
         return AgentSandbox.of({
           available,
+          confines,
           problem,
           session: Effect.fnUntraced(function* ({
             config,
@@ -310,7 +331,7 @@ export class AgentSandbox extends Context.Service<
               command: config.command,
               env: config.env,
             };
-            if (!available) {
+            if (!(yield* confines)) {
               return { confine: (launch: AgentLaunch) => launch, launch: base };
             }
             // A directory the agent keeps its state in has to exist before the sandbox can let
@@ -410,6 +431,7 @@ export class AgentSandbox extends Context.Service<
     AgentSandbox,
     AgentSandbox.of({
       available: false,
+      confines: Effect.succeed(false),
       problem: undefined,
       session: ({ config }) =>
         Effect.succeed({
@@ -431,6 +453,7 @@ export class AgentSandbox extends Context.Service<
     AgentSandbox,
     AgentSandbox.of({
       available: true,
+      confines: Effect.succeed(true),
       problem: undefined,
       session: ({ config }) =>
         Effect.succeed({
@@ -449,12 +472,15 @@ export class AgentSandbox extends Context.Service<
     Effect.gen(function* () {
       const { agentRuntime, machine } = yield* ServerConfig;
       const path = yield* Path.Path;
+      const profile = yield* ProfileService;
       return AgentSandbox.layerFor(machine, {
         // The design skill written out, which its core has agents read when they need it.
         reads: [
           ...(agentRuntime?.reads ?? []),
           skillDirOf(machine.home, path.join),
         ],
+        // The person may turn it off for every project (ADR 0119); absent, it is on.
+        wanted: Effect.map(profile.get, ({ sandbox }) => sandbox !== false),
       });
     })
   );
