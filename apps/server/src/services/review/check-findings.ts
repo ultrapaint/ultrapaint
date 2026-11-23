@@ -95,7 +95,27 @@ const valueName = (kind: OffSystemKind, value: string | number) =>
   `${typeof value === "number" && IN_PIXELS.has(kind) ? `${value}px` : String(value)} ${kindName(kind)}`;
 
 /** The values off the system on every page, one finding a value, those in most places first. */
-const offSystemFound = (pages: readonly CheckedPage[]): readonly Found[] => {
+/**
+ * How the findings name each page: its short name, or its whole route or file where two pages
+ * share a short name (`/settings/billing` and `/account/billing`).
+ */
+const pageNames = (pages: readonly CheckedPage[]) => {
+  const names = pages.map((page) => page.route ?? page.file);
+  const shorts = new Map<string, Set<string>>();
+  for (const name of names) {
+    shorts.set(
+      shortPage(name),
+      (shorts.get(shortPage(name)) ?? new Set()).add(name)
+    );
+  }
+  return (name: string) =>
+    (shorts.get(shortPage(name))?.size ?? 0) > 1 ? name : shortPage(name);
+};
+
+const offSystemFound = (
+  pages: readonly CheckedPage[],
+  pageName: (name: string) => string
+): readonly Found[] => {
   const byValue = new Map<
     string,
     {
@@ -130,7 +150,7 @@ const offSystemFound = (pages: readonly CheckedPage[]): readonly Found[] => {
       const named = places
         .slice(0, NAMED_PLACES)
         .map((p) =>
-          on.size > 1 ? `${p.place} on ${shortPage(p.page)}` : p.place
+          on.size > 1 ? `${p.place} on ${pageName(p.page)}` : p.place
         )
         .join(", ");
       const more =
@@ -168,6 +188,7 @@ export const checkFindings = (
     )
   );
   const onPages = new Set(rendered.map((f) => f.page)).size;
+  const pageName = pageNames(pages);
   return [
     ...mergeFound(rendered).map((f) =>
       // A problem on one page of several names it; one two pages share names them already.
@@ -176,11 +197,11 @@ export const checkFindings = (
             ...f,
             finding: {
               ...f.finding,
-              where: `${f.finding.where} on ${shortPage(f.page)}`,
+              where: `${f.finding.where} on ${pageName(f.page)}`,
             },
           }
         : f
     ),
-    ...offSystemFound(pages),
+    ...offSystemFound(pages, pageName),
   ];
 };

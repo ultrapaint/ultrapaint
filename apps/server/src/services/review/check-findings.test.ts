@@ -120,6 +120,19 @@ describe("the checks' findings for the designer", () => {
     ]);
   });
 
+  it("name a page by its whole route where two share a short name", () => {
+    const found = checkFindings(
+      ["/settings/billing", "/account/billing"].map((route) => ({
+        checks: { offSystem: [value("Footer", 6)], rendered: [] },
+        file: `designs${route}.page.json`,
+        route,
+      }))
+    );
+    expect(found.map((f) => f.finding.where)).toEqual([
+      "Footer (`padding.top`) on /settings/billing, Footer (`padding.top`) on /account/billing, on 2 pages",
+    ]);
+  });
+
   it("are none when nothing was measured wrong", () => {
     expect(
       checkFindings([
