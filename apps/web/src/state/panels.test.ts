@@ -203,6 +203,13 @@ describe("showLeftPanel", () => {
     expect(takeRequest({ draft: "t1" })).toBe("Make it blue");
   });
 
+  it("puts the caret in a new chat's empty composer, and leaves a chat opened without a draft alone", async () => {
+    await showLeftPanel({ chat: thread("t4"), draft: "" });
+    expect(takeRequest({ draft: "t4" })).toBe("");
+    await showLeftPanel({ chat: thread("t5") });
+    expect(takeRequest({ draft: "t5" })).toBeNull();
+  });
+
   it("shows a thread just created without reading its transcript", async () => {
     await showLeftPanel({ chat: thread("t3"), draft: "/implement " });
     expect(useAgents.getState()).toMatchObject({

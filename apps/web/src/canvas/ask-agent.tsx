@@ -81,7 +81,7 @@ export const askInNewChat = async (
   const chips = targets.flatMap((t) => chipOfSelection(t) ?? []);
   try {
     const thread = await api().request("threads.create", {});
-    await showLeftPanel({ chat: thread, draft: "" });
+    await showLeftPanel({ chat: thread });
     await api().request("threads.prompt", {
       attachments: attachmentsOf(chips),
       text: text.trim(),

@@ -49,7 +49,7 @@ export const sendPrompt = async (
         value: start.model,
       });
     }
-    await showLeftPanel({ chat: thread, draft: "" });
+    await showLeftPanel({ chat: thread });
     await api().request("threads.prompt", {
       attachments: [...(start.attachments ?? []), ...attachments],
       text: start.prompt,

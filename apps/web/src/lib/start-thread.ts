@@ -67,7 +67,7 @@ export const runTask = async (request: TaskRequest, title: string) => {
       ...(purpose === "implement" && { purpose }),
       title,
     });
-    await showLeftPanel({ chat: thread, draft: "" });
+    await showLeftPanel({ chat: thread });
     await api().request("threads.prompt", {
       attachments: [],
       text: commandOf(request),
