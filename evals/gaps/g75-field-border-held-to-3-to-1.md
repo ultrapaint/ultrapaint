@@ -40,3 +40,4 @@ at 1.4:1 with no fill and no label.
 - `recall-main19b`: 2026-11-19, caught: shipped 0/4 (+1 partly) (opus, effort high; runs/recall-main19b/report.md)
 - `up88-told`: 2026-11-22, caught: main+told 0/3 (+1 partly), up88-2+told 0/3 (opus, effort high; runs/up88-told/report.md)
 - `up88-names`: 2026-11-22, caught: main 0/3, up88-1 0/3, up88-2 0/3 (+1 partly) (opus, effort high; runs/up88-names/report.md)
+- `p15-told`: 2026-11-23, caught: shipped+told 0/3, p15-fix-adds-a-needed-control+told 0/3 (+1 partly) (opus, effort high; runs/p15-told/report.md)

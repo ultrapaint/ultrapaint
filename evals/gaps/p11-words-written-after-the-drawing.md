@@ -71,3 +71,4 @@ problems.
 - `recall-main19b`: 2026-11-19, its sections' gaps caught: shipped 26/36 (+5 partly) (opus, effort high; runs/recall-main19b/report.md)
 - `up88-told`: 2026-11-22, its sections' gaps caught: main+told 94/141 (+15 partly), up88-2+told 92/141 (+10 partly) (opus, effort high; runs/up88-told/report.md)
 - `up88-names`: 2026-11-22, its sections' gaps caught: main 103/141 (+14 partly), up88-1 108/141 (+10 partly), up88-2 98/138 (+16 partly) (opus, effort high; runs/up88-names/report.md)
+- `p15-told`: 2026-11-23, its sections' gaps caught: shipped+told 85/141 (+15 partly), p15-fix-adds-a-needed-control+told 82/141 (+16 partly) (opus, effort high; runs/p15-told/report.md)

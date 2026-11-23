@@ -40,3 +40,4 @@ named: shipped skill 1/2, redesign-gaps 0/2. The person rated it real
 - `placement-2`: 2026-11-17, caught: shipped 1/2, placement-2 0/2 (reviewed by opus, judged by opus, cursor:grok-4.7-high, effort high; runs/placement-2/report.md)
 - `up88-told`: 2026-11-22, caught: main+told 2/3 (+1 partly), up88-2+told 1/3 (opus, effort high; runs/up88-told/report.md)
 - `up88-names`: 2026-11-22, caught: main 1/3 (+1 partly), up88-1 0/3 (+1 partly), up88-2 2/3 (opus, effort high; runs/up88-names/report.md)
+- `p15-told`: 2026-11-23, caught: shipped+told 1/3, p15-fix-adds-a-needed-control+told 1/3 (opus, effort high; runs/p15-told/report.md)

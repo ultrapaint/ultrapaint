@@ -38,3 +38,4 @@ named: shipped skill 0/2, redesign-gaps 1/2. The person rated it real
 - `gaps-nov18`, decided (the person, 2026-11-19, `decisions/gaps-nov18`): closed as done. The shipped skill catches it in every recent review: 3 of 3 and 2 of 2.
 - `up88-told`: 2026-11-22, caught: main+told 3/3, up88-2+told 3/3 (opus, effort high; runs/up88-told/report.md)
 - `up88-names`: 2026-11-22, caught: main 3/3, up88-1 3/3, up88-2 3/3 (opus, effort high; runs/up88-names/report.md)
+- `p15-told`: 2026-11-23, caught: shipped+told 3/3, p15-fix-adds-a-needed-control+told 3/3 (opus, effort high; runs/p15-told/report.md)

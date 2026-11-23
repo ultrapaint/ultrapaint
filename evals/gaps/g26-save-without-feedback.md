@@ -42,3 +42,4 @@ named: shipped skill 1/2, redesign-gaps 2/2. The person rated it real
 - With the skill on main (row-lines-2 shipped), caught in 6 of 6 reviews: done.
 - `up88-told`: 2026-11-22, caught: main+told 3/3, up88-2+told 3/3 (opus, effort high; runs/up88-told/report.md)
 - `up88-names`: 2026-11-22, caught: main 3/3, up88-1 3/3, up88-2 3/3 (opus, effort high; runs/up88-names/report.md)
+- `p15-told`: 2026-11-23, caught: shipped+told 3/3, p15-fix-adds-a-needed-control+told 3/3 (opus, effort high; runs/p15-told/report.md)
