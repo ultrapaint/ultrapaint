@@ -8,9 +8,9 @@ said of the feel wins over every default below.
 ## The face
 
 Choose and load it as `references/typography.md` says. The system names up to three families as
-tokens (`font-sans` for the interface, `font-mono` beside it in a technical product, `font-display`
-for a page's headlines when the brand asks for one) and loads only the weights its text styles
-use.
+tokens (`font-sans` for the interface, `font-mono` for code where the product shows code,
+`font-display` for a page's headlines when the brand asks for one) and loads only the weights its
+text styles use.
 
 ## Colour by role
 
@@ -47,7 +47,7 @@ the ones the product uses:
 | Field label | body size | `600`, foreground | `1.4` |
 | Control (navigation, tabs, buttons, menu items) | body size | `500` | `1.25` |
 | Small (metadata, captions) | `13px` | `400–500` | `1.4` |
-| Mono (code, ids, figures) | body size or a step down | `400` | `1.5` |
+| Mono (code only) | body size or a step down | `400` | `1.5` |
 
 A humanistic product sets every level a step larger.
 
