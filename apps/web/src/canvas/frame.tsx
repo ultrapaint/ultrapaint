@@ -33,14 +33,10 @@ import { updateNodes } from "../lib/node-actions.ts";
 import { kindColor } from "../lib/selection-kind.ts";
 import { isPicked, useCanvasPicks } from "../state/canvas-picks.ts";
 import { holdsCard, useComments } from "../state/comments.ts";
+import { appComponentOf, useComponents } from "../state/components.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
-import {
-  appFileOf,
-  drawnRootOf,
-  rootOfFrame,
-  useDocuments,
-} from "../state/documents.ts";
+import { drawnRootOf, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf, ownFrameOf, pageOfRef } from "../state/frame-ref.ts";
 import { useIsolatedRequest } from "../state/isolation.ts";
@@ -227,19 +223,26 @@ export const Frame = memo(
       })
     );
 
-    // A selection whose node is gone (an undo, an agent) is let go of. A layer of an instance
-    // goes with its instance: its component's file may not be read yet (ADR 0114).
+    // A selection whose node is gone (an undo, an agent, its main component changed) is let go
+    // of. A layer of an instance is kept while the components are still being read (ADR 0114).
+    const componentsRead = useComponents((s) => s.status === "ready");
+    const components = useComponents((s) => s.components);
     useEffect(() => {
       const [lead] = selectedHere;
       const layer = lead === undefined ? null : instanceLayerOf(lead);
-      const gone =
+      const appOf = (component: string) =>
+        appComponentOf(components, component);
+      const waiting =
+        !componentsRead && layer !== null && findNode(root, layer.instance);
+      if (
+        root &&
         lead !== undefined &&
-        !findLayer(root, lead, appFileOf) &&
-        !(layer && findNode(root, layer.instance));
-      if (root && gone) {
+        !waiting &&
+        !findLayer(root, lead, appOf)
+      ) {
         select(null);
       }
-    }, [selectedHere, root]);
+    }, [selectedHere, root, components, componentsRead]);
 
     // What agents are changing here: outlined on the canvas, skeletons in the preview.
     const work = useFrameWork(frameId);

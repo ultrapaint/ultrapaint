@@ -8,7 +8,7 @@ import type { JsonValue } from "@ultrapaint/contracts/base";
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import {
-  isInstanceLayer,
+  isLayerOf,
   layerOwner,
 } from "@ultrapaint/design-document/instance-layers";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
@@ -48,10 +48,9 @@ const useOwner = (frame: string, id: string): InstanceNode | null => {
   const canvas = useEditor((s) => s.canvas);
   const docs = useDocuments((s) => s.docs);
   const components = useComponents((s) => s.components);
-  return isInstanceLayer(id)
-    ? layerOwner(rootOfFrame(docs, canvas, frame), id, (name) =>
-        appComponentOf(components, name)
-      )
+  const root = rootOfFrame(docs, canvas, frame);
+  return isLayerOf(root, id)
+    ? layerOwner(root, id, (name) => appComponentOf(components, name))
     : null;
 };
 
@@ -108,7 +107,7 @@ export const InstanceOverridesSection = ({
   node: DesignNode;
 }) => {
   const seen = useSeen();
-  const found = isInstanceLayer(node.id)
+  const found = isLayerOf(rootOfFrame(seen.docs, seen.canvas, frame), node.id)
     ? overriddenOn(frame, node.id, seen)
     : null;
   const fields = fieldsOf(found?.over);
@@ -237,8 +236,9 @@ export const InstanceOverrideMarks = ({
   node: DesignNode | null;
 }) => {
   const seen = useSeen();
+  // A node of the page is never marked, whatever its id: only a layer of an instance is.
   const found =
-    node && isInstanceLayer(node.id)
+    node && isLayerOf(rootOfFrame(seen.docs, seen.canvas, frame), node.id)
       ? overriddenOn(frame, node.id, seen)
       : null;
   const fields = fieldsOf(found?.over);
