@@ -209,8 +209,9 @@ describe("a component edited in place", () => {
   const editing = (frame: string) =>
     useIsolation.setState({
       isolated: {
+        around: null,
         component: "Promo",
-        entered: "t1",
+        drawn: "t1",
         frame,
         instance: "t1",
         variant: null,

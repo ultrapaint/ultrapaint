@@ -147,12 +147,24 @@ const overviewCss = (
 /** Four tiles a row, and their gaps and margins. */
 const OVERVIEW_WIDTH = 4 * TILE + 3 * TILE_GAP + 2 * 32;
 
+/** A page's frame, as an app component that fills one is drawn at on its board. */
+export interface PageSize {
+  readonly height: number;
+  readonly width: number;
+}
+
+/** The page a component that fills one is drawn at when no page places it: a desktop's. */
+const DEFAULT_PAGE: PageSize = { height: 900, width: 1440 };
+
+/** The margin of a board's sheet around what it holds. */
+const SHEET_PADDING = 24;
+
 /** A board's root: a sheet of the design's background, at a width of its own. */
 const sheet = (
   id: string,
   children: DesignNode[],
   width: number | "fill" | "hug",
-  padding = 24
+  padding = SHEET_PADDING
 ): DesignNode => ({
   children,
   fill: tokenRef("color-background"),
@@ -529,10 +541,19 @@ export const appInPlace = (
  * instance given that member (`tone=featured`); one with no choice is drawn once, as every
  * instance that sets nothing draws it.
  */
-export const appComponentBoards = (file: AppComponentFile): Board[] => {
+export const appComponentBoards = (
+  file: AppComponentFile,
+  /** The frame of the first page that places it, which a component filling a page is drawn at. */
+  page: PageSize = DEFAULT_PAGE
+): Board[] => {
   const variants = appVariantsOf(file);
+  // A page's layout fills the page's height: drawn alone it would have none (ADR 0114).
+  const fillsPage = (file.tree as { height?: unknown }).height === "fill";
   return (variants.length > 0 ? variants : [null]).map((variant): Board => {
     const inPlace = appInPlace(file, variant);
+    const drawn: DesignNode = fillsPage
+      ? ({ ...inPlace.instance, height: "fill", width: "fill" } as DesignNode)
+      : inPlace.instance;
     return {
       inPlace,
       name: appBoardName(variant),
@@ -540,9 +561,10 @@ export const appComponentBoards = (file: AppComponentFile): Board[] => {
         // Named for the variant it draws (B6): a click picks it, for the agents to be told.
         ...sheet(
           pickId({ board: appBoardName(variant), kind: "variant" }),
-          [inPlace.instance],
-          appSheetWidth(file.tree)
+          [drawn],
+          fillsPage ? page.width + 2 * SHEET_PADDING : appSheetWidth(file.tree)
         ),
+        ...(fillsPage && { height: page.height + 2 * SHEET_PADDING }),
         minWidth: 240,
       },
       title: variant ? appBoardName(variant) : "as an instance",
@@ -560,7 +582,9 @@ export const libraryBoards = (
   catalogue: readonly ComponentMeta[],
   fileOf: (name: string) => ComponentFile | undefined,
   /** How wide the Overview drew the app components that hug what they hold. */
-  drawn: Readonly<Record<string, number>> = {}
+  drawn: Readonly<Record<string, number>> = {},
+  /** The frame of the first page that places a component, by its name. */
+  pageOf: (name: string) => PageSize | undefined = () => undefined
 ): Boards => {
   if (item === OVERVIEW) {
     return {
@@ -573,7 +597,10 @@ export const libraryBoards = (
     return { boards: [], direction: "column" };
   }
   if (file.origin === "app") {
-    return { boards: appComponentBoards(file), direction: "wrap" };
+    return {
+      boards: appComponentBoards(file, pageOf(item)),
+      direction: "wrap",
+    };
   }
   const meta = catalogue.find((c) => c.name === item);
   return {

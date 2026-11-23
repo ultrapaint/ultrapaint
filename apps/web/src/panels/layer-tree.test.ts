@@ -107,6 +107,44 @@ describe("what the panel lists", () => {
     expect(listed.onCanvas).toBe(true);
   });
 
+  it("lists an instance's own layers under it, beside the page's nodes in its slots (ADR 0114)", () => {
+    const shell = {
+      children: [text("mine", "Mine")],
+      component: "Shell",
+      from: "#app",
+      id: "shell",
+      type: "instance",
+    } as DesignNode;
+    const listed = layerScope({
+      canvasNodes: [],
+      edited: null,
+      layersOf: (node) =>
+        node.id === "shell"
+          ? [column("shell/side", [text("shell/logo", "Acme")])]
+          : [],
+      pages: [page],
+      roots: () => ({ children: [shell], id: "root", type: "page" }),
+      tree: null,
+    });
+    expect(outline(listed.items)).toEqual([
+      "home#page",
+      "  home#shell",
+      "    home#shell/side",
+      "      home#shell/logo",
+      "    home#mine",
+    ]);
+    const [home] = listed.items;
+    const layer = home?.children[0]?.children[0];
+    const mine = home?.children[0]?.children[1];
+    // A layer is the main component's to move: nothing lands on it, and it lands nowhere.
+    expect(
+      layer && mine && dropPositionAt(mine, layer, 0.5, () => true)
+    ).toBeNull();
+    expect(
+      layer && mine && dropPositionAt(layer, mine, 0.1, () => true)
+    ).toBeNull();
+  });
+
   it("is the tree of an app component edited in place, alone, once it is read", () => {
     const edited = { component: "Promo", frame: page.id, root: promo };
     expect(scope({ edited })).toMatchObject({

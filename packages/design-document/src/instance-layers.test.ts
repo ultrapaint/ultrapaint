@@ -7,6 +7,7 @@ import {
   layerOwner,
   layerPath,
   overridesAsMainOps,
+  ownLayersOf,
   throughProperties,
 } from "./instance-layers.ts";
 
@@ -214,5 +215,15 @@ describe("an instance's overrides applied to its main component (ADR 0114)", () 
       { id: "side", op: "update", set: { fill: "#000" } },
       { at: "md", id: "side", op: "update", set: { gap: 8 } },
     ]);
+  });
+});
+
+describe("an instance's own layers (ADR 0114)", () => {
+  it("are the component's as the instance draws them, the page's nodes in its slots left out", () => {
+    const [shell] = (PAGE as { children: DesignNode[] }).children;
+    const layers = shell ? ownLayersOf(shell, fileOf) : [];
+    expect(JSON.stringify(layers)).not.toContain('"title"');
+    expect(layers.map((l) => l.id)).toEqual(["shell/side", "shell/main"]);
+    expect(layers[0]).toMatchObject({ fill: "#000" });
   });
 });

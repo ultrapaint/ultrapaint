@@ -2,7 +2,7 @@ import {
   APP_FROM,
   componentOfDoc,
 } from "@ultrapaint/contracts/component-names";
-import { Component } from "lucide-react";
+import { ChevronRight, Component } from "lucide-react";
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,18 +19,22 @@ import { CommandKeys } from "../components/shortcut-sheet.tsx";
 import { instanceCountOf } from "../lib/component-uses.ts";
 import { appComponentOf, useComponents } from "../state/components.ts";
 import { useDocuments } from "../state/documents.ts";
-import { frameRefOf } from "../state/frame-ref.ts";
+import { frameRefOf, ownFrameOf } from "../state/frame-ref.ts";
 import {
   editVariant,
   leaveIsolation,
+  leaveTo,
+  levelsOf,
   useIsolation,
 } from "../state/isolation.ts";
+import { useProject } from "../state/project.ts";
 import { Banner } from "./banner.tsx";
 
 /**
- * Says an app component is edited in place (ADR 0041), which member of its choices the edits land
- * on, and the way out: Done, Escape (the `escape` command, its key on Done), or a click anywhere
- * outside it. It sits just over the tools, on their centre line, where the hand already is while
+ * Says an app component is edited in place (ADR 0041), as a breadcrumb from the page through each
+ * component it was entered through (ADR 0114), any of them a way back; which member of its choices
+ * the edits land on; and the way out one level: Done, Escape (the `escape` command, its key on
+ * Done), or a click anywhere outside it. It sits just over the tools, on their centre line, where the hand already is while
  * editing, the top left to the place, edged in the component colour the canvas outlines an
  * instance in. On its board (ADR 0045) the board edited says the member, its title a variant's,
  * and the banner only names the component.
@@ -61,8 +65,34 @@ const instancesLabel = (count: number) => {
   return count === 1 ? "1 instance" : `${count} instances`;
 };
 
+/** A level of the breadcrumb that goes back to it: the page or board at 0. */
+const LevelButton = ({ level, name }: { level: number; name: string }) => (
+  <button
+    className="min-w-0 max-w-32 shrink truncate rounded px-1 outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25"
+    onClick={() => leaveTo(level)}
+    type="button"
+  >
+    {name}
+  </button>
+);
+
+/** What the breadcrumb starts from: the page the frame shows, or the board. */
+const useBaseName = (frame: string | undefined) =>
+  useProject((s) => {
+    if (frame === undefined) {
+      return "";
+    }
+    const ref = frameRefOf(frame);
+    if (ref.kind === "board") {
+      return "Board";
+    }
+    const own = ownFrameOf(frame);
+    return s.pages.find((p) => p.id === own)?.name ?? "Page";
+  });
+
 export const IsolationBanner = () => {
   const isolated = useIsolation((s) => s.isolated);
+  const base = useBaseName(isolated?.frame);
   const file = useComponents((s) =>
     isolated ? appComponentOf(s.components, isolated.component) : undefined
   );
@@ -73,6 +103,7 @@ export const IsolationBanner = () => {
   }
   const choices = file.properties.filter((p) => p.kind === "choice");
   const onBoard = frameRefOf(isolated.frame).kind === "board";
+  const levels = levelsOf(isolated);
   const current = isolated.variant
     ? `${isolated.variant.property}\n${isolated.variant.member}`
     : "";
@@ -83,14 +114,31 @@ export const IsolationBanner = () => {
       icon={<Component className="text-component" />}
       label={`Editing main component ${file.name}, ${instancesLabel(instances)}`}
     >
-      <CutText
-        className="min-w-0 truncate font-body-small text-muted-foreground"
-        tip={file.name}
+      <nav
+        aria-label="Editing main component"
+        className="flex min-w-0 items-center gap-1 font-body-small text-muted-foreground"
       >
-        Editing main component{" "}
-        <span className="font-body-medium text-foreground">{file.name}</span> ·{" "}
-        {instancesLabel(instances)}
-      </CutText>
+        <LevelButton level={0} name={base} />
+        {levels.map((name, i) => (
+          <span
+            className="flex min-w-0 items-center gap-1"
+            key={levels.slice(0, i + 1).join("/")}
+          >
+            <ChevronRight className="size-3 shrink-0" />
+            {i === levels.length - 1 ? (
+              <CutText
+                className="min-w-0 truncate font-body-medium text-foreground"
+                tip={name}
+              >
+                {name}
+              </CutText>
+            ) : (
+              <LevelButton level={i + 1} name={name} />
+            )}
+          </span>
+        ))}
+        <span className="shrink-0">· {instancesLabel(instances)}</span>
+      </nav>
       {choices.length > 0 && !onBoard ? (
         <Tooltip>
           <TooltipTrigger

@@ -10,6 +10,10 @@
 import { componentDocOf } from "@ultrapaint/contracts/component-names";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
+import {
+  isInstanceLayer,
+  ownLayersOf,
+} from "@ultrapaint/design-document/instance-layers";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import {
   ArrowRight,
@@ -72,6 +76,7 @@ import {
 } from "../lib/node-actions.ts";
 import { newPage, renamePageTo } from "../lib/page-actions.ts";
 import { boardTree, useBoard } from "../state/board.ts";
+import { appComponentOf, useComponents } from "../state/components.ts";
 import {
   type MenuTarget,
   openMenuAt,
@@ -476,6 +481,8 @@ export const Layers = () => {
   const docs = useDocuments((s) => s.docs);
   const loaded = useDocuments((s) => s.loaded);
   const isolated = useIsolation((s) => s.isolated);
+  // An instance's layers are drawn from its component's file (ADR 0114).
+  const components = useComponents((s) => s.components);
   // On an app component's board (ADR 0045), its tree.
   const board = useBoard((s) => s.open);
   const selection = useEditor((s) => s.selection);
@@ -509,11 +516,14 @@ export const Layers = () => {
         frame: isolated.frame,
         root: docs[componentDocOf(isolated.component)]?.root ?? null,
       },
+      // An app component's instance lists its own layers too (ADR 0114).
+      layersOf: (node) =>
+        ownLayersOf(node, (name) => appComponentOf(components, name)),
       pages: allPages.filter((p) => p.canvas === canvas),
       roots: (id) => docs[id]?.root ?? null,
       tree: tree && board && { ...tree, name: board.item },
     });
-  }, [allPages, board, canvas, docs, isolated]);
+  }, [allPages, board, canvas, docs, isolated, components]);
 
   const { query } = folds;
   const shown = useMemo(() => filterLayers(items, query), [items, query]);
@@ -859,7 +869,10 @@ const RowName = ({
       className={cn("min-w-0 truncate", className)}
       onDoubleClick={(e) => {
         e.stopPropagation();
-        shared.setRenaming(item.key);
+        // A layer of an instance is named in its main component (ADR 0114).
+        if (!(item.node && isInstanceLayer(item.node.id))) {
+          shared.setRenaming(item.key);
+        }
       }}
       reveal={focused}
     >
@@ -1316,7 +1329,7 @@ const LayerRow = ({
         FOCUS_RING
       )}
       data-row={key}
-      draggable={!renaming}
+      draggable={!(renaming || isInstanceLayer(node.id))}
       onClick={onClick}
       {...dragHandlers}
       onMouseEnter={onMouseEnter}

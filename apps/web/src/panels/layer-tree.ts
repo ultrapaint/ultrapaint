@@ -7,6 +7,7 @@
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
+import { isInstanceLayer } from "@ultrapaint/design-document/instance-layers";
 import {
   childrenOf,
   findPath,
@@ -33,12 +34,23 @@ export const layerKey = (frame: string, nodeId: string) => `${frame}#${nodeId}`;
 /** A page's row is keyed by the page, whatever its root is called. */
 export const pageKey = (pageId: string) => layerKey(pageId, "page");
 
+/**
+ * The layers an app component's instance draws of its own (ADR 0114), listed before the page's
+ * nodes in its slots; none for any other node.
+ */
+export type LayersOf = (node: DesignNode) => readonly DesignNode[];
+
+const NO_LAYERS: LayersOf = () => [];
+
 const nodeItem = (
   frame: string,
   node: DesignNode,
-  parent: DesignNode | null
+  parent: DesignNode | null,
+  layersOf: LayersOf
 ): LayerItem => ({
-  children: childrenOf(node).map((child) => nodeItem(frame, child, node)),
+  children: [...layersOf(node), ...childrenOf(node)].map((child) =>
+    nodeItem(frame, child, node, layersOf)
+  ),
   frame,
   key: layerKey(frame, node.id),
   node,
@@ -46,9 +58,13 @@ const nodeItem = (
 });
 
 /** A page's row: the page, with the nodes of its root under it. */
-export const pageItem = (page: Page, root: DesignNode | null): LayerItem => ({
+export const pageItem = (
+  page: Page,
+  root: DesignNode | null,
+  layersOf: LayersOf = NO_LAYERS
+): LayerItem => ({
   children: root
-    ? childrenOf(root).map((child) => nodeItem(page.id, child, root))
+    ? childrenOf(root).map((child) => nodeItem(page.id, child, root, layersOf))
     : [],
   frame: page.id,
   key: pageKey(page.id),
@@ -58,8 +74,11 @@ export const pageItem = (page: Page, root: DesignNode | null): LayerItem => ({
 });
 
 /** The row of a node placed on the canvas, which is a frame of its own. */
-export const looseItem = (frame: string, node: DesignNode): LayerItem =>
-  nodeItem(frame, node, null);
+export const looseItem = (
+  frame: string,
+  node: DesignNode,
+  layersOf: LayersOf = NO_LAYERS
+): LayerItem => nodeItem(frame, node, null, layersOf);
 
 /**
  * What Layers lists, and the heading over its first node: an app component edited in place, its
@@ -72,6 +91,7 @@ export const looseItem = (frame: string, node: DesignNode): LayerItem =>
 export const layerScope = ({
   canvasNodes,
   edited,
+  layersOf = NO_LAYERS,
   pages,
   roots,
   tree,
@@ -84,6 +104,8 @@ export const layerScope = ({
     readonly frame: string;
     readonly root: DesignNode | null;
   } | null;
+  /** The layers each app component's instance draws of its own (ADR 0114). */
+  readonly layersOf?: LayersOf;
   readonly pages: readonly Page[];
   /** Each page's root, by page id, null while it cannot be read. */
   readonly roots: (pageId: string) => DesignNode | null;
@@ -102,7 +124,7 @@ export const layerScope = ({
   if (edited?.root) {
     return {
       heading: `Editing ${edited.component}`,
-      items: [looseItem(edited.frame, edited.root)],
+      items: [looseItem(edited.frame, edited.root, layersOf)],
       nodes: [edited.root],
       onCanvas: false,
     };
@@ -110,7 +132,7 @@ export const layerScope = ({
   if (tree) {
     return {
       heading: tree.name,
-      items: [looseItem(tree.frame, tree.root)],
+      items: [looseItem(tree.frame, tree.root, layersOf)],
       nodes: [tree.root],
       onCanvas: false,
     };
@@ -118,8 +140,8 @@ export const layerScope = ({
   return {
     heading: "On the canvas",
     items: [
-      ...pages.map((page) => pageItem(page, roots(page.id))),
-      ...canvasNodes.map(({ frame, node }) => looseItem(frame, node)),
+      ...pages.map((page) => pageItem(page, roots(page.id), layersOf)),
+      ...canvasNodes.map(({ frame, node }) => looseItem(frame, node, layersOf)),
     ],
     nodes: canvasNodes.map(({ node }) => node),
     onCanvas: true,
@@ -465,6 +487,10 @@ export type DropPosition = "before" | "inside" | "after";
 const mayDrop = (dragged: LayerItem, over: LayerItem) => {
   const { node } = dragged;
   if (dragged.page || !(node && over.node)) {
+    return false;
+  }
+  // A layer of an instance is moved in its main component, and holds nothing of the page's.
+  if (isInstanceLayer(node.id) || isInstanceLayer(over.node.id)) {
     return false;
   }
   if (over.page) {

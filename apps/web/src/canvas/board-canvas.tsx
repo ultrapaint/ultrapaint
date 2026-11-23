@@ -8,14 +8,17 @@
  * their size (`showBoards`, `setBoardSize`), on the ground the page canvas has too
  * (`CanvasGround`). A click picks the node a board names for what it stands for (B6,
  * `boards/pick.ts`); on the Library's Overview, a component's tile opens it.
- * The interact tool makes a board run, as a page does. On an app component's board, a
- * double-click edits its tree in place (`isolation.ts`), and that board then takes the pointer as
- * a page's frame does: hover, select, drag, text typed where it is.
+ * The interact tool makes a board run, as a page does. On an app component's board, a click on
+ * the component edits its tree in place (`isolation.ts`, ADR 0114), selecting what it is on, and
+ * that board then takes the pointer as a page's frame does: hover, select, drag, text typed where
+ * it is.
  */
 import type { Box } from "@ultrapaint/contracts/canvas-layout";
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import { APP_FROM, type ComponentFile } from "@ultrapaint/contracts/components";
 import type { DesignDocument } from "@ultrapaint/contracts/design-system";
+import { layerIdOf } from "@ultrapaint/design-document/instance-layers";
+import { walk } from "@ultrapaint/design-document/tree";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
 import {
   type CSSProperties,
@@ -31,6 +34,7 @@ import {
   drawnWidths,
   libraryBoards,
   OVERVIEW,
+  type PageSize,
 } from "../boards/library-boards.ts";
 import { lookBoards } from "../boards/look-boards.ts";
 import { pickOfId } from "../boards/pick.ts";
@@ -53,7 +57,7 @@ import {
 } from "../state/board.ts";
 import { useComponents } from "../state/components.ts";
 import { useDesignSystem } from "../state/design-system.ts";
-import { rootOfFrame, useDocuments } from "../state/documents.ts";
+import { appFileOf, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { boardFrameOf } from "../state/frame-ref.ts";
 import {
@@ -63,7 +67,9 @@ import {
   useIsolation,
 } from "../state/isolation.ts";
 import { LOOK_ITEM, useLookPage } from "../state/look-page.ts";
-import { useSelectedIn } from "../state/selection.ts";
+import { useProject } from "../state/project.ts";
+import { select, useSelectedIn } from "../state/selection.ts";
+import { stepInto } from "../state/tree.ts";
 import { useVariations } from "../state/variations.ts";
 import { screenPx } from "./camera.ts";
 import { CanvasGround } from "./canvas-ground.tsx";
@@ -100,6 +106,7 @@ const useBoards = (open: BoardPlace): Boards => {
   const guideDraft = useBoard((s) => s.guideDraft);
   const dials = useLookPage((s) => s.dials);
   const drawn = useOverviewWidths(open, catalogue);
+  const page = usePlacingPage(open);
   return useMemo(() => {
     if (open.view === "system" && open.item === LOOK_ITEM) {
       return lookBoards(dials);
@@ -110,9 +117,58 @@ const useBoards = (open: BoardPlace): Boards => {
           open.item,
           catalogue,
           (name) => fileOf(components, name),
-          drawn
+          drawn,
+          () => page
         );
-  }, [open, ds, document, catalogue, components, guideDraft, drawn, dials]);
+  }, [
+    open,
+    ds,
+    document,
+    catalogue,
+    components,
+    guideDraft,
+    drawn,
+    dials,
+    page,
+  ]);
+};
+
+/**
+ * The frame of the first page that places the app component open, which one filling a page is
+ * drawn at on its board (ADR 0114); undefined when no page places it.
+ */
+const usePlacingPage = (open: BoardPlace): PageSize | undefined => {
+  const docs = useDocuments((s) => s.docs);
+  const frames = useEditor((s) => s.frames);
+  const pages = useProject((s) => s.pages);
+  // Said as text, so the boards are made again only when the size itself changes.
+  const size = useMemo(() => {
+    if (open.view !== "library") {
+      return;
+    }
+    for (const page of pages) {
+      const root = docs[page.id]?.root;
+      const frame = frames[page.id];
+      const places =
+        root &&
+        [...walk(root)].some(
+          (n) =>
+            n.type === "instance" &&
+            n.from === APP_FROM &&
+            n.component === open.item
+        );
+      if (places && frame) {
+        return `${frame.width}x${frame.height}`;
+      }
+    }
+  }, [docs, frames, open, pages]);
+  return useMemo(() => {
+    if (size === undefined) {
+      return;
+    }
+    const [w, h] = size.split("x").map(Number);
+    return { height: h ?? 900, width: w ?? 1440 };
+  }, [size]);
 };
 
 /**
@@ -292,6 +348,31 @@ const BoardFrame = memo(
       if (board.inPlace && useIsolation.getState().isolated) {
         leaveIsolation();
       }
+      // On an app component's board its main component is what is shown: a click on it edits it
+      // there at once, selecting what it is on, as a page's frame does (ADR 0114).
+      const inside =
+        board.inPlace && insideOf(board.inPlace.instance.id, chain);
+      if (board.inPlace && inside) {
+        isolate(frameId, board.inPlace.instance, {
+          select: false,
+          variant: board.inPlace.variant,
+        });
+        const root = rootOfFrame(
+          useDocuments.getState().docs,
+          useEditor.getState().canvas,
+          frameId
+        );
+        const id =
+          stepInto(
+            inside,
+            root,
+            null,
+            e.altKey || e.ctrlKey || e.metaKey,
+            appFileOf
+          ) ?? root?.id;
+        select(id ? { frame: frameId, nodeId: id } : null);
+        return;
+      }
       pickOnBoard(nodeId ? { frame: frameId, nodeId } : null);
     };
     /** An app component's tree is edited in place on its board, landing on its member. */
@@ -400,6 +481,23 @@ const BoardTree = ({
       {pointer.marquee ? <Marquee box={pointer.marquee} /> : null}
       <Highlights frameId={frameId} />
     </div>
+  );
+};
+
+/**
+ * The layers of a board's instance under the pointer, outermost first, as its component's own
+ * tree names them (`instance/side` is `side`); null when the pointer is not on the instance.
+ */
+const insideOf = (
+  instance: string,
+  chain: readonly string[]
+): string[] | null => {
+  if (!chain.includes(instance)) {
+    return null;
+  }
+  const prefix = layerIdOf(instance, "");
+  return chain.flatMap((id) =>
+    id.startsWith(prefix) ? [id.slice(prefix.length)] : []
   );
 };
 

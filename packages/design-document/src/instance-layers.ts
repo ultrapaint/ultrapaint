@@ -18,7 +18,7 @@ import type {
   InstanceNode,
 } from "@ultrapaint/contracts/document";
 import { expandAppInstance } from "./app-components.ts";
-import { findPath } from "./tree.ts";
+import { childrenOf, findPath } from "./tree.ts";
 
 /** What separates an instance from its layer in a layer's id. */
 export const LAYER_SEPARATOR = "/";
@@ -276,3 +276,31 @@ export const overridesAsMainOps = (
     }
     return ops;
   });
+
+/**
+ * The layers an app component's instance draws of its own, as Layers lists them under it (ADR
+ * 0114): the component's layers as the instance draws them, without the instance's own children
+ * in its slots, which are listed beside them as the page's. None for any other node.
+ */
+export const ownLayersOf = (
+  node: DesignNode,
+  fileOf: AppFileOf
+): readonly DesignNode[] => {
+  const file = appOf(node, fileOf);
+  if (!file) {
+    return [];
+  }
+  const given = new Set(childrenOf(node).map((child) => child.id));
+  const without = (layer: DesignNode): DesignNode => {
+    const kids = childrenOf(layer);
+    const kept = kids
+      .filter((child) => !given.has(child.id))
+      .map((child) => without(child));
+    return kept.length === kids.length && kept.every((k, i) => k === kids[i])
+      ? layer
+      : ({ ...layer, children: kept } as DesignNode);
+  };
+  return childrenOf(instanceLayers(file, node as InstanceNode))
+    .filter((layer) => !given.has(layer.id))
+    .map(without);
+};

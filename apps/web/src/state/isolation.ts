@@ -3,7 +3,9 @@
  * rest of the page dimmed and not selectable, and the selection and every edit in that frame go
  * to the component's tree, a document of its own (`component:<Name>`), so every instance follows
  * as it changes. Edits land on the component's own fields, or on one member of one of its choices
- * (`size=lg`), which records an override as a view records a breakpoint's. Escape, or Done, leaves.
+ * (`size=lg`), which records an override as a view records a breakpoint's. It is entered only when
+ * asked (ADR 0114), one level in from a component already edited there; Escape, Done or a click
+ * outside goes up one level, the breadcrumb to any.
  *
  * The tree edited is the document's, which the server publishes whenever the component's file
  * changes, whoever changes it (ADR 0042): its file only starts it, so an edit is never shown
@@ -16,6 +18,7 @@
 import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import { componentDocOf, variantKey } from "@ultrapaint/contracts/components";
 import type { InstanceNode } from "@ultrapaint/contracts/document";
+import { layerIdOf } from "@ultrapaint/design-document/instance-layers";
 import type { RenderRequest } from "@ultrapaint/preview-core/preview";
 import { useMemo } from "react";
 import { create } from "zustand";
@@ -32,15 +35,17 @@ interface VariantEdited {
 }
 
 interface Isolation {
+  /** The level it was entered from: the component edited around it, null for the page or board. */
+  readonly around: Isolation | null;
   readonly component: string;
   /**
-   * The page's instance it was entered from: the instance edited, or, for an app component edited
-   * inside another's tree, the outermost one's, which leaving selects.
+   * The instance edited, as the frame draws it: the page's own, or the way to one inside it
+   * (`shell/nav`, ADR 0114), which the frame is told to draw edited in place.
    */
-  readonly entered: string;
+  readonly drawn: string;
   /** The frame the instance is drawn in. */
   readonly frame: string;
-  /** The instance edited in place: the page's, or one of the tree of the component edited around it. */
+  /** The instance as the level it was entered from has it, which leaving selects again. */
   readonly instance: string;
   /** The member edits land on; null for the component's own fields. */
   readonly variant: VariantEdited | null;
@@ -89,7 +94,9 @@ const editIn = (isolated: Isolation | null) =>
 /**
  * Edits an app component's instance in place: its tree is selected (unless `select` is false,
  * what is selected being the caller's), what is done in the frame is done to it, and lands on
- * `variant` (the component's own fields when none). Whether it is one: false for any other node.
+ * `variant` (the component's own fields when none). An instance of the component already edited
+ * in the frame is edited one level in, which leaving goes back to (ADR 0114). Whether it is one:
+ * false for any other node.
  */
 export const isolate = (
   frame: string,
@@ -103,10 +110,12 @@ export const isolate = (
   if (!file) {
     return false;
   }
-  const around = useIsolation.getState().isolated;
+  const was = useIsolation.getState().isolated;
+  const around = was?.frame === frame ? was : null;
   const isolated: Isolation = {
+    around,
     component: node.component,
-    entered: around?.frame === frame ? around.entered : node.id,
+    drawn: around ? layerIdOf(around.drawn, node.id) : node.id,
     frame,
     instance: node.id,
     variant,
@@ -121,22 +130,41 @@ export const isolate = (
 };
 
 /**
- * Back to the page: the page's instance it was entered from is selected again. Whether there was
- * a component edited in place to leave.
+ * The names of the levels edited in place, outermost first: the component of each, what the
+ * breadcrumb shows after the page or the board.
+ */
+export const levelsOf = (isolated: Isolation | null): string[] =>
+  isolated ? [...levelsOf(isolated.around), isolated.component] : [];
+
+/**
+ * Up one level: to the component it was entered from, its instance selected there, or back to the
+ * page with the page's instance selected (a board's selects nothing). Whether there was a
+ * component edited in place to leave.
  */
 export const leaveIsolation = (): boolean => {
   const { isolated } = useIsolation.getState();
   if (!isolated) {
     return false;
   }
-  useIsolation.setState({ isolated: null });
-  editIn(null);
+  const { around } = isolated;
+  useIsolation.setState({ isolated: around });
+  editIn(around);
+  showTree();
   select(
-    frameRefOf(isolated.frame).kind === "board"
+    !around && frameRefOf(isolated.frame).kind === "board"
       ? null
-      : { frame: isolated.frame, nodeId: isolated.entered }
+      : { frame: isolated.frame, nodeId: isolated.instance }
   );
   return true;
+};
+
+/** Back to the level the breadcrumb names: 0 the page (or board), 1 the outermost component. */
+export const leaveTo = (level: number) => {
+  while (levelsOf(useIsolation.getState().isolated).length > level) {
+    if (!leaveIsolation()) {
+      return;
+    }
+  }
 };
 
 /** The member edits land on from now on; null for the component's own fields. */
@@ -185,7 +213,7 @@ export const useIsolatedRequest = (frame: string): RenderRequest["isolate"] => {
     () =>
       isolated
         ? {
-            instance: isolated.instance,
+            instance: isolated.drawn,
             ...(isolated.variant && {
               props: { [isolated.variant.property]: isolated.variant.member },
             }),
