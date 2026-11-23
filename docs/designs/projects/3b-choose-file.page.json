@@ -13,7 +13,7 @@
           {"type": "row", "id": "r_00294", "align": "center", "crossAlign": "center", "fill": "$color-muted", "height": 32, "radius": 6, "width": 32, "children": [
             {"type": "image", "id": "img_00293", "name": "shapes", "height": 18, "src": "assets/icons/shapes.svg", "tint": "#60a5fa", "width": 18}
           ]},
-          {"type": "text", "id": "t_00295", "color": "$color-foreground", "font": "'Geist Mono', ui-monospace, monospace", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "public/favicon.svg"},
+          {"type": "text", "id": "t_00295", "color": "$color-foreground", "lineHeight": 1.333, "role": "paragraph", "size": 13, "text": "public/favicon.svg"},
           {"type": "row", "id": "r_00296", "crossAlign": "center", "width": "fill", "children": []},
           {"type": "text", "id": "t_00297", "color": "$color-muted-foreground", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "SVG"},
           {"type": "image", "id": "img_00298", "name": "check", "height": 16, "src": "assets/icons/check.svg", "tint": "$color-foreground", "width": 16}
@@ -22,7 +22,7 @@
           {"type": "row", "id": "r_00301", "align": "center", "crossAlign": "center", "fill": "$color-muted", "height": 32, "radius": 6, "width": 32, "children": [
             {"type": "image", "id": "img_00300", "name": "shapes", "height": 18, "src": "assets/icons/shapes.svg", "tint": "#60a5fa", "width": 18}
           ]},
-          {"type": "text", "id": "t_00302", "color": "$color-foreground", "font": "'Geist Mono', ui-monospace, monospace", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "app/icon.png"},
+          {"type": "text", "id": "t_00302", "color": "$color-foreground", "lineHeight": 1.333, "role": "paragraph", "size": 13, "text": "app/icon.png"},
           {"type": "row", "id": "r_00303", "crossAlign": "center", "width": "fill", "children": []},
           {"type": "text", "id": "t_00304", "color": "$color-muted-foreground", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "512 × 512"},
           {"type": "row", "id": "r_00305", "crossAlign": "center", "width": 16, "children": []}
@@ -31,7 +31,7 @@
           {"type": "row", "id": "r_00308", "align": "center", "crossAlign": "center", "fill": "$color-muted", "height": 32, "radius": 6, "width": 32, "children": [
             {"type": "image", "id": "img_00307", "name": "shapes", "height": 18, "src": "assets/icons/shapes.svg", "tint": "#60a5fa", "width": 18}
           ]},
-          {"type": "text", "id": "t_00309", "color": "$color-foreground", "font": "'Geist Mono', ui-monospace, monospace", "lineHeight": 1.38, "role": "paragraph", "size": 13, "text": "public/apple-touch-icon.png"},
+          {"type": "text", "id": "t_00309", "color": "$color-foreground", "lineHeight": 1.333, "role": "paragraph", "size": 13, "text": "public/apple-touch-icon.png"},
           {"type": "row", "id": "r_00310", "crossAlign": "center", "width": "fill", "children": []},
           {"type": "text", "id": "t_00311", "color": "$color-muted-foreground", "lineHeight": 1.33, "role": "paragraph", "size": 12, "text": "180 × 180"},
           {"type": "row", "id": "r_00312", "crossAlign": "center", "width": 16, "children": []}

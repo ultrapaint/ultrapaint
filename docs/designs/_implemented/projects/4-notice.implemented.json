@@ -1,0 +1,152 @@
+{
+  "kind": "page",
+  "notes": [],
+  "root": {
+    "fill": "$color-canvas",
+    "id": "root",
+    "crossAlign": "stretch",
+    "children": [
+      {
+        "height": "fill",
+        "id": "r_00173",
+        "padding": {
+          "bottom": 24,
+          "left": 24,
+          "right": 24,
+          "top": 24
+        },
+        "width": "fill",
+        "crossAlign": "end",
+        "children": [
+          {
+            "id": "r_00172",
+            "width": "fill",
+            "children": [],
+            "type": "row"
+          },
+          {
+            "border": {
+              "color": "$color-border",
+              "style": "solid",
+              "width": "1px"
+            },
+            "fill": "$color-popover",
+            "id": "r_00171",
+            "name": "Toast",
+            "padding": {
+              "bottom": 16,
+              "left": 16,
+              "right": 16,
+              "top": 16
+            },
+            "radius": "$radius-lg",
+            "shadow": "$shadow-overlay",
+            "width": 356,
+            "crossAlign": "center",
+            "gap": 6,
+            "children": [
+              {
+                "border": {
+                  "color": "$color-border",
+                  "style": "solid",
+                  "width": 1
+                },
+                "fill": "$color-popover",
+                "height": 20,
+                "id": "r_y6d157b",
+                "margin": {
+                  "left": -26,
+                  "right": -14,
+                  "top": -48
+                },
+                "name": "Close",
+                "radius": 999,
+                "width": 20,
+                "align": "center",
+                "crossAlign": "center",
+                "children": [
+                  {
+                    "height": 12,
+                    "id": "img_y6d0gvy",
+                    "name": "x",
+                    "width": 12,
+                    "alt": "",
+                    "tint": "$color-foreground",
+                    "src": "assets/icons/x.svg",
+                    "type": "image"
+                  }
+                ],
+                "type": "row"
+              },
+              {
+                "fill": "$color-warning",
+                "height": 8,
+                "id": "r_00166",
+                "margin": {
+                  "right": 6
+                },
+                "radius": 999,
+                "width": 8,
+                "crossAlign": "center",
+                "children": [],
+                "type": "row"
+              },
+              {
+                "id": "c_00169",
+                "width": "fill",
+                "gap": 2,
+                "children": [
+                  {
+                    "id": "t_00167",
+                    "color": "$color-foreground",
+                    "lineHeight": 1.43,
+                    "size": 14,
+                    "weight": 500,
+                    "role": "paragraph",
+                    "text": "ultrapaint: an agent asks you something",
+                    "type": "text"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "fill": "$color-popover-foreground",
+                "height": 24,
+                "id": "i_00170",
+                "padding": {
+                  "left": 8,
+                  "right": 8
+                },
+                "radius": "$radius-sm",
+                "props": {
+                  "variant": "primary",
+                  "size": "sm"
+                },
+                "children": [
+                  {
+                    "id": "t_5wv0sib",
+                    "color": "$color-popover",
+                    "font": "'Figtree Variable', system-ui, sans-serif",
+                    "lineHeight": 1.333,
+                    "size": 12,
+                    "weight": 500,
+                    "role": "paragraph",
+                    "text": "Go to it",
+                    "type": "text"
+                  }
+                ],
+                "component": "Button",
+                "from": "@ultrapaint/system",
+                "type": "instance"
+              }
+            ],
+            "type": "row"
+          }
+        ],
+        "type": "row"
+      }
+    ],
+    "direction": "column",
+    "type": "page"
+  }
+}

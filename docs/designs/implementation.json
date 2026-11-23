@@ -99,6 +99,82 @@
           "packages/contracts/src/opening.ts"
         ]
       }
+    },
+    "projects/1-tabs.page.json": {
+      "implemented": {
+        "at": 1795453417066,
+        "code": {
+          "apps/web/src/components/project-icon.tsx": "13a3cf19bbe26bd4",
+          "apps/web/src/components/tab-strip.tsx": "38fe9930b84cfd4a"
+        },
+        "design": "1512c359456ad662",
+        "files": [
+          "apps/web/src/components/project-icon.tsx",
+          "apps/web/src/components/tab-strip.tsx"
+        ]
+      }
+    },
+    "projects/2a-new-tab.page.json": {
+      "implemented": {
+        "at": 1795453417621,
+        "code": {
+          "apps/web/src/components/project-icon.tsx": "13a3cf19bbe26bd4",
+          "apps/web/src/components/tab-strip.tsx": "38fe9930b84cfd4a"
+        },
+        "design": "0e302b31f637ec59",
+        "files": [
+          "apps/web/src/components/project-icon.tsx",
+          "apps/web/src/components/tab-strip.tsx"
+        ]
+      }
+    },
+    "projects/2b-project-menu.page.json": {
+      "implemented": {
+        "at": 1795453417924,
+        "code": {
+          "apps/web/src/components/project-menu.tsx": "47fb6855072863d0"
+        },
+        "design": "1ac086e3d9b7cef4",
+        "files": [
+          "apps/web/src/components/project-menu.tsx"
+        ]
+      }
+    },
+    "projects/3a-choose-icon.page.json": {
+      "implemented": {
+        "at": 1795453418182,
+        "code": {
+          "apps/web/src/panels/project-icon-dialogs.tsx": "a80ccb83191c5118"
+        },
+        "design": "2efe5e87bbf65295",
+        "files": [
+          "apps/web/src/panels/project-icon-dialogs.tsx"
+        ]
+      }
+    },
+    "projects/3b-choose-file.page.json": {
+      "implemented": {
+        "at": 1795453418451,
+        "code": {
+          "apps/web/src/panels/project-icon-dialogs.tsx": "a80ccb83191c5118"
+        },
+        "design": "f49365c79ebc86fe",
+        "files": [
+          "apps/web/src/panels/project-icon-dialogs.tsx"
+        ]
+      }
+    },
+    "projects/4-notice.page.json": {
+      "implemented": {
+        "at": 1795453418730,
+        "code": {
+          "apps/web/src/lib/project-notices.ts": "a3fcaae1c25dcf84"
+        },
+        "design": "9fdc69878e4119fb",
+        "files": [
+          "apps/web/src/lib/project-notices.ts"
+        ]
+      }
     }
   },
   "version": 1
