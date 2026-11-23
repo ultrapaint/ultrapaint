@@ -18,6 +18,7 @@ import {
 import type { AppFileOf } from "@ultrapaint/design-document/instance-layers";
 import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { pickedRoots, settledPicks, useCanvasPicks } from "./canvas-picks.ts";
 import { appComponentOf, useComponents } from "./components.ts";
 import { currentBreakpoints, useBreakpoints } from "./design-system.ts";
 import {
@@ -382,10 +383,21 @@ export interface Inspected {
   readonly nodes: readonly DesignNode[];
 }
 
-type Inspecting = Pick<EditorState, "also" | "selection">;
+type Inspecting = Pick<EditorState, "also" | "frames" | "selection"> & {
+  /** Frames picked together on the canvas, once the marquee is let go (ADR 0121). */
+  readonly picks: readonly string[];
+};
 
-/** The view a selection was made in; null when nothing is selected. */
-const inspectedFrame = (s: Inspecting) => s.selection?.frame ?? null;
+/**
+ * The view a selection was made in, or the first of the frames picked together whose root is
+ * still there; null when nothing is selected.
+ */
+const inspectedFrame = (
+  s: Inspecting,
+  docs: Seen["docs"],
+  canvas: string | null
+): string | null =>
+  s.selection?.frame ?? pickedRoots(s.picks, docs, canvas)[0]?.frame ?? null;
 
 const inspectedNodes = (
   s: Inspecting,
@@ -394,10 +406,31 @@ const inspectedNodes = (
   breakpoints: readonly Breakpoint[],
   at: string | null,
   fileOf: AppFileOf = appFileOf
-): DesignNode[] =>
-  s.selection
-    ? drawnAt([s.selection, ...s.also], docs, canvas, breakpoints, at, fileOf)
-    : [];
+): DesignNode[] => {
+  if (s.selection) {
+    return drawnAt(
+      [s.selection, ...s.also],
+      docs,
+      canvas,
+      breakpoints,
+      at,
+      fileOf
+    );
+  }
+  // Frames picked together: each root as its own frame draws it, at its own breakpoint, where
+  // an edit of it lands too.
+  const seen = { breakpoints, canvas, docs, frames: s.frames };
+  return pickedRoots(s.picks, docs, canvas).flatMap((t) =>
+    drawnAt(
+      [t],
+      docs,
+      canvas,
+      breakpoints,
+      frameBreakpoint(t.frame, seen),
+      fileOf
+    )
+  );
+};
 
 const inspectedOf = (
   frame: string | null,
@@ -412,8 +445,11 @@ const inspectedOf = (
  * root for the page selected as a whole), as the view the selection was made in draws them.
  */
 export const inspected = (seen: Seen = seenNow()): Inspected | null => {
-  const s = useEditor.getState();
-  const frame = inspectedFrame(s);
+  const s = {
+    ...useEditor.getState(),
+    picks: settledPicks(useCanvasPicks.getState()),
+  };
+  const frame = inspectedFrame(s, seen.docs, seen.canvas);
   const at = frame === null ? null : frameBreakpoint(frame, seen);
   return inspectedOf(
     frame,
@@ -423,15 +459,18 @@ export const inspected = (seen: Seen = seenNow()): Inspected | null => {
 
 /** `inspected` for a component. */
 export const useInspected = (): Inspected | null => {
-  const picked = useEditor(
+  const selected = useEditor(
     useShallow((s) => ({
       also: s.also,
+      frames: s.frames,
       selection: s.selection,
     }))
   );
+  const picks = useCanvasPicks(settledPicks);
+  const picked = useMemo(() => ({ ...selected, picks }), [selected, picks]);
   const canvas = useEditor((s) => s.canvas);
   const breakpoints = useBreakpoints();
-  const frame = inspectedFrame(picked);
+  const frame = useDocuments((s) => inspectedFrame(picked, s.docs, canvas));
   const at = useFrameBreakpoint(frame);
   const fileOf = useAppFileOf();
   const nodes = useDocuments(

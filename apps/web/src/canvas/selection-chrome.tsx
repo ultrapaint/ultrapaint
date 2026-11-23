@@ -34,6 +34,7 @@ import {
   useDocuments,
 } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
+import { useEditsMain } from "../state/isolation.ts";
 import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
 import { AskAgent } from "./ask-agent.tsx";
 import { screenPx, useExactInv } from "./camera.ts";
@@ -215,17 +216,20 @@ const Box = ({ children, rect }: { children: ReactNode; rect: Rect }) => {
 /** One element inside the page: its handles, its size and the button. */
 const ElementChrome = ({
   frameId,
+  inMain,
   inside,
   node,
   rect,
 }: {
   frameId: string;
+  /** Whether it is a node of a main component edited in place (ADR 0120). */
+  inMain: boolean;
   inside: boolean;
   node: DesignNode;
   rect: Rect;
 }) => {
   const { ask, shown } = useAskShown(inside);
-  const color = kindColor(selectionKindOf(node));
+  const color = kindColor(selectionKindOf(node, inMain));
   const onPress = (e: ReactPointerEvent, corner: Corner) =>
     beginNodeResize(e, frameId, node.id, corner, rect);
   return (
@@ -287,10 +291,12 @@ const RootChrome = ({
 
 /** Several selected: the size of the box around them, and the button for all of them. */
 const GroupChrome = ({
+  inMain,
   inside,
   rect,
   targets,
 }: {
+  inMain: boolean;
   inside: boolean;
   rect: Rect;
   targets: readonly Selection[];
@@ -298,7 +304,10 @@ const GroupChrome = ({
   const { ask, shown } = useAskShown(inside);
   return (
     <Box rect={rect}>
-      <SizeTag color={kindColor("element")} label={sizeLabel(rect)} />
+      <SizeTag
+        color={kindColor(inMain ? "component" : "element")}
+        label={sizeLabel(rect)}
+      />
       <AskSlot
         ask={ask}
         shown={shown}
@@ -328,6 +337,7 @@ export const SelectionChrome = ({
   const drawnRoot = useDocuments((s) => drawnRootOf(s.docs, canvas, frameId));
   const breakpoint = useFrameBreakpoint(frameId);
   const breakpoints = useBreakpoints();
+  const inMain = useEditsMain(frameId);
   if (!(madeHere && own && leadId !== null)) {
     return null;
   }
@@ -345,6 +355,7 @@ export const SelectionChrome = ({
     const box = unionOf(nodes.flatMap((n) => rects?.[n.id] ?? []));
     return box ? (
       <GroupChrome
+        inMain={inMain}
         inside={inside}
         rect={box}
         targets={nodes.map((n) => ({ frame: frameId, nodeId: n.id }))}
@@ -369,6 +380,7 @@ export const SelectionChrome = ({
   return rect ? (
     <ElementChrome
       frameId={frameId}
+      inMain={inMain}
       inside={inside}
       key={lead.id}
       node={lead}

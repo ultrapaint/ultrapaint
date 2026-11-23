@@ -13,6 +13,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { picksInside, picksWith, togglePick } from "../state/canvas-picks.ts";
 import { holdMenu, openMenuAt, showMenu } from "../state/context-menu.ts";
 import {
   appFileOf,
@@ -173,6 +174,11 @@ export const useFramePointer = ({
     const editing = useIsolation.getState().isolated?.frame;
     if (editing !== undefined && editing !== frameId) {
       leaveIsolation();
+    }
+    // With frames picked as wholes, Shift or ⌘/Ctrl adds this one to them, or takes it out.
+    if (picksWith(e) && editing === undefined && picksInside(frameId)) {
+      togglePick(frameId);
+      return;
     }
     const id = nodeAt(e);
     if (editing === frameId && id === null) {

@@ -13,6 +13,7 @@ import { useInv } from "../state/camera.ts";
 import { useBreakpoints } from "../state/design-system.ts";
 import { appFileOf, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { useEditsMain } from "../state/isolation.ts";
 import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
 import { useFrameError } from "./editor-frame.ts";
 
@@ -41,6 +42,7 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
   const hoverId = useHoverIn(frameId);
   const rects = useEditor((s) => s.rects[frameId]);
   const pageError = useFrameError(frameId);
+  const inMain = useEditsMain(frameId);
   const canvas = useEditor((s) => s.canvas);
   // This frame's document only: an edit elsewhere has nothing to outline here. As the frame
   // draws it: a row from a breakpoint on is named a row there (ADR 0036).
@@ -71,27 +73,40 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
   return (
     <>
       {hoverRect ? (
-        <Outline kind="hover" node={hoverNode} rect={hoverRect} />
+        <Outline
+          inMain={inMain}
+          kind="hover"
+          node={hoverNode}
+          rect={hoverRect}
+        />
       ) : null}
       {selectedRect ? (
-        <Outline kind="selection" node={selectedNode} rect={selectedRect} />
+        <Outline
+          inMain={inMain}
+          kind="selection"
+          node={selectedNode}
+          rect={selectedRect}
+        />
       ) : null}
       {others.map((o) => (
         <Outline
+          inMain={inMain}
           key={o.target.nodeId}
           kind="selection"
           node={o.node}
           rect={o.rect}
         />
       ))}
-      {group?.rect && madeHere ? <GroupOutline rect={group.rect} /> : null}
+      {group?.rect && madeHere ? (
+        <GroupOutline inMain={inMain} rect={group.rect} />
+      ) : null}
       {pageError ? <FrameError message={pageError.message} /> : null}
     </>
   );
 };
 
 /** The box around several selected nodes, dashed a little off them. */
-const GroupOutline = ({ rect }: { rect: Rect }) => {
+const GroupOutline = ({ inMain, rect }: { inMain: boolean; rect: Rect }) => {
   const inv = useInv();
   return (
     <div
@@ -99,7 +114,7 @@ const GroupOutline = ({ rect }: { rect: Rect }) => {
       style={{
         height: rect.height,
         left: rect.x,
-        outline: `${1 * inv}px dashed ${kindColor("element")}`,
+        outline: `${1 * inv}px dashed ${kindColor(inMain ? "component" : "element")}`,
         outlineOffset: 3 * inv,
         top: rect.y,
         width: rect.width,
@@ -136,19 +151,24 @@ const FrameError = ({ message }: { message: string }) => {
   );
 };
 
-/** A node's outline, in the colour of what it is: blue for an element, purple for a component. */
+/**
+ * A node's outline, in the colour of what it is: blue for an element, purple for a component, and
+ * for every node of a main component edited in place (`inMain`).
+ */
 const Outline = ({
+  inMain,
   rect,
   kind,
   node,
 }: {
+  inMain: boolean;
   rect: { x: number; y: number; width: number; height: number };
   kind: "hover" | "selection";
   node: DesignNode | null;
 }) => {
   const inv = useInv();
   // Crisp, in the kind's own colour: 1px under the pointer, 2px once selected.
-  const color = kindColor(selectionKindOf(node));
+  const color = kindColor(selectionKindOf(node, inMain));
   return (
     <div
       className="pointer-events-none absolute"

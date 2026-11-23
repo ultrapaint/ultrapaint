@@ -19,7 +19,6 @@ import type { ViewportPreset } from "@ultrapaint/contracts/pages";
 import { isInstanceLayer } from "@ultrapaint/design-document/instance-layers";
 import { nodeKind, nodeLabel } from "@ultrapaint/design-document/tree";
 import {
-  BoxSelect,
   Columns3,
   Copy,
   Eye,
@@ -62,7 +61,7 @@ import { DRAFT_HINT, editPageUrl } from "../lib/page-actions.ts";
 import { presetOf, viewportPresets } from "../lib/presets.ts";
 import { MIXED, sharedValue, shownAs } from "../lib/shared-value.ts";
 import { withSides } from "../lib/sides.ts";
-import { useCanvasPicks } from "../state/canvas-picks.ts";
+import { settledPicks, useCanvasPicks } from "../state/canvas-picks.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf, hasPrototypeLinks } from "../state/frame-ref.ts";
@@ -109,6 +108,7 @@ import {
   SpacingSection,
   type WriteSides,
 } from "./inspector-layout.tsx";
+import { MainComponentSection } from "./inspector-main-component.tsx";
 import { BehaviourSection, ViewsRow } from "./inspector-page.tsx";
 import { SlotsSection } from "./inspector-slots.tsx";
 import { TextSection } from "./inspector-text.tsx";
@@ -116,21 +116,24 @@ import { VariationsSection } from "./inspector-variations.tsx";
 
 export const Inspector = () => {
   const inspected = useInspected();
-  const picked = useCanvasPicks((s) => s.ids.length);
   const part = useVariations((s) => s.open?.part ?? null);
   if (part) {
-    return <PartInspector part={part} />;
-  }
-  if (picked > 1) {
     return (
-      <EmptyState icon={<BoxSelect />} title={`${picked} frames`}>
-        Drag one’s name to move them together; a page’s menu acts on all of
-        them.
-      </EmptyState>
+      <>
+        <MainComponentSection />
+        <PartInspector part={part} />
+      </>
     );
   }
   if (!inspected) {
-    return <NothingSelected />;
+    return (
+      <div className="flex h-full flex-col">
+        <MainComponentSection />
+        <div className="min-h-0 flex-1">
+          <NothingSelected />
+        </div>
+      </div>
+    );
   }
   const { frame, node, nodes } = inspected;
   const layer = nodes.some((n) => isInstanceLayer(n.id));
@@ -145,6 +148,7 @@ export const Inspector = () => {
         node={nodes.length === 1 ? node : null}
       >
         <div className="flex flex-col pb-4">
+          <MainComponentSection />
           <Header frame={frame} node={node} nodes={nodes} />
           {nodes.length === 1 && (
             <InstanceLayerNote frame={frame} node={node} />
@@ -387,8 +391,10 @@ const Header = ({
   );
   // What heads the panel when the name is not the node's to edit.
   let title: string | null = pageName ?? (layer ? nodeLabel(node) : null);
+  // Frames picked together on the canvas are their roots (ADR 0121).
+  const frames = useCanvasPicks((s) => settledPicks(s).length > 1);
   if (several) {
-    title = `${nodes.length} selected`;
+    title = frames ? `${nodes.length} frames` : `${nodes.length} selected`;
   }
   const hidden = nodes.every((n) => n.hidden === true);
   // Several nodes go into one container only from one parent.

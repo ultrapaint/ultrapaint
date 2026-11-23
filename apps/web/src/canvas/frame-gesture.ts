@@ -13,7 +13,12 @@ import type { Box } from "@ultrapaint/contracts/canvas-layout";
 import type { FrameLayout } from "@ultrapaint/contracts/pages";
 import { updateNodes } from "../lib/node-actions.ts";
 import { snapsToGrid } from "../state/canvas-grid.ts";
-import { isPicked, useCanvasPicks } from "../state/canvas-picks.ts";
+import {
+  isPicked,
+  picksWith,
+  togglePick,
+  useCanvasPicks,
+} from "../state/canvas-picks.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
 import { holdSize, holdSizeUntil } from "../state/node-sizing.ts";
@@ -390,6 +395,11 @@ export const beginFrameGesture = (
   }
   e.preventDefault();
   e.stopPropagation();
+  // A name pressed with Shift or ⌘/Ctrl adds its frame to the frames picked, or takes it out.
+  if (kind === "move" && e.button === 0 && picksWith(e)) {
+    togglePick(frameId);
+    return;
+  }
   // The pointer's events go to the canvas while the gesture lasts, not to the frames under it.
   const capture = () =>
     (e.currentTarget as Element | null)

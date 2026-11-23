@@ -10,14 +10,12 @@ import type { Box } from "@ultrapaint/contracts/canvas-layout";
 import { create } from "zustand";
 import { useInv } from "../state/camera.ts";
 import {
+  framesPickedNow,
   pickedFrameOf,
   pickFrames,
   showPicks,
   useCanvasPicks,
 } from "../state/canvas-picks.ts";
-import { useEditor } from "../state/editor.ts";
-import { frameRefOf } from "../state/frame-ref.ts";
-import { selectedPageNow } from "../state/selection.ts";
 import { allFrames, surfaceNow } from "../state/surface.ts";
 import { canvasPoint } from "./drag.ts";
 import { drawingMarquee } from "./frame-gesture.ts";
@@ -57,23 +55,6 @@ let drawing: {
   moved: boolean;
 } | null = null;
 
-/** What is picked now, which a marquee drawn with Shift adds to: the picks, or the frame selected. */
-const pickedNow = (): readonly string[] => {
-  const { ids } = useCanvasPicks.getState();
-  if (ids.length > 0) {
-    return ids;
-  }
-  const { selection } = useEditor.getState();
-  const page = selectedPageNow();
-  if (page) {
-    return [page];
-  }
-  const ref = selection ? frameRefOf(selection.frame) : null;
-  return selection && ref?.kind === "node" && ref.node === selection.nodeId
-    ? [selection.frame]
-    : [];
-};
-
 /** A press on the ground begins a marquee, drawn once the pointer moves. */
 export const beginCanvasMarquee = (e: {
   readonly clientX: number;
@@ -81,7 +62,7 @@ export const beginCanvasMarquee = (e: {
   readonly shiftKey: boolean;
 }) => {
   drawing = {
-    before: e.shiftKey ? pickedNow() : [],
+    before: e.shiftKey ? framesPickedNow() : [],
     client: { x: e.clientX, y: e.clientY },
     from: canvasPoint(e.clientX, e.clientY),
     moved: false,

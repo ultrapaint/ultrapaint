@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { useAgents } from "./agents.ts";
 import { FIRST_ITEM, openBoard, useBoard } from "./board.ts";
-import { useCanvasPicks } from "./canvas-picks.ts";
+import { settledPicks, useCanvasPicks } from "./canvas-picks.ts";
 import { useDesignSystem } from "./design-system.ts";
 import { useDesignSystemSetup } from "./design-system-setup.ts";
 import {
@@ -13,6 +13,7 @@ import {
   type Selection,
   useEditor,
 } from "./editor.ts";
+import { useIsolation } from "./isolation.ts";
 import { toPageCanvas } from "./location.ts";
 import { LOOK_ITEM } from "./look-page.ts";
 import { surfaceNow } from "./surface.ts";
@@ -75,7 +76,7 @@ export const usePanels = create<PanelsStore>((set, get) => ({
 
 /**
  * Whether the right panel has something to show (ADR 0058): on the canvas, a layer or a page
- * selected or several frames picked; on a board view, its inspector, which always has, except
+ * selected or several frames picked, once the marquee that picks them is let go; on a board view, its inspector, which always has, except
  * on the look page (`boardInspected`). With nothing, the panel is not drawn at all, whether the
  * user put it away or not.
  */
@@ -90,20 +91,31 @@ const subjectOf = (
     readonly board: boolean;
     /** A part of a variation selected beside the page (ADR 0098). */
     readonly part: boolean;
+    /** A main component edited in place, which the inspector names (ADR 0120). */
+    readonly main: boolean;
   }
 ) =>
   editor.workspace === "design" &&
-  (editor.selection !== null || picks > 1 || others.board || others.part);
+  (editor.selection !== null ||
+    picks > 1 ||
+    others.board ||
+    others.part ||
+    others.main);
 
 /** The look page's samples have nothing to inspect: the dials are on the left. */
 const boardInspected = (open: ReturnType<typeof useBoard.getState>["open"]) =>
   open !== null && !(open.view === "system" && open.item === LOOK_ITEM);
 
 export const rightHasSubject = () =>
-  subjectOf(useEditor.getState(), useCanvasPicks.getState().ids.length, {
-    board: boardInspected(useBoard.getState().open),
-    part: (useVariations.getState().open?.part ?? null) !== null,
-  });
+  subjectOf(
+    useEditor.getState(),
+    settledPicks(useCanvasPicks.getState()).length,
+    {
+      board: boardInspected(useBoard.getState().open),
+      main: useIsolation.getState().isolated !== null,
+      part: (useVariations.getState().open?.part ?? null) !== null,
+    }
+  );
 
 export const useRightSubject = () => {
   const editor = useEditor(
@@ -112,10 +124,12 @@ export const useRightSubject = () => {
       workspace: s.workspace,
     }))
   );
-  const picks = useCanvasPicks((s) => s.ids.length);
+  // Frames a marquee still draws are only outlined: the panel waits for it to be let go.
+  const picks = useCanvasPicks((s) => settledPicks(s).length);
   const board = useBoard((s) => boardInspected(s.open));
   const part = useVariations((s) => (s.open?.part ?? null) !== null);
-  return subjectOf(editor, picks, { board, part });
+  const main = useIsolation((s) => s.isolated !== null);
+  return subjectOf(editor, picks, { board, main, part });
 };
 
 /**

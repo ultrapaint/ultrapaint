@@ -19,7 +19,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { Canvas } from "./canvas/canvas.tsx";
 import { placedFramesDrawn } from "./canvas/editor-frame.ts";
-import { IsolationBanner } from "./canvas/isolation-banner.tsx";
 import { thePreview } from "./canvas/preview-module.ts";
 import { Prototype } from "./canvas/prototype.tsx";
 import { SnapshotBanner } from "./canvas/snapshot-banner.tsx";
@@ -785,7 +784,6 @@ export const App = () => {
                 with the selection, and the tools stay where they are. */}
             {workspace === "prototype" ? null : (
               <div className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex flex-col items-center gap-4 px-4">
-                <IsolationBanner />
                 <Toolbar />
               </div>
             )}

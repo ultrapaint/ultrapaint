@@ -424,7 +424,8 @@ refactor and the board view left.
   `component:<Name>`, that the frame's selection and edits go to. The editor's words call it the
   **main component** where it stands against an **instance**: "Edit main component" changes every
   instance, an instance's props and its instance overrides change that one alone. It is edited
-  only when asked (ADR 0114), a level at a time, the banner's breadcrumb naming each.
+  only when asked (ADR 0114), a level at a time, the breadcrumb at the top of the inspector naming
+  each, its nodes outlined in the component colour (ADR 0120).
 - **Instance override**: a field of a layer of an app component changed on one instance alone
   (ADR 0114): kept on the instance (`overrides`), keyed by the layer's id in the component, a
   nested instance's layer by the way to it (`nav/label`), any field but never the structure
@@ -519,6 +520,10 @@ refactor and the board view left.
   made in, whose breakpoint its fields are shown and edited at; a node of it Shift-clicked or
   right-clicked in another view takes it there. The inspector, the outlines and Layers read the selected nodes as that view draws them, and what several share as one value
   or `MIXED`.
+- **Frames picked together**: the pages and canvas nodes a marquee over the canvas's ground picks,
+  or Shift or ⌘/Ctrl adds by a click on a frame (the web's `canvas-picks`), outlined as it is drawn and, once let go, inspected and edited as
+  their roots, what they share as one value or `MIXED` (ADR 0121); moved by any one's name and
+  deleted together. Any other selection lets them go.
 - **Selection chrome**: what the selection carries on the canvas, as Figma draws it (the web's
   `selection-chrome`, ADR 0086): a handle on each corner of an element inside a page, which
   sizes it (`beginNodeResize`, drawn at its **held size** until the document has it); its size
