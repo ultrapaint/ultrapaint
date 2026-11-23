@@ -2,10 +2,11 @@
  * What the layout a page was read as (`layoutInBrowser`) and its audits say is wrong, as pure
  * functions of what was read:
  *
- * - **Groups apart:** the gap between two blocks stacked one above the other is at least `ratio`
+ * - **Groups apart:** the gap between two blocks stacked one above the other is at least a ratio
  *   times the gap between the lines of the block below (the core's Spacing: "the gap between
- *   groups is at least 2× the gap within one, measured between the text"). Gaps are measured
- *   between lines of text, not boxes: a row's padding is space within it.
+ *   groups is at least 2× the gap within one, measured between the text"; stacked groups of rows
+ *   take 3×, or they read as one list). Gaps are measured between lines of text, not boxes: a
+ *   row's padding is space within it.
  * - **Dividers centred:** a thin vertical rule's centre is its neighbours' (the tools' line).
  * - **Hover:** what an audit found only with the controls drawn as hovered.
  */
@@ -27,9 +28,23 @@ export interface SpacingFinding {
   readonly belowBox: Box;
   /** From the last line of the block above to the first of the block below. */
   readonly between: number;
+  /** The ratio it falls under: the one for groups of rows, or the one for other groups. */
+  readonly ratio: number;
   /** The median gap between the lines of the block below. */
   readonly within: number;
 }
+
+/**
+ * How many times the gap within a group the gap between groups is at least: `rows` when the
+ * block below is a group of rows (`isRows`), `other` for any other group.
+ */
+export interface GroupRatios {
+  readonly other: number;
+  readonly rows: number;
+}
+
+/** The core's Spacing: 3× between stacked groups of rows, 2× between other groups. */
+export const GROUP_RATIOS: GroupRatios = { other: 2, rows: 3 };
 
 export interface DividerFinding {
   readonly bar: string;
@@ -62,6 +77,29 @@ const isColumn = (block: LaidBlock) => {
   });
 };
 
+/** Rows of a list are within this many pixels of one height. */
+const ROW_TOLERANCE = 2;
+
+/**
+ * Whether a block holds rows: three or more of its parts of one height, stacked; a heading above
+ * them is another height. Lines of a paragraph are not rows: rows are parts of their own.
+ */
+const holdsRows = (block: LaidBlock) => {
+  const heights = block.children.map((c) => c.box.height);
+  return (
+    isColumn(block) &&
+    heights.some(
+      (h) =>
+        heights.filter((other) => Math.abs(other - h) <= ROW_TOLERANCE)
+          .length >= 3
+    )
+  );
+};
+
+/** A group of rows: a block holding rows, or one whose part does (a label over its list). */
+const isRows = (block: LaidBlock) =>
+  holdsRows(block) || block.children.some(holdsRows);
+
 /** The gap from a block's last line to the next block's first, when the two are stacked. */
 const gapBetween = (above: LaidBlock | undefined, below: LaidBlock) => {
   const last = above?.lines.at(-1);
@@ -73,14 +111,17 @@ const gapBetween = (above: LaidBlock | undefined, below: LaidBlock) => {
 };
 
 /**
- * Every pair of stacked blocks whose gap is less than `ratio` times the gap between the lines of
- * the block below. A single line closer to the block below than to what is above it is that
+ * Every pair of stacked blocks whose gap is less than the ratio times the gap between the lines
+ * of the block below: `ratios.rows` when the block below is a group of rows, else `ratios.other`
+ * (one number is both). A single line closer to the block below than to what is above it is that
  * block's heading (a label over its list, a title over its body), not a group of its own.
  */
 export const spacingFindings = (
   block: LaidBlock,
-  ratio = 2
+  ratios: GroupRatios | number = GROUP_RATIOS
 ): readonly SpacingFinding[] => {
+  const { other, rows } =
+    typeof ratios === "number" ? { other: ratios, rows: ratios } : ratios;
   const found: SpacingFinding[] = [];
   const children = [...block.children].sort((a, b) => a.top - b.top);
   for (const [i, below] of children.entries()) {
@@ -95,6 +136,7 @@ export const spacingFindings = (
       above?.lines.length === 1 &&
       between !== undefined &&
       (before === undefined || before > between);
+    const ratio = isRows(below) ? rows : other;
     if (
       above &&
       !heading &&
@@ -110,11 +152,12 @@ export const spacingFindings = (
         below: below.label,
         belowBox: below.box,
         between: Math.round(between),
+        ratio,
         within: Math.round(within),
       });
     }
   }
-  return [...found, ...children.flatMap((c) => spacingFindings(c, ratio))];
+  return [...found, ...children.flatMap((c) => spacingFindings(c, ratios))];
 };
 
 /** Every rule whose centre is off its neighbours' line. */

@@ -56,10 +56,34 @@ describe("measure", () => {
         below: "System components",
         belowBox: { height: 158, width: 200, x: 0, y: 388 },
         between: 27,
+        ratio: 3,
         within: 10,
       },
     ]);
     assert.deepStrictEqual(spacingFindings(panel, 2), []);
+  });
+
+  it("asks 3× of a stacked list of rows and 2× of a paragraph: both flagged at 2.7× only as rows", () => {
+    /** Each line of `ink` a row of its own, as a list's rows are its parts. */
+    const rowsOf = (label: string, ink: readonly InkLine[]) =>
+      block(
+        label,
+        ink,
+        ink.map((line, i) => block(`${label} ${i + 1}`, [line]))
+      );
+    // 27px between the groups, 10px between the lines of the one below: 2.7×.
+    const above = block("Intro", lines(100, 2, 10));
+    const at = (above.lines.at(-1)?.bottom ?? 0) + 27;
+    const groupsOf = (below: LaidBlock) =>
+      block("Panel", [...above.lines, ...below.lines], [above, below]);
+
+    const list = groupsOf(rowsOf("Files", lines(at, 4, 10)));
+    assert.deepStrictEqual(
+      spacingFindings(list).map((f) => [f.below, f.between, f.ratio]),
+      [["Files", 27, 3]]
+    );
+    const paragraph = groupsOf(block("Body", lines(at, 4, 10)));
+    assert.deepStrictEqual(spacingFindings(paragraph), []);
   });
 
   it("takes a single line closer to the block below than to the one above as its heading", () => {

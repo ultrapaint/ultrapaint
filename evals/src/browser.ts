@@ -43,6 +43,11 @@ import {
 } from "./in-page.ts";
 import type { Viewport } from "./reference.ts";
 
+/** The checks as a page Playwright opens runs them: under a CSS selector, sent as JSON. */
+type BySelector = Omit<AuditOptions, "root"> & { readonly root: string };
+/** `auditInBrowser` itself, which Playwright sends to the page as its source. */
+const auditBySelector: (options: BySelector) => Audited = auditInBrowser;
+
 /**
  * Resolves once every face the page asked for has loaded or failed, or after ten seconds, so a
  * face that never settles cannot hold the picture; runs in the page.
@@ -176,7 +181,7 @@ export class Browser extends Context.Service<
      */
     readonly audit: (
       url: string,
-      options: AuditOptions & {
+      options: BySelector & {
         /** Whether axe-core measures contrast and target sizes too, before anything is changed. */
         readonly axe?: boolean;
         /**
@@ -507,7 +512,7 @@ export class Browser extends Context.Service<
 
       const audit = (
         url: string,
-        options: AuditOptions & {
+        options: BySelector & {
           readonly axe?: boolean;
           readonly hover: boolean;
           readonly hoverChecks: AuditOptions["only"];
@@ -545,7 +550,7 @@ export class Browser extends Context.Service<
                   .addScriptTag({ path: AXE_SOURCE })
                   .then(() => page.evaluate(axeInBrowser, checks.root))
               : undefined;
-            const rest = await page.evaluate(auditInBrowser, checks);
+            const rest = await page.evaluate(auditBySelector, checks);
             if (!hover) {
               return { ...(axe && { axe }), rest };
             }
@@ -573,13 +578,13 @@ export class Browser extends Context.Service<
               only: hoverChecks,
               stress: false,
             };
-            const found = [await page.evaluate(auditInBrowser, hoverOptions)];
+            const found = [await page.evaluate(auditBySelector, hoverOptions)];
             // An app's own hover state needs a real pointer: one row after another.
             for (const point of await page.evaluate(rowPointsInBrowser, 40)) {
               // biome-ignore lint/performance/noAwaitInLoops: one pointer, resting on one row at a time
               await page.mouse.move(point.x, point.y);
               await page.waitForTimeout(150);
-              found.push(await page.evaluate(auditInBrowser, hoverOptions));
+              found.push(await page.evaluate(auditBySelector, hoverOptions));
             }
             await page.mouse.move(1, 1);
             // One finding however many passes saw it, by the key `auditInBrowser` keeps one by.
