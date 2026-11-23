@@ -219,10 +219,18 @@ const followFrame = (
 /** Whether the last press on a picked frame's name moved them: its click then picks nothing. */
 let movedPicks = false;
 
-/** Whether the frames picked together were just moved; asked once, by the click after it. */
+/** Whether the last press on a frame's name added it to the frames picked or took it out. */
+let toggledPick = false;
+
+/**
+ * Whether the press before this click on a frame's name settled what is picked (the frames picked
+ * moved together, or one added or taken out with Shift or ⌘/Ctrl): its click then picks nothing,
+ * whatever keys are held by then. Asked once, by that click.
+ */
 export const pickedFramesMoved = () => {
-  const was = movedPicks;
+  const was = movedPicks || toggledPick;
   movedPicks = false;
+  toggledPick = false;
   return was;
 };
 
@@ -398,6 +406,7 @@ export const beginFrameGesture = (
   // A name pressed with Shift or ⌘/Ctrl adds its frame to the frames picked, or takes it out.
   if (kind === "move" && e.button === 0 && picksWith(e)) {
     togglePick(frameId);
+    toggledPick = true;
     return;
   }
   // The pointer's events go to the canvas while the gesture lasts, not to the frames under it.

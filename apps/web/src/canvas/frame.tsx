@@ -32,7 +32,7 @@ import { IconButton } from "../components/icon-button.tsx";
 import { focusLink } from "../lib/links.ts";
 import { updateNodes } from "../lib/node-actions.ts";
 import { kindColor } from "../lib/selection-kind.ts";
-import { isPicked, picksWith, useCanvasPicks } from "../state/canvas-picks.ts";
+import { isPicked, useCanvasPicks } from "../state/canvas-picks.ts";
 import { holdsCard, useComments } from "../state/comments.ts";
 import { appComponentOf, useComponents } from "../state/components.ts";
 import { openMenuAt } from "../state/context-menu.ts";
@@ -731,10 +731,10 @@ const FrameChrome = ({
   const picked = useCanvasPicks((s) => isPicked(s.ids, frameId));
   const lit = isSelected || picked;
   const [titleHover, setTitleHover] = useState(false);
-  const selectFrame = (e?: ReactMouseEvent) => {
-    // The click that ends moving the picked frames together keeps them picked; one with Shift or
-    // ⌘/Ctrl was the press's, which added the frame to them or took it out.
-    if (pickedFramesMoved() || (e && e.detail > 0 && picksWith(e))) {
+  const selectFrame = () => {
+    // The click after a press that moved the picked frames together, or added this one to them or
+    // took it out (Shift or ⌘/Ctrl), keeps what is picked, the keys let go of by then or not.
+    if (pickedFramesMoved()) {
       return;
     }
     if (!isNode) {
