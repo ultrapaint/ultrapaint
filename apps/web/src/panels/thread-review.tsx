@@ -139,7 +139,10 @@ const ReviewerLine = ({ reviewer }: { reviewer: RoundReviewer }) => (
   </div>
 );
 
-/** A round's body: who looked, and what the designer fixed and declined with its reasons. */
+/**
+ * A round's body: who looked, and what the designer fixed and declined with its reasons. A
+ * declined check's finding says so (ADR 0081), as a measurement and not a reviewer's judgement.
+ */
 const RoundBody = ({ item }: { item: ReviewItem }) => {
   const declined = item.findings.filter((f) => f.declined !== undefined);
   const answered = [
@@ -168,7 +171,8 @@ const RoundBody = ({ item }: { item: ReviewItem }) => {
             <li className="flex flex-col" key={`${f.reviewer}:${f.title}`}>
               <span className="font-body-medium">{f.title}</span>
               <span className="font-body-small text-muted-foreground">
-                Declined: {f.declined}
+                {f.check === undefined ? "Declined" : "Declined check"}:{" "}
+                {f.declined}
               </span>
             </li>
           ))}
