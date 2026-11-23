@@ -1,7 +1,7 @@
 ---
 id: g93
 title: A New meeting panel left only by sending the invite
-kind: missing
+kind: missed
 status: done
 found: 2026-11-23
 source: gap p15's test, from up88-fx/fresh-team-calendar/run-1 with its close X and Cancel removed

@@ -36,4 +36,5 @@ than the request.
   a way out" carry it. Elsewhere the candidate caught 2 points fewer (−9 to +5, not shown) and
   left 8.5 unmatched findings per review against 7.8.
 - Decision of 2026-11-23 (the person): closed, the skill unchanged. A fix already adds a way out
-  the screen needs; loosening the rule changed nothing measured.
+  the screen needs; loosening the rule changed nothing on the three sections, and what it changed
+  elsewhere (2 points fewer caught, more unmatched findings) is within what this round can tell.

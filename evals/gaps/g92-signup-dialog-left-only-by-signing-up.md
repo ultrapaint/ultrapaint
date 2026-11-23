@@ -1,7 +1,7 @@
 ---
 id: g92
 title: A sign-up dialog left only by signing up
-kind: missing
+kind: missed
 status: done
 found: 2026-11-23
 source: gap p15's test, from up88-fx/fresh-river-charity/run-2 with its close X removed
