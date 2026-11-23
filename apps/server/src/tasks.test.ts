@@ -752,6 +752,33 @@ describe("bringing components up to date from their code (ADR 0122)", () => {
     );
 
     it.effect(
+      "points a named page up to date with its code to its changed components' own update when another page is taken",
+      () =>
+        Effect.gen(function* () {
+          yield* componentBehind;
+          const project = yield* OpenProject;
+          yield* project.use(
+            Effect.gen(function* () {
+              yield* (yield* ImplementationService).mark("home.page.json", [
+                "src/home.tsx",
+              ]);
+              yield* (yield* PagesService).create("", {
+                name: "Pricing",
+                route: "/pricing",
+              });
+            })
+          );
+          const text = yield* textOf({
+            _tag: "UpdateFromCode",
+            targets: ["home.page.json", "pricing.page.json"],
+          });
+          assert.include(text, "- pricing.page.json");
+          assert.notInclude(text, "- home.page.json");
+          assert.include(text, "/update-from-code component:Plan");
+        })
+    );
+
+    it.effect(
       "points a page up to date with its code, whose components' code changed, to their own update",
       () =>
         Effect.gen(function* () {
@@ -844,7 +871,7 @@ describe("bringing components up to date from their code (ADR 0122)", () => {
           });
           assert.include(
             text,
-            "rename it in the props of its instances on the pages that place it too"
+            "on the pages that place it and in the\n   trees of app components that place it"
           );
         })
     );
