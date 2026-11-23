@@ -15,6 +15,13 @@ import { Secrets } from "./secrets.ts";
 
 const layout = { adaptersDir: "/opt/app/adapters", node: "/opt/app/electron" };
 
+/**
+ * The cap on a test that starts the fake agents and adapters as real processes and waits for them:
+ * on a loaded machine starting them takes seconds, so vitest's 5 s cap failed tests that were only
+ * slow (docs/TESTING.md rule 7). It catches a test that hangs; it measures nothing.
+ */
+const PROCESSES_TIMEOUT_MS = 30_000;
+
 describe("the agent runtime the app hands its servers", () => {
   it("starts each built-in adapter, told where its agent is", () => {
     const runtime = makeRuntime(
@@ -122,7 +129,7 @@ const agentsOn = (searchPath: string, dataDir: string) =>
     Layer.provideMerge(NodeServices.layer)
   );
 
-describe("Agents", () => {
+describe("Agents", { timeout: PROCESSES_TIMEOUT_MS }, () => {
   it.effect(
     "finds the agents on the PATH and asks each whether it is signed in",
     () =>
@@ -311,7 +318,7 @@ const fakeAdapters = Effect.gen(function* () {
   return { adaptersDir: dir, node: process.execPath };
 });
 
-describe("Agents.signIn", () => {
+describe("Agents.signIn", { timeout: PROCESSES_TIMEOUT_MS }, () => {
   it.effect(
     "signs Codex in through its adapter's ChatGPT method, and says when there is none",
     () =>
@@ -392,7 +399,9 @@ const threeAgents = {
   third,
 } as unknown as BuiltInAgents;
 
-describe("Agents on a third descriptor", () => {
+describe("Agents on a third descriptor", {
+  timeout: PROCESSES_TIMEOUT_MS,
+}, () => {
   /** `third` on the PATH: it answers `whoami` only, as signed in or not. */
   const fakeThird = (dir: string, signedIn: boolean) =>
     Effect.gen(function* () {

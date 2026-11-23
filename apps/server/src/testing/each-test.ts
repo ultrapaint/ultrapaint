@@ -9,6 +9,14 @@ import { TestClock } from "effect/testing";
  */
 export const TEST_EPOCH = Date.UTC(2026, 0, 1);
 
+/**
+ * The cap on a test on the real clock, which waits for real processes (an agent, a server, `git`)
+ * to start and answer: on a loaded machine starting them takes seconds, so vitest's 5 s cap failed
+ * tests that were only slow (docs/TESTING.md rule 7). It catches a test that hangs; it measures
+ * nothing.
+ */
+export const REAL_CLOCK_TIMEOUT_MS = 30_000;
+
 /** `it.effect`, on a world of each test's own. */
 export interface EachTest<R> {
   readonly effect: <A, E>(
@@ -53,7 +61,7 @@ export const perTest = <R, E>(
       );
     } else {
       // real clock: only when the caller says why, in `realClock`.
-      it.live(name, inWorld, timeout);
+      it.live(name, inWorld, timeout ?? REAL_CLOCK_TIMEOUT_MS);
     }
   },
 });
