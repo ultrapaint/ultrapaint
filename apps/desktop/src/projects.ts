@@ -216,8 +216,15 @@ export class ProjectStore extends Context.Service<
     readonly setTabs: (tabs: OpenTabs) => Effect.Effect<void, StoreError>;
   }
 >()("ultrapaint/desktop/ProjectStore") {
-  /** The list in `dir`, the app's data directory. */
-  static readonly layer = (dir: string) =>
+  /**
+   * The list in `dir`, the app's data directory. With `firstFrom`, another app's data directory
+   * (the release's, for Ultrapaint Dev, ADR 0113): a first start, with no list of its own yet,
+   * begins with that app's projects, none of them open. Nothing is copied once it has its own.
+   */
+  static readonly layer = (
+    dir: string,
+    options: { readonly firstFrom?: string } = {}
+  ) =>
     Layer.effect(
       ProjectStore,
       Effect.gen(function* () {
@@ -253,6 +260,29 @@ export class ProjectStore extends Context.Service<
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path)
           );
+
+        if (options.firstFrom !== undefined && !(yield* fs.exists(file))) {
+          const other = path.join(options.firstFrom, PROJECTS_FILE);
+          // No list there, or one that cannot be read: this app starts with none.
+          const theirs = yield* fs.readFileString(other).pipe(
+            Effect.flatMap(decodeFile),
+            Effect.map(Option.some),
+            Effect.catchTag(["PlatformError", "SchemaError"], () =>
+              Effect.succeed(Option.none<ProjectsFile>())
+            )
+          );
+          if (Option.isSome(theirs)) {
+            yield* writeFile({
+              open: [],
+              projects: theirs.value.projects,
+              shown: null,
+              version: 1,
+            }).pipe(
+              // Not written, the next start tries again: this one starts with none.
+              Effect.ignore
+            );
+          }
+        }
 
         /** Writes the projects, the tabs kept as they are, but for a project gone from the list. */
         const write = (projects: readonly Project[]) =>

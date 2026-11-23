@@ -17,6 +17,7 @@ import {
 } from "../components/app-update.tsx";
 import { Logo } from "../components/logo.tsx";
 import { isMac } from "../lib/keys.ts";
+import { devCheckout, devCheckoutLabel } from "../lib/ultrapaint-dev.ts";
 import { platform, serverAddress } from "../platform.ts";
 import { CopyLine } from "./settings-agents.tsx";
 import { Group, Row, RowMessage, Status } from "./settings-group.tsx";
@@ -256,13 +257,18 @@ const NodeRow = () => {
 };
 
 export const AboutSection = ({ folders }: { folders?: React.ReactNode }) => {
-  const version = useVersion();
+  const serverVersion = useVersion();
+  // Ultrapaint Dev runs a commit, which says more than the version its checkout names.
+  const dev = devCheckout();
+  const version = dev ? devCheckoutLabel(dev) : serverVersion;
   return (
     <>
       <div className="flex items-center gap-4 px-4" data-setting="version">
         <Logo className="size-10" />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <h3 className="font-heading-small">Ultrapaint</h3>
+          <h3 className="font-heading-small">
+            {dev ? "Ultrapaint Dev" : "Ultrapaint"}
+          </h3>
           {version ? (
             <span className="font-code text-muted-foreground">{version}</span>
           ) : null}

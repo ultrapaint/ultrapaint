@@ -10,19 +10,12 @@
  * its dependency tree is large, and only this script needs it.
  */
 import { execFileSync } from "node:child_process";
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { NAME, shippedLauncherScript } from "../src/launcher.ts";
-import { appDir, desktopDir, version } from "./parts.ts";
+import { appDir, desktopDir, electronVersion, version } from "./parts.ts";
 
 const ELECTRON_BUILDER = "electron-builder@26.18.0";
-
-/** The Electron the app is developed with, pinned exactly in its package.json. */
-const electronVersion = (
-  JSON.parse(readFileSync(path.join(desktopDir, "package.json"), "utf8")) as {
-    devDependencies: Record<string, string>;
-  }
-).devDependencies.electron;
 
 const onlyDir = process.argv.includes("--dir");
 

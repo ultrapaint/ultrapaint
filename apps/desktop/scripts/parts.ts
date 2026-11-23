@@ -17,6 +17,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { BUILT_IN_AGENTS, type BuiltInAgent } from "@ultrapaint/acp/built-in";
 import { build } from "esbuild";
+import { DEV_NAME, RELEASE_NAME } from "../src/edition.ts";
 
 export const desktopDir = path.resolve(import.meta.dirname, "..");
 export const root = path.resolve(desktopDir, "../..");
@@ -28,6 +29,19 @@ const { version } = JSON.parse(
 
 export { version };
 
+/** The Electron the app is developed and packaged with, pinned exactly in its package.json. */
+export const electronVersion = (
+  JSON.parse(readFileSync(path.join(desktopDir, "package.json"), "utf8")) as {
+    devDependencies: { electron: string };
+  }
+).devDependencies.electron;
+
+/**
+ * Which app is built (ADR 0113): the release, which the installers package, or Ultrapaint Dev,
+ * which `pnpm desktop:dev` runs from this checkout beside it, with a name and icon of its own.
+ */
+export type EditionName = "release" | "dev";
+
 /** Bundled CommonJS dependencies require Node's own modules, which ESM has no `require` for. */
 const requireBanner =
   "import { createRequire as __ultrapaintRequire } from 'node:module'; const require = __ultrapaintRequire(import.meta.url);";
@@ -36,10 +50,14 @@ const requireBanner =
  * The main process, as ESM, and the preload script, as CommonJS: a sandboxed preload must be.
  * With the app icon, which the window shows on Linux where no launcher entry names it.
  */
-export const buildShell = async () => {
+export const buildShell = async (edition: EditionName = "release") => {
   mkdirSync(appDir, { recursive: true });
   copyFileSync(
-    path.join(desktopDir, "resources", "icon.png"),
+    path.join(
+      desktopDir,
+      "resources",
+      edition === "dev" ? "icon-dev.png" : "icon.png"
+    ),
     path.join(appDir, "icon.png")
   );
   await build({
@@ -69,7 +87,7 @@ export const buildShell = async () => {
  * The app's own package.json: what Electron reads to start it. It names no dependencies: nothing
  * is installed beside the app's parts.
  */
-export const writeManifest = () => {
+export const writeManifest = (edition: EditionName = "release") => {
   writeFileSync(
     path.join(appDir, "package.json"),
     `${JSON.stringify(
@@ -78,13 +96,14 @@ export const writeManifest = () => {
         dependencies: {},
         description: "A design tool for teams that work with coding agents",
         // The window's WM_CLASS on Linux, so the desktop links it to the launcher's entry.
-        desktopName: "ultrapaint.desktop",
+        desktopName:
+          edition === "dev" ? "ultrapaint-dev.desktop" : "ultrapaint.desktop",
         homepage: "https://github.com/ultrapaint/ultrapaint",
         license: "AGPL-3.0-only",
         main: "main.mjs",
-        name: "ultrapaint",
+        name: edition === "dev" ? "ultrapaint-dev" : "ultrapaint",
         private: true,
-        productName: "Ultrapaint",
+        productName: edition === "dev" ? DEV_NAME : RELEASE_NAME,
         type: "module",
         version,
       },

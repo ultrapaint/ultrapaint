@@ -11,6 +11,7 @@
     "bench:canvas": "node scripts/bench-canvas.ts",
     "desktop:build": "pnpm -F @ultrapaint/desktop dist",
     "desktop:dev": "pnpm -F @ultrapaint/desktop dev",
+    "desktop:dev-app": "pnpm -F @ultrapaint/desktop dev-app",
     "dev": "node scripts/dev-runner.ts",
     "evals": "node evals/src/cli.ts",
     "format": "ultracite fix",

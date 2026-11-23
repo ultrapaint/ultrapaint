@@ -648,7 +648,18 @@ refactor and the board view left.
 - **App update**: a newer release of the desktop app, once there is something to do about it:
   a restart into the release it downloaded, or a download by hand where this copy cannot replace
   itself (`Platform.update`, the desktop's `Updater`, `updates.ts`; the editor's `app-update.tsx`,
-  ADR 0078). Its **release notes** are what comes before the release's install mark.
+  ADR 0078). Its **release notes** are what comes before the release's install mark. Ultrapaint
+  Dev's is `main` ahead of its checkout: the commits it lacks, pulled on a restart (`pull`), or
+  why it cannot be (`manual`: changes not committed, another branch, commits of its own; ADR 0113).
+- **Ultrapaint Dev**: the desktop app run from a checkout of Ultrapaint (`pnpm desktop:dev`, or
+  `Ultrapaint Dev.app` on a Mac, which `pnpm desktop:dev-app` writes), beside the release (ADR
+  0113; `Edition` in `edition.ts`). Its own name, data folder (first filled with the release's
+  projects, none open) and Keychain entry; each local project runs the checkout's `ultrapaint
+  --dev` and opens in the editor that serves, live; its App update pulls `main`, through its runner
+  (`scripts/dev.ts`), which builds what changed and starts it again; the blueprint in the tab
+  strip and its icon tell it apart; it leaves the `ultrapaint` command to the release. The editor
+  learns it from the bridge's `dev`. _Avoid_: dev mode (`ultrapaint --dev`), nightly, the dev
+  build.
 - **The person's folder**: what is the person's in every project, kept in a folder named
   `.ultrapaint` (their name, findings, chat preferences, custom agents), in the home folder
   unless moved (ADR 0091): the server's `ServerConfig.userDir`, placed by `--user-dir`

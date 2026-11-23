@@ -43,7 +43,10 @@ const LISTED: PlatformProject[] = [
  * The strip on a shell with `tabs` open, which records what is asked of it: a page of its own for
  * each test, drawn into a root it unmounts after. `tell` changes the tabs as the shell would.
  */
-const draw = async (open: readonly ShellTab[] = [SHOP, DOCS]) => {
+const draw = async (
+  open: readonly ShellTab[] = [SHOP, DOCS],
+  { dev = false }: { readonly dev?: boolean } = {}
+) => {
   const asked: string[] = [];
   let current = open;
   const listeners = new Set<(value: readonly ShellTab[]) => void>();
@@ -71,6 +74,14 @@ const draw = async (open: readonly ShellTab[] = [SHOP, DOCS]) => {
       show: call("show"),
       sshHosts: () => Promise.resolve([]),
     },
+    ...(dev
+      ? {
+          dev: {
+            current: () => ({ branch: "main", commit: "3f2a1c9" }),
+            subscribe: () => () => undefined,
+          },
+        }
+      : {}),
     serverUrl: "",
     tabs: {
       current: () => current,
@@ -256,5 +267,25 @@ describe("the tab strip", () => {
       "Open over SSH…",
       "New project…",
     ]);
+  });
+});
+
+describe("Ultrapaint Dev's tab strip", () => {
+  /** The blueprint Ultrapaint Dev draws (ADR 0113), as the strip marks it for the eye only. */
+  const blueprint = () => document.body.querySelector("[data-look=blueprint]");
+
+  it("draws its blueprint in the space past the +, hidden from a screen reader", async () => {
+    await draw([SHOP, DOCS], { dev: true });
+    const drawn = blueprint();
+    expect(drawn?.getAttribute("aria-hidden")).toBe("true");
+    // After the +, never behind a tab.
+    expect(
+      drawn?.previousElementSibling?.contains(byLabel("Open a project"))
+    ).toBe(true);
+  });
+
+  it("draws none in the release", async () => {
+    await draw([SHOP, DOCS]);
+    expect(blueprint()).toBeNull();
   });
 });

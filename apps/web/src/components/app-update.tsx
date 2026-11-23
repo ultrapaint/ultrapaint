@@ -3,7 +3,8 @@
  * rail, and a button on the start screen, there only while there is something to do. Either
  * opens what the releases since the running one bring and the one way to install it: a restart
  * when the app downloaded it, the release's page when this copy cannot replace itself.
- * Nothing in a browser.
+ * Ultrapaint Dev's is `main` ahead of its checkout (ADR 0113): its commits, and Pull and restart,
+ * or why it cannot be pulled. Nothing in a browser.
  */
 import type { AppUpdate } from "@ultrapaint/contracts/shell-bridge";
 import { CircleFadingArrowUp } from "lucide-react";
@@ -51,14 +52,80 @@ const dayOf = (iso: string) => {
   return Number.isNaN(date.getTime()) ? "" : DAY.format(date);
 };
 
+/** Ultrapaint Dev's update: `main` ahead of its checkout (ADR 0113). */
+const fromMain = (update: AppUpdate) =>
+  update.install === "pull" || update.install === "manual";
+
+const commits = (n: number) => (n === 1 ? "1 new commit" : `${n} new commits`);
+
 /** What the button and the rail's item call it. */
-export const updateLabel = (update: AppUpdate) =>
-  update.install === "restart"
+export const updateLabel = (update: AppUpdate) => {
+  if (fromMain(update)) {
+    return `Update from main: ${commits(update.releases.length)}`;
+  }
+  return update.install === "restart"
     ? `Restart to update to ${update.releases[0].version}`
     : `Ultrapaint ${update.releases[0].version} is out`;
+};
+
+/** What the start screen's button says. */
+const buttonLabel = (update: AppUpdate) => {
+  if (fromMain(update)) {
+    return updateLabel(update);
+  }
+  return update.install === "restart"
+    ? "Restart to update"
+    : `${update.releases[0].version} is out`;
+};
+
+/** The commits `main` has that Ultrapaint Dev's checkout lacks, newest first, and the pull. */
+const MainDetails = ({ update }: { update: AppUpdate }) => (
+  <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-0.5">
+      <h2 className="font-heading-xsmall">
+        main · {update.releases[0].version}
+      </h2>
+      <p className="font-body-small text-muted-foreground">
+        You have {update.current} · {commits(update.releases.length)}
+      </p>
+    </div>
+    <ul className="-mx-3 flex max-h-80 flex-col gap-1.5 overflow-y-auto px-3">
+      {update.releases.map((commit) => (
+        <li className="flex items-baseline gap-2" key={commit.version}>
+          <span className="min-w-0 flex-1 text-pretty font-body-small">
+            {commit.notes}
+          </span>
+          <span className="shrink-0 font-code text-muted-foreground">
+            {commit.version}
+          </span>
+        </li>
+      ))}
+    </ul>
+    {update.reason ? (
+      <p className="text-pretty font-body-small text-muted-foreground">
+        {update.reason}
+      </p>
+    ) : null}
+    {update.install === "pull" ? (
+      <Button
+        className="self-end"
+        onClick={() => {
+          platform()
+            .installUpdate?.()
+            .catch(() => undefined);
+        }}
+      >
+        Pull and restart
+      </Button>
+    ) : null}
+  </div>
+);
 
 /** The releases since the running one, newest first, their notes, and how to install them. */
 const UpdateDetails = ({ update }: { update: AppUpdate }) => {
+  if (fromMain(update)) {
+    return <MainDetails update={update} />;
+  }
   const [newest] = update.releases;
   const noted = update.releases.filter((r) => r.notes);
   return (
@@ -174,9 +241,7 @@ export const UpdateButton = ({ className }: { className?: string }) => {
           render={<Button className={className} size="sm" variant="ghost" />}
         >
           <CircleFadingArrowUp />
-          {update.install === "restart"
-            ? "Restart to update"
-            : `${update.releases[0].version} is out`}
+          {buttonLabel(update)}
         </PopoverTrigger>
       }
       update={update}

@@ -203,3 +203,23 @@ describe("About's Node.js", () => {
     expect(row()).toBeNull();
   });
 });
+
+describe("About in Ultrapaint Dev", () => {
+  it("names Ultrapaint Dev and the branch and commit it runs, not the server's version", async () => {
+    vi.stubGlobal("fetch", () =>
+      Promise.resolve(Response.json({ version: "0.4.0" }))
+    );
+    setPlatform({
+      dev: {
+        current: () => ({ branch: "main", commit: "3f2a1c9" }),
+        subscribe: () => () => undefined,
+      },
+      serverUrl: "ws://localhost:4000/ws",
+    } as unknown as Platform);
+    await render();
+    const version = host.querySelector("[data-setting=version]");
+    expect(version?.querySelector("h3")?.textContent).toBe("Ultrapaint Dev");
+    expect(version?.textContent).toContain("main · 3f2a1c9");
+    expect(version?.textContent).not.toContain("0.4.0");
+  });
+});

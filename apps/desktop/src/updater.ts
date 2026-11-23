@@ -27,6 +27,7 @@ import type {
 } from "@ultrapaint/contracts/shell-bridge";
 import { Context, Effect, Layer, Schedule, Semaphore } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import { type CheckoutState, readCheckout } from "./checkout.ts";
 import { UpdateCheckError } from "./errors.ts";
 import {
   type MacZip,
@@ -54,6 +55,15 @@ export type InstallMode =
     }
   /** Installed by hand from the release's page: a deb. */
   | { readonly _tag: "Download" }
+  /**
+   * Ultrapaint Dev (ADR 0113): the checkout at `dir`, behind `main`, pulled by its runner on a
+   * restart. `failed` is why the update asked for last did not happen.
+   */
+  | {
+      readonly _tag: "Checkout";
+      readonly dir: string;
+      readonly failed?: string;
+    }
   /** Not packaged (development): nothing is checked. */
   | { readonly _tag: "None" };
 
@@ -146,6 +156,25 @@ const fsEffect = <A>(what: string, run: () => Promise<A>) =>
     try: run,
   });
 
+/** Why a checkout cannot be pulled without touching the person's work; none when it can. */
+const blockedReason = (state: CheckoutState) => {
+  if (state.branch !== "main") {
+    return state.branch === "HEAD"
+      ? "Your checkout isn’t on a branch. Switch it to main to update from main."
+      : `Your checkout is on ${state.branch}, not main. Switch it to main to update from main.`;
+  }
+  if (state.dirty) {
+    return "Your checkout has changes that aren’t committed. Commit or stash them to update from main.";
+  }
+  if (state.ahead > 0) {
+    return `Your checkout has ${state.ahead === 1 ? "a commit" : `${state.ahead} commits`} main doesn’t have. Push or move ${state.ahead === 1 ? "it" : "them"} to update from main.`;
+  }
+};
+
+/** What `main` brings since the commit running, on GitHub. */
+const changesSince = (commit: string) =>
+  `https://github.com/ultrapaint/ultrapaint/compare/${commit}...main`;
+
 export class Updater extends Context.Service<
   Updater,
   {
@@ -173,6 +202,8 @@ export class Updater extends Context.Service<
         let staged: Staged | null = null;
         let releases: readonly AppRelease[] = [];
         let fed: string | null = null;
+        /** Ultrapaint Dev's checkout can be pulled on a restart. */
+        let pullable = false;
 
         const tell = (
           install: AppUpdate["install"],
@@ -253,7 +284,49 @@ export class Updater extends Context.Service<
           return { app: path.join(dir, app), target, version };
         });
 
+        /** Ultrapaint Dev: `main` ahead of the checkout, pulled on a restart unless it is blocked. */
+        const runCheckout = Effect.fn("Updater.checkout")(function* (
+          dir: string,
+          failed: string | undefined
+        ) {
+          const state = yield* readCheckout(dir).pipe(
+            Effect.provideService(
+              ChildProcessSpawner.ChildProcessSpawner,
+              spawner
+            )
+          );
+          releases = state.behind.map(
+            (c): AppRelease => ({
+              date: c.date,
+              notes: c.subject,
+              version: c.hash,
+            })
+          );
+          const [newest, ...rest] = releases;
+          const blocked = blockedReason(state);
+          pullable = newest !== undefined && blocked === undefined;
+          const reason =
+            blocked ??
+            (failed === undefined
+              ? undefined
+              : `The last update from main failed: ${failed}. Pull and restart tries again.`);
+          publish(
+            newest
+              ? {
+                  current: state.commit,
+                  install: blocked === undefined ? "pull" : "manual",
+                  ...(reason === undefined ? {} : { reason }),
+                  releases: [newest, ...rest],
+                  url: changesSince(state.commit),
+                }
+              : null
+          );
+        });
+
         const run = Effect.gen(function* () {
+          if (mode._tag === "Checkout") {
+            return yield* runCheckout(mode.dir, mode.failed);
+          }
           releases = yield* releasesSince(fetchFn, current);
           const [newest] = releases;
           if (!newest) {
@@ -326,6 +399,10 @@ export class Updater extends Context.Service<
               return releases[0]?.version === version ? tell("restart") : check;
             }),
           install: Effect.sync(() => {
+            // The runner pulls the checkout as the app exits to be started again (ADR 0113).
+            if (mode._tag === "Checkout") {
+              return pullable;
+            }
             if (!staged || mode._tag !== "Swap") {
               return false;
             }

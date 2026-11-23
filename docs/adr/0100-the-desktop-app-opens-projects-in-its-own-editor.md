@@ -3,6 +3,7 @@
 Status: accepted, 2026-11-16. Amends 0031 (the window loads the editor from the project's
 server) and extends 0099 (a project opens on a splash). Story UP-12.
 Amended by 0107: one page of the app's editor is kept per open project; a switch shows it rather than reloading one.
+Amended by 0113: Ultrapaint Dev opens each local project in the editor its `ultrapaint --dev` serves.
 
 ## Context
 
