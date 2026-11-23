@@ -375,7 +375,8 @@ const overrideProps = (
     for (const [field, value] of ordered) {
       if (field === "props" && isRecord(value)) {
         add(into, way, words, value as Record<string, JsonValue>, "prop");
-      } else if (field !== "at") {
+      } else if (!(field === "at" && kind === "field")) {
+        // A layer's `at` holds its breakpoints'; a nested instance's prop may be named `at`.
         Object.defineProperty(into, nameOf(way, words, field, kind), {
           configurable: true,
           enumerable: true,

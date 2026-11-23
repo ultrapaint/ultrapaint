@@ -217,6 +217,15 @@ describe("an app component edited in place", () => {
     });
   });
 
+  it("is left at every level when the workspace changes", () => {
+    isolate(HOME, PROMO);
+    isolate(HOME, { ...PROMO, id: "p-again" });
+    useEditor.setState({ workspace: "prototype" });
+    expect(useIsolation.getState().isolated).toBeNull();
+    expect(docOfFrame(HOME, "")).toBe(HOME);
+    useEditor.setState({ workspace: "design" });
+  });
+
   it("goes back to any level the breadcrumb names, the page's at none", () => {
     isolate(HOME, PROMO);
     isolate(HOME, { ...PROMO, component: "Promo", id: "p-again" });

@@ -24,6 +24,7 @@ import {
   resetAt,
   setField,
   setHidden,
+  setPropsOfSelection,
   showBy,
   updateNodes,
   updateSelection,
@@ -192,6 +193,68 @@ describe("a layer of an instance edited in a view (ADR 0114)", () => {
     await setField(ALIGN, "start");
     expect(applied().at(-1)?.edits[0]?.ops).toEqual([
       { at: "md", id: "promo/sale", op: "update", set: { align: "start" } },
+    ]);
+  });
+});
+
+describe("a nested instance's prop edited in a view (ADR 0114)", () => {
+  it("keeps its value at the breakpoint, though the level below has it", async () => {
+    useComponents.setState({
+      components: [
+        {
+          name: "Badge",
+          origin: "app",
+          properties: [
+            {
+              default: "small",
+              kind: "choice",
+              members: ["small", "large"],
+              name: "size",
+            },
+          ],
+          slots: [],
+          tree: { children: [], id: "b-root", type: "row" },
+          version: 1,
+        },
+        {
+          name: "Promo",
+          origin: "app",
+          properties: [],
+          slots: [],
+          tree: {
+            children: [
+              {
+                at: { md: { props: { size: "large" } } },
+                component: "Badge",
+                from: "#app",
+                id: "badge",
+                props: { size: "small" },
+                type: "instance",
+              } as DesignNode,
+            ],
+            id: "p-root",
+            type: "column",
+          },
+          version: 1,
+        },
+      ],
+    });
+    const home = useDocuments.getState().docs[HOME];
+    useDocuments.setState({
+      docs: {
+        ...useDocuments.getState().docs,
+        [HOME]: stateOf(HOME, {
+          ...(home?.root as DesignNode & { children: DesignNode[] }),
+          children: [
+            { component: "Promo", from: "#app", id: "promo", type: "instance" },
+          ],
+        } as DesignNode),
+      },
+    });
+    select({ frame: TABLET, nodeId: "promo/badge" });
+    await setPropsOfSelection({ size: "small" });
+    expect(applied().at(-1)?.edits[0]?.ops).toEqual([
+      { at: "md", id: "promo/badge", op: "setProps", props: { size: "small" } },
     ]);
   });
 });
