@@ -12,8 +12,8 @@ redesign starts from a page the app left behind. A page never linked to its code
 the flag. None of Ultrapaint's own seven canvases is linked, and `apps/web` moved 68 commits since
 they were drawn.
 
-The person settled it on 2026-11-23: a page is replaced in place, its history keeping the old
-version; the agent reads the code and, where it can, looks at the running screen; the editor
+The person settled it on 2026-11-23: a page is updated in place, its history keeping the old
+version; where its design changed too, the two sides are reconciled, never one taken whole; the agent reads the code and, where it can, looks at the running screen; the editor
 flags and offers, for a page and for a canvas.
 
 ## Decision
@@ -35,9 +35,9 @@ flags and offers, for a page and for a canvas.
   page it names is refused, as `--adopt`'s is.
 - **What the agent is told, per page:** its file; for a linked page, the files that implement it,
   which of them changed since, and the design as it was implemented (`_implemented/`); when the
-  design changed too, that those changes never reached the code and will be replaced; the widths
-  it is drawn at (its frame's and its views', the desktop width without a frame); its states, a
-  state's page listed under its base page rather than on its own; its links and behaviour notes.
+  design changed too, that those changes never reached the code and are reconciled; the widths
+  it is drawn at (its frame's and its views', the desktop width without a frame); its states (a
+  base page names them; a state is taken on its own when it is behind too); its links and behaviour notes.
   Then: find the files of a page not linked yet, as `--adopt` does; read the
   changed files first; look at the running screen at the widths the page is drawn for where it
   can (a browser, or a view at a width, the design skill's words, through the agent ways), and
@@ -45,11 +45,20 @@ flags and offers, for a page and for a canvas.
   URL, the node ids, states, links and behaviour notes that still hold), with the design system's
   components and tokens; leave a page no code draws as it is and name it; mark it implemented
   with the files that draw it.
+- **Where the design changed too, both are reconciled, never one taken whole.** The agent sets
+  the design's changes since the page was implemented beside the code's (its files' git history
+  since then). A change only one side made is kept; where both changed the same thing, the
+  history decides what is current (which came later, and what its commit or note says it was
+  for); where it cannot tell, it asks the person before it writes. It brings the page to the code
+  and marks it implemented, then puts back the design changes kept, so the page reads *Design
+  changed* and implementing it builds what is left. Its last message says what was kept, what
+  the code had overtaken and what the person decided. The person settled this on 2026-11-23,
+  after the first build replaced the design's changes.
 - **The old version is the history's.** The rewrite is an agent's turn, so the designs' history
   (0087) keeps the page as it was before it, to restore.
 - **Where the editor offers it.** The Code tab's Implementation section has an **Update from code**
-  button when the page's code changed, under a line saying the design's changes not implemented
-  yet will be replaced when the design changed too; Implement stays beside it (amending 0102's
+  button when the page's code changed, under a line saying the agent reconciles both, and asks
+  where it can't tell, when the design changed too; Implement stays beside it (amending 0102's
   one button). A page not linked yet has it in the section's ⋯ menu only, beside *Find its code
   with an agent*: every draft not built yet is unlinked, and a button there would offer a run that
   finds no code. A canvas's menu in the list has *Update its pages from code*; several pages

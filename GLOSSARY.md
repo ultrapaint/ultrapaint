@@ -229,7 +229,8 @@ refactor and the board view left.
   0085), and listed in the inspector's Behaviour section of what they are on (ADR 0086);
   a component's are in its file, deleted when done.
 - **Update from code**: a page brought up to date from the code that draws it (ADR 0115), by an
-  agent the person sends: rewritten in place to show what the code draws now, its old version
+  agent the person sends: rewritten in place to show what the code draws now, the design's own
+  changes since it was implemented reconciled with the code's rather than dropped, its old version
   kept in the history, and marked implemented with its files (the implementation link, ADR 0030).
   It takes the pages whose code changed and those not linked yet, by their canonical targets or
   a canvas; its task request is `UpdateFromCode`, its command `/update-from-code`, its text the

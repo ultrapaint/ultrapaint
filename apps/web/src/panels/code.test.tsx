@@ -180,15 +180,15 @@ describe("a page's Update from code (ADR 0115)", () => {
     linked({ code: true, design: false });
     await selectAndRead("home", 1);
     expect(buttonNamed("Update from code")).toBeDefined();
-    expect(container.textContent).not.toContain("will be replaced");
+    expect(container.textContent).not.toContain("reconciles both");
   });
 
-  it("says the design's changes will be replaced when the design changed too", async () => {
+  it("says the agent reconciles both when the design changed too", async () => {
     linked({ code: true, design: true });
     await selectAndRead("home", 1);
     expect(buttonNamed("Update from code")).toBeDefined();
     expect(container.textContent).toContain(
-      "The design's changes not implemented yet will be replaced."
+      "The design changed too: the agent reconciles both, and asks you where it can't tell."
     );
   });
 
