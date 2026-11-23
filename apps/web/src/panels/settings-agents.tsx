@@ -179,6 +179,43 @@ export const CopyLine = ({
   );
 };
 
+/** The command's folder is missing from the PATH agents get. */
+const NotOnPath = () => (
+  <RowMessage kind="notice">
+    Its folder isn’t on your PATH yet: add it, then start the agent again.
+  </RowMessage>
+);
+
+/**
+ * Ultrapaint Dev's command row: the command on the PATH runs the release, and Ultrapaint Dev
+ * never writes over it (ADR 0113), but says where it is and what is wrong with it, as the release
+ * does.
+ */
+const DevCommandRow = ({
+  installed,
+}: {
+  installed: InstalledCommand | null;
+}) => (
+  <Row
+    description={
+      installed ? (
+        <span className="break-all">{installed.path}</span>
+      ) : (
+        "Ultrapaint Dev leaves the command to the installed Ultrapaint."
+      )
+    }
+    message={installed && !installed.onPath ? <NotOnPath /> : null}
+    setting="command"
+    title="Command line"
+  >
+    {installed ? (
+      <Status tone={installed.onPath ? "success" : "warning"}>
+        {installed.onPath ? "Installed" : "Not on your PATH"}
+      </Status>
+    ) : null}
+  </Row>
+);
+
 /**
  * Whether the `ultrapaint` command the lines start is on this computer, where the shell can tell
  * (the desktop app), with the way to install it when it is not (ADR 0083).
@@ -217,16 +254,7 @@ export const CommandRow = () => {
     </Button>
   );
   if (devCheckout()) {
-    // The command on the PATH runs the release; Ultrapaint Dev never writes over it (ADR 0113).
-    return (
-      <Row
-        description="Ultrapaint Dev leaves the command to the installed Ultrapaint."
-        setting="command"
-        title="Command line"
-      >
-        {installed ? <Status tone="success">Installed</Status> : null}
-      </Row>
-    );
+    return <DevCommandRow installed={installed} />;
   }
   let description: ReactNode;
   let control: ReactNode;
@@ -239,11 +267,7 @@ export const CommandRow = () => {
     description = <span className="break-all">{installed.path}</span>;
     if (!installed.onPath) {
       control = <Status tone="warning">Not on your PATH</Status>;
-      message = (
-        <RowMessage kind="notice">
-          Its folder isn’t on your PATH yet: add it, then start the agent again.
-        </RowMessage>
-      );
+      message = <NotOnPath />;
     } else if (installed.ours && !installed.shipped) {
       control = (
         <div className="flex items-center gap-3">

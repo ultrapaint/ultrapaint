@@ -22,7 +22,7 @@ export interface CheckoutState {
   readonly behind: readonly MainCommit[];
   /** Its branch; `HEAD` when it is on none. */
   readonly branch: string;
-  /** The commit it is at, short. */
+  /** The commit the app runs, short. */
   readonly commit: string;
   /** Whether a file git follows has changes not committed. */
   readonly dirty: boolean;
@@ -82,17 +82,27 @@ const git = (dir: string, ...args: string[]) => output(dir, "git", args);
 
 const FIELD = "\u001f";
 
-/** Fetches `main` from the checkout's origin, then reads where the checkout stands against it. */
+/**
+ * Fetches `main` from the checkout's origin, then reads where the checkout stands against it:
+ * `main`'s commits since `running`, the commit the app runs (the checkout's own until a pull in a
+ * terminal moves it on), and the checkout as it is now for whether it can be pulled.
+ */
 export const readCheckout = Effect.fn("Checkout.readCheckout")(function* (
-  dir: string
+  dir: string,
+  running = "HEAD"
 ) {
   yield* git(dir, "fetch", "--quiet", "origin", "main");
   const [branch, commit, status, ahead, log] = yield* Effect.all([
     git(dir, "rev-parse", "--abbrev-ref", "HEAD"),
-    git(dir, "rev-parse", "--short", "HEAD"),
+    git(dir, "rev-parse", "--short", running),
     git(dir, "status", "--porcelain", "--untracked-files=no"),
     git(dir, "rev-list", "--count", "FETCH_HEAD..HEAD"),
-    git(dir, "log", `--format=%h${FIELD}%cI${FIELD}%s`, "HEAD..FETCH_HEAD"),
+    git(
+      dir,
+      "log",
+      `--format=%h${FIELD}%cI${FIELD}%s`,
+      `${running}..FETCH_HEAD`
+    ),
   ]);
   const behind = log
     .split("\n")
@@ -113,8 +123,9 @@ export const readCheckout = Effect.fn("Checkout.readCheckout")(function* (
 /**
  * Brings the checkout to `main` by a fast-forward, which fails rather than merge or touch the
  * person's work, then runs `install` (`pnpm install`) when the lockfile changed. A checkout off
- * `main` or with changes not committed is refused as it is, whatever it was when last read; one
- * whose install fails is put back where it was, so that the app runs as it did.
+ * `main` or with changes not committed is refused as it is, whatever it was when last read. One
+ * whose install fails is put back on the commit it was at, unless a commit landed meanwhile, and
+ * that commit's dependencies installed again, as far as they can be.
  */
 export const pullMain = Effect.fn("Checkout.pullMain")(function* (
   dir: string,
@@ -136,6 +147,7 @@ export const pullMain = Effect.fn("Checkout.pullMain")(function* (
     });
   }
   yield* git(dir, "pull", "--quiet", "--ff-only", "origin", "main");
+  const pulled = yield* git(dir, "rev-parse", "HEAD");
   const lockfile = yield* git(
     dir,
     "diff",
@@ -147,8 +159,17 @@ export const pullMain = Effect.fn("Checkout.pullMain")(function* (
   );
   if (lockfile !== "") {
     const [command, ...args] = options.install;
-    yield* output(dir, command, args).pipe(
-      Effect.tapError(() => git(dir, "reset", "--quiet", "--keep", before))
+    /** Back on `before`, with its dependencies, unless the checkout moved past the pull. */
+    const putBack = Effect.gen(function* () {
+      if ((yield* git(dir, "rev-parse", "HEAD")) !== pulled) {
+        return;
+      }
+      yield* git(dir, "reset", "--quiet", "--keep", before);
+      yield* output(dir, command, args);
+    }).pipe(
+      // The install's failure is what the person is told; going back is as far as it gets.
+      Effect.ignore
     );
+    yield* output(dir, command, args).pipe(Effect.tapError(() => putBack));
   }
 });

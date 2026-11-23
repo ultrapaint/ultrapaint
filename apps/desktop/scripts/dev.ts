@@ -12,7 +12,13 @@
  * `pnpm desktop:dev-app` made one for this Electron, so the Dock shows it by its name and icon.
  */
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -23,7 +29,7 @@ import {
   devAppDir,
   devAppExecutable,
   devAppPath,
-  electronOfDevApp,
+  madeFor,
 } from "../src/dev-launcher.ts";
 import { DEV_RUN_ENV, type DevRun, RESTART_EXIT_CODE } from "../src/edition.ts";
 import {
@@ -84,7 +90,12 @@ const build = async () => {
   if (forceWeb || webIsStale()) {
     console.log("[desktop] building the editor into the app");
     buildWeb();
-    writeFileSync(webStamp, `${git("rev-parse", "HEAD")}\n`);
+    // Built from changes not committed: no commit says what it holds, so the next start builds again.
+    if (git("status", "--porcelain", "--", "apps/web", "packages") === "") {
+      writeFileSync(webStamp, `${git("rev-parse", "HEAD")}\n`);
+    } else {
+      rmSync(webStamp, { force: true });
+    }
   }
 };
 
@@ -95,7 +106,7 @@ const tsx = createRequire(path.join(serverDir, "package.json")).resolve(
 
 /**
  * The Electron the app runs on: `Ultrapaint Dev.app`'s, on a Mac where it was made for this
- * Electron, else the checkout's own.
+ * checkout and its Electron, else the checkout's own.
  */
 const electron = () => {
   const checkouts = createRequire(path.join(desktopDir, "package.json"))(
@@ -109,7 +120,12 @@ const electron = () => {
   if (!existsSync(made)) {
     return checkouts;
   }
-  if (electronOfDevApp(readFileSync(made, "utf8")) !== electronVersion) {
+  const launcher = madeFor(readFileSync(made, "utf8"));
+  // Another checkout's: it would load that checkout's build.
+  if (launcher?.checkout !== root) {
+    return checkouts;
+  }
+  if (launcher.electron !== electronVersion) {
     warn(
       `${bundle} was made for another Electron than this checkout's ${electronVersion}: run pnpm desktop:dev-app again. Ultrapaint Dev runs on the checkout's Electron meanwhile.`
     );
@@ -194,15 +210,36 @@ const pull = () =>
     )
   );
 
+/** Why the update the last runner pulled failed, which it hands to the runner it starts. */
+const UPDATE_FAILED_ENV = "ULTRAPAINT_DESKTOP_UPDATE_FAILED";
+
 /**
- * Builds and runs the app; when it exits to be updated, pulls `main` and does it again, telling
- * the next run why the pull failed when it did.
+ * After a pull, a new runner: this one's modules (the build's parts, the version) are the code
+ * before the pull. It is waited for, so a terminal that started this one keeps it.
  */
-const session = async (updateFailed?: string): Promise<void> => {
+const runAgain = (updateFailed: string | undefined) =>
+  new Promise<number>((resolve) => {
+    const next = spawn(
+      process.execPath,
+      [import.meta.filename, ...process.argv.slice(2)],
+      {
+        env: { ...process.env, [UPDATE_FAILED_ENV]: updateFailed ?? "" },
+        stdio: "inherit",
+      }
+    );
+    next.on("exit", (code) => resolve(code ?? 0));
+  });
+
+/**
+ * Builds and runs the app; when it exits to be updated, pulls `main` and hands over to a new
+ * runner, telling it why the pull failed when it did.
+ */
+const session = async () => {
   await build();
   if (buildOnly) {
     return;
   }
+  const updateFailed = process.env[UPDATE_FAILED_ENV] || undefined;
   const code = await runApp({
     branch: git("rev-parse", "--abbrev-ref", "HEAD"),
     checkout: root,
@@ -214,7 +251,7 @@ const session = async (updateFailed?: string): Promise<void> => {
     process.exit(code);
   }
   console.log("[desktop] pulling main, then starting Ultrapaint Dev again");
-  return session(await pull());
+  process.exit(await runAgain(await pull()));
 };
 
 session().catch((error: unknown) => {

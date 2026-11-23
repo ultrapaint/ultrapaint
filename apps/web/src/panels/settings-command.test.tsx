@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import "../testing/fake-browser.ts";
+import type { InstalledCommand } from "@ultrapaint/contracts/shell-bridge";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
@@ -14,12 +15,15 @@ const host = document.createElement("div");
 document.body.append(host);
 const root = createRoot(host);
 
-/** The desktop shell, with no `ultrapaint` command on the PATH; Ultrapaint Dev's with `dev`. */
-const shell = (dev: boolean) =>
+/**
+ * The desktop shell, with `installed` as the `ultrapaint` command it finds (none by default);
+ * Ultrapaint Dev's with `dev`.
+ */
+const shell = (dev: boolean, installed: InstalledCommand | null = null) =>
   setPlatform({
     command: {
       install: () => Promise.reject(new Error("not asked")),
-      installed: () => Promise.resolve(null),
+      installed: () => Promise.resolve(installed),
     },
     ...(dev
       ? {
@@ -56,5 +60,23 @@ describe("Settings › Command line", () => {
     expect(host.textContent).toContain(
       "Ultrapaint Dev leaves the command to the installed Ultrapaint."
     );
+  });
+
+  it("still says where the release's command is, and that its folder isn't on the PATH, in Ultrapaint Dev", async () => {
+    shell(true, {
+      onPath: false,
+      ours: true,
+      path: "/Users/a/.local/bin/ultrapaint",
+      shipped: false,
+    });
+    await render();
+    expect(host.textContent).toContain("/Users/a/.local/bin/ultrapaint");
+    expect(host.textContent).toContain("Not on your PATH");
+    expect(installButton()).toBeUndefined();
+    expect(
+      [...host.querySelectorAll("button")].some(
+        (b) => b.textContent === "Install again"
+      )
+    ).toBe(false);
   });
 });

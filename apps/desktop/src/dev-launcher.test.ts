@@ -3,7 +3,7 @@ import {
   DEV_BUNDLE_ID,
   DEV_PLIST,
   devAppFiles,
-  electronOfDevApp,
+  madeFor,
 } from "./dev-launcher.ts";
 
 const files = devAppFiles({
@@ -22,9 +22,11 @@ describe("Ultrapaint Dev.app", () => {
     );
   });
 
-  it("loads the checkout's build, its path written as a file address", () => {
+  it("loads the checkout's build, its path written as a file address, only once started by the runner", () => {
+    // Awaited, so it runs before Electron is ready; dynamic, so a Dock launch never loads a build
+    // that may not be there yet.
     expect(files["main.mjs"]).toContain(
-      'import "file:///Users/a/Code/ultra%20paint/apps/desktop/build/app/main.mjs"'
+      'await import("file:///Users/a/Code/ultra%20paint/apps/desktop/build/app/main.mjs")'
     );
     // Before it: what hands an app opened from the Dock over to the runner.
     expect(files["main.mjs"].indexOf("./relaunch.mjs")).toBeLessThan(
@@ -38,9 +40,12 @@ describe("Ultrapaint Dev.app", () => {
     expect(files["relaunch.mjs"]).toContain('"-l"');
   });
 
-  it("knows the Electron it was made from, and none for a launcher it cannot read", () => {
-    expect(electronOfDevApp(files["package.json"])).toBe("44.4.5");
-    expect(electronOfDevApp("{")).toBeUndefined();
-    expect(electronOfDevApp("{}")).toBeUndefined();
+  it("knows the checkout and the Electron it was made for, and none for a launcher it cannot read", () => {
+    expect(madeFor(files["package.json"])).toEqual({
+      checkout: "/Users/a/Code/ultra paint",
+      electron: "44.4.5",
+    });
+    expect(madeFor("{")).toBeUndefined();
+    expect(madeFor("{}")).toBeUndefined();
   });
 });

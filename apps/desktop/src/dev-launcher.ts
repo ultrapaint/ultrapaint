@@ -54,10 +54,11 @@ export const devAppFiles = (options: {
     "main.mjs": `// Ultrapaint Dev (ADR 0113): hands over to its runner when opened from the Dock, else runs the
 // checkout's build. Written by \`pnpm desktop:dev-app\`.
 import "./relaunch.mjs";
-import ${JSON.stringify(main)};
+await import(${JSON.stringify(main)});
 `,
     "package.json": `${JSON.stringify(
       {
+        checkout: options.checkout,
         electron: options.electron,
         main: "main.mjs",
         name: "ultrapaint-dev",
@@ -92,9 +93,16 @@ if (process.env.${DEV_RUN_ENV} === undefined) {
 };
 
 const decodeMade = Schema.decodeUnknownOption(
-  Schema.fromJsonString(Schema.Struct({ electron: Schema.String }))
+  Schema.fromJsonString(
+    Schema.Struct({ checkout: Schema.String, electron: Schema.String })
+  )
 );
 
-/** The Electron a launcher was made from, as its `package.json` says; none when it cannot tell. */
-export const electronOfDevApp = (packageJson: string): string | undefined =>
-  Option.getOrUndefined(Option.map(decodeMade(packageJson), (m) => m.electron));
+/**
+ * The checkout and the Electron a launcher was made for, as its `package.json` says; none when it
+ * cannot tell. Another checkout's launcher would load that checkout's build.
+ */
+export const madeFor = (
+  packageJson: string
+): { readonly checkout: string; readonly electron: string } | undefined =>
+  Option.getOrUndefined(decodeMade(packageJson));

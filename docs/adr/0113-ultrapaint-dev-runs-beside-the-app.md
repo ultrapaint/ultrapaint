@@ -36,17 +36,21 @@ left running, but it had to be started by hand in each project's folder first.
   ready line names (Vite), never the app's own (amends 0100 for Ultrapaint Dev). A project already
   open in the release is attached to as before: one server per project.
 - **It updates from `main`** (amends 0078: `Updater`'s `Checkout` mode). At start, every hour and as
-  About opens, it fetches `main` from the checkout's origin and offers the commits the checkout
-  lacks, newest first, with their subjects (`AppUpdate`'s `pull`). Pull and restart stops the
-  projects as a restart to update does, asking first where an agent is at work, and exits with
-  code 75; the runner checks again that the checkout is clean on `main`, pulls by fast-forward
-  only, runs `pnpm install` when the lockfile changed (and puts the checkout back where it was when
-  that fails), builds what changed (the editor when its sources differ from the commit it was
-  built from) and starts it again. A checkout on another branch, with changes not committed or
-  commits of its own, is offered nothing to click (`manual`), with why. An update that fails starts
-  the app as it was, which says why and offers Pull and restart again. A fetch that fails shows
-  nothing on the item, and About says it couldn't check, as the release does. The app only reads
-  git; the runner writes.
+  About opens, it fetches `main` from the checkout's origin and offers the commits `main` has
+  since the commit the app runs (a pull in a terminal moves the checkout on, not the app), newest
+  first, with their subjects (`AppUpdate`'s `pull`). Pull and restart stops the projects as a
+  restart to update does, asking first where an agent is at work, and exits with code 75; the
+  runner checks again that the checkout is clean on `main`, pulls by fast-forward only and runs
+  `pnpm install` when the lockfile changed, then hands over to a new runner, whose modules are the
+  pulled code, which builds what changed (the editor when its sources differ from the commit it was
+  built from, or were built while not committed) and starts the app again. A checkout on another
+  branch, with changes not committed or commits of its own, is offered nothing to click
+  (`manual`), with why. When the install fails, the checkout goes back to the commit it was at,
+  unless a commit landed there meanwhile, and that commit's dependencies are installed again; that
+  install can fail too (offline, say), leaving them partly changed, and Pull and restart installs
+  again. The app then starts on that commit, says why the update failed and offers Pull and
+  restart again. A fetch that fails shows nothing on the item, and About says it couldn't check,
+  as the release does. The app only reads git; the runner writes.
 - **It looks like Dev: "E · Blueprint"**, chosen by the maintainer from drawn directions, then
   moved to start from the window's left edge as T3 Code's night sky does. Blueprint paper with a
   grid lies under the whole tab strip, behind Home and the tabs, fading out towards the right, with
@@ -61,9 +65,11 @@ left running, but it had to be started by hand in each project's folder first.
   checkout's Electron, with Ultrapaint Dev's name, icon and bundle id (`dev.ultrapaint.desktop.dev`),
   signed ad hoc for this machine, around a small app. Opened from the Dock, it hands over to the
   runner through the login shell (for its `PATH`) and exits, the runner's output going to
-  `~/Library/Logs/Ultrapaint Dev.log`; started by the runner, it loads the checkout's build, so the
-  Dock shows one Ultrapaint Dev. The runner starts the app inside it when it was made for the
-  checkout's Electron, and otherwise says to run the command again. Its Electron executable keeps
+  `~/Library/Logs/Ultrapaint Dev.log`; started by the runner, it loads the checkout's build, only
+  then, so a Dock launch never needs a build that is not there yet, and the Dock shows one
+  Ultrapaint Dev. The runner starts the app inside it when it was made for this checkout and its
+  Electron: another checkout's would load that checkout's build. For another Electron it says to
+  run the command again. Its Electron executable keeps
   its name: Electron finds its helper apps by it. A shell `.app` that runs `pnpm desktop:dev` was
   rejected: it shows two Dock icons and Electron's name in the menu bar.
 
