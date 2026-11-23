@@ -6,7 +6,18 @@
  * `layoutInBrowser` reads the layout the spacing and divider findings are made from
  * (`findings.ts`); `auditInBrowser` runs the general checks (ADR 0061), each with a threshold
  * from the skill or the design system.
+ *
+ * Each measures under a root (`CheckRoot`): a CSS selector in the page Playwright opened, or an
+ * element or a shadow root the caller holds, as a frame of the editor is (ADR 0034), which
+ * `document.querySelector` does not reach.
  */
+
+/**
+ * What a check measures: the element a CSS selector finds in the document (the body when none
+ * does), whose window is the page's; or an element or a shadow root, which is its own window, as
+ * a frame of the editor is, wherever it is placed in the editor's page.
+ */
+export type CheckRoot = string | Element | ShadowRoot;
 
 /**
  * Where a finding is: a box in CSS pixels from the measured root's top left corner, so a picture
@@ -54,9 +65,14 @@ export interface LaidRule {
  * The layout under `root`: its blocks of text, and its vertical rules beside their neighbours,
  * every position from the root's top left corner; and the root's own box in the window.
  */
-export const layoutInBrowser = (root: string) => {
-  const rootEl = document.querySelector(root) ?? document.body;
-  const origin = rootEl.getBoundingClientRect();
+export const layoutInBrowser = (root: CheckRoot) => {
+  const rootEl =
+    typeof root === "string"
+      ? (document.querySelector(root) ?? document.body)
+      : root;
+  const origin = (
+    rootEl instanceof ShadowRoot ? rootEl.host : rootEl
+  ).getBoundingClientRect();
   const boxOf = (r: DOMRect) => ({
     height: Math.round(r.height * 10) / 10,
     width: Math.round(r.width * 10) / 10,
@@ -100,8 +116,8 @@ export const layoutInBrowser = (root: string) => {
       .filter((r) => r.width > 0 && r.height > 0)
       .map((r) => ({ bottom: r.bottom - origin.top, top: r.top - origin.top }));
   };
-  const walk = (el: Element): LaidBlock | null => {
-    if (!shown(el)) {
+  const walk = (el: Element | ShadowRoot): LaidBlock | null => {
+    if (el instanceof Element && !shown(el)) {
       return null;
     }
     const nodes = [...el.childNodes];
@@ -120,12 +136,16 @@ export const layoutInBrowser = (root: string) => {
     if (children.length === 1 && own.length === 0 && only) {
       return only;
     }
-    const box = el.getBoundingClientRect();
+    const box = el instanceof ShadowRoot ? origin : el.getBoundingClientRect();
     return {
       bottom: box.bottom - origin.top,
       box: boxOf(box),
       children,
-      label: ((el as HTMLElement).innerText ?? el.textContent ?? "")
+      label: (
+        (el instanceof HTMLElement ? el.innerText : undefined) ??
+        el.textContent ??
+        ""
+      )
         .trim()
         .replace(/\s+/g, " ")
         .slice(0, 40),
@@ -211,7 +231,8 @@ export interface AuditOptions {
   readonly nearTone: number;
   /** The checks to run, by name; all without it. */
   readonly only?: readonly AuditFinding["check"][] | undefined;
-  readonly root: string;
+  /** What is checked (`CheckRoot`); an element or a shadow root is its own window. */
+  readonly root: CheckRoot;
   /** Whether the names in lists are lengthened to see if they truncate (it changes the page). */
   readonly stress: boolean;
 }
@@ -302,8 +323,22 @@ export const markHoverableInBrowser = (mark: string) => {
  * truncate, targets at least 24px. Plain DOM code, since Playwright sends its source to the page.
  */
 export const auditInBrowser = (options: AuditOptions): Audited => {
-  const rootEl = document.querySelector(options.root) ?? document.body;
-  const origin = rootEl.getBoundingClientRect();
+  const { root } = options;
+  const rootEl =
+    typeof root === "string"
+      ? (document.querySelector(root) ?? document.body)
+      : root;
+  const origin = (
+    rootEl instanceof ShadowRoot ? rootEl.host : rootEl
+  ).getBoundingClientRect();
+  /**
+   * What a person sees of the page: the window, or a root given as an element or a shadow root,
+   * which is its own window (a frame of the editor, placed anywhere in the editor's page).
+   */
+  const view =
+    typeof root === "string"
+      ? { bottom: innerHeight, left: 0, right: innerWidth, top: 0 }
+      : origin;
   const boxOf = (el: Element): Box => {
     const r = el.getBoundingClientRect();
     return {
@@ -378,10 +413,10 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
       Number(style.opacity) > 0 &&
       box.width > 0 &&
       box.height > 0 &&
-      box.bottom > 0 &&
-      box.right > 0 &&
-      box.top < innerHeight &&
-      box.left < innerWidth
+      box.bottom > view.top &&
+      box.right > view.left &&
+      box.top < view.bottom &&
+      box.left < view.right
     );
   };
   const labelOf = (el: Element) => {
@@ -429,9 +464,10 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
     return o;
   };
   const px = (v: string) => Number.parseFloat(v) || 0;
-  const all = [rootEl, ...rootEl.querySelectorAll("*")].filter(
-    (el) => !el.closest("svg") && shown(el)
-  );
+  const all = [
+    ...(rootEl instanceof Element ? [rootEl] : []),
+    ...rootEl.querySelectorAll("*"),
+  ].filter((el) => !el.closest("svg") && shown(el));
 
   // Text contrast, placeholders included.
   const hasOwnText = (el: Element) =>
