@@ -204,7 +204,7 @@ describe("recall", () => {
           "gaps/sections/panel/pictures/panel-dark@2x.png": "png",
           "gaps/sections/panel/section.json": section("Panel"),
         });
-        yield* recall({
+        const again = {
           concurrency: 2,
           effort: "high",
           judgeModel: "opus",
@@ -213,7 +213,8 @@ describe("recall", () => {
           runs: 2,
           sections: [],
           skills: ["built-in", "candidates/fix"],
-        });
+        } as const;
+        yield* recall(again);
 
         const report = yield* readData("runs/r/report.md");
         assert.include(report, "| g01 Gap g01 | missing | panel | 0/2 | 2/2 |");
@@ -248,6 +249,23 @@ describe("recall", () => {
         );
         assert.match(record.commit, COMMIT_RE);
         assert.include(report, `on the checkout at ${record.commit}`);
+        // Run again, the round keeps the commit its skill trees were taken from…
+        yield* writeData({
+          "runs/r/recall.json": { ...record, commit: "abc1234" },
+        });
+        yield* recall(again);
+        assert.strictEqual(
+          JSON.parse(yield* readData("runs/r/recall.json")).commit,
+          "abc1234"
+        );
+        // …and a record from before rounds kept one names no checkout.
+        const { commit: _, ...legacy } = record;
+        yield* writeData({ "runs/r/recall.json": legacy });
+        yield* recall(again);
+        assert.strictEqual(
+          JSON.parse(yield* readData("runs/r/recall.json")).commit,
+          "unknown"
+        );
         // A reviewer works beside the section's pictures and code, with nothing that names a gap.
         assert.strictEqual(
           yield* readData("runs/r/sections/panel/code/DESIGN.md"),
