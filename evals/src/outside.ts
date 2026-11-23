@@ -716,7 +716,9 @@ export const reshootOutside = Effect.fn("reshootOutside")(function* (
       const fresh = path.join(dir, "shots.new");
       yield* fs.remove(fresh, { force: true, recursive: true });
       const taken = yield* Effect.scoped(
-        photograph(app, reference, fresh)
+        installAgain(app).pipe(
+          Effect.andThen(photograph(app, reference, fresh))
+        )
       ).pipe(
         Effect.as(true),
         Effect.catch((error) =>
@@ -746,6 +748,29 @@ export const reshootOutside = Effect.fn("reshootOutside")(function* (
     }
   }
   yield* Effect.log(`${reshot.length} runs of ${round} pictured again`);
+});
+
+/**
+ * A run's packages installed again from its own `package.json` when `pnpm evals tidy` removed
+ * them (ADR 0112): a run that installed nothing still has the host's link.
+ */
+const installAgain = Effect.fn("installAgain")(function* (app: string) {
+  const fs = yield* FileSystem.FileSystem;
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const modules = path.join(app, "node_modules");
+  if (yield* fs.exists(modules)) {
+    return;
+  }
+  // A link whose host is gone goes first.
+  yield* fs.remove(modules, { force: true, recursive: true });
+  yield* Effect.log(`${app}: installing its packages again`);
+  yield* spawner.string(
+    ChildProcess.make(
+      "npm",
+      ["install", "--prefer-offline", "--no-audit", "--no-fund"],
+      { cwd: app, stdin: "ignore" }
+    )
+  );
 });
 
 /** Each pairwise verdict on a run pictured again is dropped, so `pairwise` judges it anew. */
