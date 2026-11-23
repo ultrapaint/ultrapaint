@@ -51,10 +51,12 @@ says what each is called there.
    phone's width and the desktop's, in a view at a width or else in a browser: every image loads,
    and a headline set in pieces keeps the spaces between its words. With neither, your last
    message says you did not see it at those widths. It names each file you opened.
-6. **Have each section reviewed.** Where you have a reviewer that sends you findings, answer
-   them: fix each, or say why not. Elsewhere, when you can start another agent, have a fresh one
-   review each section from a crop at 2× (dark and light where the product has both) with this
-   skill's review job, and fix what it finds.
+6. **Have each section reviewed before you finish.** Where you have
+   a reviewer that sends you findings, answer them: fix each, or say why not. Elsewhere, when you
+   can start another agent, have a fresh one review each section from a crop at 2× (dark and light
+   where the product has both) with this skill's review job, and fix what it finds. The design is
+   not finished until then: your last message gives each section's verdict from its reviewer, done
+   or what is left, or says that no one reviewed it because you could start no agent.
 
 ### The kind of screen or page
 
