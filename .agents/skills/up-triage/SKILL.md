@@ -3,7 +3,7 @@ name: up-triage
 description: Judges one existing issue — still viable, decided enough, labelled right — and ends in one verdict. Use when asked whether a story is still worth building, is decided enough to build, or is mislabelled.
 metadata:
   pack: epicparty/skills
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Triage
@@ -22,21 +22,30 @@ Read the **Tracker** setting now, per [Settings](#settings): every triage ends i
 
 Read the issue with its comments, labels, assignees, dependency edges and linked PRs — on GitHub, `gh issue view <n> --comments`, with the edges from [`SPLITTING.md`](../up-to-story/SPLITTING.md) `## GitHub mechanics`. Where the project keeps a board, read the issue's status on it too. Note who filed it and when: age is evidence in § 2.
 
+<!-- upstream: mattpocock/skills skills/engineering/triage/SKILL.md -->
+
+An earlier triage note in the comments is where this one resumes: read what it established, then what the reporter and others wrote since. A question a later comment answers is settled — carry the answer, and ask only what is still open.
+
 Then restate the outcome in one or two sentences, in the domain's own words from the project's glossary — `/up`'s [`DECISIONS.md`](../up/DECISIONS.md) says where it lives. A story you cannot restate is one you cannot judge.
 
 Done when you hold the body, every comment, the labels, the board status where there is a board, and the dependency edges, and the user would recognise their ask in your restatement.
 
 ## 2. Test the premise
 
-The body asserts a problem. Check it against the default branch today, on three fronts:
+<!-- upstream: backnotprop/pstack automations/benny/skills/triage-issue-reports/SKILL.md -->
+
+The body asserts a problem. Check it against the default branch today, on these fronts:
 
 - **Still true.** Read the code the `## Problem Statement` cites; where it cites none, find the code that makes the problem real. A premise the codebase no longer bears out is the most common way an old story dies.
-- **Not overtaken.** Search closed issues and merged PRs for the same work, with the story's own nouns — on GitHub, `gh issue list --search "<keywords>" --state all` and `gh pr list --search "<keywords>" --state merged`. A closed hit that delivered the outcome closes this one; an adjacent hit is context.
+- **Still reproduces**, for a bug. Follow the reporter's reproduction where it runs cheaply — a command, a test, a local page — under **Depth follows stakes** ([Guardrails](#guardrails)). It ends **confirmed**, with the code path that produces it; **not reproduced**, with what you ran; or **too thin to run**, a strong sign of **Needs info**. Where it does not run cheaply, say so: the bug is then graded on its fields in § 3 alone.
+- **Not overtaken.** Search closed issues and merged PRs for the same work, with the story's own nouns — on GitHub, `gh issue list --search "<keywords>" --state all` and `gh pr list --search "<keywords>" --state merged`. A closed hit that delivered the outcome closes this one; an adjacent hit is context. Two closed hits read otherwise:
+  - **A bug filed after the fix shipped** is a **regression**, not a duplicate. Cite the fix: the issue stays open, and its next step is [`/up-diagnose`](../up-diagnose/SKILL.md), which starts from the commit that fixed it.
+  - **A hit closed as not planned or won't-fix**, or an ADR that rules the outcome out, is an earlier **refusal**. Name it with its reason in the report — *"declined in #n because …; does that still hold?"* — and leave the answer to the user: a refusal that still holds is a **Close**, and one they lift is context.
 - **Still consistent.** The ADRs in the area, the glossary's vocabulary, and any story shipped since. A story that contradicts a later decision is superseded, however good it looked when filed.
 
 Read the blockers too. A blocker closed as *not planned* takes its dependants with it unless something says otherwise.
 
-Done when each front has a finding with a citation — a path, an issue, an ADR — and you can say *viable*, *overtaken* or *superseded* with the evidence beside it.
+Done when each front has a finding with a citation — a path, an issue, an ADR, a command you ran — and you can say *viable*, *overtaken*, *superseded* or *refused* with the evidence beside it.
 
 ## 3. Grade the decisions
 
@@ -75,7 +84,7 @@ Take the first row that matches:
 
 | Verdict | When | It leads to |
 | --- | --- | --- |
-| **Close** | Overtaken, superseded, or the premise is gone | Close the issue with the reason; the won't-fix label where it was declined rather than done |
+| **Close** | Overtaken, superseded, refused again, or the premise is gone | Close the issue with the reason; the won't-fix label where it was declined rather than done |
 | **Needs info** | A fact only the reporter holds, and nothing can be judged without it | The info label, and the question as a comment |
 | **Split** | Carries a second goal | [`SPLITTING.md`](../up-to-story/SPLITTING.md), then triage each child |
 | **Grill** | Decisions that turn on each other, so tightly that no list of questions can be written up front | The discovery label; the decisions in § 6 seed [`/up-grill`](../up-grill/SKILL.md), on the user's word |
@@ -148,13 +157,24 @@ Nothing above wrote. When the user takes the verdict:
 - **Settle** on a discovery body sends the answers to [`/up-to-story`](../up-to-story/SKILL.md), which rewrites it as a story. On a story, it edits the body: each recommendation lands in `## Implementation Decisions` or `## Testing Decisions` as a decision with its reason, and a surface the stories missed becomes a numbered story. The body is working material until the work is on the default branch ([`STORIES.md`](../up-to-story/STORIES.md) `## Frozen once live`); an open story whose work is already live is a **Close**, never an edit.
 - **Settle** left unanswered — the user said **later** — posts the note with the questions, and adds the discovery label.
 - **Grill**, on the user's word, continues in this window — [`/up-grill`](../up-grill/SKILL.md) on the seed decisions, then [`/up-to-story`](../up-to-story/SKILL.md) rewrites the body from the same context, per [`/up` § 4](../up/SKILL.md#4-walk-it).
-- **Close** carries the reason and the issue or PR that made it moot.
-- **Needs info** posts the question to the reporter as the comment, and adds the info label.
+- **Close** carries the reason and the issue or PR that made it moot. Where it was declined rather than done, and the refusal passes the three-part test in `/up`'s [`DECISIONS.md`](../up/DECISIONS.md) `## Writing an ADR` — a scope decision whose no is not obvious — offer to record it as an ADR, so the next request for it meets the reason at § 2.
+- **Needs info** posts the comment to the reporter, and adds the info label. The comment has two parts, so the reporter answers only what is open and the next triage resumes from it:
+
+  ```md
+  **Triage note, written by an agent**
+
+  **What we've established so far**
+  - <each finding from §§ 2–3, with its citation>
+
+  **What we still need from you**
+  1. <each question only the reporter can answer, specific enough to answer in a line>
+  ```
 - **Split** publishes the set through [`SPLITTING.md`](../up-to-story/SPLITTING.md), once the user approved it, then triages each new story.
 - **Ready** changes the labels and nothing else.
 - **A title change** § 4 proposed: on GitHub, `gh issue edit <n> --title`.
 - **Queue**, only on the user's explicit yes to that offer: set the **Ready signal** — move the card to its column per `/up`'s [`BOARD.md`](../up/BOARD.md), or add its label. Their yes is them queuing it; never queue on a bare **apply**.
 - **The triage note goes on the issue as a comment** — the verdict, the premise findings and the label delta — so the next agent reading the comments finds the judgement where the story lives.
+- **Every comment triage posts opens with the `**Triage note, written by an agent**` line.** It goes out under the user's own login, so the marker is what tells a reader — and [`/up-deliver`](../up-deliver/SKILL.md) § 6, which takes a comment from someone with write access as an answer — that no person wrote it.
 
 On GitHub, `gh issue edit <n> --add-label … --remove-label …`, `gh issue comment` and `gh issue close --comment`. On another tracker, the way the **Tracker** setting describes.
 

@@ -3,7 +3,7 @@ name: up-babysit
 description: Sweeps an open PR toward merged. Use when a PR needs watching, a red check fixed, or a merge once its gate is clear.
 metadata:
   pack: epicparty/skills
-  version: 0.2.0
+  version: 0.4.0
 ---
 
 # Babysit
@@ -122,6 +122,8 @@ Take a fresh read **after** your last push — a gate judged on state from befor
 - no check still running
 - no unresolved thread, and no reviewer sitting on changes-requested
 - every **open question** in the PR body has an answer — a call you made *for* the user is theirs to take while the diff is open, and this merge is what closes that window
+- a **one-way door** — the PR body's **Merge danger** — has the user's word. A user who started this route or this sweep, here in this session, gave it; under `/up-deliver` nobody did, so it is a [go/no-go](../up-deliver/SKILL.md#what-earns-a-gono-go): move it to an open question in the PR body, and the line above holds the gate
+- no item under **Found in passing** is a **security gap** or a **sibling** (`/up` `## Vocabulary`): move each one to an open question in the PR body, and the line above holds the gate
 - every **automatic** reviewer has reviewed **that head SHA** — its run finished there, and not as **no review** (step 8) — and every finding it raised carries a disposition. No review there with its cap spent holds the gate: report it, and the user decides whether to merge without it
 - the requested kinds are settled (step 8), and every external review requested has landed; merging while one is still running throws away quota you spent
 - code-review findings fixed or dispositioned

@@ -3,7 +3,7 @@ name: up-to-pr
 description: Opens a pull request from a committed branch, carrying its suite report and issue link. Use when a branch is ready for review.
 metadata:
   pack: epicparty/skills
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # To PR
@@ -55,11 +55,12 @@ Read the **Scopes** setting when it is set, and the **Merge strategy** setting n
 **Body** — check for a template first (`.github/pull_request_template.md`, `.github/PULL_REQUEST_TEMPLATE/`) and fill its headings when one exists. Otherwise write prose covering:
 
 - **Why this exists** — the problem, in the reviewer's terms. One or two sentences; the issue holds the long version.
-- **What it does** — the change, at the level of behaviour rather than file-by-file. A reviewer reads this to know where to look.
+- **What it does** — the change, at the level of behaviour rather than file-by-file. A reviewer reads this to know where to look. Where the change has a shape — a call path, a component tree, a file layout — show it in the smallest picture that makes the point ([`PICTURES.md`](PICTURES.md)).
 - **What to look at** — the decision you are least sure of, the trade-off you made, the file that carries the risk. This is the section that gets you a useful review instead of an approval. Label as **Open question** each call you made *for* the user and would change on their word (`/up` `## Vocabulary`); `/up-babysit` holds the merge until each has an answer, so one left unlabelled ships as decided.
+- **Merge danger** — two lines. **Door**: **two-way** when a revert undoes the merge, **one-way** when it cannot — a migration that drops or rewrites data, mail or a charge to real users, a public API or stored format others will build on in the meantime; name what makes it one-way. **Blast radius**: the one fact this change is safe because of, with its evidence, from `/up-code-review`'s Spec report, and what breaks, for whom, if that fact is false.
 - **Found in passing** — each **small fix** the branch carries, named by commit, and each larger finding left for the user to make a story of (`/up` `## Vocabulary`). Leave the heading out when there is neither.
 - **The suite report** — the command you ran, the SHA, and the result. Say plainly when it could not run. Leave it out when CI runs the suite.
-- **The proof** — from `/up-implement`'s hand-off: each numbered user story with its evidence from the running product, each one inconclusive or still to check by hand, and a measured target's table. Leave it out when the branch has no story, such as a refactor proven by its tests.
+- **The proof** — from `/up-implement`'s hand-off: each numbered user story with its evidence from the running product, each one inconclusive or still to check by hand, and a measured target's table. Where the change alters what a person sees or what a run prints, show it **before and after**: a screenshot first, where the change is visual and the environment can take one, a command's output or a test going red then green next. Leave it out when the branch has no story, such as a refactor proven by its tests.
 - **The issue link** from step 2.
 
 Use the domain's own vocabulary ([`DECISIONS.md`](../up/DECISIONS.md)), name other issues with the **Tracker** setting's prefix, and follow the naming rules the project's agent files set for prose. Under a **Squash** merge, write the body as the commit body it becomes: lead with what `git log` needs, and keep the reviewer's notes — what to look at, the open questions — under their own headings below it.

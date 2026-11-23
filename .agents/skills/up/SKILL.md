@@ -4,7 +4,7 @@ description: Ask what to do with a request, and get walked through it. The route
 disable-model-invocation: true
 metadata:
   pack: epicparty/skills
-  version: 0.3.0
+  version: 0.7.0
 ---
 
 # EP
@@ -51,6 +51,7 @@ Done when you can name the issue this work came from or say it has none, name wh
 | "Check the board", "update the statuses" | [Checking the board](./BOARD.md#checking-the-board). Ends in a report of every card moved, not a PR |
 | A release to cut — the merged changes are ready to ship together | `/up-release`. Ends in a published version, not a PR of the work |
 | Several stories marked to start, or named together | `/up-deliver` — the coordinator walks them in sequence or starts a worker per story, and prints where each one stands |
+| A session to learn from — one that went slow or wrong, or the stories a `/up-deliver` run parked | `/up-retro`, which the user types. Ends in ranked proposals, and a story or a branch for each one they accept |
 
 Where two rows fit, the unsettled decisions choose: decisions that turn on each other, and the request is an idea to grill; a few or none, and it is a feature to build, with the questions asked on the way. `/up-triage` after `/up-to-story` is quick — a story written to the bar earns its ready label in one pass — and it keeps the labels with the one skill that owns them.
 
@@ -80,9 +81,11 @@ Done when every stage is named in order, the HITL ones are flagged as needing th
 
 ## 4. Walk it
 
+<!-- upstream: mattpocock/skills skills/engineering/ask-matt/PHASE-BOUNDARIES.md -->
+
 Follow the skills the route names, and keep the two rules that bind every route:
 
-- **Context hygiene.** The questions, any grilling, and the story stay in one unbroken window, so both build on the same thinking. `/up-implement` then starts fresh from the issue. [Hand off](#hand-off) when a thread fills before the story exists.
+- **Context hygiene.** The questions, any grilling, and the story stay in one unbroken window, so both build on the same thinking. `/up-implement` then starts fresh from the issue. Decide what to keep at a **boundary** between stages, never inside one: mid-stage, finish it, or send the rest to a subagent. At a boundary, carry on while the next stage needs this one's reasoning verbatim and the window has room; clear when nothing here bears on what comes next; [hand off](#hand-off) when the work travels — another harness, another checkout, a colleague; otherwise compact, naming the next stage, so the summary keeps what it needs.
 - **Re-route when the work says so.** A route is a reading of the request, and the request gets clearer as you work it. An "obvious" change that opens three decisions has earned its questions, and one whose decisions turn on each other has earned a grilling; fog that burns off in exploration drops straight to `/up-to-story`. Say when you change route and why.
 
 Every skill on a route reaches a skill by its name. Reading one off disk works too — following a skill you have read is the same as invoking it.
@@ -111,18 +114,23 @@ Read what the thread points at first — the issue, the branch — so you know w
 - **End with the next steps**: the remaining stages of the route, by skill name, so the next agent knows which to invoke. Where no route ran in this thread, take it from the table in § 2.
 - **Redact** every key, password and piece of personal data.
 
-Report in § 5's shape — the path, or why none was needed, and the next step — then stop.
+<!-- upstream: mattpocock/skills skills/in-progress/claude-handoff/SKILL.md -->
+
+Where this session has a tool that starts an agent thread — the one `/up-deliver`'s **Orchestration** setting names, or another the harness offers — offer to start the fresh agent now, with the document as its brief. On the user's yes, start it, pass the document's path, and give its link in the report.
+
+Report in § 5's shape — the path, or why none was needed, the thread you started, and the next step — then stop.
 
 Done when a fresh agent with only the document and the links in it could continue without asking what happened — or, with no document, with only the links you named.
 
 ## Vocabulary
 
-Every `up-*` skill on a route uses these four terms, and this is where they are defined.
+Every `up-*` skill on a route uses these five terms, and this is where they are defined.
 
 - **Open question** — a call you made *for* the user: a trade-off you resolved on their behalf, a placement you would defend either way, an option they picked before you saw how it rendered, a line you drew around the work. It reaches the user before whatever ships the work. With a PR, it goes in your reply and in the PR body while the diff is open, and `/up-babysit` holds the merge until it has an answer. Without one — a commit straight to the default branch — ask in your reply and hold the push until the user answers. After the ship it costs a whole PR to act on, so the same words read as commentary rather than a choice.
 - **Sibling** — the same defect at a site the request did not name. It always raises an open question: whether it rides along is the user's scope call.
 - **Small fix** — a fix that lands on the branch even when the branch did not cause the defect: it fixes a defect, adds no behaviour, needs no decision from the user, and fits in one commit the branch's own gate validates. It goes in as its own commit, and the PR body names it.
-- **Found in passing** — the PR body's heading for every finding larger than a small fix, where the user sees it while the diff is open and decides whether it becomes a story. Off a branch, the finding goes in your reply before the push.
+- **Security gap** — a way past auth, a permission, a limit or a secret, or a check meant to stop one that lets it through, in a file the branch changes. It always raises an open question, like a sibling: whether its fix rides along is the user's call.
+- **Found in passing** — the PR body's heading for every finding larger than a small fix that can wait until after the merge. The user decides whether it becomes a story, and under `/up-deliver` first reads it in the report, after the merge. Off a branch, the finding goes in your reply before the push.
 
 A finding earns a durable home in exactly four cases: the user asked for one, it becomes a story on the tracker, it is a decision that earns an ADR ([`DECISIONS.md`](./DECISIONS.md)), or it is context the project's agent files genuinely lack. Otherwise a new file or a new section is work nobody requested, nobody reviewed, and nobody maintains.
 
@@ -133,6 +141,7 @@ Every `up-*` skill works by these, in every checkout.
 - **Preserve work you did not write.** The tree may be dirty, and humans and other agents may write to it at the same time. A `git status` change after one of your commands does not prove you caused it. Before discarding any change you did not make — `git checkout --`, `git restore`, `git stash`, a reset — show that you caused it, show the diff, and ask. When in doubt, leave the tree alone.
 - **Ask the decisions one at a time; grill only a tree.** Decisions only the user can make go to them **one question at a time**, through the harness's question tool where it has one — such as Claude Code's `AskUserQuestion` — and in plain chat where it has none. The user may answer one, leave, and come back to the next one waiting. Each question stands on its own: the context it needs inside the question, since the dialog may be all the user sees, and your recommended answer as the first option. The work waits for the answers, and that is the whole exchange. [`/up-grill`](../up-grill/SKILL.md) runs only when the user asks for it, or when the decisions turn on each other so tightly that no list can be written up front — each answer would change the next questions.
 - **Do not agree by default.** A flawed premise or a non-standard approach gets corrected when you see it, not after it is built.
+- **Weigh what you propose.** Every story, fix, guard or follow-up you put to the user carries its weighing in the same message: what it buys, what it costs to build, run and keep, what it can break, and your verdict — worth it or not worth it. First check the facts the verdict turns on: how often the problem happens, and whom it reaches. Your own earlier plan, a finding you named, and work a hand-off leaves you are proposals too: weigh each one again before you act on it.
 - **No remote.** Where `git remote` lists none, the work ends in commits on a local branch, and `origin/<default>` reads as the local default branch. A skill that pushes, opens a PR, merges or deploys stops there and says so, and the settings only those skills read — **Merge strategy**, **Full suite**, **External reviewers** and **Deploy** — are not asked.
 - **Git** — how work is committed, named, merged and caught up — is [`GIT.md`](./GIT.md).
 - **Board** — how a project board's stages are kept, where the project has one — is [`BOARD.md`](./BOARD.md).
@@ -162,6 +171,10 @@ Topic `issue-tracker`. Question: *Where does the project track its work, how doe
 | **None** | — | `gh repo view` fails, the user names no other tracker, and the request names no issue. A request that names one means the tracker exists: ask where it lives |
 
 With **Another tracker**, every step that names a `gh issue` command does the same thing the way this setting describes.
+
+<!-- upstream: mattpocock/skills skills/engineering/setup-matt-pocock-skills/issue-tracker-github.md -->
+
+**A fork files where you say.** In a fork, `gh` can resolve issues to the upstream parent rather than the fork. When `gh repo view --json nameWithOwner,isFork,parent` reports a fork, the **GitHub Issues** answer names the repo that owns the work, as `owner/name`, and every `gh issue` command passes `-R <owner/name>`. Before the first issue a skill files in a fork, check that the repo `gh` resolves is that one.
 
 With a board, [`BOARD.md`](./BOARD.md) is how the skills keep it. Without one, they skip every board step.
 
@@ -240,7 +253,7 @@ Topic `checkout`. Question: *Which kinds of checkout does the work happen in, an
 | Option | Follow-up | Recommend when |
 | --- | --- | --- |
 | **This checkout** | — | The project is worked in one clone that switches branches in place (`git worktree list` shows one) |
-| **These kinds** | One row per kind: how to recognise it (a path, a directory name), its setup command, and its cleanup once the work merged — switch back to the default branch, or commands, and whether the user chooses among them. Then which kind a worker started in parallel gets (`/up-deliver`) | The project works in worktrees, numbered clones, or a tool that prepares them |
+| **These kinds** | One row per kind: how to recognise it (a path, a directory name), its setup command, and its cleanup once the work merged — switch back to the default branch, or commands, whether the user chooses among them, and when a command runs without a choice. Then which kind a worker started in parallel gets (`/up-deliver`) | The project works in worktrees, numbered clones, or a tool that prepares them |
 
 Under **This checkout**, setup is a fresh branch off the default branch, and cleanup switches back to the default branch, pulls it, and deletes the merged branch locally and remotely.
 

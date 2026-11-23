@@ -49,7 +49,13 @@ Then work the frontier one story at a time with [`/up-implement`](../up-implemen
 
 These are reached rarely, so read them rather than recall them.
 
-- **Sub-issue**: attach a child to its parent through GitHub's sub-issues endpoint (`gh api`).
-- **Blocking edge**: `gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, where `<blocker-db-id>` is the blocker's numeric **database id** (`gh api repos/<owner>/<repo>/issues/<n> --jq .id`) — _not_ the `#number` or the `node_id`. GitHub reports `issue_dependencies_summary.blocked_by`, which counts open blockers only: that is the live gate. Where dependencies are unavailable, fall back to the `## Blocked by` list in the child body.
-- **Reading the edges**: `gh api repos/<owner>/<repo>/issues/<n>/dependencies/blocked_by` lists what blocks an issue, and `…/dependencies/blocking` what it blocks.
-- **Frontier**: the children with no open blocker. List the parent's open children and drop any with `issue_dependencies_summary.blocked_by > 0`. Where the edges fell back to `## Blocked by` lists, that count is zero: drop, too, any child whose list names an issue still open (`gh issue view <n> --json state`).
+<!-- upstream: mattpocock/skills skills/engineering/setup-matt-pocock-skills/issue-tracker-github.md -->
+
+`gh` carries the edges natively where `gh issue create --help` lists `--parent`:
+
+- **Sub-issue**: `gh issue create --parent <parent>` files a child already attached; `gh issue edit <parent> --add-sub-issue <child>,<child>` attaches existing ones.
+- **Blocking edge**: `gh issue create --blocked-by <n>,<n>` at filing, or `gh issue edit <child> --add-blocked-by <n>` later. Issue numbers or URLs, nothing else.
+- **Reading the edges**: `gh issue view <n> --json blockedBy,blocking,parent,subIssues`. Each `blockedBy` node carries its `state`: the open ones are the live gate — `--jq '[.blockedBy.nodes[] | select(.state == "OPEN")] | length'`.
+- **Frontier**: the children with no open blocker. List the parent's open children (`--json subIssues`), and drop any whose open-blocker count is above zero. Where the edges fell back to `## Blocked by` lists, drop, too, any child whose list names an issue still open (`gh issue view <n> --json state`).
+
+An older `gh` goes through the REST endpoints. A blocking edge is `gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, where `<blocker-db-id>` is the blocker's numeric **database id** (`gh api repos/<owner>/<repo>/issues/<n> --jq .id`) — _not_ the `#number` or the `node_id`; `…/dependencies/blocked_by` and `…/dependencies/blocking` read the edges, and `issue_dependencies_summary.blocked_by` counts open blockers only. A sub-issue goes through the sub-issues endpoint the same way, `…/issues/<parent>/sub_issues -F sub_issue_id=<child-db-id>`. Where dependencies are unavailable altogether, fall back to the `## Blocked by` list in the child body.
