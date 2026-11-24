@@ -1,7 +1,7 @@
 /**
  * The pointer in a frame in select and comment mode: hover, click and double-click, a press that
- * becomes a drag or a marquee, a right-click's menu, and a comment placed where the page is
- * clicked.
+ * becomes a drag or a marquee (followed to its release by `pointer-gesture.ts`, ADR 0133), a
+ * right-click's menu, and a comment placed where the page is clicked.
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
@@ -44,15 +44,16 @@ import { placeComment } from "./comments.tsx";
 import {
   beginDrag,
   cancelDrag,
+  canvasPoint,
   type Dragged,
   endDrag,
   moveDrag,
   useDrag,
 } from "./drag.ts";
 import { frameOf } from "./editor-frame.ts";
-import { drawingMarquee } from "./frame-gesture.ts";
 import { hitUnlocked } from "./hit-test.ts";
 import { useMeasureKey } from "./measure-key.ts";
+import { followPointer, isFollowing } from "./pointer-gesture.ts";
 import { holdsFree } from "./snap.ts";
 
 /** Where a pointer event was, on the element it was heard on. */
@@ -221,8 +222,8 @@ export const useFramePointer = ({
     if (at === null) {
       return;
     }
-    // A press under way keeps what it is about: the key is heard once it ends (`pressEnded`).
-    if (press.current) {
+    // A gesture under way keeps what it is about: the key is heard once it ends (`pressEnded`).
+    if (isFollowing()) {
       keyDuringPress.current = true;
       return;
     }
@@ -231,7 +232,6 @@ export const useFramePointer = ({
   const hitAgain = useEffectEvent((innermost: boolean) => rehover(innermost));
   /** A press ends: ⌥ pressed or let go during it now hit-tests where the pointer is. */
   const pressEnded = () => {
-    press.current = null;
     if (keyDuringPress.current) {
       keyDuringPress.current = false;
       rehover(useMeasureKey.getState().deep);
@@ -351,44 +351,156 @@ export const useFramePointer = ({
     return { frame: frameId, kind: "node", node, rect };
   };
 
-  // A press that travels becomes a drag; one that does not stays a click.
-  const press = useRef<{
-    x: number;
-    y: number;
-    /** Where it began in the frame, for a marquee. */
-    at: { x: number; y: number };
-    /** Whether Alt was held as it began, which steps into what it picks. */
-    alt: boolean;
-    last: { x: number; y: number; alt: boolean; free: boolean };
-  } | null>(null);
   /**
    * A drag from the page itself, or from a container that is not selected, draws a marquee in
    * it, as in Figma: a selected node, or a text, a picture or a component, is dragged instead.
    */
   const [marquee, setMarquee] = useState<Rect | null>(null);
-  /** The marquee as the pointer last drew it, which the next frame shows. */
-  const marqueeTo = useRef<{ request: number; rect: Rect } | null>(null);
-  const marqueeFrom = useRef<{ x: number; y: number } | null>(null);
-  const marqueeIn = useRef<DesignNode | null>(null);
+  /** Whether the last press travelled, dragging or drawing: the click that ends it is no click. */
   const dragging = useRef<boolean>(false);
+
+  /**
+   * A press, followed from here to its release or until it is put back (`pointer-gesture.ts`,
+   * ADR 0133), wherever the pointer goes and though the select layer goes under it (Space held).
+   * It stays a click until it travels; then it drags what it is on, or draws a marquee. What it
+   * picks up is found then: a press that stays a click hit-tests and measures nothing more than
+   * the click does.
+   */
   const onPointerDown = (e: ReactPointerEvent) => {
     if (e.button !== 0) {
       return;
     }
-    dragging.current = false;
-    const { x, y } = toFrame(e);
-    // What it picks up is found once it travels: a press that stays a click hit-tests and
-    // measures nothing more than the click does.
-    press.current = {
-      alt: e.altKey,
-      at: { x, y },
-      last: { alt: e.altKey, free: holdsFree(e), x: e.clientX, y: e.clientY },
-      x: e.clientX,
-      y: e.clientY,
+    const layer = e.currentTarget as HTMLElement;
+    /** Where the frame's corner is on the canvas, as its layer was last seen. */
+    let origin = { x: 0, y: 0 };
+    /**
+     * Where a point of the window is in the frame: by its layer, or while the layer is gone (Space
+     * held) by where the frame was on the canvas, through the view as it is now.
+     */
+    const inFrame = (clientX: number, clientY: number) => {
+      const { zoom } = useEditor.getState().view;
+      if (layer.isConnected) {
+        const box = layer.getBoundingClientRect();
+        origin = canvasPoint(box.left, box.top);
+        return {
+          x: (clientX - box.left) / zoom,
+          y: (clientY - box.top) / zoom,
+        };
+      }
+      const at = canvasPoint(clientX, clientY);
+      return { x: at.x - origin.x, y: at.y - origin.y };
     };
-    // The drag goes on over other frames and the empty canvas; the moves must still come here.
-    e.currentTarget.setPointerCapture(e.pointerId);
+    const press = { alt: e.altKey, x: e.clientX, y: e.clientY };
+    const at = inFrame(e.clientX, e.clientY);
+    /** What the press has become: still a click, a drag, a marquee in a node, or nothing. */
+    let doing: "click" | "drag" | "marquee" | "nothing" = "click";
+    let within: DesignNode | null = null;
+    /** The marquee as the pointer last drew it, and the frame that will show it. */
+    let rect: Rect | null = null;
+    let request: number | null = null;
+    /** Where the pointer last was in the window, which the marquee reaches to. */
+    let pointer: { x: number; y: number } | null = null;
+    /** The marquee to `pointer` through the view as it is now. */
+    const reach = (): Rect | null => {
+      if (!pointer) {
+        return null;
+      }
+      const to = inFrame(pointer.x, pointer.y);
+      return {
+        height: Math.abs(to.y - at.y),
+        width: Math.abs(to.x - at.x),
+        x: Math.min(at.x, to.x),
+        y: Math.min(at.y, to.y),
+      };
+    };
+    const draw = (clientX: number, clientY: number) => {
+      pointer = { x: clientX, y: clientY };
+      rect = reach();
+      // Drawn once a frame, however often the pointer reports.
+      request ??= requestAnimationFrame(() => {
+        request = null;
+        setMarquee(rect);
+      });
+    };
+    const putAway = () => {
+      if (request !== null) {
+        cancelAnimationFrame(request);
+        request = null;
+      }
+      setMarquee(null);
+    };
+    /** The press has travelled: what it is on is dragged, or a marquee is drawn from it. */
+    const travel = (ev: PointerEvent) => {
+      dragging.current = true;
+      const target = dragTarget(at.x, at.y, press.alt);
+      if (!target) {
+        doing = kind === "page" ? "marquee" : "nothing";
+        within = currentRoot();
+      } else if (
+        target.kind === "node" &&
+        isContainer(target.node) &&
+        !isSelected(frameId, target.node.id)
+      ) {
+        doing = "marquee";
+        within = target.node;
+      } else {
+        doing = "drag";
+        // What is dragged is what is selected, as it would be after a click on it.
+        const id = draggedId(target);
+        if (id && useEditor.getState().selection?.nodeId !== id) {
+          selectId(id);
+        }
+        beginDrag(target, press.x, press.y, ev.altKey, holdsFree(ev));
+      }
+      // What the pointer was over as it pressed is not what a marquee is about: nothing is
+      // hovered, or measured with ⌥, while one is drawn.
+      if (doing === "marquee") {
+        leaveHover(frameId);
+      }
+      move(ev);
+    };
+    const move = (ev: PointerEvent) => {
+      if (doing === "marquee") {
+        draw(ev.clientX, ev.clientY);
+      } else if (doing === "drag") {
+        moveDrag(ev.clientX, ev.clientY, ev.altKey, holdsFree(ev));
+      } else if (
+        doing === "click" &&
+        Math.hypot(ev.clientX - press.x, ev.clientY - press.y) >= DRAG_THRESHOLD
+      ) {
+        travel(ev);
+      }
+    };
+    dragging.current = false;
+    followPointer(e, {
+      // Put back: what is dragged goes back where it was, and a marquee selects nothing.
+      cancel: () => {
+        if (doing === "marquee") {
+          putAway();
+        } else if (doing === "drag" && useDrag.getState().dragged) {
+          cancelDrag();
+        }
+        pressEnded();
+      },
+      move,
+      up: () => {
+        if (doing === "marquee") {
+          putAway();
+          // Measured again: the view may have moved under a pointer that has not since.
+          const area = reach();
+          if (area) {
+            selectInMarquee(area, within);
+          }
+        } else if (doing === "drag" && useDrag.getState().dragged) {
+          endDrag();
+        }
+        pressEnded();
+      },
+    });
+    // Kept from the frames the pointer crosses while it drags: their hover would show.
+    layer.setPointerCapture(e.pointerId);
   };
+  /** The hover, while no gesture follows the pointer: this frame's, another's or the canvas's. */
   const onPointerMove = (e: ReactPointerEvent) => {
     // Kept through a press too: ⌥ pressed once it is let go hit-tests where the pointer is.
     resting.current = {
@@ -396,142 +508,22 @@ export const useFramePointer = ({
       clientY: e.clientY,
       currentTarget: e.currentTarget,
     };
-    const p = press.current;
-    if (!p) {
+    if (!isFollowing()) {
       onMove(e);
-      return;
-    }
-    p.last = {
-      alt: e.altKey,
-      free: holdsFree(e),
-      x: e.clientX,
-      y: e.clientY,
-    };
-    const from = marqueeFrom.current;
-    if (from) {
-      const to = toFrame(e);
-      const rect = {
-        height: Math.abs(to.y - from.y),
-        width: Math.abs(to.x - from.x),
-        x: Math.min(from.x, to.x),
-        y: Math.min(from.y, to.y),
-      };
-      // Drawn once a frame, however often the pointer reports.
-      const request =
-        marqueeTo.current?.request ??
-        requestAnimationFrame(() => {
-          const drawn = marqueeTo.current;
-          marqueeTo.current = null;
-          if (drawn) {
-            setMarquee(drawn.rect);
-          }
-        });
-      marqueeTo.current = { rect, request };
-      return;
-    }
-    if (dragging.current) {
-      moveDrag(e.clientX, e.clientY, e.altKey, holdsFree(e));
-      return;
-    }
-    if (Math.hypot(e.clientX - p.x, e.clientY - p.y) < DRAG_THRESHOLD) {
-      return;
-    }
-    dragging.current = true;
-    const target = dragTarget(p.at.x, p.at.y, p.alt);
-    if (!target) {
-      if (kind === "page") {
-        beginMarquee(currentRoot(), p.at);
-      }
-      return;
-    }
-    if (
-      target.kind === "node" &&
-      isContainer(target.node) &&
-      !isSelected(frameId, target.node.id)
-    ) {
-      beginMarquee(target.node, p.at);
-      return;
-    }
-    // What is dragged is what is selected, as it would be after a click on it.
-    const id = draggedId(target);
-    if (id && useEditor.getState().selection?.nodeId !== id) {
-      selectId(id);
-    }
-    beginDrag(target, p.x, p.y, p.last.alt, p.last.free);
-    moveDrag(p.last.x, p.last.y, p.last.alt, p.last.free);
-  };
-  /**
-   * A marquee is drawn in `within` from `from`, until the pointer is let go or Escape puts it
-   * away (`cancelGesture`), which leaves the selection as it was.
-   */
-  const beginMarquee = (
-    within: DesignNode | null,
-    from: { x: number; y: number }
-  ) => {
-    marqueeIn.current = within;
-    marqueeFrom.current = from;
-    // What the pointer was over as it pressed is not what a marquee is about: nothing is hovered,
-    // or measured with ⌥, while one is drawn.
-    leaveHover(frameId);
-    drawingMarquee(() => {
-      pressEnded();
-      endMarquee(false);
-    });
-  };
-  /** The marquee stops being drawn; whether it selects what it touches is `selects`. */
-  const endMarquee = (selects: boolean) => {
-    drawingMarquee(null);
-    marqueeFrom.current = null;
-    const waiting = marqueeTo.current;
-    marqueeTo.current = null;
-    if (waiting) {
-      cancelAnimationFrame(waiting.request);
-    }
-    const drawn = waiting?.rect ?? marquee;
-    setMarquee(null);
-    if (drawn && selects) {
-      selectInMarquee(drawn);
-    } else {
-      marqueeIn.current = null;
-    }
-  };
-  const onPointerUp = () => {
-    pressEnded();
-    if (marqueeFrom.current) {
-      endMarquee(true);
-      return;
-    }
-    if (useDrag.getState().dragged) {
-      endDrag();
-    }
-  };
-  /**
-   * The browser took the pointer away: what is dragged goes back where it was, as a node on the
-   * canvas does, and a marquee selects nothing.
-   */
-  const onPointerCancel = () => {
-    pressEnded();
-    if (marqueeFrom.current) {
-      endMarquee(false);
-      return;
-    }
-    if (useDrag.getState().dragged) {
-      cancelDrag();
     }
   };
 
   /**
-   * What a marquee selects: the children of the container it was drawn in that it touches. When
-   * it touches only one and does not cover it whole, that one's children instead: the way a
-   * designer means the nodes the rectangle is drawn across.
+   * What a marquee drawn in `within` selects: the children of it that it touches. When it touches
+   * only one and does not cover it whole, that one's children instead: the way a designer means
+   * the nodes the rectangle is drawn across.
    */
-  const selectInMarquee = (area: Rect) => {
-    const within = marqueeIn.current ?? currentRoot();
-    marqueeIn.current = null;
-    if (!within) {
+  const selectInMarquee = (area: Rect, within: DesignNode | null) => {
+    const container = within ?? currentRoot();
+    if (!container) {
       return;
     }
-    let level = childrenOf(within);
+    let level = childrenOf(container);
     for (;;) {
       const measured = frameOf(frameId).measure(level.map((n) => n.id));
       const hits = level.filter((n) => {
@@ -618,11 +610,9 @@ export const useFramePointer = ({
     onContextMenu,
     onDoubleClick,
     onPlaceComment,
-    onPointerCancel,
     onPointerDown,
     onPointerLeave,
     onPointerMove,
-    onPointerUp,
     onSelectClick,
     onSelectLayerGone,
   };

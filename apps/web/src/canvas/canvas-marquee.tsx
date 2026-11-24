@@ -3,8 +3,9 @@
  * tool, dragged, draws it, and the frames it touches (pages and nodes placed on the canvas) are
  * picked as it is drawn (`state/canvas-picks.ts`); with Shift it adds to what was picked or
  * selected. Let go, one frame is the selection and several stay picked. A press let go without
- * moving is the ground's own press. Escape puts it away, back to what was picked before. A marquee
- * that begins inside a page is the page's (`use-frame-pointer.ts`).
+ * moving is the ground's own press. Escape puts it away, back to what was picked before. It is
+ * followed from the press to the release as every gesture on the canvas is (`pointer-gesture.ts`,
+ * ADR 0133). A marquee that begins inside a page is the page's (`use-frame-pointer.ts`).
  */
 import type { Box } from "@ultrapaint/contracts/canvas-layout";
 import { create } from "zustand";
@@ -18,7 +19,7 @@ import {
 } from "../state/canvas-picks.ts";
 import { allFrames, surfaceNow } from "../state/surface.ts";
 import { canvasPoint } from "./drag.ts";
-import { drawingMarquee } from "./frame-gesture.ts";
+import { followPointer } from "./pointer-gesture.ts";
 
 /** The marquee as drawn, in the canvas's coordinates; null while none is. */
 export const useCanvasMarquee = create<{ rect: Box | null }>(() => ({
@@ -57,23 +58,27 @@ let drawing: {
 
 /** A press on the ground begins a marquee, drawn once the pointer moves. */
 export const beginCanvasMarquee = (e: {
+  readonly button?: number;
   readonly clientX: number;
   readonly clientY: number;
+  readonly pointerId: number;
   readonly shiftKey: boolean;
 }) => {
+  followPointer(e, {
+    cancel: cancelCanvasMarquee,
+    move: moveCanvasMarquee,
+    up: endCanvasMarquee,
+  });
   drawing = {
     before: e.shiftKey ? framesPickedNow() : [],
     client: { x: e.clientX, y: e.clientY },
     from: canvasPoint(e.clientX, e.clientY),
     moved: false,
   };
-  drawingMarquee(cancelCanvasMarquee);
 };
 
-export const isDrawingCanvasMarquee = () => drawing !== null;
-
 /** The pointer moved: the marquee to it, and what it touches picked. */
-export const moveCanvasMarquee = (e: {
+const moveCanvasMarquee = (e: {
   readonly clientX: number;
   readonly clientY: number;
 }) => {
@@ -104,13 +109,12 @@ export const moveCanvasMarquee = (e: {
 const stop = () => {
   const was = drawing;
   drawing = null;
-  drawingMarquee(null);
   useCanvasMarquee.setState({ rect: null });
   return was;
 };
 
 /** Let go: what it touched is picked, one frame selected; not moved, the ground was pressed. */
-export const endCanvasMarquee = () => {
+const endCanvasMarquee = () => {
   const was = stop();
   if (!was) {
     return;
@@ -123,7 +127,7 @@ export const endCanvasMarquee = () => {
 };
 
 /** Escape, or a cancelled pointer: back to what was picked before it. */
-export const cancelCanvasMarquee = () => {
+const cancelCanvasMarquee = () => {
   const was = stop();
   if (was?.moved) {
     pickFrames(was.before);

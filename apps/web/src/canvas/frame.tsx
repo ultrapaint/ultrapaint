@@ -263,11 +263,9 @@ export const Frame = memo(
       onContextMenu,
       onDoubleClick,
       onPlaceComment,
-      onPointerCancel,
       onPointerDown,
       onPointerLeave,
       onPointerMove,
-      onPointerUp,
       onSelectClick,
     } = useFramePointer({
       canvas,
@@ -327,11 +325,9 @@ export const Frame = memo(
             onContextMenu={onContextMenu}
             onDoubleClick={onDoubleClick}
             onGone={onSelectLayerGone}
-            onPointerCancel={onPointerCancel}
             onPointerDown={onPointerDown}
             onPointerLeave={onPointerLeave}
             onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
           />
           <CommentLayer
             name={name}
@@ -447,11 +443,9 @@ export const SelectLayer = ({
   onContextMenu,
   onDoubleClick,
   onGone,
-  onPointerCancel,
   onPointerDown,
   onPointerLeave,
   onPointerMove,
-  onPointerUp,
 }: {
   frameId: string;
   name: string;
@@ -460,11 +454,10 @@ export const SelectLayer = ({
   onDoubleClick: LayerHandler<ReactMouseEvent>;
   /** Called as the layer goes away: the pointer resting on it then sends no leave. */
   onGone: () => void;
-  onPointerCancel: () => void;
+  /** A press, which follows the pointer to its release wherever it goes (ADR 0133). */
   onPointerDown: LayerHandler<ReactPointerEvent>;
   onPointerLeave: LayerHandler<ReactPointerEvent>;
   onPointerMove: LayerHandler<ReactPointerEvent>;
-  onPointerUp: LayerHandler<ReactPointerEvent>;
 }) => {
   const selecting = useEditor(isSelecting);
   const [editing, setEditing] = useState<string | null>(null);
@@ -488,11 +481,9 @@ export const SelectLayer = ({
       onClick={onClick}
       onContextMenu={onContextMenu}
       onDoubleClick={onDoubleClick}
-      onPointerCancel={onPointerCancel}
       onPointerDown={onPointerDown}
       onPointerLeave={onPointerLeave}
       onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
       style={hole ? { clipPath: clipAround(hole) } : undefined}
       type="button"
     />

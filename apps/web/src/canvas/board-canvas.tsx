@@ -490,11 +490,9 @@ const BoardTree = ({
         onContextMenu={pointer.onContextMenu}
         onDoubleClick={pointer.onDoubleClick}
         onGone={pointer.onSelectLayerGone}
-        onPointerCancel={pointer.onPointerCancel}
         onPointerDown={pointer.onPointerDown}
         onPointerLeave={pointer.onPointerLeave}
         onPointerMove={pointer.onPointerMove}
-        onPointerUp={pointer.onPointerUp}
       />
       {pointer.marquee ? <Marquee box={pointer.marquee} /> : null}
       <Highlights frameId={frameId} />

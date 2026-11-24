@@ -114,12 +114,15 @@ describe("placeFrame", () => {
 /** The window's pointer listeners, which a gesture follows. */
 const listeners = new Map<string, EventListener>();
 
+/** The pointer at a point, its button held, as the window hears it while a gesture lasts. */
 const pointer = (clientX: number, clientY: number) => ({
   altKey: false,
+  buttons: 1,
   clientX,
   clientY,
   ctrlKey: false,
   metaKey: false,
+  pointerId: 1,
   shiftKey: false,
 });
 
@@ -265,6 +268,16 @@ describe("a frame gesture", () => {
     expect(listeners.size).toBe(0);
     await layoutSaved();
     expect(saved()).toEqual([{ [home.path]: { ...start, x: 30, y: 41 } }]);
+  });
+
+  it("pressed again before the last move's release came, starts from where the frame was, not where it was drawn", async () => {
+    beginFrameGesture(press(0, 0), home.id, "move");
+    fire("pointermove", 100, 100);
+    beginFrameGesture(press(0, 0), home.id, "move");
+    fire("pointermove", 10, 20);
+    fire("pointerup", 10, 20);
+    await layoutSaved();
+    expect(saved()).toEqual([{ [home.path]: { ...start, x: 10, y: 20 } }]);
   });
 
   it("moves the frames picked together by any one's name, the pages saved as one step", async () => {
