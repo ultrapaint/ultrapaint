@@ -56,8 +56,15 @@ export const claudeCode: BuiltInAgent<"claude-code"> = {
   launch: {
     authHint:
       "Uses your Claude Code login (`claude` CLI). Run `claude` once to sign in.",
-    // Its shell goes back to the repository after every command, so it never has to `cd` there.
-    env: { CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR: "1" },
+    env: {
+      // Its shell goes back to the repository after every command, so it never has to `cd` there.
+      CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR: "1",
+      // Claude Code's own default for a tool call, given explicitly: above 300 s it also lifts
+      // the 300 s limit of its HTTP requests to MCP servers. Under that limit the editor's
+      // `subscriptions/listen` stream drops every six minutes, and 90 s after a drop Claude Code
+      // gives up on every call still open, so a question waiting on the user is withdrawn.
+      MCP_TOOL_TIMEOUT: "100000000",
+    },
     // Claude Code sandboxes its own shell commands; one sandbox cannot start inside another.
     sandboxMeta: {
       claudeCode: { options: { settings: { sandbox: { enabled: false } } } },

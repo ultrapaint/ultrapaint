@@ -123,4 +123,14 @@ describe("the built-in agents", () => {
     });
     expect(codex?.sandboxMeta).toBeUndefined();
   });
+
+  it("start Claude Code with its MCP requests unbounded, so a question outlives the editor's listen stream", () => {
+    // Under 300 s, Claude Code's HTTP requests time out at 300 s: the editor's
+    // `subscriptions/listen` stream drops, and 90 s later every call still open is given up,
+    // a question the user has not answered yet with it.
+    const timeout = Number(
+      BUILT_IN_AGENTS["claude-code"].launch.env?.MCP_TOOL_TIMEOUT
+    );
+    expect(timeout).toBeGreaterThan(300_000);
+  });
 });
