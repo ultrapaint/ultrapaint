@@ -1,6 +1,7 @@
 # ADR 0072: Type is set by the type tokens alone
 
 Status: accepted, 2026-11-09. Amends 0071 (emphasis as a weight after the token, `font-code`).
+Amended by 0135 (the faces' custom properties are `--face-display`, `--face-text`, `--face-code`).
 
 ## Context
 

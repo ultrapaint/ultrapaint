@@ -56,50 +56,47 @@ typography:
     lineHeight: 1.5rem
     letterSpacing: 0.01em
   heading-small:
-    fontFamily: Cal Sans
+    fontFamily: Allo Variable
     fontSize: 1rem
-    fontWeight: 400
+    fontWeight: 600
     lineHeight: 1.25rem
-    letterSpacing: 0.02em
   heading-xsmall:
-    fontFamily: Cal Sans
+    fontFamily: Allo Variable
     fontSize: 0.875rem
-    fontWeight: 400
+    fontWeight: 600
     lineHeight: 1.25rem
-    letterSpacing: 0.02em
   heading-xxsmall:
-    fontFamily: Cal Sans
+    fontFamily: Allo Variable
     fontSize: 0.75rem
-    fontWeight: 400
+    fontWeight: 600
     lineHeight: 1rem
-    letterSpacing: 0.02em
   body-large:
-    fontFamily: Figtree Variable
+    fontFamily: Allo Variable
     fontSize: 1rem
     fontWeight: 400
     lineHeight: 1.5rem
   body:
-    fontFamily: Figtree Variable
+    fontFamily: Allo Variable
     fontSize: 0.875rem
     fontWeight: 400
     lineHeight: 1.25rem
   body-medium:
-    fontFamily: Figtree Variable
+    fontFamily: Allo Variable
     fontSize: 0.875rem
     fontWeight: 500
     lineHeight: 1.25rem
   body-semibold:
-    fontFamily: Figtree Variable
+    fontFamily: Allo Variable
     fontSize: 0.875rem
     fontWeight: 600
     lineHeight: 1.25rem
   body-small:
-    fontFamily: Figtree Variable
+    fontFamily: Allo Variable
     fontSize: 0.75rem
     fontWeight: 400
     lineHeight: 1rem
   body-small-medium:
-    fontFamily: Figtree Variable
+    fontFamily: Allo Variable
     fontSize: 0.75rem
     fontWeight: 500
     lineHeight: 1rem
@@ -172,18 +169,19 @@ The editor has two themes on one set of roles, light (warm paper) and dark (warm
 ## Typography
 
 Atlassian's semantic type tokens: seven headings and three bodies, each carrying the face, size,
-line height, weight and tracking, and the only way the editor sets type. Headings are Cal Sans,
-bodies Figtree, values, tokens and code Geist Mono; a path, URL, route or file name is words,
-in Figtree; a path alone on its line is cut at its start, so its file name stays (a route, a
-list of files and a sentence keep the end cut).
-Cal Sans has one weight, its 400, never made bold, and is spaced for display sizes, so the
-headings to 20px open it.
+line height, weight and tracking, and the only way the editor sets type. The page-size headings,
+20px and up, are Cal Sans; the small headings and the bodies Allo; blocks of code Geist Mono. A
+path, URL, route or file name is words, in Allo; a path alone on its line is cut at its start, so
+its file name stays (a route, a list of files and a sentence keep the end cut).
+Cal Sans has one weight, its 400, never made bold. Allo is the variable font with its
+roundness pinned at 20 in the file; its optical size spaces it for its size, so its
+tokens are tracked 0, and a small heading is set apart from the text by weight, 600.
 
 - `font-heading-xxlarge` 32/36, `-xlarge` 28/32, `-large` 24/28, `-medium` 20/24: for a page
   of the editor's own that needs them; its panels and dialogs use the two below.
-- `font-heading-small` 16/20: a dialog's or a page's title.
-- `font-heading-xsmall` 14/20: a panel's, a section's or a card's title, a field's label.
-- `font-heading-xxsmall` 12/16.
+- `font-heading-small` 16/20 at 600: a dialog's or a page's title.
+- `font-heading-xsmall` 14/20 at 600: a panel's, a section's or a card's title, a field's label.
+- `font-heading-xxsmall` 12/16 at 600.
 - `font-body-large` 16/24: a page's lead, where there is one.
 - `font-body` 14/20: everything read.
 - `font-body-medium` 14/20 at 500: control text (buttons, tabs, menu items), names in a list.
