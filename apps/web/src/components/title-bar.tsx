@@ -1,6 +1,7 @@
 /**
  * The top of the editor's two cards: the project's row at the top of the left card, with search
- * and the left panel's toggle, and the right panel's toggle. In the desktop app on a Mac the
+ * and the left panel's toggle, and the right panel's toggle. Put away, each card is its top row
+ * alone (ADR 0127). In the desktop app on a Mac the
  * project's row is the window's title bar: the window's buttons sit at its start, and dragging it
  * moves the window.
  */
@@ -13,8 +14,10 @@ import {
   Search,
 } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -22,7 +25,8 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { chooseFolder } from "../lib/project-setup.ts";
-import { usePanels } from "../state/panels.ts";
+import type { RightTab } from "../state/editor.ts";
+import { showRightPanel, usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { useWindowChrome } from "../state/window-controls.ts";
 import { openCommandPalette } from "./command-palette.tsx";
@@ -94,6 +98,7 @@ const TopButton = ({
   children,
   command,
   label,
+  name,
   onClick,
   pressed,
 }: {
@@ -101,6 +106,8 @@ const TopButton = ({
   /** The command it is, whose keys the tooltip shows. */
   command?: string;
   label: string;
+  /** What finds it again once it is drawn somewhere else (`keepFocus`). */
+  name?: string;
   onClick: () => void;
   pressed?: boolean;
 }) => (
@@ -111,6 +118,7 @@ const TopButton = ({
           aria-label={label}
           aria-pressed={pressed}
           className="window-no-drag flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/25 aria-pressed:bg-accent aria-pressed:text-foreground [&_svg]:size-4"
+          data-top-button={name}
           onClick={onClick}
           type="button"
         />
@@ -184,30 +192,67 @@ export const TitleRow = () => {
   );
 };
 
-/** Puts the right panel away: at the end of its tabs' row, or of the board inspector's header. */
-export const HideRightPanel = () => (
-  <TopButton
-    command="toggleRight"
-    label="Hide the right panel"
-    onClick={toggleRight}
-  >
-    <PanelRightClose />
-  </TopButton>
-);
+/**
+ * Makes `change` and moves the focus to `target` in what it drew: the right panel shown or put
+ * away is drawn in place of the row the focused control was on, which goes with the focus.
+ */
+const keepFocus = (change: () => void, target: string) => {
+  flushSync(change);
+  document.querySelector<HTMLElement>(target)?.focus();
+};
+
+const RIGHT_TOGGLE = "[data-top-button=right-panel]";
 
 /**
- * The right panel put away: a small card at the window's top right, the panel's name beside the
- * icon that brings it back. Out, its toggle is in the panel's own top row.
+ * The right panel's toggle, at the end of its tabs' row or of the board inspector's header: in the
+ * same place whether the panel is out or put away, where the row is all that is left of it.
  */
-export const RightPanelBar = ({ name }: { name: string }) => (
-  <div className="floating pointer-events-auto flex h-11 shrink-0 items-center gap-1.5 pr-3 pl-1.5">
+export const RightPanelToggle = () => {
+  const hidden = usePanels((s) => s.right);
+  const PanelIcon = hidden ? PanelRightOpen : PanelRightClose;
+  return (
     <TopButton
       command="toggleRight"
-      label="Show the right panel"
-      onClick={toggleRight}
+      label={hidden ? "Show the right panel" : "Hide the right panel"}
+      name="right-panel"
+      onClick={() => keepFocus(toggleRight, RIGHT_TOGGLE)}
     >
-      <PanelRightOpen />
+      <PanelIcon />
     </TopButton>
-    <span className="font-body-medium text-muted-foreground">{name}</span>
+  );
+};
+
+/** The right panel's tabs, Design and Code, in a `Tabs` that says which one is open. */
+export const RightTabsList = () => (
+  <TabsList className="h-8!" data-right-tabs variant="default">
+    <TabsTrigger className="px-2.5" value="design">
+      Design
+    </TabsTrigger>
+    <TabsTrigger className="px-2.5" value="code">
+      Code
+    </TabsTrigger>
+  </TabsList>
+);
+
+const showTab = (value: unknown) =>
+  keepFocus(
+    () => showRightPanel(value as RightTab),
+    "[data-right-tabs] [role=tab][aria-selected=true]"
+  );
+
+/**
+ * The right panel put away: its top row alone, as the left card put away is its project's row
+ * (ADR 0127). Its tabs, none of them open, each bring the panel back on itself, and its toggle
+ * stays where it is with the panel out. The focus follows into the panel brought back. On a board view, whose inspector has no tabs, the toggle
+ * alone.
+ */
+export const RightPanelPutAway = ({ tabs }: { tabs: boolean }) => (
+  <div className="floating pointer-events-auto flex h-11 shrink-0 items-center gap-2 px-1.5">
+    {tabs ? (
+      <Tabs onValueChange={showTab} value={null}>
+        <RightTabsList />
+      </Tabs>
+    ) : null}
+    <RightPanelToggle />
   </div>
 );

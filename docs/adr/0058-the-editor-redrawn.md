@@ -3,7 +3,8 @@
 Status: accepted, 2026-11-03. Amends 0032 (the floating cards and the tools), 0053 (where the
 mode is switched). The faces are amended by 0070 (Cal Sans headings, Figtree text); the mark by
 the brush-and-bolt of `docs/brand/`. The bar over the tools and the selection's tag: amended by
-0086 (no bar; the selection drawn as Figma draws it).
+0086 (no bar; the selection drawn as Figma draws it). The right card put away: amended by 0127
+(its tabs' row alone).
 
 ## Context
 

@@ -28,7 +28,7 @@ import { useItemName } from "../canvas/board-canvas.tsx";
 import { BoardChatButton } from "../canvas/board-chat-button.tsx";
 import { CutText } from "../components/cut-text.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
-import { HideRightPanel } from "../components/title-bar.tsx";
+import { RightPanelToggle } from "../components/title-bar.tsx";
 import { useBoardChip } from "../lib/add-to-chat.ts";
 import { makeSystemFromCode } from "../lib/start-thread.ts";
 import { Swatch } from "../lib/token-options.tsx";
@@ -305,7 +305,7 @@ export const BoardInspector = ({ open }: { open: BoardPlace }) => {
         </div>
         {chip ? <BoardChatButton chip={chip} /> : null}
         <HeaderMenu open={open} picked={picked} />
-        <HideRightPanel />
+        <RightPanelToggle />
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-auto">
         <InspectedKey.Provider
