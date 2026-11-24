@@ -153,9 +153,36 @@ interface ApplyOptions {
     | undefined;
 }
 
+/**
+ * A node an operation gave a new id, by the id it had: each node of a duplicate, and each node of
+ * an inserted or replacing tree one of whose ids was taken.
+ */
+export interface Copy {
+  readonly from: string;
+  readonly to: string;
+}
+
+/**
+ * An update, an insert or a replace as it was applied, with what it found: what tells a field it
+ * set that did nothing (`inertFields`).
+ */
+export interface Found {
+  /** The fields of the node an update found, its children left out: a layer's instance override. */
+  readonly fields?: Readonly<Record<string, unknown>> | undefined;
+  /** Set when the update was of a layer of an instance: the layer's kind, when it is known. */
+  readonly layer?: { readonly kind: string | undefined } | undefined;
+  readonly op: DocOp;
+  /** The tree an insert or a replace put in, by the ids it has in the document. */
+  readonly placed?: DesignNode | undefined;
+}
+
 interface Applied {
+  /** Each node the operations gave a new id, by the id it had, in the order they made them. */
+  readonly copies: Copy[];
   /** Ids of the nodes the operations created: inserted, duplicated, wrapped. */
   readonly created: string[];
+  /** Each update, insert and replace, in order, with what it found. */
+  readonly found: Found[];
   readonly root: DesignNode;
 }
 
@@ -211,6 +238,11 @@ export const applyOps = (
 ): Applied => {
   const draft = cloneJson(root) as unknown as Draft;
   const created: string[] = [];
+  const copies: Copy[] = [];
+  const found: Found[] = [];
+  const copied = (from: string, to: string) => {
+    copies.push({ from, to });
+  };
   const { canvas, kindOf, next, route } = options;
 
   const parentId = (parent: string | null) => parent ?? draft.id;
@@ -265,8 +297,13 @@ export const applyOps = (
   const fresh = (node: DesignNode): Draft => {
     const taken = idsOf(draft as unknown as DesignNode);
     const clash = Array.from(walk(node)).some((n) => taken.has(n.id));
-    const inserted = clash ? withNewIds(node, next) : node;
+    const inserted = clash ? withNewIds(node, next, copied) : node;
     return cloneJson(inserted) as unknown as Draft;
+  };
+
+  /** An insert or a replace, with the tree it put in as it went in. */
+  const putIn = (op: DocOp, node: Draft) => {
+    found.push({ op, placed: cloneJson(node) as unknown as DesignNode });
   };
 
   const insertOp = (op: Extract<DocOp, { op: "insert" }>) => {
@@ -276,21 +313,22 @@ export const applyOps = (
     place(node, parent);
     slot.splice(at, 0, node);
     created.push(node.id);
+    putIn(op, node);
   };
 
   const replaceOp = (op: Extract<DocOp, { op: "replace" }>) => {
     // Each node once: an id named twice would be taken out twice.
     const ids = [...new Set(op.ids)];
-    const found = ids.map(locate);
-    const [first] = found;
-    if (!first || found.some((f) => f.parent !== first.parent)) {
+    const located = ids.map(locate);
+    const [first] = located;
+    if (!first || located.some((f) => f.parent !== first.parent)) {
       return fail(
         "only nodes side by side in the same parent can be replaced together"
       );
     }
     const { node: was, parent, siblings } = first;
     // Where the first of them was, counting the siblings left before it.
-    const at = Math.min(...found.map((f) => f.index));
+    const at = Math.min(...located.map((f) => f.index));
     for (const id of ids) {
       siblings.splice(
         siblings.findIndex((c) => c.id === id),
@@ -302,6 +340,7 @@ export const applyOps = (
     place(node, parent, { x: Number(was.x ?? 0), y: Number(was.y ?? 0) });
     siblings.splice(at, 0, node);
     created.push(node.id);
+    putIn(op, node);
   };
 
   const removeOp = (op: Extract<DocOp, { op: "remove" }>) => {
@@ -328,6 +367,8 @@ export const applyOps = (
 
   const updateOp = (op: Extract<DocOp, { op: "update" }>) => {
     const [node] = pathTo(draft, op.id).slice(-1) as [Draft];
+    const { children: _children, ...fields } = node;
+    found.push({ fields: cloneJson(fields), op });
     if (op.at !== undefined) {
       setAt(node, op.at, op.set);
       return;
@@ -447,7 +488,7 @@ export const applyOps = (
   const duplicateOp = (op: Extract<DocOp, { op: "duplicate" }>) => {
     const { node, parent, siblings, index } = locate(op.id);
     const copy = cloneJson(
-      withNewIds(node as unknown as DesignNode, next)
+      withNewIds(node as unknown as DesignNode, next, copied)
     ) as unknown as Draft;
     if (canvas && parent === draft) {
       const width = typeof node.width === "number" ? node.width : 0;
@@ -570,7 +611,23 @@ export const applyOps = (
     }
   };
 
+  /** A layer's update, with its instance override and its kind as the update found them. */
+  const foundLayer = (op: Extract<DocOp, { op: "update" }>) => {
+    const { instance, layer } =
+      instanceLayerOf(op.id) ?? fail(`no layer ${op.id}`);
+    const node = findPath(draft as unknown as DesignNode, instance)?.at(-1);
+    const own = node?.type === "instance" ? node.overrides?.[layer] : undefined;
+    found.push({
+      fields: cloneJson(own ?? {}),
+      layer: { kind: kindOf?.(op.id, draft as unknown as DesignNode) },
+      op,
+    });
+  };
+
   const applyOne = (op: DocOp) => {
+    if (op.op === "update" && isLayer(op.id)) {
+      foundLayer(op);
+    }
     if ((op.op === "update" || op.op === "remove") && isLayer(op.id)) {
       overrideOp(
         op.id,
@@ -630,7 +687,12 @@ export const applyOps = (
     fail("the root of a document must stay a container");
   }
   // Through JSON once more: a field an operation cleared is gone, not `undefined`.
-  return { created, root: cloneJson(draft) as unknown as DesignNode };
+  return {
+    copies,
+    created,
+    found,
+    root: cloneJson(draft) as unknown as DesignNode,
+  };
 };
 
 /**

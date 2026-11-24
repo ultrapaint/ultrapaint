@@ -96,15 +96,23 @@ export const fillIds = (json: unknown): boolean => {
   return missing.length > 0;
 };
 
-/** A copy of the node with a new id on it and on everything inside it. */
-export const withNewIds = (node: DesignNode, next: IdGenerator): DesignNode => {
+/**
+ * A copy of the node with a new id on it and on everything inside it, each told to `renamed`
+ * by the id it had, the node before what is inside it.
+ */
+export const withNewIds = (
+  node: DesignNode,
+  next: IdGenerator,
+  renamed?: (from: string, to: string) => void
+): DesignNode => {
   const copy = { ...node, id: next(idPrefix(node.type)) } as DesignNode;
+  renamed?.(node.id, copy.id);
   const children = childrenOf(node);
   if (children.length === 0 && !("children" in node)) {
     return copy;
   }
   return {
     ...copy,
-    children: children.map((child) => withNewIds(child, next)),
+    children: children.map((child) => withNewIds(child, next, renamed)),
   } as DesignNode;
 };

@@ -360,10 +360,12 @@ const direction = Schema.optional(
   })
 );
 
+const pageAt = { ...boxOverride, ...stackFields, direction };
+
 const PageNodeSchema = Schema.Struct({
   ...boxFields,
   ...stackFields,
-  at: atBreakpoints({ ...boxOverride, ...stackFields, direction }),
+  at: atBreakpoints(pageAt),
   children,
   direction,
   type: Schema.Literal("page"),
@@ -376,14 +378,16 @@ const GroupNodeSchema = Schema.Struct({
   type: Schema.Literal("group"),
 });
 
+const stackAt = {
+  ...boxOverride,
+  ...stackFields,
+  type: Schema.optional(Schema.Literals(["row", "column"])),
+};
+
 const StackNodeSchema = Schema.Struct({
   ...boxFields,
   ...stackFields,
-  at: atBreakpoints({
-    ...boxOverride,
-    ...stackFields,
-    type: Schema.optional(Schema.Literals(["row", "column"])),
-  }),
+  at: atBreakpoints(stackAt),
   children,
   type: Schema.Literals(["row", "column"]),
 });
@@ -399,14 +403,16 @@ const textFields = {
   weight: Schema.optional(Length),
 };
 
+const textAt = {
+  ...boxOverride,
+  ...textFields,
+  text: Schema.optional(Schema.String),
+};
+
 const TextNodeSchema = Schema.Struct({
   ...boxFields,
   ...textFields,
-  at: atBreakpoints({
-    ...boxOverride,
-    ...textFields,
-    text: Schema.optional(Schema.String),
-  }),
+  at: atBreakpoints(textAt),
   level: Schema.optional(
     Schema.Int.check(Schema.isBetween({ maximum: 6, minimum: 1 }))
   ),
@@ -421,14 +427,16 @@ const imageFields = {
   tint: Schema.optional(Color),
 };
 
+const imageAt = {
+  ...boxOverride,
+  ...imageFields,
+  src: Schema.optional(Schema.String),
+};
+
 const ImageNodeSchema = Schema.Struct({
   ...boxFields,
   ...imageFields,
-  at: atBreakpoints({
-    ...boxOverride,
-    ...imageFields,
-    src: Schema.optional(Schema.String),
-  }),
+  at: atBreakpoints(imageAt),
   src: Schema.String,
   type: Schema.Literal("image"),
 });
@@ -438,10 +446,12 @@ const instanceFields = {
   text: Schema.optional(Schema.String),
 };
 
+const instanceAt = { ...boxOverride, ...instanceFields };
+
 const InstanceNodeSchema = Schema.Struct({
   ...boxFields,
   ...instanceFields,
-  at: atBreakpoints({ ...boxOverride, ...instanceFields }),
+  at: atBreakpoints(instanceAt),
   children: Schema.optional(children),
   component: Schema.String,
   from: InstanceFrom,
@@ -461,6 +471,34 @@ export const DesignNode: Schema.Codec<DesignNode> = Schema.Union([
 ]).annotate({
   identifier: "DesignNode",
 }) as unknown as Schema.Codec<DesignNode>;
+
+/** The fields a node keeps of its own and from a breakpoint on: what its schema decodes. */
+export interface NodeFields {
+  readonly at: ReadonlySet<string>;
+  readonly own: ReadonlySet<string>;
+}
+
+const fieldsOf = (
+  own: Schema.Struct.Fields,
+  at: Schema.Struct.Fields
+): NodeFields => ({
+  at: new Set(Object.keys(at)),
+  own: new Set(Object.keys(own)),
+});
+
+/**
+ * Each type of node's fields, read off the struct it decodes with: a field it does not have is
+ * dropped when its document is written.
+ */
+export const NODE_FIELDS: { readonly [T in DesignNode["type"]]: NodeFields } = {
+  column: fieldsOf(StackNodeSchema.fields, stackAt),
+  group: fieldsOf(GroupNodeSchema.fields, boxOverride),
+  image: fieldsOf(ImageNodeSchema.fields, imageAt),
+  instance: fieldsOf(InstanceNodeSchema.fields, instanceAt),
+  page: fieldsOf(PageNodeSchema.fields, pageAt),
+  row: fieldsOf(StackNodeSchema.fields, stackAt),
+  text: fieldsOf(TextNodeSchema.fields, textAt),
+};
 
 /** Contents of a page file. */
 export interface PageDocument {

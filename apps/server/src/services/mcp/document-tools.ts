@@ -8,6 +8,7 @@ import type { Catalogue } from "@ultrapaint/contracts/catalogue";
 import { type DesignNode, DocOp } from "@ultrapaint/contracts/document";
 import { breakpointsOf } from "@ultrapaint/design-document/breakpoints";
 import { fillIds } from "@ultrapaint/design-document/ids";
+import { inertFields } from "@ultrapaint/design-document/inert-fields";
 import { touchedBy } from "@ultrapaint/design-document/ops";
 import { wrapperWarning } from "@ultrapaint/design-document/page-root";
 import { fillWarnings } from "@ultrapaint/design-document/sizing";
@@ -64,8 +65,17 @@ const nodeRefsToIds = (op: unknown): unknown => {
   return fields;
 };
 
-/** Past this many, `apply_operations` says how many more warnings there are. */
+/** Past this many, `apply_operations` says how many more warnings, or ignored fields, there are. */
 const MAX_WARNINGS = 12;
+
+/** The first `MAX_WARNINGS` of a list, and a line saying how many more there are. */
+const capped = <A>(items: readonly A[]): (A | string)[] =>
+  items.length > MAX_WARNINGS
+    ? [
+        ...items.slice(0, MAX_WARNINGS),
+        `and ${items.length - MAX_WARNINGS} more`,
+      ]
+    : [...items];
 
 /** What an agent is told of a page after its edit: a wrapper the page does not need, then fills with no room. */
 const warningsOf = (root: DesignNode, catalogue: Catalogue): string[] => {
@@ -127,7 +137,7 @@ const ApplyOperations = Tool.make("apply_operations", {
 {op:"wrap", ids, type:"row"|"column"|"group"}, {op:"unwrap", id}, {op:"duplicate", id}
 {op:"replace", ids, node}: node where the siblings were
 "inst/layer" is a layer of an app instance: update, setProps, remove (hides) change that instance alone, as its overrides
-Inserting into an instance showing "text" makes the text its first child. Numbers are pixels, "$name" a token, else CSS. Size an instance with width, height, padding, never className. expectedHash (from read_page) refuses a changed page. "warnings": fills with no room.`,
+Inserting into an instance showing "text" makes the text its first child. Numbers are pixels, "$name" a token, else CSS. Size an instance with width, height, padding, never className. expectedHash (from read_page) refuses a changed page. "warnings": fills with no room. "copies": new ids of the nodes a duplicate made, or an insert or replace whose ids were taken; "ignored": fields that did nothing, and why.`,
   failure: ToolFailure,
   parameters: Schema.Struct({
     /** Needed only when the project has several canvases. */
@@ -144,8 +154,25 @@ Inserting into an instance showing "text" makes the text its first child. Number
     route: opt(Schema.String),
   }),
   success: Schema.Struct({
+    /** Each node an operation gave a new id, by the id it had, in the order they were made. */
+    copies: Schema.optional(
+      Schema.Array(Schema.Struct({ from: Schema.String, to: Schema.String }))
+    ),
     created: Schema.Array(Schema.String),
     hash: Schema.String,
+    /** Fields the operations set that did nothing, and why; past twelve, how many more. */
+    ignored: Schema.optional(
+      Schema.Array(
+        Schema.Union([
+          Schema.Struct({
+            field: Schema.String,
+            id: Schema.String,
+            why: Schema.String,
+          }),
+          Schema.String,
+        ])
+      )
+    ),
     /** Nodes of the document whose fill has no room to take, and why. */
     warnings: Schema.optional(Schema.Array(Schema.String)),
   }),
@@ -191,6 +218,21 @@ const breakpointsOf1 = (op: DocOp): string[] => {
       return [];
   }
 };
+
+/**
+ * The operations with each node put in as the agent wrote it, any field its type lacks kept: the
+ * schema has checked it, the page drops that field when it is written, and the answer names it
+ * (`inertFields`).
+ */
+const asWritten = (
+  decoded: readonly DocOp[],
+  raw: readonly unknown[]
+): DocOp[] =>
+  decoded.map((op, i) =>
+    op.op === "insert" || op.op === "replace"
+      ? { ...op, node: (raw[i] as { node: DesignNode }).node }
+      : op
+  );
 
 /** The breakpoints operations write at. */
 const breakpointsNamedIn = (ops: readonly DocOp[]): string[] => [
@@ -259,12 +301,13 @@ export const DocumentToolsLive = DocumentTools.toLayer(
           )
         );
         yield* knownBreakpoints(decoded);
+        const given = asWritten(decoded, raw);
         const result = yield* documents((d) =>
           d.apply({
             edits: [
               {
                 doc,
-                ops: decoded,
+                ops: given,
                 ...(expectedHash !== undefined && { expectedHash }),
               },
             ],
@@ -287,21 +330,19 @@ export const DocumentToolsLive = DocumentTools.toLayer(
             ...(label !== undefined && { label }),
           });
         }
-        const warnings = after.root
-          ? warningsOf(after.root, yield* catalogue)
-          : [];
+        // What the call set that did nothing, then the fills on the page with no room.
+        const { ignored, warnings } = after.root
+          ? {
+              ignored: inertFields(result.found, after.root),
+              warnings: warningsOf(after.root, yield* catalogue),
+            }
+          : { ignored: [], warnings: [] };
         return {
+          ...(result.copies.length > 0 && { copies: result.copies }),
           created: result.created,
           hash: result.documents[0]?.hash ?? "",
-          ...(warnings.length > 0 && {
-            warnings:
-              warnings.length > MAX_WARNINGS
-                ? [
-                    ...warnings.slice(0, MAX_WARNINGS),
-                    `and ${warnings.length - MAX_WARNINGS} more`,
-                  ]
-                : warnings,
-          }),
+          ...(ignored.length > 0 && { ignored: capped(ignored) }),
+          ...(warnings.length > 0 && { warnings: capped(warnings) }),
         };
       }),
 
