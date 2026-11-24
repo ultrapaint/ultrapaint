@@ -12,6 +12,7 @@ import {
 import {
   type AgentOptions,
   type ChatDefaults,
+  type FollowUp,
   isEffortOption,
   isModelOption,
   type McpConnection,
@@ -39,7 +40,7 @@ import { IconButton } from "../components/icon-button.tsx";
 import { Markdown } from "../components/markdown.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { Segmented } from "../components/segmented.tsx";
-import { isMac } from "../lib/keys.ts";
+import { chordLabel, isMac } from "../lib/keys.ts";
 import { devCheckout } from "../lib/ultrapaint-dev.ts";
 import {
   type AgentSetup,
@@ -51,7 +52,7 @@ import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
 import { readiness, useMachineAgents } from "../state/machine-agents.ts";
 import { reportError } from "../state/project.ts";
-import { type SendKey, useSendKey } from "../state/send-key.ts";
+import { alternateChord, type SendKey, useSendKey } from "../state/send-key.ts";
 import { useSkills } from "../state/skills.ts";
 import { Group, Row, RowMessage, rowField, Status } from "./settings-group.tsx";
 
@@ -590,6 +591,40 @@ export const SendKeyRow = () => {
           value: k.value as SendKey,
         }))}
         value={sendKey}
+      />
+    </Row>
+  );
+};
+
+/**
+ * What the send key does while the agent works (ADR 0137): sends the prompt into its turn, or
+ * queues it for the turn's end; the other chord does the other. Kept in this browser beside the
+ * send key.
+ */
+export const FollowUpRow = () => {
+  const followUp = useSendKey((s) => s.followUp);
+  const setFollowUp = useSendKey((s) => s.setFollowUp);
+  const sendKey = useSendKey((s) => s.sendKey);
+  const other = chordLabel(alternateChord(sendKey));
+  return (
+    <Row
+      description={
+        followUp === "steer"
+          ? `The agent reads it after its current step. ${other} queues it instead.`
+          : `It waits for the agent to finish. ${other} sends it now instead.`
+      }
+      onReset={followUp === "steer" ? undefined : () => setFollowUp("steer")}
+      setting="follow-up"
+      title="While the agent works"
+    >
+      <Segmented<FollowUp>
+        aria-label="While the agent works"
+        onChange={setFollowUp}
+        options={[
+          { label: "Send now", value: "steer" },
+          { label: "Queue", value: "queue" },
+        ]}
+        value={followUp}
       />
     </Row>
   );

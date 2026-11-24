@@ -5,16 +5,18 @@
 import { RequestError } from "@ultrapaint/client-runtime/connection";
 import type { Page } from "@ultrapaint/contracts/pages";
 import { parseCommand } from "@ultrapaint/contracts/tasks";
-import type {
-  PromptAttachment,
-  QueuedPrompt,
-  Thread,
+import {
+  type FollowUp,
+  isStopping,
+  type PromptAttachment,
+  type Thread,
 } from "@ultrapaint/contracts/threads";
 import {
   AppWindow,
   ArrowUp,
   BookText,
   Camera,
+  Check,
   CircleAlert,
   Component,
   FilePlus,
@@ -22,10 +24,8 @@ import {
   ListPlus,
   Palette,
   Paperclip,
-  Pencil,
   SquareDashedMousePointer,
   Type,
-  X,
 } from "lucide-react";
 import {
   type ChangeEvent,
@@ -47,6 +47,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Kbd } from "@/components/ui/kbd";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Tooltip,
@@ -58,14 +59,13 @@ import { frameOf } from "../canvas/editor-frame.ts";
 import { frameIdOf } from "../canvas/prototype.tsx";
 import { ChipTag } from "../components/chip.tsx";
 import { composerBox, composerText } from "../components/composer-style.ts";
-import { CutText } from "../components/cut-text.tsx";
 import { FileDropBox, FilesInput } from "../components/file-drop.tsx";
-import { IconButton } from "../components/icon-button.tsx";
 import { ImageThumb } from "../components/image-thumb.tsx";
 import { useImplicitChip } from "../lib/add-to-chat.ts";
 import { pastedImages, sizeLabel } from "../lib/attach-files.ts";
 import { boardChipLabel } from "../lib/board-chip.ts";
 import type { ImageChip } from "../lib/file-chips.ts";
+import { chordLabel } from "../lib/keys.ts";
 import { threadView } from "../lib/thread-view.ts";
 import {
   addChip,
@@ -73,7 +73,6 @@ import {
   attachmentsOf,
   type Chip,
   chipKey,
-  chipOfAttachment,
   clearChips,
   dismissChip,
   pageChip,
@@ -86,7 +85,19 @@ import { setDraft, useDraft } from "../state/drafts.ts";
 import { useEditor, type Workspace } from "../state/editor.ts";
 import { useRequest } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
-import { isSendKey, useSendKey } from "../state/send-key.ts";
+import {
+  cancelQueuedEdit,
+  editQueued,
+  saveQueuedEdit,
+  useQueuedEdit,
+} from "../state/queued-edit.ts";
+import {
+  alternateChord,
+  isAlternateSendKey,
+  isSendKey,
+  otherFollowUp,
+  useSendKey,
+} from "../state/send-key.ts";
 import { useSlashCommands } from "../state/slash-commands.ts";
 import { useSync } from "../state/sync.ts";
 import { ComposerTray } from "./composer-tray.tsx";
@@ -100,6 +111,7 @@ import {
   StopButton,
   useAnswering,
 } from "./thread-questions.tsx";
+import { sendNow } from "./thread-queue.tsx";
 
 /**
  * What a prompt carries, from the composer's chips, and a screenshot when one was asked for. A
@@ -145,13 +157,6 @@ const shotFrameOf = (
     : (page?.id ?? "");
 
 const COMMAND_QUERY_RE = /^\/([\w-]*)$/;
-
-/**
- * A queued prompt put back in the composer over what is typed there: its text, a blank line,
- * then the draft, which nothing else would bring back. Its text alone over an empty draft.
- */
-const overDraft = (queued: string, draft: string) =>
-  draft.trim() === "" ? queued : `${queued}\n\n${draft}`;
 
 /**
  * The commands a prompt may start with: the editor's, read once for every composer, then the
@@ -200,6 +205,8 @@ export const Composer = ({ thread }: { thread: Thread }) => {
   const chips = useChips(thread.id);
   const [attachShot, setAttachShot] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** How the last prompt was sent, the other follow-up or not: Try again sends it the same way. */
+  const lastAlternate = useRef(false);
   /** Why the last send didn't go, said over the composer until the next one. */
   const [failed, setFailed] = useState<string | null>(null);
   const selection = useEditor((s) => s.selection);
@@ -208,7 +215,14 @@ export const Composer = ({ thread }: { thread: Thread }) => {
   const page = pages.find((p) => p.id === (selection?.frame ?? activePage));
   // Nothing attached but images: the selection goes along, shown dashed, or on a board what is
   // picked there. The page only when attached.
-  const { implicit, selected: selectedChip } = useImplicitChip(thread.id);
+  const { implicit: offered, selected: selectedChip } = useImplicitChip(
+    thread.id
+  );
+  // A queued prompt being edited keeps the attachments it has: nothing goes along with it.
+  const edit = useQueuedEdit(thread.id);
+  const editing = edit !== undefined;
+  const implicit = editing ? null : offered;
+  const followUp = useSendKey((s) => s.followUp);
   // Pictures show as themselves, over the chips of the places the prompt is about and its files.
   const images = chips.filter(isImage);
   const tags = chips.filter((chip) => !isImage(chip));
@@ -217,14 +231,21 @@ export const Composer = ({ thread }: { thread: Thread }) => {
   const canvas = useEditor((s) => s.canvas);
   const shotFrame = shotFrameOf(workspace, canvas, page);
   const { busy: running, unresponsive } = threadView(thread);
+  // A turn being stopped takes nothing more: what is sent then waits in the queue.
+  const stopping = isStopping(thread.status);
   const answering = useAnswering(thread.id);
   const menu = useCommandMenu(thread, text, setText, answering === null);
 
-  // While the agent works, what is sent waits in the thread's queue. One prompt at a time: a
-  // screenshot to attach can take a while, and Enter again meanwhile must not send it twice.
-  // Send with nothing typed puts the caret in the prompt, where what is missing goes.
-  const send = async () => {
+  // While the agent works, what is sent goes into its turn or waits in the thread's queue, as the
+  // send key does, or the other way with `alternate` (ADR 0137). A queued prompt being edited is
+  // updated instead. One prompt at a time: a screenshot to attach can take a while, and Enter
+  // again meanwhile must not send it twice. Send with nothing typed puts the caret in the
+  // prompt, where what is missing goes.
+  const send = async (alternate = false) => {
     const sent = text;
+    // The edit open as Update is pressed: the one saved, whatever opens while it goes.
+    const editedId = edit?.id;
+    lastAlternate.current = alternate;
     if (busy) {
       return;
     }
@@ -233,7 +254,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
       return;
     }
     // Where the sync stands is the editor's to show: the Sync view opens rather than a turn.
-    if (opensSync(sent)) {
+    if (!editing && opensSync(sent)) {
       setText("");
       showSetup();
       useSync.getState().load();
@@ -247,24 +268,50 @@ export const Composer = ({ thread }: { thread: Thread }) => {
         sentWith,
         attachShot && page ? { frameId: shotFrame, name: page.name } : null
       );
-      await api().request("threads.prompt", {
-        attachments,
-        text: sent,
-        threadId: thread.id,
-      });
-      // What was typed while it went is the next prompt, and stays.
-      setText((current) => (current === sent ? "" : current));
-      clearChips(thread.id, sentChips);
+      await sendOrUpdate(sent, attachments, sentChips, alternate, editedId);
     } catch (error) {
-      // A folder that is no longer one is the editor's to say; any other failure is this
-      // prompt's, said over the composer with the draft kept to try again.
-      if (error instanceof RequestError && error.code === "not_configured") {
-        reportError(error);
-      } else {
-        setFailed(error instanceof Error ? error.message : String(error));
-      }
+      failedWith(error);
     }
     setBusy(false);
+  };
+
+  // A folder that is no longer one is the editor's to say; any other failure is this prompt's,
+  // said over the composer with the draft kept to try again.
+  const failedWith = (error: unknown) => {
+    if (error instanceof RequestError && error.code === "not_configured") {
+      reportError(error);
+    } else {
+      setFailed(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  /** The prompt on its way: the queued prompt being edited updated, or sent. */
+  const sendOrUpdate = async (
+    sent: string,
+    attachments: PromptAttachment[],
+    sentChips: readonly Chip[],
+    alternate: boolean,
+    editedId: string | undefined
+  ) => {
+    if (editedId !== undefined) {
+      // The draft set aside comes back once the prompt is updated.
+      await saveQueuedEdit(thread.id, editedId, sent, attachments);
+      return;
+    }
+    await api().request("threads.prompt", {
+      attachments,
+      ...(running && {
+        followUp: followUpOf(
+          stopping,
+          alternate ? otherFollowUp(followUp) : followUp
+        ),
+      }),
+      text: sent,
+      threadId: thread.id,
+    });
+    // What was typed while it went is the next prompt, and stays.
+    setText((current) => (current === sent ? "" : current));
+    clearChips(thread.id, sentChips);
   };
 
   const onTextChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
@@ -278,6 +325,16 @@ export const Composer = ({ thread }: { thread: Thread }) => {
     }
     if (menu.onKey(e)) {
       e.preventDefault();
+      return;
+    }
+    const empty = text.trim() === "" && chips.length === 0;
+    if (onQueueKey(e, thread, editing, empty)) {
+      e.preventDefault();
+      return;
+    }
+    if (running && !editing && isAlternateSendKey(e, sendKey)) {
+      e.preventDefault();
+      send(true);
       return;
     }
     if (isSendKey(e, sendKey)) {
@@ -304,14 +361,13 @@ export const Composer = ({ thread }: { thread: Thread }) => {
 
   return (
     <div className="flex flex-col gap-2 px-2 pb-2">
-      <QueuedPrompts
-        onEdit={(queued) => setText((draft) => overDraft(queued.text, draft))}
-        running={running}
-        thread={thread}
-      />
       {/* Over the composer, so the composer stays where it is when it comes and goes. */}
       {failed ? (
-        <SendFailed busy={busy} message={failed} onRetry={send} />
+        <SendFailed
+          busy={busy}
+          message={failed}
+          onRetry={() => send(lastAlternate.current)}
+        />
       ) : null}
       {unresponsive ? <NotResponding onForceStop={forceStop} /> : null}
       <div className="flex flex-col" data-composer-stack>
@@ -376,7 +432,11 @@ export const Composer = ({ thread }: { thread: Thread }) => {
               onChange={onTextChange}
               onKeyDown={onTextKeyDown}
               onPaste={onPaste}
-              placeholder={placeholderOf(running)}
+              placeholder={placeholderOf(
+                running,
+                followUpOf(stopping, followUp),
+                editing
+              )}
               ref={field}
               role="combobox"
               value={text}
@@ -405,9 +465,11 @@ export const Composer = ({ thread }: { thread: Thread }) => {
                 <SendButtons
                   busy={busy}
                   canSend={Boolean(text.trim())}
+                  editing={editing}
                   onSend={send}
                   onStop={cancel}
                   running={running}
+                  stopping={stopping}
                 />
               )}
             </div>
@@ -666,141 +728,137 @@ const NotResponding = ({ onForceStop }: { onForceStop: () => void }) => (
 );
 
 /**
- * What was sent while the agent worked, waiting for its turn to end, oldest first. Each goes when
- * a turn ends by itself; after one that was stopped or failed they wait for Send now. Edit puts
- * one back in the composer, its text over what is typed there and its attachments beside the
- * draft's (`overDraft`).
+ * The queue's keys in the composer (ADR 0137): Escape lets an edit go; in an empty composer ⌥↑
+ * edits the last queued prompt and ⌘⇧↵ sends the first one now. Whether it took the key.
  */
-const QueuedPrompts = ({
-  onEdit,
-  running,
-  thread,
-}: {
-  onEdit: (queued: QueuedPrompt) => void;
-  running: boolean;
-  thread: Thread;
-}) => {
-  const queued = thread.queued ?? [];
-  if (queued.length === 0) {
-    return null;
+const onQueueKey = (
+  e: KeyboardEvent<HTMLTextAreaElement>,
+  thread: Thread,
+  editing: boolean,
+  empty: boolean
+) => {
+  // A key that confirms an input method's composition is the text's, not the queue's.
+  if (e.nativeEvent.isComposing) {
+    return false;
   }
-  const unqueue = (id: string) =>
-    api().request("threads.unqueue", { id, threadId: thread.id });
-  const edit = async (id: string) => {
-    try {
-      const taken = await unqueue(id);
-      if (!taken) {
-        return;
-      }
-      for (const attachment of taken.attachments) {
-        const chip = chipOfAttachment(attachment);
-        if (chip) {
-          addChip(thread.id, chip);
-        }
-      }
-      onEdit(taken);
-    } catch (error) {
-      reportError(error);
+  if (editing) {
+    if (e.key !== "Escape") {
+      return false;
     }
-  };
-  const sendNow = () =>
-    api()
-      .request("threads.sendQueued", { threadId: thread.id })
-      .catch(reportError);
-  return (
-    <section
-      aria-label="Queued prompts"
-      className="flex flex-col gap-1 rounded-lg border px-3 py-2"
-    >
-      <div className="flex min-h-6 items-center gap-2 font-body-small text-muted-foreground">
-        <span className="min-w-0 flex-1">
-          {running
-            ? `${queued.length} queued, sent when this turn ends`
-            : `${queued.length} queued: the last turn didn’t finish`}
-        </span>
-        {running ? null : (
-          <Button onClick={sendNow} size="sm" variant="secondary">
-            Send now
-          </Button>
-        )}
-      </div>
-      <ol className="flex flex-col">
-        {queued.map((q) => (
-          <li
-            className="group/queued -mx-1.5 flex items-start gap-1 rounded-md py-1 pl-1.5 hover:bg-accent"
-            key={q.id}
-          >
-            <CutText className="min-w-0 flex-1 truncate font-body" tip={q.text}>
-              {q.text}
-              {q.attachments.length > 0 ? (
-                <span className="text-muted-foreground">
-                  {" "}
-                  · {q.attachments.length} attached
-                </span>
-              ) : null}
-            </CutText>
-            <span className="flex shrink-0 items-center pr-0.5 opacity-0 transition-opacity duration-100 focus-within:opacity-100 group-hover/queued:opacity-100">
-              <IconButton
-                onClick={() => edit(q.id)}
-                size="icon-sm"
-                tooltip="Edit"
-              >
-                <Pencil />
-              </IconButton>
-              <IconButton
-                onClick={() => unqueue(q.id).catch(reportError)}
-                size="icon-sm"
-                tooltip="Remove"
-              >
-                <X />
-              </IconButton>
-            </span>
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
+    cancelQueuedEdit(thread.id);
+    return true;
+  }
+  const queue = thread.queued ?? [];
+  const last = queue.at(-1);
+  if (!(empty && last)) {
+    return false;
+  }
+  if (e.altKey && e.key === "ArrowUp") {
+    editQueued(thread.id, last.id);
+    return true;
+  }
+  if (e.key === "Enter" && e.shiftKey && (e.metaKey || e.ctrlKey)) {
+    sendNow(thread.id);
+    return true;
+  }
+  return false;
 };
 
+/** Where a follow-up goes: nowhere into a turn that is being stopped. */
+const followUpOf = (stopping: boolean, followUp: FollowUp): FollowUp =>
+  stopping ? "queue" : followUp;
+
 /** The thread's header names its agent, so the prompt's placeholder says what to write. */
-const placeholderOf = (running: boolean) =>
-  running ? "Queue a follow-up…" : "Describe a change, or type / for commands…";
+const placeholderOf = (
+  running: boolean,
+  followUp: FollowUp,
+  editing: boolean
+) => {
+  if (editing) {
+    return "Edit the queued prompt…";
+  }
+  if (running) {
+    return followUp === "steer" ? "Steer the agent…" : "Queue a follow-up…";
+  }
+  return "Describe a change, or type / for commands…";
+};
+
+/** Whether ⌘ or Ctrl is held: a send button's click with it does the other follow-up. */
+const useModifierHeld = () => {
+  const [held, setHeld] = useState(false);
+  useEffect(() => {
+    const update = (e: globalThis.KeyboardEvent) =>
+      setHeld(e.metaKey || e.ctrlKey);
+    const release = () => setHeld(false);
+    window.addEventListener("keydown", update);
+    window.addEventListener("keyup", update);
+    window.addEventListener("blur", release);
+    return () => {
+      window.removeEventListener("keydown", update);
+      window.removeEventListener("keyup", update);
+      window.removeEventListener("blur", release);
+    };
+  }, []);
+  return held;
+};
 
 /**
- * Send; while the agent works, Stop, and Queue beside it once there is something to queue. One
- * button at the composer's corner in each case, so the pickers keep their width. Send is never
- * drawn off: with nothing typed it puts the caret in the prompt, and while a prompt goes (its
- * screenshot taken, the request on its way) it spins.
+ * Send; while the agent works, Stop, and beside it Send now or Queue once there is something to
+ * send (ADR 0137): what the send key does, the other a ⌘-click or the other chord away, the label
+ * turning while ⌘ is held. Update while a queued prompt is being edited. One button at the
+ * composer's corner in each case, so the pickers keep their width. Send is never drawn off: with
+ * nothing typed it puts the caret in the prompt, and while a prompt goes (its screenshot taken,
+ * the request on its way) it spins.
  */
 const SendButtons = ({
   busy,
   canSend,
+  editing,
   onSend,
   onStop,
   running,
+  stopping,
 }: {
   busy: boolean;
   canSend: boolean;
-  onSend: () => void;
+  editing: boolean;
+  onSend: (alternate: boolean) => void;
   onStop: () => void;
   running: boolean;
+  /** The turn is being stopped: Queue is all there is. */
+  stopping: boolean;
 }) => {
-  const label = running ? "Queue" : "Send";
-  let icon = running ? <ListPlus /> : <ArrowUp />;
+  const followUp = useSendKey((s) => s.followUp);
+  const sendKey = useSendKey((s) => s.sendKey);
+  const held = useModifierHeld();
+  const following = running && !editing && !stopping;
+  const now = following && held ? otherFollowUp(followUp) : followUp;
+  let label = "Send";
+  let icon = <ArrowUp />;
+  if (editing) {
+    label = "Update queued prompt";
+    icon = <Check />;
+  } else if (following) {
+    label = now === "steer" ? "Send now" : "Queue";
+    icon = now === "steer" ? <ArrowUp /> : <ListPlus />;
+  } else if (running) {
+    label = "Queue";
+    icon = <ListPlus />;
+  }
   if (busy) {
     icon = <Spinner />;
   }
   return (
     <>
       {running ? <StopButton onStop={onStop} /> : null}
-      {running && !(canSend || busy) ? null : (
+      {running && !(canSend || busy || editing) ? null : (
         <Tooltip>
           <TooltipTrigger
             render={
               <Button
                 aria-busy={busy}
                 aria-label={label}
-                onClick={onSend}
+                onClick={(e) => onSend(following && (e.metaKey || e.ctrlKey))}
                 size="icon"
               />
             }
@@ -809,6 +867,12 @@ const SendButtons = ({
           </TooltipTrigger>
           <TooltipContent>
             {label} <SendKeyHint />
+            {following ? (
+              <span className="block text-muted-foreground">
+                {otherFollowUp(followUp) === "steer" ? "Send now" : "Queue"}{" "}
+                <Kbd>{chordLabel(alternateChord(sendKey))}</Kbd>
+              </span>
+            ) : null}
           </TooltipContent>
         </Tooltip>
       )}

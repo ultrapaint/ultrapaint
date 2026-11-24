@@ -25,9 +25,12 @@ export interface Turn {
   readonly prompt: UserItem | undefined;
 }
 
-/** A prompt of the person's own: a round's findings sent to the designer are the review's. */
+/**
+ * A prompt of the person's own that opens a turn: a round's findings sent to the designer are the
+ * review's, and a prompt sent into the turn under way is that turn's (ADR 0137).
+ */
 const isPrompt = (item: ThreadItem): item is UserItem =>
-  item.kind === "user" && item.review === undefined;
+  item.kind === "user" && item.review === undefined && item.steer !== true;
 
 export const splitTurns = (items: readonly ThreadItem[]): readonly Turn[] => {
   const turns: { items: ThreadItem[]; prompt: UserItem | undefined }[] = [];
@@ -114,6 +117,8 @@ export interface TurnParts {
   /** The run's plan (Outline, Build), when the agent kept one. */
   readonly plan: PlanItem | undefined;
   readonly rounds: readonly ReviewItem[];
+  /** The prompts the person sent into the turn while it ran, under its own (ADR 0137). */
+  readonly steers: readonly UserItem[];
   /** The steps folded in the card: tool calls, and the agent's words between them. */
   readonly steps: readonly (ToolItem | AgentItem)[];
   /** How the last turn of the agent's ended, when it did not finish on its own. */
@@ -145,6 +150,9 @@ export const turnParts = (turn: Turn, over: boolean): TurnParts => {
     ),
     plan: plans.at(-1),
     rounds: turn.items.filter((i): i is ReviewItem => i.kind === "review"),
+    steers: turn.items.filter(
+      (i): i is UserItem => i.kind === "user" && i.steer === true
+    ),
     steps: turn.items.filter(
       (i): i is ToolItem | AgentItem =>
         i.kind === "tool" || (i.kind === "agent" && i !== answer)

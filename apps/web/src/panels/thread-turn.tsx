@@ -322,6 +322,14 @@ export const TurnView = ({
       {turn.prompt ? (
         <Item item={turn.prompt} streaming={false} threadId={thread.id} />
       ) : null}
+      {parts.steers.map((item) => (
+        <Item
+          item={item}
+          key={item.id}
+          streaming={false}
+          threadId={thread.id}
+        />
+      ))}
       {hasCard ? (
         <section
           aria-label="What the agent did"

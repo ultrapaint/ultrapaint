@@ -9,6 +9,7 @@ import type {
   ContentBlock,
   InitializeResponse,
 } from "@agentclientprotocol/sdk";
+import { Schema } from "effect";
 
 /** One way the agent signs in, as it says: `agent` through ACP's `authenticate`, `terminal` by
  * the user running the agent themselves. */
@@ -32,7 +33,17 @@ export interface Negotiated {
   readonly reopen: "resume" | "load" | null;
   /** The ways it signs in, which the editor tells the user and never picks for them. */
   readonly signIn: readonly SignInMethod[];
+  /**
+   * Whether a prompt can be put into the turn it works on (ACP's steering extension, said in
+   * the answer's own `_meta`): else Send now stops the turn and sends the prompt as the next.
+   */
+  readonly steering: boolean;
 }
+
+/** How an agent says it steers: `_meta.steering.supported`, beside its capabilities. */
+const SteeringMeta = Schema.Struct({
+  steering: Schema.Struct({ supported: Schema.Literal(true) }),
+});
 
 const signInOf = (method: AuthMethod): SignInMethod => ({
   id: method.id,
@@ -59,6 +70,7 @@ export const negotiated = (init: InitializeResponse): Negotiated => {
     },
     reopen,
     signIn: (init.authMethods ?? []).map(signInOf),
+    steering: Schema.is(SteeringMeta)(init._meta),
   };
 };
 

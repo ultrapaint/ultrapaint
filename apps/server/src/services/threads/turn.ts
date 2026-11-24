@@ -30,13 +30,15 @@ type TurnState =
   | { readonly _tag: "Opening"; readonly fiber: Fiber.Fiber<void> }
   /**
    * At the agent: the folder's files before it, where its streamed chunks go, who else changed
-   * files meanwhile, and the tool calls that edit files (by id: an update may not repeat its kind).
+   * files meanwhile, the tool calls that edit files (by id: an update may not repeat its kind),
+   * and the tool calls still running, the step a prompt put into the turn waits for (ADR 0137).
    */
   | {
       readonly _tag: "AtAgent";
       readonly before: TreeStamp;
       readonly cursor: TurnCursor;
       readonly editing: Set<string>;
+      readonly running: Set<string>;
       readonly witness: TurnWitness;
     };
 
@@ -68,6 +70,25 @@ const filesEdited = (
     c.type === "diff" ? [c.path] : []
   );
   return [...named, ...diffs].map(relative);
+};
+
+/** Keeps `running` to the tool calls an update says are under way, and says whether it moved. */
+const trackRunning = (update: SessionUpdate, running: Set<string>) => {
+  if (
+    update.sessionUpdate !== "tool_call" &&
+    update.sessionUpdate !== "tool_call_update"
+  ) {
+    return false;
+  }
+  // A call reported without a status is pending, as ACP has it; an update without one keeps it.
+  const status =
+    update.status ??
+    (update.sessionUpdate === "tool_call" ? "pending" : undefined);
+  if (status === "pending" || status === "in_progress") {
+    running.add(update.toolCallId);
+    return true;
+  }
+  return status !== undefined && running.delete(update.toolCallId);
 };
 
 /** What the turn moves the thread's status with. */
@@ -122,6 +143,11 @@ export interface Turn {
   ) => Effect.Effect<void>;
   /** Where the turn is now. */
   readonly state: Effect.Effect<TurnState>;
+  /**
+   * Waits for the agent to be between steps (ADR 0137): true once the turn is at the agent with
+   * no tool call running, false once there is no turn. A turn on its way is waited for.
+   */
+  readonly stepEnded: Effect.Effect<boolean>;
   /** Stops a turn on its way to the agent; whether there was one. */
   readonly stopOpening: Effect.Effect<boolean>;
 }
@@ -140,6 +166,23 @@ export const makeTurn = (
 ): Turn => {
   const { ended, log, newItemId, project, store, transition } = deps;
   let state: TurnState = { _tag: "None" };
+  /** Done whenever the turn's state or its running tool calls change, then made anew. */
+  let moved = Deferred.makeUnsafe<void>();
+  const poke = () => {
+    const was = moved;
+    moved = Deferred.makeUnsafe<void>();
+    Deferred.doneUnsafe(was, Effect.void);
+  };
+  const stepEnded: Effect.Effect<boolean> = Effect.suspend(() => {
+    const now = state;
+    if (now._tag === "None") {
+      return Effect.succeed(false);
+    }
+    if (now._tag === "AtAgent" && now.running.size === 0) {
+      return Effect.succeed(true);
+    }
+    return Effect.andThen(Deferred.await(moved), stepEnded);
+  });
 
   /**
    * Over: a cancel that sees no turn leaves the status alone. Set before the status moves; a
@@ -149,6 +192,7 @@ export const makeTurn = (
     Effect.sync((): TurnState => {
       const was = state;
       state = { _tag: "None" };
+      poke();
       return was;
     }),
     (was): Effect.Effect<TurnState> =>
@@ -163,6 +207,7 @@ export const makeTurn = (
         return null;
       }
       state = { _tag: "None" };
+      poke();
       return was;
     }),
     (was) => (was === null ? Effect.succeed(null) : Effect.as(ended, was))
@@ -264,6 +309,9 @@ export const makeTurn = (
     for (const file of at ? filesEdited(update, at.editing, relative) : []) {
       at?.witness.claim(file);
     }
+    if (at && trackRunning(update, at.running)) {
+      poke();
+    }
     const projected = projectUpdate(update, {
       hasItem: (itemId) => store.hasItem(threadId, itemId),
       newId: () => ids.pop() ?? `item_${ids.length}`,
@@ -296,6 +344,7 @@ export const makeTurn = (
             Effect.sync(() => {
               if (state._tag === "Opening" && state.fiber === self) {
                 state = { _tag: "None" };
+                poke();
               }
             })
           )
@@ -304,6 +353,7 @@ export const makeTurn = (
       scope
     );
     state = { _tag: "Opening", fiber };
+    poke();
     yield* Deferred.succeed(known, undefined);
   });
 
@@ -315,8 +365,10 @@ export const makeTurn = (
           before,
           cursor: emptyCursor(),
           editing: new Set(),
+          running: new Set(),
           witness,
         };
+        poke();
       }),
     begin,
     broke,
@@ -351,6 +403,7 @@ export const makeTurn = (
     }),
     place,
     state: Effect.sync(() => state),
+    stepEnded,
     stopOpening: Effect.suspend(() =>
       state._tag === "Opening"
         ? Effect.as(Fiber.interrupt(state.fiber), true)

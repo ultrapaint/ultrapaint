@@ -265,14 +265,44 @@ export const PromptAttachment = Schema.Union([
 export type PromptAttachment = typeof PromptAttachment.Type;
 export type BoardAttachment = Extract<PromptAttachment, { kind: "board" }>;
 
-/** A prompt waiting for the agent's turn to end. */
+/** A prompt waiting for the agent's turn to end, in the order the person keeps (ADR 0137). */
 export const QueuedPrompt = Schema.Struct({
   at: Schema.Number,
   attachments: Schema.Array(PromptAttachment),
+  /** Being edited in the composer: nothing in the queue is sent until it is saved or let go. */
+  editing: Schema.optional(Schema.Boolean),
   id: Schema.String,
+  /**
+   * Sent now, into the turn under way: it goes once the agent's running step ends, and back to
+   * waiting its turn if the turn ends first.
+   */
+  steering: Schema.optional(Schema.Boolean),
   text: Schema.String,
 });
 export type QueuedPrompt = typeof QueuedPrompt.Type;
+
+/**
+ * What the person does to a queued prompt they edit in the composer (ADR 0137): `start` holds
+ * the queue, `save` gives it its new words and attachments, and `save` or `cancel` lets the
+ * queue go on.
+ */
+export const QueuedEdit = Schema.Union([
+  Schema.Struct({ action: Schema.Literal("start") }),
+  Schema.Struct({ action: Schema.Literal("cancel") }),
+  Schema.Struct({
+    action: Schema.Literal("save"),
+    attachments: Schema.Array(PromptAttachment),
+    text: Schema.String,
+  }),
+]);
+export type QueuedEdit = typeof QueuedEdit.Type;
+
+/**
+ * Where a prompt sent while the agent works goes: `queue` waits for the turn to end, `steer`
+ * goes into the turn (ADR 0137).
+ */
+export const FollowUp = Schema.Literals(["queue", "steer"]);
+export type FollowUp = typeof FollowUp.Type;
 
 /**
  * What a thread works on, from its first prompt: the node attached to it, or the page when no node
@@ -657,6 +687,8 @@ export const ThreadItem = Schema.Union([
      * the id of that round's item, which shows them, so the transcript doesn't.
      */
     review: Schema.optional(Schema.String),
+    /** The prompt went into the turn under way rather than starting one (ADR 0137). */
+    steer: Schema.optional(Schema.Boolean),
     text: Schema.String,
   }),
   Schema.Struct({
@@ -811,6 +843,8 @@ export type ThreadItem = typeof ThreadItem.Type;
 
 export const PromptInput = Schema.Struct({
   attachments: Schema.Array(PromptAttachment),
+  /** While the agent works: queued unless it says `steer`. */
+  followUp: Schema.optional(FollowUp),
   text: Schema.String,
   threadId: FileId,
 });

@@ -6,11 +6,12 @@ import type { QueuedPrompt, Thread } from "@ultrapaint/contracts/threads";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { imageChip } from "../lib/file-chips.ts";
 import { useAgents } from "../state/agents.ts";
-import { addChip, useAttachments } from "../state/attachments.ts";
+import { useAttachments } from "../state/attachments.ts";
 import { useDrafts } from "../state/drafts.ts";
 import { showLeftPanel } from "../state/panels.ts";
+import { useQueuedEdits } from "../state/queued-edit.ts";
+import { useSendKey } from "../state/send-key.ts";
 import { useSkills } from "../state/skills.ts";
 import { useSlashCommands } from "../state/slash-commands.ts";
 import { fakeApi } from "../testing/fake-api.ts";
@@ -64,18 +65,9 @@ const type = (text: string) => {
   });
 };
 
-/** Edit on the queued prompt: taken off the queue, and put back in the composer. */
-const edit = () =>
-  act(async () => {
-    container.querySelector<HTMLElement>("button[aria-label='Edit']")?.click();
-    await fakeApi.requested("threads.unqueue");
-    await Promise.resolve();
-  });
-
 beforeEach(() => {
   fakeApi.reset();
   fakeApi.respond("commands.list", () => []);
-  fakeApi.respond("threads.unqueue", () => queued);
   container = document.createElement("div");
   document.body.append(container);
   mounted = createRoot(container);
@@ -90,6 +82,9 @@ afterEach(() => {
   useSlashCommands.setState({ commands: [], loaded: false });
   useSkills.setState({ loaded: false, skills: [] });
   useAgents.setState({ current: null, view: "list" });
+  useSendKey.setState({ followUp: "steer", sendKey: "enter" });
+  useQueuedEdits.setState({ byThread: {} });
+  localStorage.clear();
 });
 
 /** The design skill the tool ships, on as the project's default. */
@@ -122,31 +117,135 @@ const press = (key: string) =>
 const sendButton = () =>
   container.querySelector<HTMLButtonElement>("button[aria-label='Send']");
 
-describe("Edit on a queued prompt", () => {
-  it("puts its text over what is typed in the composer, a blank line between", async () => {
+/** A key pressed in the prompt, with what is held. */
+const pressWith = (key: string, held: Partial<KeyboardEventInit> = {}) =>
+  act(() => {
+    prompt()?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key,
+        ...held,
+      })
+    );
+  });
+
+/** What the composer's last prompt said of where it goes while the agent works. */
+const lastFollowUp = () => {
+  const input = fakeApi.calls.findLast((c) => c.method === "threads.prompt")
+    ?.input as { followUp?: string } | undefined;
+  return input?.followUp;
+};
+
+describe("a prompt sent while the agent works (ADR 0137)", () => {
+  it("goes into the turn on Enter, and waits in the queue on ⌘Enter", async () => {
     type("and the footer shorter");
-    await edit();
-    expect(prompt()?.value).toBe(
-      "Make the header taller\n\nand the footer shorter"
-    );
+    await act(async () => {
+      pressWith("Enter");
+      await fakeApi.requested("threads.prompt");
+    });
+    expect(lastFollowUp()).toBe("steer");
+    type("then the header");
+    await act(async () => {
+      pressWith("Enter", { metaKey: true });
+      await fakeApi.requested("threads.prompt", 2);
+    });
+    expect(lastFollowUp()).toBe("queue");
   });
 
-  it("puts its text alone in a composer with nothing typed, or only spaces", async () => {
-    type("  \n");
-    await edit();
-    expect(prompt()?.value).toBe("Make the header taller");
+  it("queues on Enter, and goes into the turn on ⌘Enter, once Queue is chosen", async () => {
+    act(() => useSendKey.getState().setFollowUp("queue"));
+    type("and the footer shorter");
+    await act(async () => {
+      pressWith("Enter");
+      await fakeApi.requested("threads.prompt");
+    });
+    expect(lastFollowUp()).toBe("queue");
+    type("then the header");
+    await act(async () => {
+      pressWith("Enter", { ctrlKey: true });
+      await fakeApi.requested("threads.prompt", 2);
+    });
+    expect(lastFollowUp()).toBe("steer");
   });
 
-  it("keeps what the draft had attached beside what the queued prompt carried", async () => {
-    act(() =>
-      addChip(thread.id, imageChip("draft.png", "data:image/png;base64,BBBB"))
-    );
-    await edit();
+  it("is tried again the way it was sent", async () => {
+    let sends = 0;
+    fakeApi.respond("threads.prompt", () => {
+      sends += 1;
+      return sends === 1
+        ? Promise.reject(new RequestError("internal", "The agent is gone"))
+        : Promise.resolve(undefined as never);
+    });
+    type("then the header");
+    await act(async () => {
+      pressWith("Enter", { metaKey: true });
+      await fakeApi.requested("threads.prompt");
+    });
+    await act(async () => {
+      [...container.querySelectorAll("button")]
+        .find((b) => b.textContent === "Try again")
+        ?.click();
+      await fakeApi.requested("threads.prompt", 2);
+    });
+    expect(lastFollowUp()).toBe("queue");
+  });
+
+  it("says on its button what Enter does", () => {
+    type("and the footer shorter");
     expect(
-      (useAttachments.getState().byThread[thread.id] ?? []).map((c) =>
-        c.kind === "image" ? c.name : c.kind
-      )
-    ).toEqual(["draft.png", "ref.png"]);
+      container.querySelector("button[aria-label='Send now']")
+    ).not.toBeNull();
+    act(() => useSendKey.getState().setFollowUp("queue"));
+    expect(
+      container.querySelector("button[aria-label='Queue']")
+    ).not.toBeNull();
+  });
+
+  it("waits in the queue while the agent is being stopped, and says so", async () => {
+    show({ ...thread, status: "cancelling" });
+    type("and the footer shorter");
+    expect(
+      container.querySelector("button[aria-label='Queue']")
+    ).not.toBeNull();
+    await act(async () => {
+      pressWith("Enter");
+      await fakeApi.requested("threads.prompt");
+    });
+    expect(lastFollowUp()).toBe("queue");
+  });
+
+  it("goes as any prompt once the agent is done", async () => {
+    show(idle);
+    type("Make the header taller");
+    await act(async () => {
+      pressWith("Enter");
+      await fakeApi.requested("threads.prompt");
+    });
+    expect(lastFollowUp()).toBeUndefined();
+  });
+});
+
+describe("the queue's keys in an empty composer", () => {
+  it("edits the last queued prompt on ⌥↑", async () => {
+    fakeApi.respond("threads.editQueued", () => queued);
+    await act(async () => {
+      pressWith("ArrowUp", { altKey: true });
+      await fakeApi.requested("threads.editQueued");
+    });
+    expect(fakeApi.calls.at(-1)?.input).toEqual({
+      edit: { action: "start" },
+      id: "q1",
+      threadId: "t1",
+    });
+  });
+
+  it("sends the first queued prompt now on ⌘⇧Enter", async () => {
+    await act(async () => {
+      pressWith("Enter", { metaKey: true, shiftKey: true });
+      await fakeApi.requested("threads.sendQueued");
+    });
+    expect(fakeApi.calls.map((c) => c.method)).not.toContain("threads.prompt");
   });
 });
 

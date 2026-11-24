@@ -50,6 +50,7 @@ import { ChatStarters } from "./chat-starters.tsx";
 import { SetupStepBar, SetupStepIntro } from "./design-system-setup.tsx";
 import { LEVEL_NAMES } from "./review-level.tsx";
 import { Composer } from "./thread-composer.tsx";
+import { QueuedPrompts } from "./thread-queue.tsx";
 import {
   inRunCard,
   type RunContext,
@@ -340,6 +341,8 @@ const ThreadView = ({
                   ) : (
                     <Turns items={items} thread={thread} />
                   )}
+                  {/* What waits to be sent, last: the chat's next words (ADR 0137). */}
+                  <QueuedPrompts thread={thread} />
                   {failed ? (
                     <Alert variant="destructive">
                       <CircleAlert />

@@ -27,6 +27,7 @@ import {
   type RequestPermissionResponse,
   type SessionState,
   type SessionUpdate,
+  STEERING_METHOD,
   type StopReason,
   settling,
   withMeta,
@@ -66,6 +67,11 @@ export interface AgentScript {
   readonly requiresAuth?: boolean;
   /** Whether the agent can resume a stored session without replaying it (`session/resume`). */
   readonly resume?: boolean;
+  /**
+   * Whether it says it takes a prompt into the turn it works on (`_session/steering`); one
+   * that does not refuses the request as an unknown method.
+   */
+  readonly steering?: boolean;
 }
 
 /** A call the host made, by its ACP method, with what it sent. */
@@ -97,6 +103,8 @@ interface ScriptedTurn {
   /** A chunk of the agent's reply. */
   readonly say: (text: string) => Effect.Effect<void>;
   readonly sessionId: string;
+  /** The next prompt the host put into this turn (`_session/steering`), waiting for one. */
+  readonly steered: Effect.Effect<readonly ContentBlock[]>;
   /** The prompt's text blocks, in order. */
   readonly texts: readonly string[];
   /** A chunk of the agent's thinking. */
@@ -165,6 +173,8 @@ export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
   const calls: ScriptedCall[] = [];
   const sessionOptions = new Map<string, ConfigOptions>();
   const cancels = new Map<string, Deferred.Deferred<void>>();
+  /** The prompts put into each session's turn under way, while one is. */
+  const steers = new Map<string, Queue.Queue<readonly ContentBlock[]>>();
   let authenticated = script.requiresAuth !== true;
   let sessions = 0;
 
@@ -224,7 +234,8 @@ export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
     sessionId: string,
     prompt: readonly ContentBlock[],
     answer: Deferred.Deferred<PromptResponse, AcpError>,
-    cancelled: Deferred.Deferred<void>
+    cancelled: Deferred.Deferred<void>,
+    steered: Queue.Queue<readonly ContentBlock[]>
   ): ScriptedTurn => ({
     answer: (response) => Effect.asVoid(Deferred.succeed(answer, response)),
     cancelled: Deferred.await(cancelled),
@@ -247,6 +258,7 @@ export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
       handlers.onPermission({ ...request, sessionId }, writtenAtOnce),
     say: (text) => chunk(sessionId, text, "agent_message_chunk"),
     sessionId,
+    steered: Queue.take(steered),
     texts: prompt.flatMap((block) =>
       block.type === "text" ? [block.text] : []
     ),
@@ -255,6 +267,9 @@ export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
   });
 
   const initialized: InitializeResponse = {
+    ...(script.steering === true && {
+      _meta: { steering: { supported: true } },
+    }),
     agentCapabilities: {
       loadSession: script.loadSession === true,
       // What a well-behaved agent takes: pictures, files embedded, an MCP server over http.
@@ -338,16 +353,21 @@ export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
         Effect.gen(function* () {
           const answer = yield* Deferred.make<PromptResponse, AcpError>();
           const cancelled = yield* Deferred.make<void>();
+          const steered = yield* Queue.unbounded<readonly ContentBlock[]>();
           cancels.set(sessionId, cancelled);
+          steers.set(sessionId, steered);
           yield* Queue.offer(
             turns,
-            turnOf(sessionId, [...blocks], answer, cancelled)
+            turnOf(sessionId, [...blocks], answer, cancelled, steered)
           );
           return yield* Deferred.await(answer).pipe(
             Effect.ensuring(
               Effect.sync(() => {
                 if (cancels.get(sessionId) === cancelled) {
                   cancels.delete(sessionId);
+                }
+                if (steers.get(sessionId) === steered) {
+                  steers.delete(sessionId);
                 }
               })
             )
@@ -405,6 +425,26 @@ export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
       ),
     setMode: (sessionId, modeId) =>
       call("session/set_mode", { modeId, sessionId }, Effect.void),
+    steer: (sessionId, blocks) =>
+      call(
+        STEERING_METHOD,
+        { prompt: blocks, sessionId },
+        Effect.suspend(() => {
+          if (script.steering !== true) {
+            return Effect.fail(
+              new AcpRequestError({
+                code: -32_601,
+                message: "Method not found",
+                method: STEERING_METHOD,
+              })
+            );
+          }
+          const turn = steers.get(sessionId);
+          return turn
+            ? Effect.as(Queue.offer(turn, [...blocks]), "injected" as const)
+            : Effect.succeed("noTurn" as const);
+        })
+      ),
   };
 
   return {

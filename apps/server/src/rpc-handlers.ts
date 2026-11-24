@@ -307,12 +307,16 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "threads.decline": ({ commandId, itemId, threadId }) =>
         thread(threadId, (s) => s.cards.decline(itemId), commandId),
       "threads.delete": ({ threadId }) => threads.delete(threadId),
+      "threads.editQueued": ({ commandId, edit: change, id, threadId }) =>
+        thread(threadId, (s) => s.editQueued(id, change), commandId),
       "threads.follow": ({ afterSequence, run, threadId }) =>
         store.follow(threadId, afterSequence, run),
       "threads.forceStop": ({ threadId }) =>
         thread(threadId, (s) => s.forceStop),
       "threads.items": ({ threadId }) => store.items(threadId),
       "threads.list": () => store.list,
+      "threads.moveQueued": ({ before, commandId, id, threadId }) =>
+        thread(threadId, (s) => s.moveQueued(id, before), commandId),
       "threads.permission": ({ commandId, optionId, requestId, threadId }) =>
         thread(threadId, (s) => s.cards.choose(requestId, optionId), commandId),
       // A prompt is a change of the person's: an unsaved session saves first (ADR 0092).
@@ -322,8 +326,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
           (s) => Effect.andThen(project.changed, s.prompt(input)),
           commandId
         ),
-      "threads.sendQueued": ({ commandId, threadId }) =>
-        thread(threadId, (s) => s.sendQueued, commandId),
+      "threads.sendQueued": ({ commandId, id, threadId }) =>
+        thread(threadId, (s) => s.sendNow(id), commandId),
       "threads.setAgent": ({ threadId, agentId }) =>
         thread(threadId, (s) => s.switchAgent(agentId)),
       "threads.setConfigOption": ({ threadId, optionId, value }) =>
