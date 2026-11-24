@@ -6,7 +6,8 @@ import {
   RequestError,
 } from "@ultrapaint/client-runtime/connection";
 import type { Settings } from "@ultrapaint/contracts/settings";
-import { Context, Effect, Exit, FileSystem, Layer, Scope } from "effect";
+import type { ThreadStreamItem } from "@ultrapaint/contracts/threads";
+import { Context, Effect, Exit, FileSystem, Layer, Path, Scope } from "effect";
 import { ServerConfig } from "./config.ts";
 import { ListenPort } from "./listen-port.ts";
 import { ServerLive } from "./server.ts";
@@ -135,6 +136,86 @@ describe("Connection", () => {
           connection.request("project.info", undefined)
         );
         assert.isFalse(info.configured);
+      }).pipe(Effect.provide(NodeServices.layer)),
+    30_000
+  );
+
+  // real clock: a thread followed across a server that stops and starts again (ADR 0130).
+  it.live(
+    "follows a thread again from a snapshot once the server is back, its numbers another run's",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const home = yield* fs.makeTempDirectoryScoped();
+        const repo = yield* makeRepository;
+        yield* fs.makeDirectory(path.join(home, "agents"));
+        // Never run: the thread is only created.
+        yield* fs.writeFileString(
+          path.join(home, "agents", "scripted.json"),
+          JSON.stringify({
+            args: [],
+            command: "scripted",
+            id: "scripted",
+            name: "Scripted",
+          })
+        );
+        const { port, scope: first } = yield* startServer(home, 0);
+        // Closed here too, should the test fail before it stops it itself.
+        yield* Effect.addFinalizer(() => Scope.close(first, Exit.void));
+        const { connection } = open(port);
+        yield* Effect.addFinalizer(() => Effect.sync(() => connection.close()));
+        yield* until(() => connection.state === "open");
+        yield* Effect.promise(() =>
+          connection.request("settings.set", {
+            designsDir: "designs",
+            hostCss: [],
+            libraryDirs: [],
+            repoPath: repo,
+          })
+        );
+        const created = yield* Effect.promise(() =>
+          connection.request("threads.create", { agentId: "scripted" })
+        );
+        const told: ThreadStreamItem[] = [];
+        let applied: number | undefined;
+        let run: string | undefined;
+        connection.follow(
+          "threads.follow",
+          () =>
+            applied === undefined || run === undefined
+              ? { threadId: created.id }
+              : { afterSequence: applied, run, threadId: created.id },
+          {
+            onError: (error) => assert.fail(error.message),
+            onItem: (item) => {
+              told.push(item);
+              applied = item.sequence;
+              if (item.kind !== "event") {
+                ({ run } = item);
+              }
+            },
+          }
+        );
+        yield* until(() => told.some((t) => t.kind === "synchronized"));
+        assert.deepStrictEqual(
+          told.map((t) => t.kind),
+          ["snapshot", "synchronized"]
+        );
+
+        yield* Scope.close(first, Exit.void);
+        yield* until(() => connection.state !== "open");
+        const before = applied;
+        told.length = 0;
+        const { scope: second } = yield* startServer(home, port);
+        yield* Effect.addFinalizer(() => Scope.close(second, Exit.void));
+        yield* until(() => told.some((t) => t.kind === "synchronized"));
+        // Another run of the server's, which may have lost changes whose numbers it gives
+        // again: a snapshot, though the numbers line up.
+        assert.deepStrictEqual(
+          told.map((t) => `${t.kind}@${t.sequence}`),
+          [`snapshot@${before}`, `synchronized@${before}`]
+        );
       }).pipe(Effect.provide(NodeServices.layer)),
     30_000
   );

@@ -63,11 +63,15 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const discovery = yield* AgentDiscovery;
     const sandbox = yield* AgentSandbox;
     const threads = yield* ThreadSessions;
-    /** What a thread's session does. */
+    /**
+     * What a thread's session does: once for a command id the editor made for it, a request
+     * sent again answered as the first one was (ADR 0130).
+     */
     const thread = <A, E>(
       threadId: string,
-      act: (session: ThreadSession) => Effect.Effect<A, E>
-    ) => Effect.flatMap(threads.of(threadId), act);
+      act: (session: ThreadSession) => Effect.Effect<A, E>,
+      commandId?: string
+    ) => threads.command(commandId, Effect.flatMap(threads.of(threadId), act));
     const access = yield* McpAccess;
     const selection = yield* EditorSelection;
     const commands = yield* SlashCommands;
@@ -294,27 +298,32 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         sync.match(source, entries, "user"),
       "sync.plan": () => sync.plan,
       "sync.tokens": ({ source }) => sync.tokens(source),
-      "threads.answer": ({ threadId, itemId, answers }) =>
-        thread(threadId, (s) => s.answer(itemId, answers)),
-      "threads.cancel": ({ threadId }) => thread(threadId, (s) => s.cancel),
+      "threads.answer": ({ answers, commandId, itemId, threadId }) =>
+        thread(threadId, (s) => s.answer(itemId, answers), commandId),
+      "threads.cancel": ({ commandId, threadId }) =>
+        thread(threadId, (s) => s.cancel, commandId),
       "threads.create": ({ agentId, purpose, title }) =>
         threads.create({ agentId, purpose, title }),
-      "threads.decline": ({ threadId, itemId }) =>
-        thread(threadId, (s) => s.cards.decline(itemId)),
+      "threads.decline": ({ commandId, itemId, threadId }) =>
+        thread(threadId, (s) => s.cards.decline(itemId), commandId),
       "threads.delete": ({ threadId }) => threads.delete(threadId),
+      "threads.follow": ({ afterSequence, run, threadId }) =>
+        store.follow(threadId, afterSequence, run),
       "threads.forceStop": ({ threadId }) =>
         thread(threadId, (s) => s.forceStop),
       "threads.items": ({ threadId }) => store.items(threadId),
       "threads.list": () => store.list,
-      "threads.permission": ({ threadId, requestId, optionId }) =>
-        thread(threadId, (s) => s.cards.choose(requestId, optionId)),
+      "threads.permission": ({ commandId, optionId, requestId, threadId }) =>
+        thread(threadId, (s) => s.cards.choose(requestId, optionId), commandId),
       // A prompt is a change of the person's: an unsaved session saves first (ADR 0092).
-      "threads.prompt": (input) =>
-        thread(input.threadId, (s) =>
-          Effect.andThen(project.changed, s.prompt(input))
+      "threads.prompt": ({ commandId, ...input }) =>
+        thread(
+          input.threadId,
+          (s) => Effect.andThen(project.changed, s.prompt(input)),
+          commandId
         ),
-      "threads.sendQueued": ({ threadId }) =>
-        thread(threadId, (s) => s.sendQueued),
+      "threads.sendQueued": ({ commandId, threadId }) =>
+        thread(threadId, (s) => s.sendQueued, commandId),
       "threads.setAgent": ({ threadId, agentId }) =>
         thread(threadId, (s) => s.switchAgent(agentId)),
       "threads.setConfigOption": ({ threadId, optionId, value }) =>
@@ -338,8 +347,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         }
         yield* store.update(threadId, { skills: chosen ?? undefined });
       }),
-      "threads.unqueue": ({ id, threadId }) =>
-        thread(threadId, (s) => s.unqueue(id)),
+      "threads.unqueue": ({ commandId, id, threadId }) =>
+        thread(threadId, (s) => s.unqueue(id), commandId),
       "thumbnails.get": ({ key }) => thumbnails((t) => t.get(key)),
       "thumbnails.put": ({ dataUrl, key, name }) =>
         thumbnails((t) => t.put(key, name, dataUrl)),

@@ -876,7 +876,11 @@ export const AgentTerminalOutput = Schema.Struct({
 });
 export type AgentTerminalOutput = typeof AgentTerminalOutput.Type;
 
-export const AgentEvent = Schema.Union([
+/**
+ * A change to one thread: itself, an item added or updated, or a streamed chunk. Numbered by the
+ * thread's sequence on its own stream (`ThreadStreamItem`, ADR 0130).
+ */
+export const ThreadEvent = Schema.Union([
   Schema.Struct({ thread: Thread, type: Schema.Literal("thread") }),
   Schema.Struct({
     item: ThreadItem,
@@ -891,8 +895,8 @@ export const AgentEvent = Schema.Union([
   /**
    * A streamed chunk, sent without the rest of its item: `text` goes at `offset` of the item's
    * own, which is where that text ended when the chunk was added to it (a string's length). The
-   * offset orders a chunk with a read of the transcript, which may hold it already or have been
-   * answered before it (`withChunk`).
+   * offset orders a chunk with what the editor holds of its message, which may hold it already
+   * (`withChunk`).
    */
   Schema.Struct({
     itemId: Schema.String,
@@ -901,9 +905,44 @@ export const AgentEvent = Schema.Union([
     threadId: Schema.String,
     type: Schema.Literal("itemText"),
   }),
+]);
+export type ThreadEvent = typeof ThreadEvent.Type;
+
+/** Every thread's news, as the `agent` event tells it: a thread's change, or a thread gone. */
+export const AgentEvent = Schema.Union([
+  ...ThreadEvent.members,
   Schema.Struct({ threadId: Schema.String, type: Schema.Literal("removed") }),
 ]);
 export type AgentEvent = typeof AgentEvent.Type;
+
+/**
+ * What a thread's stream (`threads.follow`) sends, each change numbered by the thread's
+ * `sequence` (ADR 0130): a `snapshot` of the thread and its items at a sequence, or the
+ * `event`s after the sequence it was asked to follow from; then `synchronized` once it has told
+ * everything up to now, and every later change as an `event` as it happens. `run` names the
+ * server's run the numbers are of: a server killed outright may reuse the numbers of changes it
+ * lost, so an editor resuming from another run is sent a snapshot.
+ */
+export const ThreadStreamItem = Schema.Union([
+  Schema.Struct({
+    items: Schema.Array(ThreadItem),
+    kind: Schema.Literal("snapshot"),
+    run: Schema.String,
+    sequence: Schema.Int,
+    thread: Thread,
+  }),
+  Schema.Struct({
+    event: ThreadEvent,
+    kind: Schema.Literal("event"),
+    sequence: Schema.Int,
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("synchronized"),
+    run: Schema.String,
+    sequence: Schema.Int,
+  }),
+]);
+export type ThreadStreamItem = typeof ThreadStreamItem.Type;
 
 /**
  * A message's text with a streamed chunk taken: what the chunk says past the end of the text

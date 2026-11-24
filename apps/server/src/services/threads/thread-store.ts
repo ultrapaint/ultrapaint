@@ -1,11 +1,14 @@
+import { NotFound } from "@ultrapaint/contracts/errors";
 import {
   answeredInTurn,
   isBusy,
   isStopping,
   summarise,
   Thread,
+  type ThreadEvent,
   ThreadItem,
   type ThreadStatus,
+  type ThreadStreamItem,
 } from "@ultrapaint/contracts/threads";
 import {
   Clock,
@@ -14,17 +17,22 @@ import {
   FileSystem,
   Layer,
   Path,
+  PubSub,
+  Result,
   Schema,
+  Stream,
 } from "effect";
 import { AppLog } from "../../app-log.ts";
 import { makeWriteAtomic } from "../../atomic-write.ts";
 import { EventBus } from "../../events.ts";
-import { safeFileId } from "../../ids.ts";
+import { makeId, safeFileId } from "../../ids.ts";
 import { makeKeyedLock } from "../../keyed-lock.ts";
 import { Storage } from "../storage.ts";
 
 const Stored = Schema.Struct({
   items: Schema.Array(ThreadItem),
+  /** The number of the thread's last change (ADR 0130); a file written before has none, 0. */
+  sequence: Schema.optionalKey(Schema.Int),
   thread: Thread,
 });
 const StoredJson = Schema.fromJsonString(Stored);
@@ -90,10 +98,72 @@ export const threadFileName = (id: string) => `${id}.json`;
 /** How long a changed thread may wait before it is written. */
 const FLUSH_DELAY = "250 millis";
 
+/**
+ * How many of a thread's last changes are kept to be told again, and how much of them at most
+ * (the reference product's bounds, ADR 0130): the oldest go first past either, and an editor
+ * further behind gets a snapshot.
+ */
+export const REPLAY_MAX_EVENTS = 128;
+export const REPLAY_MAX_BYTES = 1_048_576;
+
+/** A thread's change and its number, or the thread gone, as the store tells its followers. */
+type Told =
+  | {
+      readonly event: ThreadEvent;
+      readonly sequence: number;
+      readonly threadId: string;
+    }
+  | { readonly event?: undefined; readonly threadId: string };
+
 interface Entry {
   items: ThreadItem[];
+  /**
+   * Its last changes since the server started, oldest first: `REPLAY_MAX_EVENTS` at most, and
+   * `REPLAY_MAX_BYTES` of JSON at most (`recentBytes`).
+   */
+  recent: {
+    readonly bytes: number;
+    readonly event: ThreadEvent;
+    readonly sequence: number;
+  }[];
+  recentBytes: number;
+  /** The number of its last change. */
+  sequence: number;
   thread: Thread;
 }
+
+/**
+ * What an editor that applied a thread's changes up to `after` is told to be up to date: the
+ * changes after it while the store holds them all and they are not too many, else (or with no
+ * `after`, or one past the thread's last) a snapshot.
+ */
+const resume = (
+  entry: Entry,
+  after: number | undefined,
+  run: string
+): ThreadStreamItem[] => {
+  const snapshot: ThreadStreamItem[] = [
+    {
+      items: [...entry.items],
+      kind: "snapshot",
+      run,
+      sequence: entry.sequence,
+      thread: entry.thread,
+    },
+  ];
+  if (after === undefined || after > entry.sequence) {
+    return snapshot;
+  }
+  const missed = entry.recent.filter((r) => r.sequence > after);
+  if (missed.length < entry.sequence - after) {
+    return snapshot;
+  }
+  return missed.map(({ event, sequence }) => ({
+    event,
+    kind: "event",
+    sequence,
+  }));
+};
 
 /** The turns ended since the server started, by how each ended (ADR 0107). */
 export interface TurnsEnded {
@@ -124,12 +194,25 @@ export const turnEnd = (
 
 /**
  * Threads and their transcripts: in memory, persisted as one JSON file per thread, and every
- * change published as an `agent` event. Knows nothing about agents or sessions.
+ * change numbered by the thread's sequence, told to the thread's followers (`follow`) and
+ * published as an `agent` event. Knows nothing about agents or sessions.
  */
 export class ThreadStore extends Context.Service<
   ThreadStore,
   {
     readonly add: (thread: Thread) => Effect.Effect<void>;
+    /**
+     * The thread as it changes (ADR 0130): what an editor that applied its changes up to
+     * `afterSequence` is missing (`resume`), then `synchronized`, then each change as it is made.
+     * Numbers of another `run` of the server's than this one, or of no run named, are not
+     * trusted: a snapshot. Ends
+     * when the thread is removed; fails for a thread there is not.
+     */
+    readonly follow: (
+      id: string,
+      afterSequence?: number,
+      run?: string
+    ) => Stream.Stream<ThreadStreamItem, NotFound>;
     readonly get: (id: string) => Effect.Effect<Thread | undefined>;
     readonly hasItem: (id: string, itemId: string) => boolean;
     readonly items: (id: string) => Effect.Effect<readonly ThreadItem[]>;
@@ -168,6 +251,9 @@ export class ThreadStore extends Context.Service<
     Effect.gen(function* () {
       const storage = yield* Storage;
       const events = yield* EventBus;
+      // This run of the server's: the numbers of changes a server killed outright lost (its
+      // files lag by up to FLUSH_DELAY) may be given again, so another run's are not trusted.
+      const run = yield* makeId("run");
       const log = yield* AppLog;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -205,6 +291,9 @@ export class ThreadStore extends Context.Service<
               }
               threads.set(stored.thread.id, {
                 items: settled ?? [...stored.items],
+                recent: [],
+                recentBytes: 0,
+                sequence: stored.sequence ?? 0,
                 thread: stored.thread,
               });
             })
@@ -227,7 +316,8 @@ export class ThreadStore extends Context.Service<
             if (!entry) {
               return Effect.void;
             }
-            return encodeStored(entry).pipe(
+            const { items, sequence, thread } = entry;
+            return encodeStored({ items, sequence, thread }).pipe(
               Effect.flatMap((json) =>
                 Effect.flatMap(fileOf(id), (file) => writeAtomic(file, json))
               ),
@@ -280,97 +370,166 @@ export class ThreadStore extends Context.Service<
       );
       yield* Effect.forEach(settledOnRead, persistSoon, { discard: true });
 
+      const feed = yield* Effect.acquireRelease(
+        PubSub.unbounded<Told>(),
+        PubSub.shutdown
+      );
+      /** Numbers a change and gives it to the thread's followers: synchronous, never split. */
+      const number = (id: string, entry: Entry, event: ThreadEvent) => {
+        entry.sequence += 1;
+        const { sequence } = entry;
+        const bytes = Buffer.byteLength(JSON.stringify(event));
+        entry.recent.push({ bytes, event, sequence });
+        entry.recentBytes += bytes;
+        while (
+          entry.recent.length > REPLAY_MAX_EVENTS ||
+          entry.recentBytes > REPLAY_MAX_BYTES
+        ) {
+          entry.recentBytes -= entry.recent.shift()?.bytes ?? 0;
+        }
+        PubSub.publishUnsafe(feed, { event, sequence, threadId: id });
+      };
+
+      /**
+       * A change to thread `id`: `make` reads the thread, changes it and says the change, and the
+       * change is numbered, in one synchronous step, so no other change falls between the two and
+       * changes are numbered in the order they were made (an editor drops one numbered below what
+       * it applied). Then the thread is marked to be written and the change told on the bus, the
+       * whole of it uninterruptible. Nothing when there is no such thread, or `make` says null.
+       */
+      const change = (
+        id: string,
+        make: (entry: Entry) => ThreadEvent | null
+      ): Effect.Effect<void> =>
+        Effect.flatMap(
+          Effect.sync(() => {
+            const entry = threads.get(id);
+            const event = entry ? make(entry) : null;
+            if (entry && event) {
+              number(id, entry, event);
+            }
+            return event;
+          }),
+          (event) =>
+            event === null
+              ? Effect.void
+              : Effect.andThen(persistSoon(id), events.publish("agent", event))
+          // Whole, once begun: a change made is always marked to be written, whoever stops
+          // waiting for it (a cancel's socket closing, say).
+        ).pipe(Effect.uninterruptible);
+
       const update = Effect.fnUntraced(function* (
         id: string,
         patch: Partial<Thread>
       ) {
-        const entry = threads.get(id);
-        if (!entry) {
-          return;
-        }
-        const ended =
-          patch.status === undefined
-            ? null
-            : turnEnd(entry.thread.status, patch.status);
-        if (ended) {
-          turnsEnded = { ...turnsEnded, [ended]: turnsEnded[ended] + 1 };
-        }
-        entry.thread = {
-          ...entry.thread,
-          ...patch,
-          updatedAt: yield* Clock.currentTimeMillis,
-        };
-        yield* persistSoon(id);
-        yield* events.publish("agent", {
-          thread: entry.thread,
-          type: "thread",
+        const now = yield* Clock.currentTimeMillis;
+        yield* change(id, (entry) => {
+          const ended =
+            patch.status === undefined
+              ? null
+              : turnEnd(entry.thread.status, patch.status);
+          if (ended) {
+            turnsEnded = { ...turnsEnded, [ended]: turnsEnded[ended] + 1 };
+          }
+          entry.thread = { ...entry.thread, ...patch, updatedAt: now };
+          return { thread: entry.thread, type: "thread" };
         });
       });
 
-      const push = Effect.fnUntraced(function* (id: string, item: ThreadItem) {
-        const entry = threads.get(id);
-        if (!entry) {
-          return;
-        }
-        entry.items.push(item);
-        yield* persistSoon(id);
-        yield* events.publish("agent", { item, threadId: id, type: "item" });
-      });
+      const push = (id: string, item: ThreadItem) =>
+        change(id, (entry) => {
+          entry.items.push(item);
+          return { item, threadId: id, type: "item" };
+        });
 
-      const patchItem = Effect.fnUntraced(function* (
+      const patchItem = (
         id: string,
         itemId: string,
         patch: (item: ThreadItem) => ThreadItem
-      ) {
-        const entry = threads.get(id);
-        const index = entry?.items.findIndex((i) => i.id === itemId) ?? -1;
-        const existing = entry?.items[index];
-        if (!(entry && existing)) {
-          return;
-        }
-        const item = patch(existing);
-        entry.items[index] = item;
-        yield* persistSoon(id);
-        yield* events.publish("agent", {
-          item,
-          threadId: id,
-          type: "itemUpdate",
+      ) =>
+        change(id, (entry) => {
+          const index = entry.items.findIndex((i) => i.id === itemId);
+          const existing = entry.items[index];
+          if (!existing) {
+            return null;
+          }
+          const item = patch(existing);
+          entry.items[index] = item;
+          return { item, threadId: id, type: "itemUpdate" };
         });
-      });
 
-      const appendText = Effect.fnUntraced(function* (
-        id: string,
-        itemId: string,
-        text: string
-      ) {
-        const entry = threads.get(id);
-        const index = entry?.items.findIndex((i) => i.id === itemId) ?? -1;
-        const existing = entry?.items[index];
-        if (
-          !(entry && existing) ||
-          (existing.kind !== "agent" && existing.kind !== "thought")
-        ) {
-          return;
-        }
-        entry.items[index] = { ...existing, text: existing.text + text };
-        yield* persistSoon(id);
-        yield* events.publish("agent", {
-          itemId,
-          // Where the text ended as this chunk was added, whatever was added since.
-          offset: existing.text.length,
-          text,
-          threadId: id,
-          type: "itemText",
+      const appendText = (id: string, itemId: string, text: string) =>
+        change(id, (entry) => {
+          const index = entry.items.findIndex((i) => i.id === itemId);
+          const existing = entry.items[index];
+          if (
+            !existing ||
+            (existing.kind !== "agent" && existing.kind !== "thought")
+          ) {
+            return null;
+          }
+          entry.items[index] = { ...existing, text: existing.text + text };
+          return {
+            itemId,
+            // Where the text ended as this chunk was added, whatever was added since.
+            offset: existing.text.length,
+            text,
+            threadId: id,
+            type: "itemText",
+          };
         });
-      });
 
       return ThreadStore.of({
         add: Effect.fnUntraced(function* (thread: Thread) {
-          threads.set(thread.id, { items: [], thread });
+          const entry: Entry = {
+            items: [],
+            recent: [],
+            recentBytes: 0,
+            sequence: 0,
+            thread,
+          };
+          const event: ThreadEvent = { thread, type: "thread" };
+          // Kept and numbered in one step, before it is written, so its file says the change
+          // that made it.
+          yield* Effect.sync(() => {
+            threads.set(thread.id, entry);
+            number(thread.id, entry, event);
+          });
+          yield* events.publish("agent", event);
           yield* persist(thread.id);
-          yield* events.publish("agent", { thread, type: "thread" });
         }),
         appendText,
+        follow: (id, afterSequence, from) =>
+          Stream.unwrap(
+            Effect.gen(function* () {
+              // Subscribed before the thread is read: a change made in between is in what is
+              // read, and told again only past its number.
+              const subscription = yield* PubSub.subscribe(feed);
+              const entry = threads.get(id);
+              if (!entry) {
+                return yield* new NotFound({ message: `unknown thread ${id}` });
+              }
+              const { sequence } = entry;
+              const upToNow: ThreadStreamItem[] = [
+                ...resume(entry, from === run ? afterSequence : undefined, run),
+                { kind: "synchronized", run, sequence },
+              ];
+              const later = Stream.fromSubscription(subscription).pipe(
+                Stream.filter((told) => told.threadId === id),
+                Stream.takeWhile((told) => told.event !== undefined),
+                Stream.filterMap((told) =>
+                  told.event !== undefined && told.sequence > sequence
+                    ? Result.succeed<ThreadStreamItem>({
+                        event: told.event,
+                        kind: "event",
+                        sequence: told.sequence,
+                      })
+                    : Result.failVoid
+                )
+              );
+              return Stream.concat(Stream.fromIterable(upToNow), later);
+            })
+          ),
         get: (id) => Effect.sync(() => threads.get(id)?.thread),
         hasItem: (id, itemId) =>
           threads.get(id)?.items.some((i) => i.id === itemId) ?? false,
@@ -399,6 +558,7 @@ export class ThreadStore extends Context.Service<
               )
             )
           );
+          PubSub.publishUnsafe(feed, { threadId: id });
           yield* events.publish("agent", { threadId: id, type: "removed" });
         }),
         turnsEnded: Effect.sync(() => turnsEnded),

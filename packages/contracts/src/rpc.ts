@@ -113,6 +113,7 @@ import {
   Thread,
   ThreadItem,
   ThreadPurpose,
+  ThreadStreamItem,
 } from "./threads.ts";
 import {
   DocumentVariations,
@@ -165,6 +166,12 @@ const SetupError = Schema.Union([
 const SetupStepRef = { step: SetupStepId };
 
 const ThreadRef = { threadId: FileId };
+/**
+ * The id the editor made for a request that changes a thread (ADR 0130): the server answers a
+ * request it has already handled with the result it gave the first time, so one sent again acts
+ * once.
+ */
+const Command = { commandId: Schema.optional(Schema.String) };
 
 /** Every request the editor can make. Tags are the method names the editor already uses. */
 /** A node selected in the editor: the reference the tools take (`/vibe#c_1`), and its name. */
@@ -701,17 +708,41 @@ const requestRpcs = [
     payload: ThreadRef,
     success: Schema.Array(ThreadItem),
   }),
+  /**
+   * A thread as it changes (ADR 0130): the events after `afterSequence` when the server still
+   * holds them all and they are of this `run` of the server's, else a snapshot; then
+   * `synchronized`, and each change as it happens. Ends when the thread is deleted.
+   */
+  Rpc.make("threads.follow", {
+    error: ThreadError,
+    payload: {
+      ...ThreadRef,
+      afterSequence: Schema.optional(Schema.Int),
+      run: Schema.optional(Schema.String),
+    },
+    stream: true,
+    success: ThreadStreamItem,
+  }),
   /** Sends a prompt; while the agent works, it waits in the thread's queue instead. */
-  Rpc.make("threads.prompt", { error: ThreadError, payload: PromptInput }),
+  Rpc.make("threads.prompt", {
+    error: ThreadError,
+    payload: { ...PromptInput.fields, ...Command },
+  }),
   /** Takes a queued prompt back out, to drop it or to edit it in the composer. */
   Rpc.make("threads.unqueue", {
     error: ThreadError,
-    payload: { id: Schema.String, threadId: FileId },
+    payload: { id: Schema.String, threadId: FileId, ...Command },
     success: Schema.NullOr(QueuedPrompt),
   }),
   /** Sends the oldest queued prompt now, after a turn that was stopped or failed. */
-  Rpc.make("threads.sendQueued", { error: ThreadError, payload: ThreadRef }),
-  Rpc.make("threads.cancel", { error: ThreadError, payload: ThreadRef }),
+  Rpc.make("threads.sendQueued", {
+    error: ThreadError,
+    payload: { ...ThreadRef, ...Command },
+  }),
+  Rpc.make("threads.cancel", {
+    error: ThreadError,
+    payload: { ...ThreadRef, ...Command },
+  }),
   /** Ends a turn whose agent did not confirm its stop, and the agent's process (ADR 0124). */
   Rpc.make("threads.forceStop", { error: ThreadError, payload: ThreadRef }),
   Rpc.make("threads.delete", { payload: ThreadRef }),
@@ -723,6 +754,7 @@ const requestRpcs = [
     error: ThreadError,
     payload: {
       ...ThreadRef,
+      ...Command,
       answers: Answers,
       itemId: Schema.String,
     },
@@ -730,13 +762,14 @@ const requestRpcs = [
   /** The user will not answer a card the agent waits on; the agent hears that they declined. */
   Rpc.make("threads.decline", {
     error: ThreadError,
-    payload: { ...ThreadRef, itemId: Schema.String },
+    payload: { ...ThreadRef, ...Command, itemId: Schema.String },
   }),
   /** The user's pick on a permission card; an "always" the agent offers is the agent's to keep. */
   Rpc.make("threads.permission", {
     error: ThreadError,
     payload: {
       ...ThreadRef,
+      ...Command,
       optionId: Schema.String,
       requestId: Schema.String,
     },
@@ -1008,7 +1041,33 @@ export class UltrapaintRpcs extends RpcGroup.make(
 
 type UltrapaintRpc = RpcGroup.Rpcs<typeof UltrapaintRpcs>;
 
-export type RequestName = Exclude<UltrapaintRpc["_tag"], `events.${string}`>;
+/** The streaming RPCs that take a payload: followed for as long as the editor asks. */
+export type StreamName = "threads.follow";
+export type StreamInput<M extends StreamName> = Rpc.Payload<
+  Rpc.ExtractTag<UltrapaintRpc, M>
+>;
+export type StreamItem<M extends StreamName> = M extends "threads.follow"
+  ? ThreadStreamItem
+  : never;
+
+/**
+ * The requests that change a thread and take a `commandId` (ADR 0130): the editor makes one
+ * for each, and sends a request the connection dropped under it again with the same.
+ */
+export const commandRequests = [
+  "threads.answer",
+  "threads.cancel",
+  "threads.decline",
+  "threads.permission",
+  "threads.prompt",
+  "threads.sendQueued",
+  "threads.unqueue",
+] as const;
+
+export type RequestName = Exclude<
+  UltrapaintRpc["_tag"],
+  `events.${string}` | StreamName
+>;
 // Distributive on purpose: callers pass unions such as `"edit.undo" | "edit.redo"`.
 export type RequestInput<M extends RequestName> = M extends RequestName
   ? Rpc.Payload<Rpc.ExtractTag<UltrapaintRpc, M>>

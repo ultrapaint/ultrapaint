@@ -23,6 +23,7 @@ import { AgentDiscovery } from "./services/threads/agent-discovery.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
 import {
   statusAfter,
+  type ThreadSession,
   ThreadSessions,
 } from "./services/threads/thread-session.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
@@ -1387,6 +1388,54 @@ describe("the queue", () => {
       yield* Effect.andThen(agent.nextTurn, (t) => t.end());
       const { thread } = yield* threadWhen(threadId, turnsEnded(2));
       assert.deepStrictEqual(thread.queued ?? [], []);
+    }));
+});
+
+describe("a request sent again (ADR 0130)", () => {
+  /** What a thread's session does for a request, by the command id the editor made for it. */
+  const command = <A, E>(
+    commandId: string | undefined,
+    threadId: string,
+    act: (session: ThreadSession) => Effect.Effect<A, E>
+  ) =>
+    Effect.flatMap(ThreadSessions, (threads) =>
+      threads.command(commandId, Effect.flatMap(threads.of(threadId), act))
+    );
+
+  test("acts once for its command id, and is answered what the first one was", () =>
+    Effect.gen(function* () {
+      const store = yield* ThreadStore;
+      const { threadId, turn } = yield* started("first");
+      const prompt = (s: ThreadSession) =>
+        s.prompt({ attachments: [], text: "second", threadId });
+      yield* command("cmd_1", threadId, prompt);
+      yield* command("cmd_1", threadId, prompt);
+      const queued = (yield* store.get(threadId))?.queued ?? [];
+      assert.deepStrictEqual(
+        queued.map((q) => q.text),
+        ["second"]
+      );
+      const unqueue = (s: ThreadSession) => s.unqueue(queued[0]?.id ?? "");
+      const taken = yield* command("cmd_2", threadId, unqueue);
+      // Sent again, it is answered as it was the first time: not null for a prompt gone.
+      assert.deepStrictEqual(yield* command("cmd_2", threadId, unqueue), taken);
+      assert.strictEqual(taken?.text, "second");
+      // Without an id, or with another, a request acts each time: each takes the prompt queued.
+      for (const [id, text] of [
+        [undefined, "third"],
+        ["cmd_3", "fourth"],
+      ] as const) {
+        yield* command(undefined, threadId, (s: ThreadSession) =>
+          s.prompt({ attachments: [], text, threadId })
+        );
+        const [next] = (yield* store.get(threadId))?.queued ?? [];
+        const took = yield* command(id, threadId, (s: ThreadSession) =>
+          s.unqueue(next?.id ?? "")
+        );
+        assert.strictEqual(took?.text, text);
+        assert.deepStrictEqual((yield* store.get(threadId))?.queued ?? [], []);
+      }
+      yield* turn.end();
     }));
 });
 
