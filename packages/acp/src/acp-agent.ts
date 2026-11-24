@@ -368,6 +368,8 @@ export const connectAcpAgent = (options: {
       writable: new WritableStream<AnyMessage>({
         abort: (reason) => writer.abort(reason),
         close: () => writer.close(),
+        // A stream's callbacks report a failed write by rejecting: the SDK closes the
+        // connection on it, as it does when the agent's own stream fails.
         write: async (message) => {
           const id = responseId(message);
           try {
@@ -666,7 +668,8 @@ export const spawnAcpAgent = (
           Queue.endUnsafe(input);
         },
         write: (chunk) => {
-          // Its input ended, the agent never reads what is written now.
+          // Its input ended, the agent never reads what is written now: rejected, as a stream's
+          // callback reports a failed write.
           if (!Queue.offerUnsafe(input, chunk)) {
             throw new Error("the agent's input is closed");
           }

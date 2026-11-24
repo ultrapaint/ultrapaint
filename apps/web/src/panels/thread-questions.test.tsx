@@ -109,6 +109,23 @@ describe("a card no agent waits on any more (ADR 0125)", () => {
     expect(container.textContent).toContain("No longer asked");
   });
 
+  it("a pick that could not be delivered says so", () => {
+    act(() =>
+      mounted.render(
+        <Permission
+          item={{
+            ...EDIT_HOME,
+            decision: "allow",
+            settled: { at: 2, how: "undelivered" },
+          }}
+          threadId="t1"
+        />
+      )
+    );
+    expect(container.textContent).toContain("Delivery not confirmed");
+    expect(container.textContent).toContain("Allow");
+  });
+
   it("answers that could not be delivered say so, and to say them again", () => {
     act(() =>
       mounted.render(

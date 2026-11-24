@@ -203,8 +203,8 @@ refactor and the board view left.
   released, repeated, expired or undelivered.
 - **Agent launcher**: the seam an agent is started through: its sandboxed process (ADR 0013,
   unless the person turned the sandbox off, ADR 0119),
-  or, in tests, a scripted in-memory agent or a **replay agent** playing a real agent's recorded
-  transcript (`replay-agent.ts`, ADR 0125). It is given a **host** (the cards, the paths, what the
+  or, in tests, a scripted in-memory agent or a **replay agent** playing a transcript of a real
+  agent's messages, recorded or written from its code (`replay-agent.ts`, ADR 0125). It is given a **host** (the cards, the paths, what the
   agent may write) and builds the editor's side of the launch from it, the terminals confined.
   Each adapter keeps the order of the agent's updates itself (acp's `updates`), and a prompt
   returns once its turn's updates are handled.

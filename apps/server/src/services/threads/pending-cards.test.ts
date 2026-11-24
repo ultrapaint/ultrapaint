@@ -395,14 +395,15 @@ describe("a card's life (ADR 0125)", () => {
     Effect.gen(function* () {
       const { cards, threadId } = yield* cardsOfNewThread;
       const written = yield* Deferred.make<boolean>();
-      yield* Effect.forkChild(
+      const reply = yield* Effect.forkChild(
         cards.elicitation(PLAN_FORM, Deferred.await(written))
       );
       const [card] = yield* cardsWhen(threadId, "question");
       const answering = yield* Effect.forkChild(
         cards.answer(card?.id ?? "", { plan: "pro" })
       );
-      yield* Effect.yieldNow;
+      // The agent has the answers in hand, and they are yet to be written to it.
+      yield* Fiber.join(reply);
       const [before] = yield* questionsIn(threadId);
       assert.isTrue(before?.kind === "question" && before.answers === null);
       yield* Deferred.succeed(written, true);
