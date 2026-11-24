@@ -42,6 +42,15 @@ export const shadeOf = (
   return n <= LAST_STEP ? { prefix, step: n } : null;
 };
 
+/**
+ * Whether a group is a palette's ramp: three shades or more, every one of them a step. The colour
+ * boards draw one as its ramp, and a colour field as a row of swatches.
+ */
+export const isRamp = (group: {
+  readonly tokens: readonly { readonly name: string }[];
+}): boolean =>
+  group.tokens.length >= 3 && group.tokens.every((t) => shadeOf(t.name));
+
 /** Each step's lightness, after Tailwind's blue, lightest first. */
 const LIGHTNESS = [
   0.97, 0.932, 0.882, 0.809, 0.708, 0.623, 0.546, 0.488, 0.424, 0.379, 0.282,

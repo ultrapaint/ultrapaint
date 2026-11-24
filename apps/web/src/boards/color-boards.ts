@@ -17,7 +17,7 @@ import {
   hexOf,
   parseColor,
 } from "@ultrapaint/contracts/token-value";
-import { shadeOf } from "@ultrapaint/design-document/ramp";
+import { isRamp, shadeOf } from "@ultrapaint/design-document/ramp";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
 import {
   code,
@@ -32,10 +32,6 @@ import {
 } from "./board-nodes.ts";
 import { pickId } from "./pick.ts";
 import type { Board, Boards } from "./system-boards.ts";
-
-/** Whether a group is a palette's ramp: three shades or more, every one of them a step. */
-export const isRamp = (group: Pick<TokenGroup, "tokens">): boolean =>
-  group.tokens.length >= 3 && group.tokens.every((t) => shadeOf(t.name));
 
 /** The board's width: three swatches a row. */
 const BOARD_WIDTH = 540;
