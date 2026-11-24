@@ -1,7 +1,7 @@
 /**
- * The pictures of what threads work on, for the list of threads: the node a thread was started
+ * The pictures of what threads work on, for their turns' cards: the node a thread was started
  * on, or its page, drawn by the preview with the system and app components. Drawn again only
- * when the document changed, and kept in the state directory so the list has them at once.
+ * when the document changed, and kept in the state directory so a card has them at once.
  */
 import type { Thread } from "@ultrapaint/contracts/threads";
 import { canvasDocOf } from "@ultrapaint/design-document/tree";
@@ -14,7 +14,7 @@ import { useEditor } from "./editor.ts";
 import { useProject } from "./project.ts";
 
 const KEY = "threads";
-/** Twice the size the list shows them at. */
+/** Twice the size a turn's card shows them at. */
 const SIZE = 112;
 
 interface PreviewsStore {

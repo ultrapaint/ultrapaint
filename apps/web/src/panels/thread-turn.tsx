@@ -25,7 +25,7 @@ import { formatDuration, stopNote } from "../lib/thread-work.ts";
 import { useAgents } from "../state/agents.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
-import { ScopePicture } from "./chat-list.tsx";
+import { ScopePicture } from "./scope-picture.tsx";
 import { Fold } from "./thread-fold.tsx";
 import { Asked } from "./thread-questions.tsx";
 import { Rounds, RunContextValue, StepRow } from "./thread-review.tsx";

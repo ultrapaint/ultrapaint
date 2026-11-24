@@ -74,10 +74,7 @@ const TabMark = ({ tab }: { tab: ShellTab }) => {
   return (
     <LoaderCircle
       aria-label={tab.state === "working" ? "An agent is working" : "Opening"}
-      className={cn(
-        "size-3.5 shrink-0 animate-spin",
-        tab.state === "working" ? "text-agent" : "text-muted-foreground"
-      )}
+      className="size-3.5 shrink-0 animate-spin text-muted-foreground"
       role="img"
     />
   );

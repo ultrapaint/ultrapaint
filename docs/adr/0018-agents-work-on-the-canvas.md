@@ -16,6 +16,10 @@ still naming the base page (0019).
 > has a fourth colour, `--measure`, an orange-red kept for measuring distances, never for errors,
 > selections or agents.
 
+> Amended by [0132](0132-a-chat-row-is-its-title-its-state-and-where-it-works.md), 2026-11-24:
+> a chat's row is its title, its state and where it works, without a picture or its last line;
+> the pink is an agent's on the canvas alone, its status in the chat neutral.
+
 The editor was redesigned with the tool itself: the pages are in `docs/designs/redesign/`, and
 `ultrapaint.json` at the root opens this repository in the editor.
 

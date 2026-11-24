@@ -87,7 +87,7 @@ const RailItem = ({
       {dot ? (
         <span
           aria-label={dot}
-          className="absolute top-1 right-1 size-2 rounded-full bg-agent ring-2 ring-rail"
+          className="absolute top-1 right-1 size-2 rounded-full bg-foreground ring-2 ring-rail"
           role="status"
         />
       ) : null}

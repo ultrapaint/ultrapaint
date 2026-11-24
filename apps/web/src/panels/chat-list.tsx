@@ -1,12 +1,15 @@
 /**
- * The chat's list of threads: what each works on, as a picture, its name, its last line and where
- * it stands. Opening one gives the thread; the list is where the chat opens.
+ * The chat's list of threads (ADR 0132): each a row of its title, where it stands and where it
+ * works. Opening one gives the thread; the list is where the chat opens.
  */
 import type { Thread } from "@ultrapaint/contracts/threads";
 import {
   CircleAlert,
+  CircleCheck,
+  Hourglass,
   ListFilter,
-  MessageSquare,
+  MessageCircleQuestion,
+  PenLine,
   Plus,
   Search,
   SquareDashedMousePointer,
@@ -29,21 +32,16 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
-import { AgentIcon } from "../components/agent-icon.tsx";
 import { CutText } from "../components/cut-text.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { createThread, startTask } from "../lib/start-thread.ts";
-import { threadView } from "../lib/thread-view.ts";
+import { rowState, threadView } from "../lib/thread-view.ts";
 import { isUnread, lineOf, useAgents } from "../state/agents.ts";
 import { openMenuAt } from "../state/context-menu.ts";
-import { useDocuments } from "../state/documents.ts";
+import { useDraft } from "../state/drafts.ts";
 import { useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
-import {
-  refreshPreviews,
-  useThreadPreviews,
-} from "../state/thread-previews.ts";
 
 type Filter = "all" | "running" | "page";
 
@@ -83,123 +81,121 @@ const useScopeLabel = (thread: Thread) =>
       return null;
     }
     const page = s.pages.find((p) => p.file === scope.file);
-    const where = page ? (page.route ?? page.name) : "canvas";
+    const where = page ? (page.route ?? page.name) : "Canvas";
     return scope.nodeId === undefined ? where : `${scope.name} · ${where}`;
   });
 
-/** The picture of what a thread works on, or a quiet tile when it works on nothing yet. */
-export const ScopePicture = ({
-  className,
-  thread,
-}: {
-  className?: string;
-  thread: Thread;
-}) => {
-  const picture = useThreadPreviews((s) => s.pictures[thread.id]);
-  const several = (thread.scope?.count ?? 0) > 1;
-  return (
-    <span
-      className={cn(
-        "relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-md",
-        // A design is drawn on white, as on the canvas; the hairline holds its edge on any theme.
-        picture
-          ? "bg-white outline outline-black/10 -outline-offset-1 dark:outline-white/10"
-          : "bg-muted text-muted-foreground",
-        className
-      )}
-    >
-      {picture ? (
-        <img
-          alt=""
-          className="size-full object-cover"
-          draggable={false}
-          height={44}
-          src={picture}
-          width={44}
-        />
-      ) : (
-        <MessageSquare className="size-4" />
-      )}
-      {several ? (
-        <span className="absolute right-0.5 bottom-0.5 flex h-4 min-w-4 items-center justify-center rounded-sm bg-foreground/85 px-1 font-body-small-medium text-background tabular-nums">
-          {thread.scope?.count}
-        </span>
-      ) : null}
-    </span>
-  );
-};
+const ICON = "size-3.5 shrink-0";
 
-/** Where a thread stands, when it says something: a status mark beside its word. */
-const ThreadStatus = ({ thread }: { thread: Thread }) => {
-  const { label, tone } = threadView(thread);
-  if (label === null || tone === null) {
-    return null;
-  }
-  return (
-    <span className="flex shrink-0 items-center gap-1.5 font-body-small text-foreground">
-      {tone === "working" ? <Spinner className="size-3 text-agent" /> : null}
-      {tone === "attention" ? (
-        <span className="size-1.5 rounded-full bg-warning" />
-      ) : null}
-      {tone === "failed" ? (
-        <CircleAlert className="size-3.5 text-destructive" />
-      ) : null}
-      {label}
-    </span>
-  );
-};
-
-const ThreadRow = ({
-  line,
+/**
+ * Where a thread stands, at the row's right: a word with its icon, or its age when there is
+ * nothing to say. Only what needs the person takes a colour, on its icon: a question the warning,
+ * a failure the destructive one. Working is muted, as the age is: nothing to do about it.
+ */
+const RowStatus = ({
   now,
   thread,
   unread,
 }: {
-  line: string;
+  now: number;
+  thread: Thread;
+  unread: boolean;
+}) => {
+  const state = rowState(thread, unread);
+  if (state === null) {
+    return (
+      <span className="shrink-0 font-body-small text-muted-foreground tabular-nums">
+        {ago(thread.updatedAt, now)}
+      </span>
+    );
+  }
+  const working = state.kind === "working";
+  const since =
+    working && state.since !== undefined ? ago(state.since, now) : "now";
+  return (
+    <span
+      className={cn(
+        "flex shrink-0 items-center gap-1 font-body-small tabular-nums",
+        working ? "text-muted-foreground" : "text-foreground"
+      )}
+    >
+      {working ? (
+        <Spinner aria-hidden className={ICON} role="presentation" />
+      ) : null}
+      {state.kind === "asks" ? (
+        <MessageCircleQuestion
+          aria-hidden
+          className={cn(ICON, "text-warning")}
+        />
+      ) : null}
+      {state.kind === "unresponsive" ? (
+        <Hourglass aria-hidden className={ICON} />
+      ) : null}
+      {state.kind === "stopped" ? (
+        <CircleAlert aria-hidden className={cn(ICON, "text-destructive")} />
+      ) : null}
+      {state.kind === "done" ? (
+        <CircleCheck aria-hidden className={ICON} />
+      ) : null}
+      {/* How long the turn has run, past its first minute: "Working 9m". */}
+      {since === "now" ? state.label : `${state.label} ${since}`}
+    </span>
+  );
+};
+
+/** A pen before the title while the chat's composer holds something not sent. */
+const DraftMark = ({ threadId }: { threadId: string }) => {
+  const draft = useDraft(threadId);
+  if (!draft) {
+    return null;
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span
+            aria-label="Draft not sent"
+            className="flex shrink-0 text-muted-foreground"
+            role="img"
+          />
+        }
+      >
+        <PenLine className={ICON} />
+      </TooltipTrigger>
+      <TooltipContent>Draft not sent</TooltipContent>
+    </Tooltip>
+  );
+};
+
+const ThreadRow = ({
+  now,
+  thread,
+  unread,
+}: {
   now: number;
   thread: Thread;
   unread: boolean;
 }) => {
   const scopeLabel = useScopeLabel(thread);
   const open = () => useAgents.getState().open(thread.id);
-  const { label } = threadView(thread);
   return (
     <button
-      className="flex w-full min-w-0 items-center gap-3 rounded-md px-2 py-2 text-left outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+      className="flex w-full min-w-0 flex-col rounded-md px-2 py-1.5 text-left outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
       onClick={open}
       onContextMenu={(e) =>
         openMenuAt(e, { kind: "thread", threadId: thread.id })
       }
       type="button"
     >
-      <ScopePicture thread={thread} />
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="flex min-w-0 items-center gap-2">
-          <CutText className="min-w-0 flex-1 truncate font-body-medium text-foreground">
-            {thread.title}
-          </CutText>
-          {/* What an agent did since the thread was last opened; a working one says so itself. */}
-          {unread && label === null ? (
-            <span
-              aria-label="Unread"
-              className="size-1.5 shrink-0 rounded-full bg-agent"
-              role="img"
-            />
-          ) : null}
-          <span className="shrink-0 font-body-small text-muted-foreground tabular-nums">
-            {ago(thread.updatedAt, now)}
-          </span>
-        </span>
-        <span className="truncate font-body-small text-muted-foreground">
-          {line || "Nothing sent yet"}
-        </span>
-        <span className="flex min-w-0 items-center gap-1.5 font-body-small text-muted-foreground">
-          <AgentIcon agentId={thread.agentId} className="size-3 shrink-0" />
-          <span className="min-w-0 flex-1 truncate">
-            {scopeLabel ?? "Nothing attached"}
-          </span>
-          <ThreadStatus thread={thread} />
-        </span>
+      <span className="flex min-w-0 items-center gap-2">
+        <DraftMark threadId={thread.id} />
+        <CutText className="min-w-0 flex-1 truncate font-body-medium text-foreground">
+          {thread.title}
+        </CutText>
+        <RowStatus now={now} thread={thread} unread={unread} />
+      </span>
+      <span className="truncate font-body-small text-muted-foreground">
+        {scopeLabel ?? "Nothing attached"}
       </span>
     </button>
   );
@@ -261,45 +257,24 @@ const FilterMenu = ({
   </DropdownMenu>
 );
 
-/** Keeps the pictures in step with the threads and their documents, a moment after they settle. */
-const usePreviews = (threads: readonly Thread[]) => {
-  const docs = useDocuments((s) => s.docs);
-  // A document that changed is drawn again: its hash is what the picture is kept by.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: docs is what the pictures are drawn from.
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      refreshPreviews(threads.filter((t) => t.scope)).catch(() => undefined);
-    }, 600);
-    return () => clearTimeout(timer);
-  }, [threads, docs]);
-};
-
 const Section = ({
   label,
-  lines,
   now,
   seen,
   threads,
 }: {
   label: string;
-  lines: Readonly<Record<string, string>>;
   now: number;
   seen: Record<string, number>;
   threads: readonly Thread[];
 }) =>
   threads.length > 0 ? (
-    <section className="flex flex-col">
+    <section className="flex flex-col gap-1">
       <h3 className="px-2 pt-3 pb-1 font-body-small text-muted-foreground">
         {label}
       </h3>
       {threads.map((t) => (
-        <ThreadRow
-          key={t.id}
-          line={lines[t.id] ?? ""}
-          now={now}
-          thread={t}
-          unread={isUnread(t, seen)}
-        />
+        <ThreadRow key={t.id} now={now} thread={t} unread={isUnread(t, seen)} />
       ))}
     </section>
   ) : null;
@@ -342,15 +317,11 @@ const NoChats = ({ unsetFolder }: { unsetFolder: string | null }) =>
     </PanelEmpty>
   );
 
+const NO_LINES: Readonly<Record<string, string>> = {};
+
 export const ThreadList = () => {
   const threads = useAgents((s) => s.threads);
   const seen = useAgents((s) => s.seen);
-  // Drawn again when a line changes, as an agent streams it, and not for every word of a reply.
-  const lines = useAgents(
-    useShallow((s) =>
-      Object.fromEntries(threads.map((t) => [t.id, lineOf(t, s.items[t.id])]))
-    )
-  );
   const activePage = useEditor((s) => s.activePage);
   const pageFile = useProject(
     (s) => s.pages.find((p) => p.id === activePage)?.file
@@ -361,13 +332,23 @@ export const ThreadList = () => {
       : null
   );
   const [query, setQuery] = useState("");
+  // Each chat's last line, which the rows no longer show (ADR 0132), is read only for a search
+  // that finds a chat by it: the list is not drawn again for every word an agent streams.
+  const lines = useAgents(
+    useShallow((s) =>
+      query.trim()
+        ? Object.fromEntries(
+            threads.map((t) => [t.id, lineOf(t, s.items[t.id])])
+          )
+        : NO_LINES
+    )
+  );
   const [filter, setFilter] = useState<Filter>("all");
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), MINUTE);
     return () => clearInterval(timer);
   }, []);
-  usePreviews(threads);
 
   const running = threads.filter((t) => threadView(t).busy).length;
   const onPage = threads.filter((t) => t.scope?.file === pageFile).length;
@@ -447,20 +428,8 @@ export const ThreadList = () => {
                 {emptyNote(filter, query.trim())}
               </PanelEmpty>
             ) : null}
-            <Section
-              label="Today"
-              lines={lines}
-              now={now}
-              seen={seen}
-              threads={today}
-            />
-            <Section
-              label="Earlier"
-              lines={lines}
-              now={now}
-              seen={seen}
-              threads={earlier}
-            />
+            <Section label="Today" now={now} seen={seen} threads={today} />
+            <Section label="Earlier" now={now} seen={seen} threads={earlier} />
           </div>
         </>
       )}

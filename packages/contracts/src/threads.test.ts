@@ -133,7 +133,27 @@ describe("summarise", () => {
         { at, attachments: [], id: "1", kind: "user", text: "Reorder it" },
         { at, id: "2", kind: "agent", text: "**Done.** The table\nnow reads" },
       ])
-    ).toEqual({ text: "Done. The table", waiting: false });
+    ).toEqual({ since: 0, text: "Done. The table", waiting: false });
+  });
+
+  it("begins the turn at the person's last prompt, not at a review's findings sent on", () => {
+    expect(
+      summarise([
+        { at: 10, attachments: [], id: "1", kind: "user", text: "Reorder it" },
+        { at: 20, id: "2", kind: "agent", text: "Done." },
+        {
+          at: 30,
+          attachments: [],
+          id: "3",
+          kind: "user",
+          review: "r1",
+          text: "Findings",
+        },
+      ]).since
+    ).toBe(10);
+    expect(
+      summarise([{ at: 20, id: "2", kind: "agent", text: "Hello" }])
+    ).not.toHaveProperty("since");
   });
 
   it("waits on the user while a question is unanswered", () => {

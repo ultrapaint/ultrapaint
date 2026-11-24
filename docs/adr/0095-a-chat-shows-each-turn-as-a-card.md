@@ -3,6 +3,9 @@
 Status: accepted, 2026-11-13. Amends 0063 (the run card, the Review chip) and 0094 (what a chat
 is told). Amended by 0129 (answered questions).
 
+> Amended by [0132](0132-a-chat-row-is-its-title-its-state-and-where-it-works.md), 2026-11-24:
+> the agent's mark is drawn in the text colour, and the working mark at the chat's foot is muted.
+
 ## Context
 
 A design chat drew what its agent reported as it came: each run of tool calls folded into a line

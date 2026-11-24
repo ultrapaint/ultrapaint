@@ -193,7 +193,11 @@ refactor and the board view left.
   `synchronized` and each change as made, from the last applied again after a reconnect; the
   numbers are of the server's **run**, and a resume from another run gets a snapshot. A
   request that changes a thread carries a **command id** the editor made, and one sent again is
-  answered with the first one's result (`ThreadSessions.command`, ADR 0130).
+  answered with the first one's result (`ThreadSessions.command`, ADR 0130). A row of the chat
+  list says its **row state** (`rowState`, ADR 0132): Your turn, Not responding, Working or
+  Reviewing with how long, Stopped or Done until the chat is opened, else its age. What a
+  composer holds and has not sent is the thread's **unsent draft** (`state/drafts.ts`, a pen
+  before its title in the list), not a page's draft.
 - **File from disk**: a picture or a text file pasted, dropped or picked into a prompt (ADR 0064),
   read by the web's `attach-files` (`readFiles`, `admit` for a prompt's limits) into an image chip
   or a **text attachment** (`kind: "text"`, at most `TEXT_ATTACHMENT_LIMIT`), which the agent gets
@@ -562,7 +566,7 @@ refactor and the board view left.
   header; its fields are the inspector's alone.
 - **Measurement**: the distances ⌥ held draws from the selection to the element the pointer is
   over in the same frame, or to the selection's parent while it points at the selection itself
-  (the web's `measure`, `measure-overlay`, and `measure-key` for ⌥ held, ADR 0131): lines
+  (the web's `measure`, `measure-overlay`, and `measure-key` for ⌥ held, ADR 0132): lines
   between facing or matching edges, each with its length in the frame's pixels, in `--measure`,
   the canvas colour kept for it.
 - **Field**: one of a node's fields that the inspector edits (align,

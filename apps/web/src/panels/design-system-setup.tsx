@@ -117,7 +117,7 @@ export const StepBadge = ({
   label ? (
     <Badge className="shrink-0">
       {tone === "working" ? (
-        <span className="size-1.5 rounded-full bg-agent" />
+        <span className="size-1.5 rounded-full bg-foreground" />
       ) : null}
       {tone === "waiting" ? (
         <span className="size-1.5 rounded-full bg-warning" />

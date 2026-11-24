@@ -74,6 +74,55 @@ export const threadView = (
   return IDLE;
 };
 
+/**
+ * What a row of the chat list says at its right (ADR 0132), most urgent first as T3 Code's thread
+ * row orders it: a question or a permission waiting, a stop the agent ignored, the turn under way
+ * and since when, then a failure or a finished turn the person has not opened. Null when the row
+ * says only its age.
+ */
+export type RowState =
+  | { readonly kind: "asks"; readonly label: "Your turn" }
+  | { readonly kind: "unresponsive"; readonly label: "Not responding" }
+  | {
+      readonly kind: "working";
+      readonly label: "Working" | "Reviewing";
+      /** When the turn began: the person's last prompt (`summary.since`). */
+      readonly since: number | undefined;
+    }
+  | { readonly kind: "stopped"; readonly label: "Stopped" }
+  | { readonly kind: "done"; readonly label: "Done" };
+
+export const rowState = (
+  thread: Pick<Thread, "status" | "summary">,
+  unread: boolean
+): RowState | null => {
+  const view = threadView(thread);
+  if (view.waiting) {
+    return { kind: "asks", label: "Your turn" };
+  }
+  if (view.unresponsive) {
+    return { kind: "unresponsive", label: "Not responding" };
+  }
+  if (view.busy) {
+    return {
+      kind: "working",
+      label: thread.status === "reviewing" ? "Reviewing" : "Working",
+      since: thread.summary?.since,
+    };
+  }
+  // Once opened, a failure says only its age, as a finished turn does: the chat tells the rest.
+  if (!unread) {
+    return null;
+  }
+  if (view.failed) {
+    return { kind: "stopped", label: "Stopped" };
+  }
+  // A chat nothing was sent in has no turn to have finished.
+  return thread.summary?.since === undefined
+    ? null
+    : { kind: "done", label: "Done" };
+};
+
 /** Whether an agent is working on any of the threads: the rail's dot on the chat. */
 export const someBusy = (threads: readonly Thread[]) =>
   threads.some((t) => threadView(t).busy);
