@@ -657,10 +657,7 @@ const NotResponding = ({ onForceStop }: { onForceStop: () => void }) => (
   >
     <CircleAlert aria-hidden className="mt-0.5 size-3.5 shrink-0" />
     <div className="flex min-w-0 flex-col items-start gap-2">
-      <p>
-        The agent isn't responding to Stop. Force stop ends it; your next prompt
-        picks the conversation up again.
-      </p>
+      <p>The agent isn't responding.</p>
       <Button onClick={onForceStop} size="sm" variant="outline">
         Force stop
       </Button>

@@ -34,8 +34,8 @@ agent is not responding and offers to force it. It sets no inactivity timeout on
 - **The next prompt reopens the conversation.** The thread keeps its `sessionId`; the prompt
   starts a new session, which resumes or loads it (`session/resume`, `session/load`) as after an
   agent's exit. Queued prompts stay queued for the person to send or drop, as after a Stop.
-- **The editor says it.** The composer shows, over itself, that the agent isn't responding to
-  Stop, with Force stop. `threadView` reads the status as `unresponsive`, and lists say
+- **The editor says it.** The composer shows, over itself, "The agent isn't responding." and
+  Force stop, nothing more: the person chose the shorter note. `threadView` reads the status as `unresponsive`, and lists say
   *Not responding* in the attention tone: the person has something to do.
 - **No inactivity timeout on a running turn**, as in the reference product.
 
