@@ -8,7 +8,10 @@
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import { asTokenValue } from "@ultrapaint/contracts/nearest-token";
-import { isOffSystem } from "@ultrapaint/design-document/off-system";
+import {
+  isOffSystem,
+  type OffSystemKind,
+} from "@ultrapaint/design-document/off-system";
 import {
   isToken,
   tokenName,
@@ -82,11 +85,25 @@ const parseValue = (option: string): JsonValue => {
   return trimmed;
 };
 
+/** The kind of the design's checks each kind of token a field takes is checked as. */
+const OFF_SYSTEM_KINDS: Partial<Record<FieldTokenKind, OffSystemKind>> = {
+  color: "color",
+  font: "font",
+  fontSize: "text-size",
+  fontWeight: "weight",
+  leading: "line-height",
+  radius: "radius",
+  shadow: "shadow",
+  spacing: "spacing",
+  tracking: "tracking",
+};
+
 /**
  * Whether a field's value, or a value typed in it, is outside the design system: set, and neither
  * a token (`$radius-lg`) nor one of the values the field offers (a step of the spacing scale,
- * `16px` as `16`; `fill`). A spacing field that knows its kind asks what the design's checks ask
- * (`isOffSystem`): any whole or half step of the scale is on it, offered or not.
+ * `16px` as `16`; `fill`). A field that knows its kind asks what the design's checks ask too
+ * (`isOffSystem`): any whole or half step of the spacing scale is on it, offered or not, and so are
+ * a round radius and a keyword that is no value (`none`, `transparent`).
  */
 export const isOutsideDesignSystem = (
   option: string,
@@ -96,6 +113,10 @@ export const isOutsideDesignSystem = (
   const parsed = parseValue(option);
   if (field?.kind === "spacing" && typeof parsed === "number") {
     return isOffSystem("spacing", parsed, field.spacingBase);
+  }
+  const checked = field && OFF_SYSTEM_KINDS[field.kind];
+  if (checked && !isOffSystem(checked, parsed, field.spacingBase)) {
+    return false;
   }
   const value = optionOf(parsed);
   return (

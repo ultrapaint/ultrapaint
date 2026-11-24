@@ -23,7 +23,8 @@ field's dot while the check called it on the system.
   read, so it cannot live in it): the token of a kind nearest a value, each token read in a theme
   with the tokens it names followed (`valueInTheme`). A colour is measured in OKLab, the Euclidean
   distance between L (0 to 1), a and b, and offered only within 0.1: past that a "nearest" can
-  plainly be another colour. A length is measured in pixels (an `em` only against an `em`), a
+  plainly be another colour. A length is measured in pixels (a unitless zero as none, an absolute unit such as `pt`
+  converted, an `em` only against an `em`), a
   weight and a unitless line height as numbers, with no limit: the value shown beside the name
   says how far it is. A spacing in pixels is nearest a whole or half step of the scale on the
   spacing base unless a named spacing is nearer. A font family and a shadow have no measure. Of
@@ -33,14 +34,17 @@ field's dot while the check called it on the system.
   comes to in the theme the view is drawn in (the boards' while a board view is open, else the
   canvas's), picked as an option is, and **New token from this value…**. Every field that takes a
   token has them, a system component's look's and a text style's included. A spacing step is
-  written in pixels (`18`), as the list's steps are, never `$spacing-4.5`. A spacing field asks
-  `isOffSystem`, so the field and the check agree on every value.
+  written in pixels (`18`), as the list's steps are, never `$spacing-4.5`. A field that knows its
+  kind asks `isOffSystem`, so the field and the check agree on every value: a half step of the
+  spacing scale, a round radius (`50%`) and a keyword that is no value (`none`, `transparent`) are
+  on the system.
 - **New token** is a popover on the field: one name, started with the kind's prefix, or in a
   detailed system the namespace of what a colour field colours (a fill and a tint
   `background-color-`, a text `text-color-`, a border `border-color-`). The name is refused, in
   the Design system place's words, when a token has it, when it is not a token's name, and when it
   is of another kind than the field's, which would list the token where the field's are not.
-  Enter adds; Escape and the close button let it go. No reason is asked (0054).
+  Enter adds; Escape and the close button let it go. No reason is asked (0054). Nothing is made
+  while the field could not be written, such as while a point of the history is looked at.
 - **One undo step for the token and the field.** `designSystem.edit` carries the field's edit:
   documents' edits (`edits`), or one system component's look change (`component`), made after its
   operations in the same journal step and under its label. The server writes the design system in

@@ -47,13 +47,32 @@ interface Point {
   readonly space: string;
 }
 
+/** Pixels in one of each absolute unit CSS fixes, beside `px` and `rem` (`toPx`'s). */
+const ABSOLUTE_PX: Readonly<Record<string, number>> = {
+  cm: 96 / 2.54,
+  in: 96,
+  mm: 96 / 25.4,
+  pc: 16,
+  pt: 96 / 72,
+};
+
+/**
+ * A length in pixels where its unit says how many (a unitless zero is none), else in its own
+ * unit, which only that unit is measured against (`em`, `%`).
+ */
 const lengthAt = (css: string): Point | null => {
-  const px = toPx(css);
+  const px = parseNumber(css) === 0 ? 0 : toPx(css);
   if (px !== null) {
     return { at: [px], space: "px" };
   }
   const length = parseLength(css);
-  return length ? { at: [length.value], space: length.unit } : null;
+  if (!length) {
+    return null;
+  }
+  const absolute = ABSOLUTE_PX[length.unit];
+  return absolute === undefined
+    ? { at: [length.value], space: length.unit }
+    : { at: [length.value * absolute], space: "px" };
 };
 
 const numberAt = (css: string): Point | null => {

@@ -15,6 +15,7 @@ import { useEditor } from "../state/editor.ts";
 import { useIsolation } from "../state/isolation.ts";
 import { useProject } from "../state/project.ts";
 import { select } from "../state/selection.ts";
+import { useSnapshotView } from "../state/snapshot-view.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { Inspector } from "./inspector.tsx";
 import { LookInspector } from "./look-inspector.tsx";
@@ -122,6 +123,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  useSnapshotView.setState({ live: null, view: null });
   act(() => mounted.unmount());
   container.remove();
   useDesignSystem.setState({ designSystem: null, saved: null });
@@ -313,6 +315,19 @@ describe("a new token from a field's value", () => {
     });
     expect(lastCall("documents.apply")).toBeUndefined();
     expect(naming()).toBeNull();
+  });
+
+  it("makes nothing while a point of the history is looked at", () => {
+    namingTheFill();
+    type("color-brand");
+    useSnapshotView.setState({
+      view: { point: { kind: "edits", name: "Monday" } } as never,
+    });
+    press("Enter");
+    expect(fakeApi.calls.map((c) => c.method)).not.toContain(
+      "designSystem.edit"
+    );
+    expect(fakeApi.calls.map((c) => c.method)).not.toContain("documents.apply");
   });
 
   it("makes nothing when Escape lets it go", () => {
