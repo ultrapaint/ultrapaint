@@ -593,7 +593,12 @@ refactor and the board view left.
   _Avoid_: cancelled gesture, drag session.
 - **Select layer**: what a frame lays over its page while the select tool is on and Space is not
   held (the web's `SelectLayer`): where a press, a hover or a click in the page is heard. It goes
-  while Space is held, so nothing a press begins may depend on it (ADR 0133).
+  while Space is held, so nothing a press begins may depend on it (ADR 0133). Not the element
+  menu's Select layer submenu, which lists the **layers under the pointer**.
+- **Layers under the pointer**: the nodes a right-click on the canvas landed in (the web's
+  `layersUnder`, ADR 0143): the hit test's chain at that point, cut at the first locked node as a
+  click's is, the hidden left out, the deepest first and the frame's root last. The element's menu
+  lists them in its Select layer submenu, a pick selecting one alone in the view right-clicked in.
 - **Frame gesture**: moving or sizing a page's frame, or sizing a node on the canvas, from the
   press on its name or corner to the release (the web's `frame-gesture`), a **pointer gesture**:
   drawn as it goes, saved once when let go (a page's frame rounded to the pixel, a node in one

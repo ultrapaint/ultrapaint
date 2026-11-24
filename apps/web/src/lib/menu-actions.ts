@@ -10,10 +10,12 @@ import type { Comment } from "@ultrapaint/contracts/comments";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { isBusy } from "@ultrapaint/contracts/threads";
 import { isLayerOf } from "@ultrapaint/design-document/instance-layers";
+import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { pageOfLink } from "@ultrapaint/shared/link";
 import { toast } from "sonner";
 import { canvasPoint } from "../canvas/drag.ts";
 import { frameOf } from "../canvas/editor-frame.ts";
+import { layersUnder } from "../canvas/hit-test.ts";
 import { sendComment } from "../canvas/send-to-agent.tsx";
 import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
 import { askLinkUrl } from "../components/link-field.tsx";
@@ -40,6 +42,7 @@ import {
   frameRefOf,
   hasPrototypeLinks,
   ownFrameOf,
+  pageOfRef,
   takesComments,
 } from "../state/frame-ref.ts";
 import {
@@ -51,7 +54,7 @@ import { pagesActedOn } from "../state/page-picks.ts";
 import { showRightPanel } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { noteLanded } from "../state/recent-components.ts";
-import { select } from "../state/selection.ts";
+import { isSelected, select } from "../state/selection.ts";
 import { ensureEditable } from "../state/setup.ts";
 import { onPageCanvas } from "../state/surface.ts";
 import { newVariation } from "../state/variations.ts";
@@ -211,7 +214,26 @@ const linkTargets = () => {
     .sort((a, b) => a.name.localeCompare(b.name));
 };
 
-const nodeMenu = (target: Selection) => {
+/**
+ * The layers under the point a node's menu was right-clicked at, as Select layer lists them (ADR
+ * 0143), each named as Layers names it: a page's root by the page's name. None without a point.
+ */
+const layerFactsAt = (frame: string, at: Point | undefined) => {
+  if (!at) {
+    return [];
+  }
+  const page = pageOfRef(frameRefOf(frame));
+  return layersUnder(frame, at.x, at.y).map((node) => ({
+    id: node.id,
+    label:
+      node.type === "page" && page
+        ? (pageById(page)?.name ?? nodeLabel(node))
+        : nodeLabel(node),
+    selected: isSelected(frame, node.id),
+  }));
+};
+
+const nodeMenu = (target: Selection & { at?: Point }) => {
   const ctx = nodeContext(target);
   const current = selected(ctx);
   if (!current) {
@@ -230,6 +252,7 @@ const nodeMenu = (target: Selection) => {
       rootOfFrame(ctx.docs, ctx.canvas, target.frame),
       current.node.id
     ),
+    layersUnder: layerFactsAt(target.frame, target.at),
     linkTargets: hasPrototypeLinks(frame) ? linkTargets() : [],
     node: current.node,
     parentSelectable: !!place?.parent && place.parent.type !== "page",
@@ -521,6 +544,9 @@ const runNode = (target: TargetOf<"node">, act: NodeAction): unknown => {
       return askLink(sel);
     case "selectParent":
       return selectParent(sel);
+    case "selectLayerUnder":
+      // In the view right-clicked in, at its breakpoint (ADR 0036); a page's root is the page.
+      return select({ frame: sel.frame, nodeId: act.id });
     case "copyLink":
       return copyNodeLink(sel);
     case "copyRef":

@@ -9,13 +9,18 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { paletteCommands } from "../lib/commands.ts";
+import { type MenuEntry, menuFor, runMenuAction } from "../lib/menu-actions.ts";
+import { openSelectionMenuByKey } from "../lib/shortcuts.ts";
 import { useComments } from "../state/comments.ts";
 import { useComponents } from "../state/components.ts";
+import { useContextMenu } from "../state/context-menu.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { nodeFrameOf, viewFrameOf } from "../state/frame-ref.ts";
 import { isolate, leaveTo, useIsolation } from "../state/isolation.ts";
 import { useProject } from "../state/project.ts";
+import { select, selectMany } from "../state/selection.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useDrag } from "./drag.ts";
 import { useWatchMeasureKey } from "./measure-key.ts";
@@ -122,6 +127,40 @@ const current = (): Handlers => {
     throw new Error("the probe has not rendered");
   }
   return handlers;
+};
+
+/** A right-click in the frame, which opens the menu of what it is on. */
+const rightClick = () =>
+  act(() =>
+    current().onContextMenu({
+      ...pointerAt(20, 20),
+      preventDefault: () => undefined,
+      stopPropagation: () => undefined,
+    } as unknown as Parameters<Handlers["onContextMenu"]>[0])
+  );
+
+/** The rows of Select layer in the menu open now, or in the menu of a target. */
+const layerRows = (
+  target = useContextMenu.getState().request?.target
+): MenuEntry[] => {
+  const found = (target ? menuFor(target) : null)?.find(
+    (e) => e.kind === "submenu" && e.id === "layers"
+  );
+  return found?.kind === "submenu" ? [...found.entries] : [];
+};
+
+const rowLabels = () =>
+  layerRows().map((e) => (e.kind === "item" ? e.label : e.kind));
+
+/** Picks a row of Select layer, by its label, as a click on it does. */
+const pickRow = (label: string) => {
+  const row = layerRows().find((e) => e.kind === "item" && e.label === label);
+  if (row?.kind !== "item") {
+    throw new Error(`no row ${label}`);
+  }
+  act(() => {
+    runMenuAction(row.action);
+  });
 };
 
 let mounted: Root;
@@ -480,6 +519,17 @@ describe("an instance's layers on a page (ADR 0114)", () => {
     expect(selected()).toBe("shell/nav/text");
   });
 
+  it("are listed by a right-click by their names, nested instances' too, down to the instance (ADR 0143)", () => {
+    rightClick();
+    expect(rowLabels()).toEqual(["Home", "NavItem", "Column", "Shell", "home"]);
+  });
+
+  it("are selected by their row in a right-click's Select layer (ADR 0143)", () => {
+    rightClick();
+    pickRow("NavItem");
+    expect(selected()).toBe("shell/nav");
+  });
+
   it("are never moved on the page, and a double-click opens no main component", () => {
     useEditor.setState({ selection: { frame: HOME, nodeId: "shell/side" } });
     under.chain = ["home-root", "shell", "shell/side"];
@@ -631,5 +681,244 @@ describe("⌥ held over a page (ADR 0131)", () => {
       } as unknown as Parameters<Handlers["onSelectClick"]>[0])
     );
     expect(useEditor.getState().selection?.nodeId).toBe("t1");
+  });
+});
+
+describe("Select layer, the layers under a right-click (ADR 0143)", () => {
+  const title = {
+    id: "title",
+    level: 3,
+    role: "heading",
+    text: "Plans",
+    type: "text",
+  } as DesignNode;
+  const card = {
+    children: [title],
+    id: "card",
+    name: "Card",
+    type: "column",
+  } as DesignNode;
+  const other = { children: [], id: "other", type: "column" } as DesignNode;
+  /** Drawn over the list, beside it in the page: not one of the layers the list is in. */
+  const overlay = { children: [], id: "overlay", type: "group" } as DesignNode;
+  const list = {
+    children: [card, other],
+    id: "list",
+    type: "row",
+  } as DesignNode;
+
+  /** The page, its card or its title changed. */
+  const withPage = (changes: Partial<Record<string, Partial<DesignNode>>>) => {
+    const at = (node: DesignNode): DesignNode =>
+      ({
+        ...node,
+        ...changes[node.id],
+        ...("children" in node && {
+          children: node.children.map(at),
+        }),
+      }) as DesignNode;
+    useDocuments.setState({
+      docs: {
+        [HOME]: {
+          ...homeDoc,
+          root: at({
+            children: [list, overlay],
+            id: "home-root",
+            type: "page",
+          } as DesignNode),
+        },
+      },
+    });
+  };
+
+  /** Every node selected now, the one the inspector shows first. */
+  const allSelected = () => {
+    const { also, selection } = useEditor.getState();
+    return selection ? [selection, ...also] : [];
+  };
+  const ticked = () =>
+    layerRows().flatMap((e) =>
+      e.kind === "item" && e.checked ? [e.label] : []
+    );
+
+  /** The probe drawn in another frame: a view of the page, or a node beside the pages. */
+  const renderIn = (frameId: string) =>
+    act(() =>
+      mounted.render(
+        <Probe
+          frameId={frameId}
+          report={(h) => {
+            handlers = h;
+          }}
+        />
+      )
+    );
+
+  /** The card placed beside the pages, and the probe in its frame. */
+  const besideThePages = () => {
+    useDocuments.setState({
+      docs: {
+        [HOME]: homeDoc,
+        [canvasDocOf("main")]: {
+          doc: canvasDocOf("main"),
+          hash: "canvas@0",
+          root: {
+            children: [card],
+            id: "canvas-root",
+            type: "page",
+          } as DesignNode,
+        },
+      },
+    });
+    renderIn(nodeFrameOf("card"));
+  };
+
+  beforeEach(() => {
+    withPage({});
+    useEditor.setState({ also: [], selection: null });
+    under.chain = ["home-root", "list", "card", "title"];
+  });
+
+  it("lists every layer the element under the pointer is in, the deepest first and the page last, and no sibling drawn over them", () => {
+    rightClick();
+    expect(rowLabels()).toEqual(["Plans", "Card", "Row", "home"]);
+  });
+
+  it("names each layer as Layers does: its name, else what it is and what it says", () => {
+    withPage({ card: { name: undefined }, title: { text: "" } });
+    rightClick();
+    expect(rowLabels()).toEqual(["Heading 3", "Column", "Row", "home"]);
+  });
+
+  it("ticks the layers selected", () => {
+    select({ frame: HOME, nodeId: "list" });
+    rightClick();
+    expect(ticked()).toEqual(["Row"]);
+  });
+
+  it("selects the layer picked alone, as a click on it would", () => {
+    rightClick();
+    pickRow("Plans");
+    expect(allSelected()).toEqual([{ frame: HOME, nodeId: "title" }]);
+  });
+
+  it("selects the page by its row", () => {
+    rightClick();
+    pickRow("home");
+    expect(allSelected()).toEqual([{ frame: HOME, nodeId: "home-root" }]);
+  });
+
+  it("lists the layers of a node beside the pages down to that node", () => {
+    besideThePages();
+    under.chain = ["card", "title"];
+    rightClick();
+    expect(rowLabels()).toEqual(["Plans", "Card"]);
+  });
+
+  it("selects a node beside the pages by its row, in its frame", () => {
+    besideThePages();
+    under.chain = ["card", "title"];
+    rightClick();
+    pickRow("Card");
+    expect(allSelected()).toEqual([
+      { frame: nodeFrameOf("card"), nodeId: "card" },
+    ]);
+  });
+
+  it("leaves out a locked layer and what it holds, as a click passes them by", () => {
+    withPage({ card: { locked: true } });
+    rightClick();
+    expect(rowLabels()).toEqual(["Row", "home"]);
+  });
+
+  it("leaves out a hidden layer", () => {
+    withPage({ title: { hidden: true } });
+    rightClick();
+    expect(rowLabels()).toEqual(["Card", "Row", "home"]);
+  });
+
+  it("lists a layer hidden at the base and shown at the breakpoint of the view right-clicked in (ADR 0036)", () => {
+    withPage({ title: { at: { md: { hidden: false } }, hidden: true } });
+    // A view at 800 px: `md`, of the default breakpoints.
+    useEditor.setState((s) => ({
+      frames: {
+        ...s.frames,
+        [TABLET]: { height: 900, preset: "custom", width: 800, x: 0, y: 0 },
+      },
+    }));
+    renderIn(TABLET);
+    rightClick();
+    expect(rowLabels()).toEqual(["Plans", "Card", "Row", "home"]);
+  });
+
+  /** The card and its neighbour selected, the card first. */
+  const cardAndOther = () =>
+    selectMany([
+      { frame: HOME, nodeId: "card" },
+      { frame: HOME, nodeId: "other" },
+    ]);
+
+  it("keeps a selection of several right-clicked in", () => {
+    cardAndOther();
+    rightClick();
+    expect(allSelected()).toHaveLength(2);
+  });
+
+  it("ticks the layers of a selection of several that are under the pointer", () => {
+    cardAndOther();
+    rightClick();
+    expect(ticked()).toEqual(["Card"]);
+  });
+
+  it("narrows a selection of several to the layer picked", () => {
+    cardAndOther();
+    rightClick();
+    pickRow("Plans");
+    expect(allSelected()).toEqual([{ frame: HOME, nodeId: "title" }]);
+  });
+
+  it("in a view of the page, lists the layers as it draws them and selects in that view (ADR 0036)", () => {
+    renderIn(TABLET);
+    rightClick();
+    expect(rowLabels()).toEqual(["Plans", "Card", "Row", "home"]);
+    pickRow("Card");
+    expect(allSelected()).toEqual([{ frame: TABLET, nodeId: "card" }]);
+  });
+
+  it("is not offered for a single layer", () => {
+    besideThePages();
+    // The node's own ground, nothing inside it under the pointer.
+    under.chain = ["card"];
+    rightClick();
+    expect(useContextMenu.getState().request?.target).toMatchObject({
+      nodeId: "card",
+    });
+    expect(layerRows()).toEqual([]);
+  });
+
+  it("is not in the menu the menu key or ⇧F10 opens", () => {
+    select({ frame: HOME, nodeId: "card" });
+    useContextMenu.setState({ open: false, request: null });
+    act(() => {
+      openSelectionMenuByKey();
+    });
+    expect(useContextMenu.getState().request?.target).toMatchObject({
+      nodeId: "card",
+    });
+    expect(layerRows()).toEqual([]);
+  });
+
+  it("is not in a node's menu opened without a point, as a Layers row's and a frame header's are", () => {
+    expect(layerRows({ frame: HOME, kind: "node", nodeId: "card" })).toEqual(
+      []
+    );
+  });
+
+  it("is not in the command palette", () => {
+    useEditor.setState({ workspace: "design" });
+    select({ frame: HOME, nodeId: "card" });
+    expect(
+      paletteCommands().filter((c) => c.title.startsWith("Select layer"))
+    ).toEqual([]);
   });
 });

@@ -161,6 +161,53 @@ describe("the node menu", () => {
     expect(loose).not.toContain("selectParent");
   });
 
+  describe("the layers under the pointer (ADR 0143)", () => {
+    /** The text in a row on the page, right-clicked on the text, the row selected. */
+    const under = [
+      { id: "t1", label: "Hello", selected: false },
+      { id: "r1", label: "Row", selected: true },
+      { id: "home", label: "Home", selected: false },
+    ];
+
+    it("are listed in Select layer, deepest first and the page last, the selected ones ticked", () => {
+      const layers = find(nodeEntries(facts({ layersUnder: under })), "layers");
+      expect(layers).toMatchObject({ label: "Select layer" });
+      expect(
+        layers?.kind === "submenu" &&
+          layers.entries.map((e) =>
+            e.kind === "item" ? [e.label, e.action, e.checked === true] : e
+          )
+      ).toEqual([
+        ["Hello", { id: "t1", kind: "selectLayerUnder" }, false],
+        ["Row", { id: "r1", kind: "selectLayerUnder" }, true],
+        ["Home", { id: "home", kind: "selectLayerUnder" }, false],
+      ]);
+    });
+
+    it("sit with Select parent", () => {
+      const order = kinds(nodeEntries(facts({ layersUnder: under })));
+      expect(order.indexOf("layers")).toBe(order.indexOf("selectParent") + 1);
+    });
+
+    it("are not offered without a point", () => {
+      expect(kinds(nodeEntries(facts()))).not.toContain("layers");
+    });
+
+    it("are not offered when there is only one", () => {
+      expect(
+        kinds(nodeEntries(facts({ layersUnder: under.slice(0, 1) })))
+      ).not.toContain("layers");
+    });
+
+    it("are offered for several selected as for one", () => {
+      expect(
+        inside(
+          find(nodeEntries(facts({ count: 2, layersUnder: under })), "layers")
+        )
+      ).toHaveLength(3);
+    });
+  });
+
   it("offers a node of a tree on its board nothing of a page's, but what it does to the node", () => {
     const onBoard = kinds(
       nodeEntries(
