@@ -215,12 +215,28 @@ export const useFramePointer = ({
   // ⌥ pressed or let go with the pointer at rest: what it is over is the innermost node there
   // at once, to measure to (ADR 0131), and the one a click would select again once let go,
   // the innermost still while Ctrl or ⌘ is held.
-  const hitAgain = useEffectEvent((innermost: boolean) => {
+  const keyDuringPress = useRef<boolean>(false);
+  const rehover = (innermost: boolean) => {
     const at = resting.current;
-    if (at !== null && !press.current) {
-      hoverOn(nodeUnder(toFrame(at), innermost));
+    if (at === null) {
+      return;
     }
-  });
+    // A press under way keeps what it is about: the key is heard once it ends (`pressEnded`).
+    if (press.current) {
+      keyDuringPress.current = true;
+      return;
+    }
+    hoverOn(nodeUnder(toFrame(at), innermost));
+  };
+  const hitAgain = useEffectEvent((innermost: boolean) => rehover(innermost));
+  /** A press ends: ⌥ pressed or let go during it now hit-tests where the pointer is. */
+  const pressEnded = () => {
+    press.current = null;
+    if (keyDuringPress.current) {
+      keyDuringPress.current = false;
+      rehover(useMeasureKey.getState().deep);
+    }
+  };
   useEffect(
     () =>
       useMeasureKey.subscribe((now, before) => {
@@ -458,7 +474,7 @@ export const useFramePointer = ({
     // or measured with ⌥, while one is drawn.
     leaveHover(frameId);
     drawingMarquee(() => {
-      press.current = null;
+      pressEnded();
       endMarquee(false);
     });
   };
@@ -480,7 +496,7 @@ export const useFramePointer = ({
     }
   };
   const onPointerUp = () => {
-    press.current = null;
+    pressEnded();
     if (marqueeFrom.current) {
       endMarquee(true);
       return;
@@ -494,7 +510,7 @@ export const useFramePointer = ({
    * canvas does, and a marquee selects nothing.
    */
   const onPointerCancel = () => {
-    press.current = null;
+    pressEnded();
     if (marqueeFrom.current) {
       endMarquee(false);
       return;

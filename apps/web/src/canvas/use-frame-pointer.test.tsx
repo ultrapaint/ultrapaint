@@ -604,6 +604,17 @@ describe("⌥ held over a page (ADR 0131)", () => {
     expect(hovered()).toBe("t1");
   });
 
+  it("hovers the innermost node once a press it was pressed during ends", () => {
+    inACard();
+    act(() => current().onPointerMove(pointerAt(20, 20)));
+    act(() => current().onPointerDown(pointerAt(20, 20)));
+    alt("keydown");
+    // The press keeps what it is about while it lasts.
+    expect(hovered()).toBe("card");
+    act(() => current().onPointerUp());
+    expect(hovered()).toBe("t1");
+  });
+
   it("hovers what is under the pointer where a press let it go", () => {
     inACard();
     // The page is empty left of 100, the text in its card from there on.
