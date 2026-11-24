@@ -34,6 +34,8 @@ vi.mock(
 
 const HOME = "home.page.json";
 const IMAGE_RE = /url\(|gradient\(/;
+const CONIC =
+  "conic-gradient(in oklab, $color-primary 0deg, $color-accent 90deg, transparent 180deg)";
 const GRADIENT = "linear-gradient(in oklab, $color-primary, transparent)";
 
 /** A page of boxes, each filled as given. */
@@ -158,6 +160,17 @@ const openSwatch = async () => {
     act(() => swatch.click());
   }
   await act(async () => undefined);
+};
+
+/** Presses the remove button of the stop numbered `n`, from 1. */
+const removeStop = (n: number) => {
+  const remove = [...document.querySelectorAll("button")].filter(
+    (b) => b.getAttribute("aria-label") === "Remove stop"
+  )[n - 1];
+  if (!remove) {
+    throw new Error(`no stop ${n}`);
+  }
+  act(() => remove.click());
 };
 
 /** Opens a field's list, as a click on it does. */
@@ -410,11 +423,12 @@ describe("the Fill section's layers (ADR 0134)", () => {
     ]);
   });
 
-  it("keeps stops placed in another unit where they are written: the bar moves none, and taking one off leaves the others", async () => {
+  it("keeps stops placed in a length where they are written, the bar moving none", async () => {
     show({
       box: "linear-gradient(in oklab, $color-primary 10px, $color-accent, transparent)",
     });
     await openSwatch();
+    expect(document.querySelectorAll("[data-stop]")).toHaveLength(0);
     const bar = document.querySelector("[data-stop-bar]") as HTMLElement;
     bar.getBoundingClientRect = () =>
       ({ height: 24, left: 0, top: 0, width: 200 }) as DOMRect;
@@ -424,12 +438,36 @@ describe("the Fill section's layers (ADR 0134)", () => {
       );
     });
     expect(edits()).toBe(0);
-    const removes = [...document.querySelectorAll("button")].filter(
-      (b) => b.getAttribute("aria-label") === "Remove stop"
-    );
-    act(() => removes[1]?.click());
+  });
+
+  it("takes a stop off a gradient placed in a length, the others as written", async () => {
+    show({
+      box: "linear-gradient(in oklab, $color-primary 10px, $color-accent, transparent)",
+    });
+    await openSwatch();
+    removeStop(2);
     expect(fills()).toEqual([
       { fill: "linear-gradient(in oklab, $color-primary 10px, transparent)" },
+    ]);
+  });
+
+  it("places a conic gradient's angles as their share of the turn when a stop is taken off", async () => {
+    show({ box: CONIC });
+    await openSwatch();
+    removeStop(1);
+    expect(fills()).toEqual([
+      { fill: "conic-gradient(in oklab, $color-accent 25%, transparent 50%)" },
+    ]);
+  });
+
+  it("gives a conic gradient's angles to another shape as their share of the turn", async () => {
+    show({ box: CONIC });
+    await openSwatch();
+    press("Linear");
+    expect(fills()).toEqual([
+      {
+        fill: "linear-gradient(0deg in oklab, $color-primary, $color-accent 25%, transparent 50%)",
+      },
     ]);
   });
 
