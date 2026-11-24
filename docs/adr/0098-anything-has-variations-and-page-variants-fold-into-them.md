@@ -1,7 +1,8 @@
 # ADR 0098: Anything on the canvas has variations, and page variants are folded into them
 
 Status: accepted, 2026-11-16. Amends 0086 (the selection, its Ask an agent popover), 0063 (a turn the review
-skips) and 0018 (links). Replaces 0019's page variants. Built by UP-9.
+skips) and 0018 (links). Replaces 0019's page variants. Built by UP-9. Amended by 0139 (where a
+round's takes start: This design, Different or Fresh).
 
 ## Context
 

@@ -136,7 +136,7 @@ refactor and the board view left.
   `state/variations.ts`). Page variants are folded into it. _Avoid_ "variant" for it: a
   component's members are its variants.
   - A **take** is one variation an agent makes on a `Variations` task (`/variations
-    <document>#<node> [2-4] [what should vary]`); the takes of one request are a **round**
+    <document>#<node> [2-4] [start=… keep=…] [what should vary]`, ADR 0139); the takes of one request are a **round**
     (`variation-rounds.ts`). Each take is made in a **working copy**: a page file the server
     makes before the turn in the designs directory's `.working-copies/`, which the page list,
     the canvas layout, the history, the undo journal and git never read (`working-copies.ts`).
@@ -148,6 +148,19 @@ refactor and the board view left.
     node with its id, **Add to preview** in the same place in its parent; the preview is then a
     **mix** ("Original with Editorial's heading", `state/variation-parts.ts`), which Use this
     puts in use as a variation of its own.
+  - A round's **distance** is where a page's or a container's takes start (ADR 0139; a text's
+    or an image's are always This design), the person's **Start from**:
+    **This design** (a copy changed in place), **Different** (a copy whose layout each take
+    changes) or **Fresh** (an empty copy drawn from the content brief alone, in a new chat that is
+    never given the original). A Fresh round's **Keep** says what of
+    the design system its takes keep: the **design system**, or the **brand only** (colours,
+    typeface, logo). Each take follows a **direction** the agent names in its plan before the
+    first take: a different layout model or main thing, or another answer to what should vary.
+  - The **content brief** is a page or container as words, written by the server for a
+    Different or Fresh round: the page it is on and its URL, its texts in reading order, images by their asset and alt, components with
+    their props in words, links, the page's states, and one line on today's layout as what to
+    avoid. _Avoid_ "inventory" for it: the review's inventory and the usage inventory are other
+    lists.
 - **Operation**: one change to a document (contracts' `DocOp`, design-document's `applyOps`),
   one undo step per request: insert, remove, move, update, set props, wrap, unwrap, duplicate,
   and **replace**, which puts a node where sibling nodes were (an instance drawn as now, detached
