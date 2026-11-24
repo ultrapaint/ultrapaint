@@ -3,7 +3,9 @@
  * that it is told rather than left to believe the page shows it. A field its node's type does not
  * have (dropped when the document is written), a stack's gap or wrap with at most one node to
  * space, a breakpoint's value that is the node's own, a value the node already had, a `null` on
- * a field it did not have. Reported, never refused: the operations apply as they are.
+ * a field it did not have. A layer of an instance is judged by its kind and its instance override
+ * only: the rest of it is its main component's, which the page does not show. Reported, never
+ * refused: the operations apply as they are.
  */
 import {
   type DesignNode,
@@ -72,12 +74,13 @@ const unchanged = (
 };
 
 /**
- * Why a breakpoint's value changes nothing on the node as the call leaves it: it is the value the node already has there, its own (ADR 0036, mobile-first),
- * and no smaller breakpoint (`order`, the design system's, smallest first) sets the field
- * otherwise. One that brings the own value back above a smaller breakpoint's does something.
+ * Why a breakpoint's value changes nothing on the node as the call leaves it: it is the value
+ * the node already has there, its own (ADR 0036, mobile-first), and no smaller breakpoint
+ * (`order`, the design system's, smallest first) sets the field otherwise. One that brings the
+ * own value back above a smaller breakpoint's does something.
  */
 const sameAsOwn = (
-  fields: Readonly<Record<string, unknown>> | null | undefined,
+  fields: Readonly<Record<string, unknown>> | null,
   key: string,
   at: string | undefined,
   order: readonly string[]

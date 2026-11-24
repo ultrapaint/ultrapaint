@@ -133,6 +133,15 @@ describe("inertFields", () => {
     ).toEqual(["b.at.lg.size"]);
   });
 
+  it("names no value at a breakpoint the design system does not name", () => {
+    expect(
+      named([
+        { id: "b", op: "update", set: { size: 20 } },
+        { at: "tv", id: "b", op: "update", set: { size: 20 } },
+      ])
+    ).toEqual([]);
+  });
+
   it("names a value the node already had, and a null on a field it did not have", () => {
     expect(
       inert([{ id: "b", op: "update", set: { fill: null, text: "b" } }])
