@@ -224,14 +224,18 @@ export const makeTurn = (
   const end = (response: PromptResponse) =>
     Effect.flatMap(over, (was) => written(was, response));
 
+  // Uninterruptible once taken: a Force stop that closes the session under a turn the agent
+  // has just ended waits for its end to be written, rather than losing it to the interruption.
   const endAtAgent = (
     response: PromptResponse,
     meanwhile: Effect.Effect<void> = Effect.void
   ) =>
-    Effect.flatMap(overAtAgent, (was) =>
-      was === null
-        ? Effect.succeed(false)
-        : Effect.as(Effect.andThen(meanwhile, written(was, response)), true)
+    Effect.uninterruptible(
+      Effect.flatMap(overAtAgent, (was) =>
+        was === null
+          ? Effect.succeed(false)
+          : Effect.as(Effect.andThen(meanwhile, written(was, response)), true)
+      )
     );
 
   /** One thing an update does to the transcript, done. */
