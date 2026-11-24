@@ -98,6 +98,7 @@ describe("a fill as layers", () => {
       "repeating-linear-gradient(red 0 10px, blue 10px 20px)",
       "linear-gradient(red, 30%, blue)",
       "linear-gradient(red,,blue)",
+      "constructor(from 0deg, red, blue)",
       "none",
     ]) {
       expect(fillLayers(css)).toEqual([{ css, kind: "css" }]);
@@ -183,6 +184,15 @@ describe("a fill as layers", () => {
     ];
     expect(stopPositions(stops, "conic")).toEqual([0, 25, 50]);
     expect(placedInPercent(stops, "conic")).toBe(true);
+  });
+
+  it("cannot place in percent a stop whose variable may hold its own position", () => {
+    expect(
+      placedInPercent(
+        [{ color: "var(--stop, red 20% 40%)" }, { color: "blue" }],
+        "linear"
+      )
+    ).toBe(false);
   });
 
   it("cannot place a stop in percent that is given in a length", () => {

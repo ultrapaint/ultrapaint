@@ -268,7 +268,8 @@ const layerOf = (text: string): ColorLayer | GradientLayer | null => {
     return { color: text, kind: "color" };
   }
   const fn: RegExpExecArray | null = FUNCTION_RE.exec(text);
-  const shape = fn ? SHAPES[(fn[1] ?? "").toLowerCase()] : undefined;
+  const name = (fn?.[1] ?? "").toLowerCase();
+  const shape = Object.hasOwn(SHAPES, name) ? SHAPES[name] : undefined;
   if (!(fn && shape)) {
     return null;
   }
@@ -452,9 +453,20 @@ export const positionPercent = (
   return degrees === null ? null : (degrees / 360) * 100;
 };
 
+/** Whether a stop's colour is a `var()` whose fallback is more than a colour: `red 20% 40%`. */
+const mayHoldPosition = (color: string): boolean => {
+  const fn: RegExpExecArray | null = FUNCTION_RE.exec(color);
+  if (!fn || (fn[1] ?? "").toLowerCase() !== "var") {
+    return false;
+  }
+  const [, fallback = ""] = splitTop(fn[2] ?? "", ",");
+  return splitTop(fallback, " ").length > 1;
+};
+
 /**
  * Whether every stop can be placed in percent without moving: given in percent, as a conic
- * gradient's angle, or left for CSS to place. A stop at `10px` or `calc(…)` cannot be.
+ * gradient's angle, or left for CSS to place. A stop at `10px` or `calc(…)` cannot be, nor one
+ * whose `var()` may hold a position of its own.
  */
 export const placedInPercent = (
   stops: readonly FillStop[],
@@ -462,7 +474,8 @@ export const placedInPercent = (
 ): boolean =>
   stops.every(
     (s) =>
-      s.position === undefined || positionPercent(s.position, shape) !== null
+      !mayHoldPosition(s.color) &&
+      (s.position === undefined || positionPercent(s.position, shape) !== null)
   );
 
 /**
