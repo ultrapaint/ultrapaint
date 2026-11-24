@@ -1,9 +1,9 @@
 /**
- * What an agent asks of the person: permissions to run a tool, and questions, answered on a card
- * in the transcript or, while they are open, over the composer.
+ * What an agent asks of the person: permissions to run a tool, answered on a card in the
+ * transcript, and questions, answered over the composer while they are open and folded into one
+ * row of the turn's card once they no longer wait (ADR 0129).
  */
 import {
-  type Answer,
   answeredInTurn,
   isBusy,
   type ThreadItem,
@@ -36,6 +36,8 @@ import { IconButton } from "../components/icon-button.tsx";
 import {
   type AnswerDraft,
   answeredWell,
+  answerText,
+  askedSummary,
   notANumber,
   openQuestionOf,
   type QuestionItem,
@@ -56,6 +58,7 @@ import {
 import { api } from "../state/connection.ts";
 import { reportError } from "../state/project.ts";
 import { isSendKey, type SendKey, useSendKey } from "../state/send-key.ts";
+import { Fold } from "./thread-fold.tsx";
 
 type PermissionItem = Extract<ThreadItem, { kind: "permission" }>;
 
@@ -196,18 +199,6 @@ export const Permission = ({
   );
 };
 
-/** What an answer reads as once given: each option's label, or the text typed. */
-const answerLabel = (question: QuestionOf, answer: Answer | undefined) => {
-  const label = (one: string) =>
-    question.options.find((o) => o.id === one)?.label ?? one;
-  if (answer === undefined || answer.length === 0) {
-    return "—";
-  }
-  return typeof answer === "string"
-    ? label(answer)
-    : answer.map(label).join(", ");
-};
-
 /** The options a question offers past this many have no key of their own. */
 const KEYED_OPTIONS = 9;
 
@@ -264,23 +255,6 @@ const QuestionChoices = ({
   );
 };
 
-/** What the card says it is, from asked to answered. */
-const cardTitle = (item: QuestionItem) => {
-  if (item.outcome === "undelivered") {
-    return "Delivery not confirmed";
-  }
-  if (item.answers !== null) {
-    return "Answered";
-  }
-  if (item.outcome === "declined") {
-    return "Declined";
-  }
-  if (item.outcome === "cancelled") {
-    return "No longer asked";
-  }
-  return item.elicitation?.message ?? "The agent asks";
-};
-
 /** What is said under a question: its own description, or how it is answered. */
 const questionHint = (question: QuestionOf) => {
   if (question.description) {
@@ -296,33 +270,91 @@ const questionHint = (question: QuestionOf) => {
 const useRunning = (threadId: string) =>
   useAgents((s) => isBusy(s.threads.find((t) => t.id === threadId)?.status));
 
-/** Questions no longer waiting, as the thread keeps them: each with what came of it. */
-export const QuestionRecord = ({ item }: { item: QuestionItem }) => {
-  const answered = item.answers;
+/** Each question asked, and under it the answer given, when there is one. */
+const AskedList = ({ asked }: { asked: readonly QuestionItem[] }) => (
+  <dl className="flex flex-col gap-2.5 font-body-small">
+    {asked.flatMap((card) =>
+      card.questions.map((q) => {
+        const answer = answerText(q, card.answers?.[q.id]);
+        return (
+          <div className="flex flex-col gap-0.5" key={`${card.id}:${q.id}`}>
+            <dt className="wrap-break-word select-text text-muted-foreground">
+              {q.question}
+            </dt>
+            {answer === undefined ? null : (
+              <dd className="wrap-break-word select-text font-body-small-medium text-foreground">
+                {answer}
+              </dd>
+            )}
+          </div>
+        );
+      })
+    )}
+  </dl>
+);
+
+const questionCount = (n: number) =>
+  n === 1 ? "1 question" : `${n} questions`;
+
+/**
+ * Questions no longer waiting, folded into one row (ADR 0129): the answers given, after "You
+ * answered", or how the cards ended and how many questions they held; each question with its
+ * answer one click away. Answers that may not have reached the agent keep the line that says so
+ * in view.
+ */
+export const Asked = ({ asked }: { asked: readonly QuestionItem[] }) => {
+  const { answers, ends, lost, unanswered } = askedSummary(asked);
+  if (asked.length === 0) {
+    return null;
+  }
+  const answered = answers.length > 0;
+  let trail: string | null = null;
+  if (!answered) {
+    trail = questionCount(unanswered);
+  } else if (unanswered > 0) {
+    trail = `${unanswered} not answered`;
+  }
   return (
-    <AskCard
-      icon={answered ? Check : CircleHelp}
-      open={false}
-      title={cardTitle(item)}
-    >
-      {item.questions.map((q) => (
-        <div className="flex flex-col" key={q.id}>
+    <>
+      <Fold
+        label={
           <span className="font-body-small text-muted-foreground">
-            {q.question}
+            {answered ? (
+              <>
+                {lost ? "Delivery not confirmed" : "You answered"}{" "}
+                <span className="text-foreground">{answers.join(" · ")}</span>
+              </>
+            ) : (
+              ends.join(", ")
+            )}
           </span>
-          <span className="font-body-medium text-foreground">
-            {answerLabel(q, answered?.[q.id])}
-          </span>
-        </div>
-      ))}
-      {item.outcome === "undelivered" ? (
-        <span className="font-body-small text-muted-foreground">
+        }
+        lead={<CircleHelp className="text-muted-foreground" />}
+        trail={
+          trail === null ? null : (
+            <span className="shrink-0 font-body-small text-muted-foreground tabular-nums">
+              {trail}
+            </span>
+          )
+        }
+      >
+        <AskedList asked={asked} />
+      </Fold>
+      {lost ? (
+        <p className="px-3 pb-2.5 font-body-small text-muted-foreground">
           The agent may not have these answers. Say them again in the chat.
-        </span>
+        </p>
       ) : null}
-    </AskCard>
+    </>
   );
 };
+
+/** A card no longer waiting, where "Show every step" draws the transcript: its row, bordered. */
+export const QuestionRecord = ({ item }: { item: QuestionItem }) => (
+  <div className="overflow-hidden rounded-lg border font-body">
+    <Asked asked={[item]} />
+  </div>
+);
 
 /**
  * Questions put to the user, one at a time, at the top of the composer's own box so they stay in
@@ -353,7 +385,9 @@ const QuestionCard = ({
     <div className="flex flex-col gap-2 border-b px-3 pt-2.5 pb-3 font-body">
       <div className="-mr-1.5 flex h-6 items-center gap-1.5 font-body-small text-muted-foreground">
         <CircleHelp className="size-3.5 shrink-0 text-warning" />
-        <span className="min-w-0 flex-1 truncate">{cardTitle(item)}</span>
+        <span className="min-w-0 flex-1 truncate">
+          {item.elicitation?.message ?? "The agent asks"}
+        </span>
         {count > 1 ? (
           <span className="font-body-small-medium tabular-nums">
             {draft.step + 1} of {count}

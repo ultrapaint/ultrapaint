@@ -175,6 +175,36 @@ describe("a card no agent waits on any more (ADR 0125)", () => {
     expect(container.textContent).toContain("No longer asked");
   });
 
+  it("a card the agent let go is one row until opened, its questions without answers (ADR 0129)", () => {
+    act(() =>
+      mounted.render(
+        <QuestionRecord
+          item={{
+            ...PLAN,
+            outcome: "cancelled",
+            settled: { at: 2, how: "withdrawn" },
+          }}
+        />
+      )
+    );
+    expect(container.textContent).toBe("No longer asked1 question");
+    const row = container.querySelector("button");
+    act(() => row?.click());
+    expect(container.textContent).toContain("Which plan?");
+    expect(container.textContent).not.toContain("—");
+  });
+
+  it("an answered card reads the answer, its question one click away (ADR 0129)", () => {
+    act(() =>
+      mounted.render(
+        <QuestionRecord item={{ ...PLAN, answers: { plan: "pro" } }} />
+      )
+    );
+    expect(container.textContent).toBe("You answered Pro");
+    act(() => container.querySelector("button")?.click());
+    expect(container.textContent).toContain("Which plan?");
+  });
+
   it("a question a restart let go is answered by a prompt, so it cannot be declined", () => {
     const draft = { busy: false, other: {}, picked: {}, step: 0 };
     const [question] = PLAN.questions;

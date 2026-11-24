@@ -350,7 +350,8 @@ refactor and the board view left.
   review loop adds, shown together as the **run card** (web's `design-run.ts`).
 - **Turn card**: how a design chat shows a turn (ADR 0095, web's `thread-turns.ts`): the prompt,
   one card (the page the turn works on, the run's steps while it goes, the review's line, the
-  agent's **steps** folded and named in words) and the agent's last message, its **answer**.
+  questions it **asked** that no longer wait as one row, ADR 0129, the agent's **steps** folded
+  and named in words) and the agent's last message, its **answer**.
   **Show every step** (the person's `everyStep`) shows the transcript as the agent reported it.
 - **Composer tray**: the strip hung under a design chat's composer with its **Skills** picker and
   its Review chip. A chat's **skills** are the design skills its briefing tells (`Thread.skills`,
