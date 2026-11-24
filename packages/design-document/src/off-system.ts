@@ -11,7 +11,7 @@
  *
  * A fill in layers (ADR 0134) is on the system when each of its colours is: a gradient whose
  * every stop is a token, or a keyword that is no value, passes; a raw stop or a raw colour layer
- * is off it.
+ * is off it. A shadow list is read shadow by shadow: a raw shadow anywhere in it is off it.
  *
  * Left alone: 0 and the CSS keywords that are no value (`none`, `transparent`, `auto`,
  * `currentColor`, `inherit`); sizes (a width, a height), which are the layout's; a round radius
@@ -20,6 +20,7 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { spacingStepAt } from "@ultrapaint/contracts/token-table";
 import { fillLayers } from "./fill.ts";
+import { shadowsOf } from "./shadow.ts";
 import { isToken } from "./tokens.ts";
 import { childrenOf } from "./tree.ts";
 
@@ -63,6 +64,11 @@ export const isOffSystem = (
   value: unknown,
   spacingBase = DEFAULT_SPACING_BASE
 ): boolean => {
+  // A shadow list is read shadow by shadow, a token first in it hiding no raw one after.
+  const shadows = kind === "shadow" ? shadowsOf(String(value ?? "")) : [];
+  if (shadows.length > 1) {
+    return shadows.some((shadow) => isOffSystem(kind, shadow));
+  }
   if (value === undefined || value === null || isToken(value)) {
     return false;
   }
@@ -116,6 +122,14 @@ const offIn = (
 ): OffSystemValue[] => {
   const found: OffSystemValue[] = [];
   const check = (field: string, kind: OffSystemKind, value: unknown) => {
+    // A shadow list is reported shadow by shadow: the raw one, not the list it is in.
+    const shadows = kind === "shadow" ? shadowsOf(String(value ?? "")) : [];
+    if (shadows.length > 1) {
+      for (const shadow of shadows) {
+        check(field, kind, shadow);
+      }
+      return;
+    }
     if (isOffSystem(kind, value, spacingBase)) {
       found.push({
         field: `${prefix}${field}`,

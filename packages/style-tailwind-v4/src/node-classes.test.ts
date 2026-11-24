@@ -499,6 +499,31 @@ describe("a length's keyword", () => {
   });
 });
 
+describe("a box's shadows", () => {
+  const shadow = (boxShadow: string) => responsive([null, { boxShadow }]);
+
+  it("writes several shadows as one arbitrary value in their order, each token as its variable", async () => {
+    const [cls = ""] = shadow(
+      "$shadow-md, inset 0 0 0 1px rgba(0,0,0,.1), $elevation-ring"
+    );
+    expect(cls).toBe(
+      "shadow-[var(--shadow-md),_inset_0_0_0_1px_rgba(0,0,0,.1),_var(--elevation-ring)]"
+    );
+    const rules = await compiledClasses([cls]);
+    expect(rules.get(cls)?.get("--tw-shadow")).toBe(
+      "var(--shadow-md), inset 0 0 0 1px var(--tw-shadow-color, rgba(0,0,0,.1)), var(--elevation-ring)"
+    );
+  });
+
+  it("writes one shadow as it always has, a token by its name", () => {
+    expect(shadow("$shadow-md")).toEqual(["shadow-md"]);
+    expect(shadow("$elevation-ring")).toEqual(["shadow-(--elevation-ring)"]);
+    expect(shadow("inset 0 1px 0 #fff")).toEqual([
+      "shadow-[inset_0_1px_0_#fff]",
+    ]);
+  });
+});
+
 describe("a border's width", () => {
   it("is Tailwind's utility for whole pixels, and an arbitrary value otherwise", () => {
     const widths = [1.5, 3].map((width) =>

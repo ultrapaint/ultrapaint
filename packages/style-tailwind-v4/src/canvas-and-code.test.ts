@@ -25,6 +25,7 @@ import {
   nodeStyle,
   type ParentLayout,
 } from "@ultrapaint/design-document/css";
+import { splitTop } from "@ultrapaint/design-document/css-split";
 import {
   fillCss,
   fillLayers,
@@ -229,6 +230,33 @@ const placedStops = (value: string): string => {
   return fillCss(placed) ?? value;
 };
 
+/** The shadow Tailwind's empty slots hold (`--tw-ring-shadow` and the others, unset). */
+const NO_SHADOW = "0 0 #0000";
+const SHADOW_TOKEN_RE = /var\((--shadow-[\w.-]+)\)/g;
+
+/**
+ * A box-shadow as both sides say it: Tailwind's slots (`--tw-inset-shadow`, `--tw-shadow`) as the
+ * classes set them, the empty ones left out, and a shadow token of its theme as its value, which
+ * a named utility (`shadow-md`) writes out where the canvas names the variable.
+ */
+const shadowValue = (
+  value: string,
+  custom: ReadonlyMap<string, string>,
+  tailwind: {
+    readonly initial: ReadonlyMap<string, string>;
+    readonly theme: ReadonlyMap<string, string>;
+  }
+) =>
+  splitTop(
+    withTailwindVariables(value, custom, tailwind.initial, 3).replace(
+      SHADOW_TOKEN_RE,
+      (whole, name: string) => tailwind.theme.get(name) ?? whole
+    ),
+    ","
+  )
+    .filter((shadow) => shadow !== NO_SHADOW)
+    .join(", ");
+
 /** A value both sides can be compared by; null when it cannot be worked out here. */
 const normal = (
   property: string,
@@ -241,11 +269,15 @@ const normal = (
 ): string | null => {
   const background =
     property === "background" || property === "background-image";
-  let v = withTailwindVariables(
-    value.trim(),
-    custom,
-    tailwind.initial,
-    background ? 8 : 1
+  let v = (
+    property === "box-shadow"
+      ? shadowValue(value.trim(), custom, tailwind)
+      : withTailwindVariables(
+          value.trim(),
+          custom,
+          tailwind.initial,
+          background ? 8 : 1
+        )
   ).replace(SPACES_RE, " ");
   const [named] = groups(VARIABLE_RE, v);
   // A weight of Tailwind's theme is its number: `font-bold` is 700.
@@ -341,7 +373,12 @@ const withOverrides = (root: DesignNode): DesignNode => {
           out.textStyle = "Title";
           at.lg = { size: "$text-lg" };
         } else {
-          at.sm = { fill: "$color-primary", radius: 8 };
+          // A drop shadow token under an inner raw one, written as one list.
+          at.sm = {
+            fill: "$color-primary",
+            radius: 8,
+            shadow: "inset 0 1px 0 #ffffff, $shadow-md",
+          };
         }
         break;
       case 5:

@@ -123,6 +123,38 @@ describe("a fill in layers", () => {
   });
 });
 
+describe("a box's shadows", () => {
+  const shadowDs = {
+    ...ds,
+    shadows: [{ name: "shadow-md", value: "0 4px 8px #0002" }],
+  };
+  const card = (shadow: string): DesignNode => ({
+    children: [],
+    id: "card",
+    shadow,
+    type: "column",
+  });
+
+  it("draws each token of a list as its variable and each raw shadow as written, the declaration keeping it by name", () => {
+    const node = card("$shadow-md, inset 0 0 0 1px rgba(0,0,0,.1)");
+    expect(nodeStyle(node, makeStyleContext(shadowDs)).boxShadow).toBe(
+      "var(--shadow-md, 0 4px 8px #0002), inset 0 0 0 1px rgba(0,0,0,.1)"
+    );
+    expect(declarationsOf(node, makeStyleContext(shadowDs)).boxShadow).toBe(
+      node.shadow
+    );
+  });
+
+  it("draws one shadow, a token or CSS, as it always has", () => {
+    const style = (shadow: string) =>
+      nodeStyle(card(shadow), makeStyleContext(shadowDs)).boxShadow;
+    expect(style("$shadow-md")).toBe("var(--shadow-md, 0 4px 8px #0002)");
+    expect(style("0 1px 2px rgba(0, 0, 0, 0.1)")).toBe(
+      "0 1px 2px rgba(0, 0, 0, 0.1)"
+    );
+  });
+});
+
 describe("declarationsOf", () => {
   it("says a node's look as CSS, tokens kept by name and pixels as numbers", () => {
     const node: DesignNode = {

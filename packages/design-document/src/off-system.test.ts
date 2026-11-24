@@ -84,6 +84,23 @@ describe("values off the design system", () => {
     ]);
   });
 
+  it("reads a shadow list shadow by shadow, a raw one after a token off the system", () => {
+    expect(isOffSystem("shadow", "$shadow-md, $shadow-ring")).toBe(false);
+    const found = offSystemValues(
+      page([
+        {
+          children: [],
+          id: "card",
+          shadow: "$shadow-md, inset 0 0 0 1px rgba(0,0,0,.1)",
+          type: "column",
+        },
+      ])
+    );
+    expect(found.map((f) => [f.node, f.field, f.kind, f.value])).toEqual([
+      ["card", "shadow", "shadow", "inset 0 0 0 1px rgba(0,0,0,.1)"],
+    ]);
+  });
+
   it("checks a breakpoint's fields as the node's own", () => {
     const found = offSystemValues(
       page([

@@ -24,6 +24,7 @@ import {
   variableOf,
 } from "@ultrapaint/contracts/token-table";
 import { resolveFillTokens, tokensInFill } from "./fill.ts";
+import { mapShadows, tokensInShadow } from "./shadow.ts";
 import { childrenOf } from "./tree.ts";
 
 const TOKEN_PREFIX = "$";
@@ -60,6 +61,8 @@ export interface TokenResolver {
   readonly css: (value: string | number) => string;
   /** CSS for a fill: every token in it becomes its variable, a gradient's stops among them. */
   readonly fill: (value: string | number) => string;
+  /** CSS for a shadow: each shadow of its list that is a token becomes its variable. */
+  readonly shadow: (value: string | number) => string;
   /** The design system's value for a token name, when it has one. */
   readonly valueOf: (name: string) => string | undefined;
 }
@@ -91,18 +94,21 @@ export const makeTokenResolver = (
   };
   const fill = (value: string | number): string =>
     typeof value === "number" ? css(value) : resolveFillTokens(value, variable);
-  return { css, fill, valueOf: (name) => values.get(name) };
+  const shadow = (value: string | number): string =>
+    typeof value === "number" ? css(value) : mapShadows(value, css);
+  return { css, fill, shadow, valueOf: (name) => values.get(name) };
 };
 
 const TOKEN_REF_RE = /^\$([a-z0-9][\w.-]*)/i;
 
 /**
- * The fields whose value is CSS that may name tokens anywhere in it, each with how it is read
- * (ADR 0134): a fill's gradient stops. Every other value names a token only at its start, so that
- * a text saying "Save $20" names none.
+ * The fields whose value is CSS that may name tokens past its start, each with how it is read
+ * (ADR 0134): a fill's gradient stops, and each shadow of a shadow list. Every other value names a
+ * token only at its start, so that a text saying "Save $20" or "Hi, $name" names none.
  */
 const TOKENS_INSIDE: Record<string, (value: string) => readonly string[]> = {
   fill: tokensInFill,
+  shadow: tokensInShadow,
 };
 
 const addToken = (name: string, into: Set<string>) => {

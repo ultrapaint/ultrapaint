@@ -20,8 +20,9 @@ export const codeRules = `How the design maps to code (Tailwind v4):
   Inside an instance, "the parent" is the element of the component that holds its children:
   read the component to see whether it is a flex row, a flex column or a block.
 - fill: bg-*. border: border, border-* and the colour; "$border-width-*" is
-  border-(length:--border-width-*). radius: rounded-*. shadow: shadow-*. "$container-md" in
-  maxWidth or minWidth is max-w-md or min-w-md.
+  border-(length:--border-width-*). radius: rounded-*. shadow: shadow-*; a list of shadows
+  ("$shadow-md, inset 0 1px 0 #fff") is one shadow-[…] in its order, a token as var(--name).
+  "$container-md" in maxWidth or minWidth is max-w-md or min-w-md.
   opacity: opacity-*. hidden: leave the node out. order: order-* (-order-1 for -1).
 - at: what differs from a breakpoint of the design system up, mobile-first: at.md.gap 24 is
   md:gap-6 beside the base's gap-4; at.md.type "row" on a column is max-md:flex-col (or flex-col
