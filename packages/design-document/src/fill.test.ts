@@ -91,6 +91,8 @@ describe("a fill as layers", () => {
 
   it("keeps a value it cannot read as one layer as it is: an image, a colour under nothing, CSS it does not know", () => {
     for (const css of [
+      // A variable may hold a gradient as well as a colour.
+      "var(--hero, linear-gradient(red, blue))",
       "url(hero.png) center / cover, $color-bg",
       "red, blue",
       "repeating-linear-gradient(red 0 10px, blue 10px 20px)",
@@ -218,6 +220,14 @@ describe("the tokens of a fill", () => {
     expect(
       resolveFillTokens("url($hero.png), $color-bg", (n) => `var(--${n})`)
     ).toBe("url($hero.png), var(--color-bg)");
+  });
+
+  it("are none in a quoted path that holds a bracket", () => {
+    const fill = 'url("a) $hero.png"), $color-bg';
+    expect(tokensInFill(fill)).toEqual(["color-bg"]);
+    expect(resolveFillTokens(fill, (n) => `var(--${n})`)).toBe(
+      'url("a) $hero.png"), var(--color-bg)'
+    );
   });
 
   it("are drawn as their variables", () => {
