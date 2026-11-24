@@ -10,13 +10,16 @@ import { useEditor } from "../state/editor.ts";
 import { useDrag } from "./drag.ts";
 import { useHoverIn } from "./frame-highlights.tsx";
 
-export const useMeasureKey = create<{ held: boolean }>(() => ({
-  held: false,
-}));
+export const useMeasureKey = create<{
+  /** Whether a click still goes to the innermost node: ⌥ held, or Ctrl or ⌘ (`deep`). */
+  deep: boolean;
+  held: boolean;
+}>(() => ({ deep: false, held: false }));
 
-const setHeld = (held: boolean) => {
+/** ⌥ held or not, and whether Ctrl or ⌘ are held with it as it changes. */
+const setHeld = (held: boolean, otherDeep = false) => {
   if (useMeasureKey.getState().held !== held) {
-    useMeasureKey.setState({ held });
+    useMeasureKey.setState({ deep: held || otherDeep, held });
   }
 };
 
@@ -33,7 +36,7 @@ export const useWatchMeasureKey = () => {
     };
     const up = (e: KeyboardEvent) => {
       if (e.key === "Alt") {
-        setHeld(false);
+        setHeld(false, e.ctrlKey || e.metaKey);
       }
     };
     // A key released while the window is in the background never reaches keyup.

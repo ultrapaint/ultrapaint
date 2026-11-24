@@ -19,8 +19,8 @@ was left to draw a measurement in without taking another's meaning.
   the same frame draws lines from the selection's edges to the hovered one's, each with a pill
   giving the distance in the frame's pixels, rounded to the pixel. The hovered element is the
   innermost under the pointer, as ⌥ hovers; pressing ⌥ with the pointer at rest hit-tests again
-  there at once, and letting go of it hovers again what a click would select. Several selected
-  are measured from the box around them.
+  there at once, and letting go of it hovers again what a click would select: the innermost
+  still while Ctrl or ⌘ stays held. Several selected are measured from the box around them.
 - **What is drawn follows how the boxes lie** (the web's `measure`, pure). Apart on an axis: the
   space between their facing edges on it, across the middle of what they share on the other axis,
   or from the selection's middle with a dashed guide to the other box when they share nothing.
