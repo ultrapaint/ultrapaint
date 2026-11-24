@@ -604,29 +604,43 @@ const main = async () => {
     };
     // With `--mcp`, the edits the agents made and those refused: a run whose edits failed
     // measured no edits, and says so.
-    const mcpEdits = args.mcp
-      ? await page.evaluate(async (started) => {
-          const { api } = (window as unknown as EdWindow).__ed;
-          const calls = (
-            await Promise.all(
-              started.map(
-                (threadId) =>
-                  api().request("threads.items", { threadId }) as Promise<
-                    { kind: string; status?: string; title?: string }[]
-                  >
-              )
+    const editsOf = (started: string[]) =>
+      page.evaluate(async (threads) => {
+        const { api } = (window as unknown as EdWindow).__ed;
+        const calls = (
+          await Promise.all(
+            threads.map(
+              (threadId) =>
+                api().request("threads.items", { threadId }) as Promise<
+                  { kind: string; status?: string; title?: string }[]
+                >
             )
           )
-            .flat()
-            .filter(
-              (i) => i.kind === "tool" && i.title?.endsWith("apply_operations")
-            );
-          return {
-            done: calls.filter((c) => c.status === "completed").length,
-            failed: calls.filter((c) => c.status === "failed").length,
-          };
-        }, ids)
-      : null;
+        )
+          .flat()
+          .filter(
+            (i) => i.kind === "tool" && i.title?.endsWith("apply_operations")
+          );
+        return {
+          done: calls.filter((c) => c.status === "completed").length,
+          failed: calls.filter((c) => c.status === "failed").length,
+          unfinished: calls.filter(
+            (c) => c.status !== "completed" && c.status !== "failed"
+          ).length,
+        };
+      }, started);
+    // Counted once every edit begun has ended (thirty seconds at most): one still under way
+    // then is counted as failed, so a run never passes on an edit whose end it did not see.
+    let mcpEdits: { done: number; failed: number } | null = null;
+    if (args.mcp) {
+      let edits = await editsOf(ids);
+      for (let tries = 0; edits.unfinished > 0 && tries < 60; tries += 1) {
+        // biome-ignore lint/performance/noAwaitInLoops: polling, one look at a time.
+        await page.waitForTimeout(500);
+        edits = await editsOf(ids);
+      }
+      mcpEdits = { done: edits.done, failed: edits.failed + edits.unfinished };
+    }
     if (mcpEdits && (mcpEdits.failed > 0 || mcpEdits.done === 0)) {
       console.error(
         `Incomplete: ${mcpEdits.failed} of the agents' page edits failed, ${mcpEdits.done} made.`
