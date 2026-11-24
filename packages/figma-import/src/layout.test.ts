@@ -1,7 +1,8 @@
-import type { FigNode } from "openfig-core";
+import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
+import type { FigNode, FigPaint } from "openfig-core";
 import { describe, expect, it } from "vitest";
 import { boxOf, frameSize, paddingOf, sizeOf, stackFields } from "./layout.ts";
-import { noTokens } from "./paint.ts";
+import { makeTokenMatcher, noTokens } from "./paint.ts";
 import { solid } from "./testing/fixture.ts";
 
 const node = (fields: Partial<FigNode>): FigNode =>
@@ -64,8 +65,9 @@ describe("a node's box", () => {
     });
   });
 
-  it("is a gradient's stops when the fill is one", () => {
-    const box = boxOf(
+  /** A box of 200 by 100 filled with one gradient paint. */
+  const gradientBox = (paint: Partial<FigPaint>, tokens = noTokens) =>
+    boxOf(
       node({
         fillPaints: [
           {
@@ -76,15 +78,61 @@ describe("a node's box", () => {
             ],
             type: "GRADIENT_LINEAR",
             visible: true,
+            ...paint,
           },
         ],
+        size: { x: 200, y: 100 },
       } as Partial<FigNode>),
       { direction: null },
       { height: undefined, width: undefined },
-      noTokens
+      tokens
+    ).fill;
+  const IDENTITY = { m00: 1, m01: 0, m02: 0, m10: 0, m11: 1, m12: 0 };
+
+  it("is a linear gradient at its own angle, its stops where its handles put them", () => {
+    // Figma's default: from the top edge to the bottom one.
+    expect(
+      gradientBox({
+        transform: { m00: 0, m01: 1, m02: 0, m10: -1, m11: 0, m12: 1 },
+      })
+    ).toBe("linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(0, 0, 0, 1))");
+    // Left to right, its handles across the left half only.
+    expect(
+      gradientBox({
+        transform: { ...IDENTITY, m00: 2 },
+      })
+    ).toBe(
+      "linear-gradient(90deg, rgba(255, 255, 255, 1), rgba(0, 0, 0, 1) 50%)"
     );
-    expect(box.fill).toBe(
-      "linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(0, 0, 0, 1) 100%)"
+  });
+
+  it("is a radial gradient as an ellipse at its centre, and an angular one as a conic gradient from its start", () => {
+    expect(gradientBox({ transform: IDENTITY, type: "GRADIENT_RADIAL" })).toBe(
+      "radial-gradient(50% 50% at 50% 50%, rgba(255, 255, 255, 1), rgba(0, 0, 0, 1))"
+    );
+    // Its start handle pointing down from the centre.
+    expect(
+      gradientBox({
+        transform: { m00: 0, m01: 1, m02: 0, m10: -1, m11: 0, m12: 1 },
+        type: "GRADIENT_ANGULAR",
+      })
+    ).toBe(
+      "conic-gradient(from 180deg at 50% 50%, rgba(255, 255, 255, 1), rgba(0, 0, 0, 1))"
+    );
+  });
+
+  it("writes a gradient's stops as the colour tokens that hold them", () => {
+    const tokens = makeTokenMatcher({
+      ...emptyDesignSystem(),
+      colors: [
+        {
+          name: "Semantic",
+          tokens: [{ name: "color-background", value: "oklch(1 0 0)" }],
+        },
+      ],
+    });
+    expect(gradientBox({ transform: IDENTITY }, tokens)).toBe(
+      "linear-gradient(90deg, $color-background, rgba(0, 0, 0, 1))"
     );
   });
 });
