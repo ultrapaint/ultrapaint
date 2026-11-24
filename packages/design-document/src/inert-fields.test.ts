@@ -174,31 +174,34 @@ describe("inertFields", () => {
     ]);
   });
 
-  it("names children on a node put in that holds none, and a breakpoint's value that is its own", () => {
+  /** What the nodes put in at the top of the page set that did nothing. */
+  const insertedInert = (node: DesignNode) => {
     const { found, root } = applyOps(
       page(),
-      [
-        {
-          node: { ...text("leaf"), children: [] } as unknown as DesignNode,
-          op: "insert",
-          parent: null,
-        },
-        {
-          node: {
-            at: { md: { gap: 8 } },
-            children: [text("x"), text("y")],
-            gap: 8,
-            id: "pair",
-            type: "row",
-          },
-          op: "insert",
-          parent: null,
-        },
-      ],
+      [{ node, op: "insert", parent: null }],
       { canvas: false, next: makeIdGenerator(["root"]) }
     );
-    expect(inertFields(found, root)).toEqual([
+    return inertFields(found, root);
+  };
+
+  it("names children on a node put in that holds none", () => {
+    expect(
+      insertedInert({ ...text("leaf"), children: [] } as unknown as DesignNode)
+    ).toEqual([
       { field: "children", id: "leaf", why: "a text has no children" },
+    ]);
+  });
+
+  it("names a breakpoint's value of a node put in that is its own", () => {
+    expect(
+      insertedInert({
+        at: { md: { gap: 8 } },
+        children: [text("x"), text("y")],
+        gap: 8,
+        id: "pair",
+        type: "row",
+      })
+    ).toEqual([
       { field: "at.md.gap", id: "pair", why: "the same as its own gap" },
     ]);
   });

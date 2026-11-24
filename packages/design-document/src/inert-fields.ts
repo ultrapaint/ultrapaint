@@ -177,8 +177,29 @@ const layerAfter = (
     instance?.type === "instance" && way !== null
       ? instance.overrides?.[way.layer]
       : undefined;
-  const own = override?.type;
-  return { kind: typeof own === "string" ? own : main, override };
+  const overrideKind = override?.type;
+  return {
+    kind: typeof overrideKind === "string" ? overrideKind : main,
+    override,
+  };
+};
+
+/** Why a field an update set on a layer of an instance did nothing. */
+const layerWhy = (
+  kind: string | undefined,
+  override: Readonly<Record<string, unknown>> | undefined,
+  fields: Found["fields"],
+  { at, inner, key, value }: Setting
+): string | null => {
+  const before = inner ? null : unchanged(fields, key, value, at);
+  if (value === null) {
+    return before;
+  }
+  return (
+    lacks(kind, `a ${kind} layer`, key, at) ??
+    before ??
+    sameAsOwn(override, key, at)
+  );
 };
 
 /** What one operation set that did nothing, each field with why, or `null` where it did. */
@@ -188,16 +209,13 @@ const judged = (
 ): { field: string; id: string; why: string | null }[] => {
   const { op } = entry;
   if (op.op === "insert" || op.op === "replace") {
-    // A node put in, by the id it has on the page: only what its type cannot keep.
+    // A node put in, by the id it has on the page, judged on the page the call leaves.
     return Array.from(entry.placed ? walk(entry.placed) : []).flatMap(
       (given) => {
         const node = findNode(after, given.id);
         return node === null
           ? []
-          : settingsOf(
-              given as unknown as Record<string, unknown>,
-              undefined
-            ).map((s) => ({
+          : settingsOf(asFields(given) ?? {}, undefined).map((s) => ({
               field: fieldName(s),
               id: node.id,
               why:
@@ -217,12 +235,7 @@ const judged = (
     return settings.map((s) => ({
       field: fieldName(s),
       id: op.id,
-      why:
-        (s.value === null
-          ? null
-          : lacks(kind, `a ${kind} layer`, s.key, s.at)) ??
-        (s.inner ? null : unchanged(entry.fields, s.key, s.value, s.at)) ??
-        (s.value === null ? null : sameAsOwn(override, s.key, s.at)),
+      why: layerWhy(kind, override, entry.fields, s),
     }));
   }
   const node = findNode(after, op.id);

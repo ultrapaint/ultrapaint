@@ -1143,6 +1143,27 @@ describe("the tools for documents", () => {
     })
   );
 
+  inAProject(
+    "names nothing of a stack put in with the children it spaces",
+    () =>
+      Effect.gen(function* () {
+        const answer = yield* tool("apply_operations", {
+          ops: [
+            inserted({
+              children: [
+                { role: "paragraph", text: "Monthly", type: "text" },
+                { role: "paragraph", text: "Yearly", type: "text" },
+              ],
+              gap: 8,
+              type: "row",
+            }),
+          ],
+          route: "/home",
+        });
+        assert.notProperty(answer, "ignored");
+      })
+  );
+
   inAProject("answers neither copies nor ignored fields for a clean call", () =>
     Effect.gen(function* () {
       const clean = yield* tool("apply_operations", {
