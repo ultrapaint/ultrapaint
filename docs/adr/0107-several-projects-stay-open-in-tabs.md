@@ -3,6 +3,10 @@
 Status: accepted, 2026-11-20. Amends 0031 (one project open at a time), 0099 (a switch keeps two
 servers at most) and 0100 (a switch reloads the app's editor).
 
+> Amended by [0126](0126-a-rule-sets-the-mark-apart-from-the-project.md), 2026-11-24: a thin
+> vertical rule, not a slash, sits between the mark and the project, and the mark takes the rail's
+> icons' size over their column.
+
 ## Context
 
 The desktop app kept one project open: opening another stopped the first one's server and every

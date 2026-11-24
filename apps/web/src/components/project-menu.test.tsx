@@ -91,18 +91,23 @@ describe("the title row (ADR 0107)", () => {
     ["a browser", () => setPlatform(null)],
     ["the desktop app", () => desktop({ local: true })],
   ])(
-    "is the mark, a slash and the project's button in %s alike",
+    "is the mark, a vertical rule and the project's button in %s alike",
     (_where, given) => {
       given();
       draw();
       const header = host.querySelector("header");
-      expect(
-        header?.querySelector("svg[aria-label=Ultrapaint]")
-      ).not.toBeNull();
-      expect(
-        header?.querySelectorAll("svg[aria-hidden]").length
-      ).toBeGreaterThan(0);
-      expect(projectButton()?.textContent).toBe("Shop admin");
+      const mark = header?.querySelector("svg[aria-label=Ultrapaint]");
+      const rule = header?.querySelector("[role=separator]");
+      const button = projectButton();
+      expect(rule?.getAttribute("aria-orientation")).toBe("vertical");
+      // In this order along the row, with no slash written between them (ADR 0126).
+      const order = [...(header?.querySelectorAll("*") ?? [])];
+      const at = (node?: Element | null) => (node ? order.indexOf(node) : -1);
+      expect(at(mark)).toBeGreaterThanOrEqual(0);
+      expect(at(rule)).toBeGreaterThan(at(mark));
+      expect(at(button)).toBeGreaterThan(at(rule));
+      expect(header?.textContent).not.toContain("/");
+      expect(button?.textContent).toBe("Shop admin");
     }
   );
 

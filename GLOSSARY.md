@@ -668,9 +668,10 @@ refactor and the board view left.
   icon with one component (`ProjectIcon`) and edits both in Settings › Name and icon. A rename
   leaves the project open: they say how it is shown, not what it runs.
 - **Title row**: the top of the left card, the same in the desktop app and in a browser (ADR
-  0107): the mark, which opens nothing, a slash, and the project's icon and name opening the
-  **project menu** (Project settings, Show in Finder where the folder is on this machine, Copy
-  path), which opens no project and closes none (`title-bar.tsx`, `project-menu.tsx`).
+  0107, 0126): the mark, which opens nothing, a thin vertical rule, and the project's icon and
+  name opening the **project menu** (Project settings, Show in Finder where the folder is on this
+  machine, Copy path), which opens no project and closes none (`title-bar.tsx`,
+  `project-menu.tsx`).
 - **Shell bridge**: the desktop shell's capabilities, one table the web's `Platform` is typed
   from (ADR 0031).
 - **Failed load**: a panel whose content could not be read, said where the content would be in

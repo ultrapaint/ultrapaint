@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import {
   Tooltip,
   TooltipContent,
@@ -129,9 +130,10 @@ const toggleRight = () => usePanels.getState().toggleRight();
 
 /**
  * The project, the top row of the left card, the same in the desktop app and in a browser (ADR
- * 0107): the mark, which opens nothing, a slash, then the project's icon and name opening its
- * menu; then search (every command, ⌘K) and the left panel's toggle. On a Mac desktop window the
- * window's buttons sit at its start.
+ * 0107, 0126): the mark, which opens nothing, at the rail's icons' size and centred over their
+ * column, a thin vertical rule, then the project's icon and name opening its menu; then search
+ * (every command, ⌘K) and the left panel's toggle. On a Mac desktop window the window's buttons
+ * sit at its start.
  */
 export const TitleRow = () => {
   const chrome = useWindowChrome();
@@ -145,21 +147,19 @@ export const TitleRow = () => {
   return (
     <header
       className={cn(
-        "flex shrink-0 items-center gap-2.5 pr-1.5 pl-2.5",
+        "flex shrink-0 items-center gap-2.5 px-1.5",
         chrome.drag && "window-drag"
       )}
       style={style}
     >
+      {/* As wide as a rail item, so the mark stands over the rail's icons, at their size. */}
       <span className="flex size-8 shrink-0 items-center justify-center">
-        <Logo className="size-5.5" />
+        <Logo className="size-[18px]" />
       </span>
-      {/* The slash between the mark and the project is the character itself, at its own angle. */}
-      <span
-        aria-hidden
-        className="shrink-0 select-none font-body-large text-muted-foreground"
-      >
-        /
-      </span>
+      <Separator
+        className="data-vertical:h-4 data-vertical:self-center"
+        orientation="vertical"
+      />
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <ProjectName />
         <Unsaved />
