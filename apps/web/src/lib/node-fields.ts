@@ -9,6 +9,7 @@ import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { TextStyle } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, TextAlign } from "@ultrapaint/contracts/document";
 import { attachTextStyle } from "@ultrapaint/design-document/text-styles";
+import type { ColorRole } from "./new-token.ts";
 import { type Shared, sharedValue } from "./shared-value.ts";
 import type { FieldTokenKind } from "./token-options.tsx";
 
@@ -27,6 +28,8 @@ export interface NodeField<Read extends JsonValue, Write> {
 
 /** A field whose value is a token or a CSS value, picked from the tokens of one kind. */
 export interface TokenValueField extends NodeField<JsonValue, JsonValue> {
+  /** What a colour field colours: the namespace of a new token in a detailed system (ADR 0136). */
+  readonly colors?: ColorRole;
   readonly options: FieldTokenKind;
 }
 
@@ -34,13 +37,15 @@ const tokenValue = (
   key: string,
   noun: string,
   options: FieldTokenKind,
-  read: (node: DesignNode) => JsonValue | undefined
+  read: (node: DesignNode) => JsonValue | undefined,
+  colors?: ColorRole
 ): TokenValueField => ({
   key,
   label: () => `Change the ${noun}`,
   options,
   read,
   write: (value) => ({ [key]: value }),
+  ...(colors && { colors }),
 });
 
 /** A text's alignment: unset and `start` are one value, written as unset. */
@@ -62,10 +67,14 @@ export const TEXT_STYLE: NodeField<string, TextStyle> = {
 
 /** The fields picked from tokens, by the name their controls give them. */
 export const TOKEN_FIELDS = {
-  color: tokenValue("color", "colour", "color", (node) =>
-    node.type === "text" ? node.color : undefined
+  color: tokenValue(
+    "color",
+    "colour",
+    "color",
+    (node) => (node.type === "text" ? node.color : undefined),
+    "text"
   ),
-  fill: tokenValue("fill", "fill", "color", (node) => node.fill),
+  fill: tokenValue("fill", "fill", "color", (node) => node.fill, "background"),
   gap: tokenValue("gap", "gap", "spacing", (node) =>
     node.type === "page" || node.type === "row" || node.type === "column"
       ? node.gap
@@ -73,8 +82,13 @@ export const TOKEN_FIELDS = {
   ),
   radius: tokenValue("radius", "radius", "radius", (node) => node.radius),
   shadow: tokenValue("shadow", "shadow", "shadow", (node) => node.shadow),
-  tint: tokenValue("tint", "tint", "color", (node) =>
-    node.type === "image" ? node.tint : undefined
+  // A tint colours the image's box.
+  tint: tokenValue(
+    "tint",
+    "tint",
+    "color",
+    (node) => (node.type === "image" ? node.tint : undefined),
+    "background"
   ),
 } as const satisfies Record<string, TokenValueField>;
 

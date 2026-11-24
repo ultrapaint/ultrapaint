@@ -52,6 +52,7 @@ import { Segmented } from "../components/segmented.tsx";
 import type { StyleOption } from "../components/style-combobox.tsx";
 import { displayOf, ValueField } from "../components/value-field.tsx";
 import { takeOverLook } from "../lib/component-actions.ts";
+import type { ColorRole } from "../lib/new-token.ts";
 import { nodesOf } from "../lib/node-actions.ts";
 import {
   type FieldTokenKind,
@@ -86,6 +87,7 @@ const inheritedText = (inherited: Inherited | undefined) =>
 
 /** One style field of a part, over the design system's tokens: a row's control, unlabelled. */
 const Field = ({
+  colors,
   half = false,
   inherited,
   kind,
@@ -95,6 +97,8 @@ const Field = ({
   onPreview,
   value,
 }: {
+  /** What a colour field colours: the namespace of a new token in a detailed system. */
+  colors?: ColorRole;
   /** One of two sharing a row: where a value comes from is left to its tooltip. */
   half?: boolean;
   inherited?: Inherited | undefined;
@@ -134,6 +138,8 @@ const Field = ({
       {...(kind === "color" && {
         accept: (q: string) => CSS.supports("color", q),
       })}
+      {...(kind !== "opacity" && kind !== "order" && { kind })}
+      {...(colors && { colors })}
       {...(leading !== undefined && { leading })}
       {...(inherited && !half && { hint: `from ${inherited.from}` })}
       className="min-w-0 flex-1"
@@ -291,6 +297,7 @@ const SlotFields = ({
       <Section title="Appearance">
         <Row label="Fill">
           <Field
+            colors="background"
             inherited={inherited.fill}
             kind="color"
             label="Fill"
@@ -300,6 +307,7 @@ const SlotFields = ({
         </Row>
         <Row label="Border">
           <Field
+            colors="border"
             half
             inherited={inherited["border.color"]}
             kind="color"
@@ -347,6 +355,7 @@ const SlotFields = ({
       <Section title="Text">
         <Row label="Colour">
           <Field
+            colors="text"
             inherited={inherited.color}
             kind="color"
             label="Text colour"

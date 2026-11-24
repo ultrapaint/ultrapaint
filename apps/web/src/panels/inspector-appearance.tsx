@@ -149,6 +149,7 @@ const BorderSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
         <>
           <Row fields={["border"]} label="Width">
             <ValueField
+              kind="borderWidth"
               onChange={setBorder("width")}
               options={[
                 ...[0, 1, 2, 4].map((w) => ({
@@ -176,6 +177,8 @@ const BorderSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
           <Row label="Colour">
             <ValueField
               accept={(q) => CSS.supports("color", q)}
+              colors="border"
+              kind="color"
               leading={<Swatch color={swatch} />}
               onChange={setBorder("color")}
               options={borderColors}

@@ -23,7 +23,11 @@ import { create } from "zustand";
 import { loadFonts } from "../lib/fonts.ts";
 import { useComponents } from "./components.ts";
 import { api } from "./connection.ts";
-import { useDesignSystem } from "./design-system.ts";
+import {
+  commitTokenWith,
+  takeTokenMade,
+  useDesignSystem,
+} from "./design-system.ts";
 import { trialSystem, useLookPage } from "./look-page.ts";
 import { reportError } from "./project.ts";
 import { previewedComponents, useVariations } from "./variations.ts";
@@ -187,19 +191,24 @@ export const draftStyle = (draft: StyleDraft | null) => {
  * is: the draft gives way to the components the server sends back, or at once when it is refused.
  */
 export const commitStyle = async (draft: StyleDraft): Promise<boolean> => {
+  // A field set to a token made from its value goes in the token's step (ADR 0136).
+  const token = takeTokenMade();
   // Settling from now: the field closing as it commits does not let the draft go.
   useLookDraft.setState({ draft, settling: true });
   const stop = settleOnNextComponents();
+  const component = {
+    change: {
+      op: "setStyle" as const,
+      place: draft.place,
+      slot: draft.slot,
+      style: draft.style,
+    },
+    name: draft.component,
+  };
   try {
-    await api().request("components.change", {
-      change: {
-        op: "setStyle",
-        place: draft.place,
-        slot: draft.slot,
-        style: draft.style,
-      },
-      name: draft.component,
-    });
+    await (token
+      ? commitTokenWith(token, { component })
+      : api().request("components.change", component));
     // What the server sends back takes the draft's place; asked for, so it never waits.
     useComponents.getState().load();
     return true;

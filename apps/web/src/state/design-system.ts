@@ -11,7 +11,10 @@ import type {
   DesignSystem,
   DesignSystemState,
 } from "@ultrapaint/contracts/design-system";
-import type { DesignSystemEdit } from "@ultrapaint/contracts/design-system-edit";
+import type {
+  DesignSystemEdit,
+  DesignSystemEditInput,
+} from "@ultrapaint/contracts/design-system-edit";
 import {
   type Breakpoint,
   breakpointsOf,
@@ -109,39 +112,101 @@ export const draftEdits = (ops: readonly DesignSystemEdit[] | null) => {
 };
 
 /**
- * Sends `ops` as one `designSystem.edit`, one undo step, drawn meanwhile as the draft is: the
- * draft gives way to the design system the server sends back, or at once when it is refused,
- * unless another took its place meanwhile.
+ * What a design system edit carries into its undo step (ADR 0136): a field set to the token it
+ * makes, as the documents' edits or the system component's look change the field sends.
  */
-export const commitEdits = async (
+export type CarriedEdits = Pick<DesignSystemEditInput, "component" | "edits">;
+
+/**
+ * Sends `ops` as one `designSystem.edit`, with what it carries, drawn meanwhile as the draft is:
+ * the draft gives way to the design system the server sends back, or at once when it is refused,
+ * unless another took its place meanwhile. A refusal is the caller's to report.
+ */
+const sendEdits = async (
   ops: readonly DesignSystemEdit[],
-  label?: string
-): Promise<boolean> => {
-  if (ops.length === 0) {
-    draftEdits(null);
-    return true;
-  }
+  label: string | undefined,
+  carried: CarriedEdits = {}
+) => {
   draft = ops;
   useDesignSystem.setState({ designSystem: drawn() });
   try {
-    await api().request("designSystem.edit", {
+    const result = await api().request("designSystem.edit", {
       ops,
+      ...carried,
       ...(label !== undefined && { label }),
     });
     settling = ops;
     // What the server sends back takes the draft's place; asked for, so it never waits.
     designSystemData.read().catch(reportError);
-    return true;
+    return result;
   } catch (error) {
     // A field typed in, or another commit made, while this one was on its way is not this one's
     // to take away.
     if (draft === ops) {
       draftEdits(null);
     }
+    throw error;
+  }
+};
+
+/** Sends `ops` as one `designSystem.edit`, one undo step (`sendEdits`); false when refused. */
+export const commitEdits = async (
+  ops: readonly DesignSystemEdit[],
+  label?: string
+): Promise<boolean> => {
+  // A field of the design system set to a token made from its value goes in one step with it.
+  const token = takeTokenMade();
+  const all = token ? [token, ...ops] : ops;
+  if (all.length === 0) {
+    draftEdits(null);
+    return true;
+  }
+  try {
+    await sendEdits(all, label);
+    return true;
+  } catch (error) {
     reportError(error);
     return false;
   }
 };
+
+/** The token a field's value is being made into, while the field sets itself to it (ADR 0136). */
+let making: DesignSystemEdit | null = null;
+
+/**
+ * Makes a token and sets a field to it, in one undo step (ADR 0136). `setField` writes the field as
+ * any edit of it does (at the view's breakpoint, as an instance's override, at a look's place),
+ * and the edit that sends at once takes the token with it (`takeTokenMade`), as one
+ * `designSystem.edit`. A field whose write sends nothing at once leaves the token to be sent alone.
+ */
+export const makeTokenFor = (op: DesignSystemEdit, setField: () => void) => {
+  making = op;
+  try {
+    setField();
+  } finally {
+    const left = takeTokenMade();
+    if (left) {
+      commitEdits([left]);
+    }
+  }
+};
+
+/**
+ * The token being made for the field whose edit is about to be sent, taken so that it goes in
+ * that edit's step; null when none is. Every way a field's edit is sent asks before it sends.
+ */
+export const takeTokenMade = (): DesignSystemEdit | null => {
+  const op = making;
+  making = null;
+  return op;
+};
+
+/** A token made, sent with the field's edit it carries (`makeTokenFor`); a refusal is the caller's. */
+export const commitTokenWith = (
+  op: DesignSystemEdit,
+  carried: CarriedEdits,
+  label?: string
+) => sendEdits([op], label, carried);
 
 const breakpointCache = new WeakMap<DesignSystem, readonly Breakpoint[]>();
 

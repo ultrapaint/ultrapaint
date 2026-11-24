@@ -548,13 +548,22 @@ const linearSrgbToOklab = ([r, g, b]: Vec): Vec => {
 };
 
 /**
+ * A colour as OKLab: its lightness from 0 to 1 and its two axes, through sRGB as it is drawn, out
+ * of gamut as it may be. How far apart two colours look is the distance between theirs.
+ */
+export const toOklab = (
+  color: Color
+): readonly [lightness: number, a: number, b: number] =>
+  linearSrgbToOklab(each(unclampedSrgb(color), srgbToLinear));
+
+/**
  * A colour as OKLCH: its lightness from 0 to 1, its chroma and its hue in degrees (0 for a grey),
  * through sRGB as it is drawn, out of gamut as it may be.
  */
 export const toOklch = (
   color: Color
 ): readonly [lightness: number, chroma: number, hue: number] => {
-  const [l, a, b] = linearSrgbToOklab(each(unclampedSrgb(color), srgbToLinear));
+  const [l, a, b] = toOklab(color);
   const chroma = Math.hypot(a, b);
   const hue = chroma < 1e-4 ? 0 : (Math.atan2(b, a) * 180) / Math.PI;
   return [l, chroma, (hue + 360) % 360];

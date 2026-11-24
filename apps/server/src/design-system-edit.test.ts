@@ -1,6 +1,8 @@
 import path from "node:path";
 import { assert } from "@effect/vitest";
+import type { ComponentFile } from "@ultrapaint/contracts/components";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
+import type { DesignNode } from "@ultrapaint/contracts/document";
 import { tokenOf } from "@ultrapaint/contracts/token-table";
 import { Effect, FileSystem } from "effect";
 import { eachTest } from "./testing/each-test.ts";
@@ -108,6 +110,106 @@ eachTest(Themed)("the design system edited from the editor", (it) => {
         assert.include(yield* fs.readFileString(css), "--radius-card: 1rem;");
         const state = yield* client["edit.state"]();
         assert.strictEqual(state.undoLabel, "Round the cards more");
+      })
+  );
+  it.effect(
+    "makes a token and sets a page's field to it in one undo step, which undo puts back",
+    () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        yield* client["designSystem.detect"]();
+        const read = () =>
+          Effect.map(
+            client["designSystem.get"](),
+            (s) => s.designSystem as DesignSystem
+          );
+        const heading = () =>
+          Effect.map(
+            client["documents.get"]({ doc: "home.page.json" }),
+            (d) =>
+              (d.root?.type === "page" ? d.root.children : []).find(
+                (n: DesignNode) => n.id === "heading"
+              ) as DesignNode & { color?: unknown }
+          );
+
+        const { changes } = yield* client["designSystem.edit"]({
+          edits: [
+            {
+              doc: "home.page.json",
+              ops: [
+                { id: "heading", op: "update", set: { color: "$color-ink" } },
+              ],
+            },
+          ],
+          label: "Make color-ink from the colour",
+          ops: [{ name: "color-ink", op: "addToken", value: "#111827" }],
+        });
+        assert.strictEqual(
+          tokenOf(yield* read(), "color-ink")?.value,
+          "#111827"
+        );
+        assert.strictEqual((yield* heading()).color, "$color-ink");
+        assert.deepStrictEqual(
+          changes?.map((c) => c.doc),
+          ["home.page.json"]
+        );
+
+        const undone = yield* client["edit.undo"]();
+        assert.strictEqual(undone?.label, "Make color-ink from the colour");
+        assert.isUndefined(tokenOf(yield* read(), "color-ink"));
+        assert.isUndefined((yield* heading()).color);
+      })
+  );
+
+  it.effect(
+    "makes a token and sets a system component's look to it in one undo step, which undo puts back",
+    () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        yield* client["designSystem.detect"]();
+        yield* client["components.fromDefault"]({ name: "Button" });
+        const button = () =>
+          Effect.map(
+            client["components.list"](),
+            (l) =>
+              l.components.find((e) => e.component?.name === "Button")
+                ?.component as ComponentFile
+          );
+        const before = yield* button();
+
+        yield* client["designSystem.edit"]({
+          component: {
+            change: {
+              op: "setStyle",
+              place: { state: null, variant: null },
+              slot: "root",
+              style: { fill: "$color-ink" },
+            },
+            name: "Button",
+          },
+          ops: [{ name: "color-ink", op: "addToken", value: "#111827" }],
+        });
+        const after = yield* button();
+        assert.strictEqual(after.origin, "system");
+        if (after.origin === "system") {
+          assert.strictEqual(after.base?.root?.fill, "$color-ink");
+        }
+        assert.strictEqual(
+          tokenOf(
+            (yield* client["designSystem.get"]()).designSystem as DesignSystem,
+            "color-ink"
+          )?.value,
+          "#111827"
+        );
+
+        yield* client["edit.undo"]();
+        assert.deepStrictEqual(yield* button(), before);
+        assert.isUndefined(
+          tokenOf(
+            (yield* client["designSystem.get"]()).designSystem as DesignSystem,
+            "color-ink"
+          )
+        );
       })
   );
 });

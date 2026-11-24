@@ -1,10 +1,17 @@
-import { describe, expect, it } from "vitest";
+import "../testing/fake-browser.ts";
+import { describe, expect, it, vi } from "vitest";
 import { hintsOf, itemsFor, matches } from "./style-combobox.tsx";
 import {
   isOutsideDesignSystem,
   typedValue,
   withClear,
 } from "./value-field.tsx";
+
+// The field makes tokens through the editor's stores, which reach for the connection when made.
+vi.mock(
+  "../state/connection.ts",
+  async () => (await import("../testing/fake-api.ts")).connectionModule
+);
 
 describe("a field's value", () => {
   const options = [
@@ -26,6 +33,34 @@ describe("a field's value", () => {
     expect(isOutsideDesignSystem("16px", options)).toBe(false);
     expect(isOutsideDesignSystem("fill", options)).toBe(false);
     expect(isOutsideDesignSystem("", options)).toBe(false);
+  });
+});
+
+describe("a field that knows its kind of token", () => {
+  const spacing = [
+    { description: "spacing-4", label: "16", value: "16" },
+    { description: "spacing-5", label: "20", value: "20" },
+  ];
+
+  it("calls a whole or half step of the spacing scale on the system, as the design's checks do", () => {
+    const field = { kind: "spacing", spacingBase: 4 } as const;
+    expect(isOutsideDesignSystem("18", spacing, field)).toBe(false);
+    expect(isOutsideDesignSystem("18px", spacing, field)).toBe(false);
+    expect(isOutsideDesignSystem("17.5", spacing, field)).toBe(true);
+    // Without its kind, the field knows only the values it offers.
+    expect(isOutsideDesignSystem("18", spacing)).toBe(true);
+  });
+
+  it("still calls a raw colour outside the design system", () => {
+    expect(
+      isOutsideDesignSystem("#2563eb", [], { kind: "color", spacingBase: 4 })
+    ).toBe(true);
+    expect(
+      isOutsideDesignSystem("$color-primary", [], {
+        kind: "color",
+        spacingBase: 4,
+      })
+    ).toBe(false);
   });
 });
 

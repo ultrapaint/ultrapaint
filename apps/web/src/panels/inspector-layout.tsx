@@ -34,7 +34,7 @@ import { updateSelection } from "../lib/node-actions.ts";
 import { TOKEN_FIELDS } from "../lib/node-fields.ts";
 import { MIXED, type Shared, shownAs } from "../lib/shared-value.ts";
 import { axesSplit, type Side, sharedSide } from "../lib/sides.ts";
-import { useTokenOptions } from "../lib/token-options.tsx";
+import { type FieldTokenKind, useTokenOptions } from "../lib/token-options.tsx";
 import { useComponents } from "../state/components.ts";
 import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
@@ -227,12 +227,15 @@ const SizeField = ({
 
 const LengthField = ({
   field,
+  kind,
   options = [],
   short,
   title,
   value,
 }: {
   field: string;
+  /** The kind of token it takes: a container for a width. */
+  kind?: FieldTokenKind;
   /** The design system's tokens for it: container widths for a width. */
   options?: StyleOption[];
   short: string;
@@ -241,6 +244,7 @@ const LengthField = ({
 }) => (
   <ValueField
     accept={(q) => CSS.supports("width", q)}
+    kind={kind}
     leading={<Axis>{short}</Axis>}
     onChange={(v) => set(field, v)}
     options={options}
@@ -312,6 +316,7 @@ export const SizeSection = ({
           <Row fields={["minWidth", "minHeight"]} label="Min">
             <LengthField
               field="minWidth"
+              kind="container"
               options={containers}
               short="W"
               title="Min width"
@@ -327,6 +332,7 @@ export const SizeSection = ({
           <Row fields={["maxWidth", "maxHeight"]} label="Max">
             <LengthField
               field="maxWidth"
+              kind="container"
               options={containers}
               short="W"
               title="Max width"
@@ -463,6 +469,7 @@ const SidesRows = ({
         onPointerDownCapture={onAdd(part)}
       >
         <ValueField
+          kind="spacing"
           leading={<SidesIcon className="text-foreground" lit={part.sides} />}
           onChange={onPick(part)}
           options={spacing}
