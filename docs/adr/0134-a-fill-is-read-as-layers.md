@@ -22,8 +22,8 @@ gradient alone, always at 180 degrees, its stops raw. UP-141 asked for gradients
   **colour space** (`in oklab`; `interpolation`, with a hue method where it names one). It writes them
   back as CSS paints them; a colour above another is written as a gradient of that colour alone,
   and a first stop at 0% and a last at 100% are left where CSS puts them. A value it cannot read
-  (an image among the layers, a colour anywhere but at the bottom, CSS it does not know) is one
-  layer, written back as it was.
+  (an image among the layers, a colour anywhere but at the bottom, a fill that is one `var()`,
+  which may hold an image, CSS it does not know) is one layer, written back as it was.
 - **Tokens inside a value, in a fill only.** A token is read wherever it stands in a fill (after
   the start, a bracket, a comma or a space), but inside a `url(…)` or a quoted string: the canvas draws each as its variable with its
   fallback (`TokenResolver.fill`), and `tokensIn` counts them as the design's (0028). Every other
@@ -39,8 +39,10 @@ gradient alone, always at 180 degrees, its stops raw. UP-141 asked for gradients
   oklab, so a gradient that names its colour space takes them, with a modifier for one other than
   oklab (`/oklch`); one that names none is mixed as CSS mixes it, which only an arbitrary
   position says (`bg-linear-[90deg]`). What they cannot say (more stops, a stop placed in a
-  length, several gradients) is one arbitrary `bg-[…]`, its tokens as their variables. A gradient's
-  parts count separately across breakpoints, so a breakpoint's colour bounds the base's gradient.
+  length, several gradients) is one arbitrary `bg-[…]`, its tokens as their variables. A fill the
+  codec cannot read is the `background` shorthand, `[background:…]`, which Tailwind's `bg-[…]`
+  reads as a colour or as images but never as images over a colour. A gradient's parts count
+  separately across breakpoints, so a breakpoint's colour bounds the base's gradient.
 - **The editor writes gradients in oklab.** A colour turned into a gradient in the inspector is a
   linear gradient from it to transparent, `in oklab`: it mixes without the grey a mix in sRGB
   gives, and it is written as Tailwind's plain utilities. A gradient written otherwise keeps its
@@ -49,7 +51,8 @@ gradient alone, always at 180 degrees, its stops raw. UP-141 asked for gradients
   is the colour field, a gradient's its stops. Every row's swatch draws its layer and opens a
   popover titled for it (0102: the section lists, the popover edits one layer): Kind (Colour or
   Gradient), a gradient's Shape, its stop bar (pressed, it adds a stop there; a stop dragged or
-  moved with the arrow keys goes where it is let go) with a colour field per stop, and its Angle.
+  moved with the arrow keys goes where it is let go; its + adds one in the widest room between
+  two) with a colour field per stop, and its Angle.
   The section's + puts a colour on top, its colours open; a row's − takes its layer off, the last
   one the fill. Every change writes the whole fill through the fill's field, one edit, at the
   view's breakpoint (0036) and on an instance's layer as its override (0114). Nodes whose fills

@@ -57,6 +57,7 @@ const LENGTH_HEAD_RE = /^-?\.?\d/;
 const FUNCTION_RE = /^([a-z-]+)\((.*)\)$/is;
 const IDENT_RE = /^[a-z][a-z-]*$/i;
 const PERCENT_RE = /^(-?\d*\.?\d+)%$/;
+const VAR_RE = /^var\(/i;
 const HUE_METHODS = new Set(["shorter", "longer", "increasing", "decreasing"]);
 const RADIAL_HEAD = new Set([
   "at",
@@ -315,6 +316,11 @@ export const fillLayers = (fill: string | null | undefined): FillLayer[] => {
     return [];
   }
   const parts = splitTop(text, ",");
+  // A variable that is the whole fill may hold an image as well as a colour; one under images
+  // or in a stop is a colour.
+  if (parts.length === 1 && VAR_RE.test(text)) {
+    return [{ css: fill ?? "", kind: "css" }];
+  }
   const layers = parts.map(layerOf);
   // CSS takes a plain colour as the bottom layer only.
   const colorAbove = parts.some(
@@ -504,7 +510,7 @@ export const stopPositions = (
 const FILL_TOKEN_RE = /(^|[\s(,])\$([a-z0-9][\w.-]*)/gi;
 
 /** What of a fill names no token whatever it holds: a URL and a quoted string. */
-const LITERAL_RE = /url\([^)]*\)|"[^"]*"|'[^']*'/gi;
+const LITERAL_RE = /url\(\s*(?:"[^"]*"|'[^']*'|[^)"']*)\s*\)|"[^"]*"|'[^']*'/gi;
 
 /** A fill split at its literals: the parts that may name tokens, and the literals between. */
 const tokenParts = (
