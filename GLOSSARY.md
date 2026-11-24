@@ -157,7 +157,7 @@ refactor and the board view left.
   with its **copies**, each node a duplicate or an insert whose ids were taken gave a new id, by
   the id it had (`applyOps`' `copies`), and its **inert fields**, as `ignored`: each field it set
   that did nothing, with why (a field the node's type lacks, by contracts' `NODE_FIELDS`, a gap or
-  wrap with one node to space, a breakpoint's value that is the node's own, a value already set),
+  wrap with one node to space, a breakpoint's value that is the node's own with no smaller breakpoint setting it otherwise, a value already set),
   reported and never refused (`inert-fields.ts`).
 - **Canvas layout**: where frames go on a canvas, with one gap (contracts' `canvas-layout`): a
   new frame past every frame and its views, a copy or a state beside its page when nothing

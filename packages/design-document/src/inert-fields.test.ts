@@ -32,6 +32,9 @@ const page = (): PageNode => ({
   type: "page",
 });
 
+/** The design system's breakpoints, smallest first. */
+const BREAKPOINTS = ["sm", "md", "lg"];
+
 /** The fields the operations set that did nothing, on the page as they leave it. */
 const inert = (
   ops: DocOp[],
@@ -42,7 +45,7 @@ const inert = (
     next: makeIdGenerator(["root"]),
     ...(kindOf && { kindOf }),
   });
-  return inertFields(found, root);
+  return inertFields(found, root, BREAKPOINTS);
 };
 
 /** The fields named, without why. */
@@ -99,7 +102,7 @@ describe("inertFields", () => {
     });
   });
 
-  it("names no breakpoint value equal to the node's own while another breakpoint sets it otherwise", () => {
+  it("names no breakpoint value equal to the node's own that brings it back above a smaller breakpoint's", () => {
     expect(
       named([
         { id: "b", op: "update", set: { size: 20 } },
@@ -107,6 +110,16 @@ describe("inertFields", () => {
         { at: "md", id: "b", op: "update", set: { size: 20 } },
       ])
     ).toEqual([]);
+  });
+
+  it("names a breakpoint value equal to the node's own however a larger breakpoint sets it", () => {
+    expect(
+      named([
+        { id: "b", op: "update", set: { size: 20 } },
+        { at: "lg", id: "b", op: "update", set: { size: 32 } },
+        { at: "md", id: "b", op: "update", set: { size: 20 } },
+      ])
+    ).toEqual(["b.at.md.size"]);
   });
 
   it("names a value the node already had, and a null on a field it did not have", () => {
@@ -168,7 +181,7 @@ describe("inertFields", () => {
     const [copy = "", fresh = ""] = created;
     expect(copy).not.toBe("group");
     const [column] = childrenOf(findNode(root, copy) as DesignNode);
-    expect(inertFields(found, root)).toEqual([
+    expect(inertFields(found, root, BREAKPOINTS)).toEqual([
       { field: "gap", id: copy, why: "a group has no gap" },
       {
         field: "gap",
@@ -191,7 +204,7 @@ describe("inertFields", () => {
       [{ node, op: "insert", parent: null }],
       { canvas: false, next: makeIdGenerator(["root"]) }
     );
-    return inertFields(found, root);
+    return inertFields(found, root, BREAKPOINTS);
   };
 
   it("names children on a node put in that holds none", () => {
