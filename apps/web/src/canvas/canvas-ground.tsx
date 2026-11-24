@@ -25,6 +25,7 @@ import { useCamera, useSpacePan, wheelView } from "./camera.ts";
 import { groundIsAt } from "./drag.ts";
 import { fromFrame } from "./from-frame.ts";
 import { dotsBackground, gridBackground } from "./grid.ts";
+import { useWatchMeasureKey } from "./measure-key.ts";
 
 /** Whether the pointer pans whatever it is over: Space held, or the pan tool. */
 export const pansAnywhere = (s: { mode: string; spacePan: boolean }) =>
@@ -83,6 +84,7 @@ export const CanvasGround = ({
   const [panning, setPanning] = useState(false);
   useCamera(ref, layer, usePattern(background));
   useSpacePan();
+  useWatchMeasureKey();
 
   // Where the ground is in the window, read when it is laid out anyway: a wheel event reading it
   // would make the browser lay out again what the last zoom changed, once per event. A pointer

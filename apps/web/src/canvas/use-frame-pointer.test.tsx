@@ -19,6 +19,7 @@ import { useProject } from "../state/project.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useDrag } from "./drag.ts";
 import { cancelGesture } from "./frame-gesture.ts";
+import { useMeasureKey } from "./measure-key.ts";
 import { useFramePointer } from "./use-frame-pointer.ts";
 
 vi.mock(
@@ -549,5 +550,44 @@ describe("the comment tool", () => {
       x: 12,
       y: 8,
     });
+  });
+});
+
+describe("⌥ held over a page (ADR 0131)", () => {
+  /** The text `t1` drawn inside a card, which a plain hover stops at. */
+  const inACard = () => {
+    under.chain = ["home-root", "card", "t1"];
+    useEditor.setState({ selection: { frame: HOME, nodeId: "t2" } });
+  };
+  const hovered = () => useEditor.getState().hover?.nodeId;
+
+  afterEach(() => useMeasureKey.setState({ held: false }));
+
+  it("hovers the innermost node under a pointer at rest the moment it is pressed", () => {
+    inACard();
+    act(() => current().onPointerMove(pointerAt(20, 20)));
+    expect(hovered()).toBe("card");
+    act(() => useMeasureKey.setState({ held: true }));
+    expect(hovered()).toBe("t1");
+  });
+
+  it("hovers again what a click would select once it is let go", () => {
+    inACard();
+    act(() => current().onPointerMove(pointerAt(20, 20)));
+    act(() => useMeasureKey.setState({ held: true }));
+    act(() => useMeasureKey.setState({ held: false }));
+    expect(hovered()).toBe("card");
+  });
+
+  it("still selects the innermost node with a click", () => {
+    inACard();
+    act(() =>
+      current().onSelectClick({
+        ...pointerAt(20, 20),
+        altKey: true,
+        detail: 1,
+      } as unknown as Parameters<Handlers["onSelectClick"]>[0])
+    );
+    expect(useEditor.getState().selection?.nodeId).toBe("t1");
   });
 });

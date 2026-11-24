@@ -58,6 +58,7 @@ import { CARD_LIFT, commentCursor, FrameComments } from "./comments.tsx";
 import { frameOf, useFrameDrawing, useFrameEvents } from "./editor-frame.ts";
 import { nameClickSelects } from "./frame-gesture.ts";
 import { Highlights, useHoverIn } from "./frame-highlights.tsx";
+import { MeasureOverlay } from "./measure-overlay.tsx";
 import { pageRequest } from "./page-request.ts";
 import { usePreview } from "./preview-module.ts";
 import { SelectionChrome } from "./selection-chrome.tsx";
@@ -345,6 +346,7 @@ export const Frame = memo(
         <FrameComments frameId={frameId} />
 
         <SelectionChrome frame={frame} frameId={frameId} isNode={isNode} />
+        <MeasureOverlay frameId={frameId} />
         <VariationPreviewChrome frame={frame} frameId={frameId} />
 
         <ResizeHandles

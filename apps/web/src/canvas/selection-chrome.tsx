@@ -37,26 +37,16 @@ import { type Selection, useEditor } from "../state/editor.ts";
 import { useEditsMain } from "../state/isolation.ts";
 import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
 import { AskAgent } from "./ask-agent.tsx";
-import { screenPx, useExactInv } from "./camera.ts";
+import { unionOf } from "./boxes.ts";
+import { screenPx, UNZOOM, useExactInv } from "./camera.ts";
 import type { Corner } from "./frame.tsx";
 import { beginNodeResize } from "./frame-gesture.ts";
+import { useMeasuring } from "./measure-key.ts";
 
 const CORNERS: readonly Corner[] = ["nw", "ne", "sw", "se"];
 
 /** How long the button stays once the pointer leaves the selection: the way to the button. */
 const LEAVE_MS = 250;
-
-/** The box around several rects. */
-const unionOf = (rects: readonly Rect[]): Rect | null => {
-  if (rects.length === 0) {
-    return null;
-  }
-  const left = Math.min(...rects.map((r) => r.x));
-  const top = Math.min(...rects.map((r) => r.y));
-  const right = Math.max(...rects.map((r) => r.x + r.width));
-  const bottom = Math.max(...rects.map((r) => r.y + r.height));
-  return { height: bottom - top, width: right - left, x: left, y: top };
-};
 
 /**
  * Whether the button is shown: the pointer over the selection, on the button, or its popover
@@ -114,24 +104,37 @@ const holdsHover = (nodes: readonly DesignNode[], hoverId: string | null) =>
       hoverId.startsWith(layerIdOf(n.id, ""))
   );
 
-/** The size, centred under the box, in the selection's colour. */
-const SizeTag = ({ color, label }: { color: string; label: string }) => (
-  <div
-    className="pointer-events-none absolute top-full left-1/2 flex w-0 justify-center"
-    style={{ marginTop: screenPx(6) }}
-  >
-    <span
-      className="flex h-4 shrink-0 items-center whitespace-nowrap rounded-sm px-1 font-body-small-medium text-white tabular-nums"
-      style={{
-        background: color,
-        transform: "scale(var(--inv))",
-        transformOrigin: "top center",
-      }}
+/** A label on the canvas, the selection's size or a distance measured: white on its colour. */
+export const CANVAS_TAG =
+  "flex h-4 shrink-0 items-center whitespace-nowrap rounded-sm px-1 font-body-small-medium text-white tabular-nums";
+
+/** The size, centred under the box, in the selection's colour; gone while ⌥ measures. */
+const SizeTag = ({
+  color,
+  frameId,
+  label,
+}: {
+  color: string;
+  frameId: string;
+  label: string;
+}) =>
+  useMeasuring(frameId) ? null : (
+    <div
+      className="pointer-events-none absolute top-full left-1/2 flex w-0 justify-center"
+      style={{ marginTop: screenPx(6) }}
     >
-      {label}
-    </span>
-  </div>
-);
+      <span
+        className={CANVAS_TAG}
+        style={{
+          background: color,
+          transform: UNZOOM,
+          transformOrigin: "top center",
+        }}
+      >
+        {label}
+      </span>
+    </div>
+  );
 
 /** The agent's button, against the box's left edge at its top, and the way to it from the box. */
 const AskSlot = ({
@@ -237,7 +240,7 @@ const ElementChrome = ({
       {CORNERS.map((corner) => (
         <Handle color={color} corner={corner} key={corner} onPress={onPress} />
       ))}
-      <SizeTag color={color} label={sizeLabel(rect, node)} />
+      <SizeTag color={color} frameId={frameId} label={sizeLabel(rect, node)} />
       <AskSlot
         ask={ask}
         shown={shown}
@@ -273,6 +276,7 @@ const RootChrome = ({
     <Box rect={box}>
       <SizeTag
         color={kindColor(selectionKindOf(node))}
+        frameId={frameId}
         label={
           isNode && rect
             ? sizeLabel(rect, node)
@@ -291,11 +295,13 @@ const RootChrome = ({
 
 /** Several selected: the size of the box around them, and the button for all of them. */
 const GroupChrome = ({
+  frameId,
   inMain,
   inside,
   rect,
   targets,
 }: {
+  frameId: string;
   inMain: boolean;
   inside: boolean;
   rect: Rect;
@@ -306,6 +312,7 @@ const GroupChrome = ({
     <Box rect={rect}>
       <SizeTag
         color={kindColor(inMain ? "component" : "element")}
+        frameId={frameId}
         label={sizeLabel(rect)}
       />
       <AskSlot
@@ -355,6 +362,7 @@ export const SelectionChrome = ({
     const box = unionOf(nodes.flatMap((n) => rects?.[n.id] ?? []));
     return box ? (
       <GroupChrome
+        frameId={frameId}
         inMain={inMain}
         inside={inside}
         rect={box}

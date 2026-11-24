@@ -15,23 +15,12 @@ import { appFileOf, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useEditsMain } from "../state/isolation.ts";
 import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
+import { unionOf } from "./boxes.ts";
 import { useFrameError } from "./editor-frame.ts";
 
 /** The node hovered in this frame, if the pointer is over one here. */
 export const useHoverIn = (frameId: string) =>
   useEditor((s) => (s.hover?.frame === frameId ? s.hover.nodeId : null));
-
-/** The box around several rects. */
-const unionOf = (rects: readonly Rect[]): Rect | null => {
-  if (rects.length === 0) {
-    return null;
-  }
-  const left = Math.min(...rects.map((r) => r.x));
-  const top = Math.min(...rects.map((r) => r.y));
-  const right = Math.max(...rects.map((r) => r.x + r.width));
-  const bottom = Math.max(...rects.map((r) => r.y + r.height));
-  return { height: bottom - top, width: right - left, x: left, y: top };
-};
 
 /** The outlines of the hovered and the selected nodes, and an error the preview reported. */
 export const Highlights = ({ frameId }: { frameId: string }) => {
