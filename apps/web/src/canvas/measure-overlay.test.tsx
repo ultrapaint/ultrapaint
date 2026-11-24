@@ -210,7 +210,7 @@ beforeEach(() => {
   useEditor.setState({
     canvas: "main",
     hover: null,
-    rects: { [HOME]: page.boxes, [TABLET]: page.boxes },
+    rects: { [HOME]: { ...page.boxes }, [TABLET]: { ...page.boxes } },
     view: { x: 0, y: 0, zoom: 1 },
   });
   select("t1");
@@ -362,7 +362,7 @@ describe("⌥ held over the selection's parent, or the selection itself", () => 
     expect(lengthsIn()).toEqual(["24", "276", "24", "156"]);
   });
 
-  it("reads the parent again as the frame draws, a change to it alone moving nothing watched", () => {
+  it("reads the parent again each time the frame draws", () => {
     hover("t1");
     holdAlt();
     page.boxes.card = { height: 300, width: 400, x: 40, y: 40 };

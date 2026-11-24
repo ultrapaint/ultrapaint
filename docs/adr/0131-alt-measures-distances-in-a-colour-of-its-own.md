@@ -28,9 +28,9 @@ was left to draw a measurement in without taking another's meaning.
   edges, the four insets for one inside the other. A distance under half a pixel is not drawn.
 - **The parent is measured too.** Pointing at the selection's parent gives the selection's insets
   in it. Pointing at the selection itself gives the same insets, its parent measured on demand
-  through the frame (`frameOf(id).measure`), read again each time the frame draws, so a parent
-  covered whole by its children can still be measured; a page's root, which has no parent, draws
-  nothing there. Several selected in one parent give the insets of the box around them in it;
+  through the frame (`frameOf(id).measure`) and read again each time the frame draws
+  (`rendered`), so a parent covered whole by its children can still be measured; a page's root,
+  which has no parent, draws nothing there. Several selected in one parent give the insets of the box around them in it;
   several in different parents draw nothing there. A layer of an instance is measured in the
   layer around it (0114). Empty page space is no element: nothing is measured to it.
 - **It is drawn as chrome**, beside the selection's (`measure-overlay`), in the frame's pixels and
@@ -39,8 +39,9 @@ was left to draw a measurement in without taking another's meaning.
   selection's bottom edge would cover it. Only the frame the selection was made in draws it:
   another page, or another view of the same page, is another drawing.
 - **It goes** as ⌥ is let go, as the window loses focus, as the pointer leaves the frame or every
-  element, while a drag copies, and while a marquee is drawn, which hovers nothing. ⌥ typed in a field, or in a text edited on the canvas, measures
-  nothing. A click with ⌥ still selects the innermost node.
+  element, while a drag copies, and while a marquee is drawn, which hovers nothing. ⌥ typed in a
+  field, or in a text edited on the canvas, measures nothing. A click with ⌥ still selects the
+  innermost node. ⌥ pressed after a press is let go hit-tests where the pointer is now.
 - **A fourth canvas colour, `--measure`**, kept for measuring alone (distances now, a later
   story's snapping lines): an orange-red, `oklch(0.58 0.18 40)`, the same in the light and the dark
   theme. Its hue (40) is away from `--destructive`'s (27 light, 25 dark), so a measurement never

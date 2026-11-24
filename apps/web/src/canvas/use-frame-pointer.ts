@@ -205,11 +205,6 @@ export const useFramePointer = ({
     }
   };
   const onMove = (e: ReactPointerEvent) => {
-    resting.current = {
-      clientX: e.clientX,
-      clientY: e.clientY,
-      currentTarget: e.currentTarget,
-    };
     const now = performance.now();
     if (now - lastHit.current < 40) {
       return;
@@ -378,6 +373,12 @@ export const useFramePointer = ({
     e.currentTarget.setPointerCapture(e.pointerId);
   };
   const onPointerMove = (e: ReactPointerEvent) => {
+    // Kept through a press too: ⌥ pressed once it is let go hit-tests where the pointer is.
+    resting.current = {
+      clientX: e.clientX,
+      clientY: e.clientY,
+      currentTarget: e.currentTarget,
+    };
     const p = press.current;
     if (!p) {
       onMove(e);

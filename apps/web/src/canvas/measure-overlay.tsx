@@ -6,7 +6,7 @@
  */
 import type { Rect } from "@ultrapaint/contracts/preview";
 import { layerPath } from "@ultrapaint/design-document/instance-layers";
-import { type CSSProperties, useReducer, useRef } from "react";
+import { type CSSProperties, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { appFileOf, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
@@ -75,20 +75,12 @@ const Distance = ({ line }: { line: MeasureLine }) => {
 };
 
 /**
- * A parent's box as the frame drew it, read from the page at its `drawing`th drawing: the count
- * is what makes each drawing a new reading, where a value kept from the last render would do.
+ * What is measured: from the selection's box to the node the pointer is over, or to the parent
+ * the selection is in while the pointer is over the selection itself.
  */
-const parentBox = (frameId: string, parent: string, _drawing: number) =>
-  frameOf(frameId).measure([parent])[parent];
+type Measured = { from: Rect; to: Rect } | { from: Rect; parent: string };
 
-/**
- * The boxes measured: the selection's, and what the pointer means by the node it is over, at
- * the frame's `drawing`th drawing.
- */
-const useMeasured = (
-  frameId: string,
-  drawing: number
-): { from: Rect; to: Rect } | null => {
+const useMeasured = (frameId: string): Measured | null => {
   const selected = useSelectedIn(frameId);
   const hoverId = useHoverIn(frameId);
   const rects = useEditor((s) => s.rects[frameId]);
@@ -114,8 +106,7 @@ const useMeasured = (
   if (parents.size !== 1 || parent === undefined) {
     return null;
   }
-  const to = parentBox(frameId, parent, drawing);
-  return to ? { from, to } : null;
+  return { from, parent };
 };
 
 /** The lines, kept at their size on screen as the view zooms. */
@@ -134,14 +125,46 @@ const Distances = ({ lines }: { lines: readonly MeasureLine[] }) => {
   );
 };
 
-const Measuring = ({ frameId }: { frameId: string }) => {
-  // The parent is measured as the frame draws: each drawing reads it again, as a change to the
-  // parent alone moves nothing watched.
-  const [drawing, drawn] = useReducer((n: number) => n + 1, 0);
-  useFrameEvents(frameId, { rendered: drawn });
-  const measured = useMeasured(frameId, drawing);
-  const lines = measured ? measureLines(measured.from, measured.to) : [];
+/** The distances between two boxes. */
+const Between = ({ from, to }: { from: Rect; to: Rect }) => {
+  const lines = measureLines(from, to);
   return lines.length > 0 ? <Distances lines={lines} /> : null;
+};
+
+/**
+ * The selection's insets in its parent, whose box is read as the frame draws it: a change to
+ * the parent alone moves nothing watched.
+ */
+const InParent = ({
+  frameId,
+  from,
+  parent,
+}: {
+  frameId: string;
+  from: Rect;
+  parent: string;
+}) => {
+  const read = () => frameOf(frameId).measure([parent])[parent];
+  const [to, setTo] = useState(read);
+  useFrameEvents(frameId, { rendered: () => setTo(read()) });
+  return to ? <Between from={from} to={to} /> : null;
+};
+
+const Measuring = ({ frameId }: { frameId: string }) => {
+  const measured = useMeasured(frameId);
+  if (!measured) {
+    return null;
+  }
+  return "parent" in measured ? (
+    <InParent
+      frameId={frameId}
+      from={measured.from}
+      key={measured.parent}
+      parent={measured.parent}
+    />
+  ) : (
+    <Between from={measured.from} to={measured.to} />
+  );
 };
 
 /** What ⌥ measures in a frame, in the frame's own pixels. */

@@ -32,6 +32,8 @@ vi.mock(
  * what a slot of a component edited in place holds there (nothing unless a test says so).
  */
 const under = vi.hoisted(() => ({
+  /** What is under a point, where a test draws the page; `chain` everywhere else. */
+  at: null as ((x: number) => string[]) | null,
   chain: ["home-root", "t1"],
   held: [] as string[],
 }));
@@ -39,7 +41,7 @@ const under = vi.hoisted(() => ({
 /** The page's preview: `under` at every point, the text `t1` where it is drawn. */
 vi.mock("./editor-frame.ts", () => ({
   frameOf: () => ({
-    hitTest: () => under.chain,
+    hitTest: (x: number) => under.at?.(x) ?? under.chain,
     measure: () => ({ t1: { height: 20, width: 50, x: 10, y: 10 } }),
     pageAt: () => under.held,
   }),
@@ -153,6 +155,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => mounted.unmount());
   handlers = null;
+  under.at = null;
   under.chain = ["home-root", "t1"];
   under.held = [];
   useIsolation.setState({ isolated: null });
@@ -189,6 +192,14 @@ describe("a node dragged inside a page", () => {
 });
 
 describe("a marquee", () => {
+  it("hovers nothing while it is drawn", () => {
+    useEditor.setState({ hover: { frame: HOME, nodeId: "t2" } });
+    under.chain = ["home-root"];
+    act(() => current().onPointerDown(pointerAt(0, 0)));
+    act(() => current().onPointerMove(pointerAt(40, 30)));
+    expect(useEditor.getState().hover).toBeNull();
+  });
+
   it("is put away by Escape: nothing drawn, the selection as it was", async () => {
     under.chain = ["home-root"];
     useEditor.setState({ selection: { frame: HOME, nodeId: "t2" } });
@@ -577,6 +588,17 @@ describe("⌥ held over a page (ADR 0131)", () => {
     act(() => useMeasureKey.setState({ held: true }));
     act(() => useMeasureKey.setState({ held: false }));
     expect(hovered()).toBe("card");
+  });
+
+  it("hovers what is under the pointer where a press let it go", () => {
+    inACard();
+    // The page is empty left of 100, the text in its card from there on.
+    under.at = (x) => (x < 100 ? ["home-root"] : under.chain);
+    act(() => current().onPointerDown(pointerAt(20, 20)));
+    act(() => current().onPointerMove(pointerAt(300, 300)));
+    act(() => current().onPointerUp());
+    act(() => useMeasureKey.setState({ held: true }));
+    expect(hovered()).toBe("t1");
   });
 
   it("still selects the innermost node with a click", () => {
