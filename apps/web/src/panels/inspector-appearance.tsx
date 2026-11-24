@@ -166,16 +166,45 @@ const BorderSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
 
 const SHADOW = TOKEN_FIELDS.shadow;
 
-/** Writes shadows as the shadow of every node inspected, or takes it off when none is left. */
-const writeShadows = (shadows: readonly string[]) =>
-  setField(SHADOW, shadowListCss(shadows));
+/** The words a box-shadow can be whole, never as one shadow of a list. */
+const WHOLE_VALUE_KEYWORDS = new Set([
+  "none",
+  "initial",
+  "inherit",
+  "unset",
+  "revert",
+  "revert-layer",
+]);
 
-/** Whether CSS takes a shadow typed, or each of a list typed, its tokens taken as they are. */
+const isWholeValue = (shadow: string) =>
+  WHOLE_VALUE_KEYWORDS.has(shadow.trim().toLowerCase());
+
+/**
+ * Writes shadows as the shadow of every node inspected, or takes it off when none is left. A
+ * whole-value keyword beside other shadows (`none` picked in a row added) is left out of the list.
+ */
+const writeShadows = (shadows: readonly string[]) =>
+  setField(
+    SHADOW,
+    shadowListCss(
+      shadows.length > 1 ? shadows.filter((s) => !isWholeValue(s)) : shadows
+    )
+  );
+
+/**
+ * Whether CSS takes a shadow typed, or each of a list typed, its tokens taken as they are; a
+ * whole-value keyword only alone.
+ */
 const acceptsShadow = (q: string) => {
   const shadows = shadowsOf(q);
   return (
     shadows.length > 0 &&
-    shadows.every((s) => isToken(s) || CSS.supports("box-shadow", s))
+    shadows.every(
+      (s) =>
+        isToken(s) ||
+        (CSS.supports("box-shadow", s) &&
+          (shadows.length === 1 || !isWholeValue(s)))
+    )
   );
 };
 
