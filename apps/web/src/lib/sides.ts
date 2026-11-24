@@ -10,6 +10,14 @@ export type Side = keyof Sides;
 /** In CSS order, which is the order the fields and the labels follow. */
 const SIDES: readonly Side[] = ["top", "right", "bottom", "left"];
 
+/** The other side of a side's axis: the top's is the bottom. */
+export const ACROSS: Readonly<Record<Side, Side>> = {
+  bottom: "top",
+  left: "right",
+  right: "left",
+  top: "bottom",
+};
+
 /** Every side of a padding or margin, each set or not. */
 export const sidesOf = (value: Padding | undefined): Sides => {
   if (value === undefined) {

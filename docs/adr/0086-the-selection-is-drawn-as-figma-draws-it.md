@@ -5,6 +5,10 @@ Status: accepted, 2026-11-12. Amends 0058 (the bar over the tools, the selection
 
 > Amended by [0098](0098-anything-has-variations-and-page-variants-fold-into-them.md), 2026-11-16: Ask an agent's popover has a Variations control
 > under its field (One change, or 2, 3 or 4).
+>
+> Amended by [0145](0145-a-stacks-gap-and-padding-are-dragged-on-the-canvas.md), 2026-11-24: a
+> selected row, column or page also carries its spacing bands, which drag its gap and padding on
+> the canvas, as a corner drags an element's size.
 
 ## Context
 

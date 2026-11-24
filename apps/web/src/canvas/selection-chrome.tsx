@@ -1,10 +1,11 @@
 /**
  * What the selection carries on the canvas, as Figma draws it (ADR 0086): a handle on each corner
- * of an element inside a page, which sizes it; its size under it; and the agent's button on its
- * top-left edge while the pointer is over it. Drawn outside the page's clip, so an element on the
- * page's edge keeps them, at their size on screen whatever the zoom. A page's own frame draws its
- * name and handles; this adds its size and the button. Nothing names an element on the canvas:
- * Layers and the inspector do.
+ * of an element inside a page, which sizes it; a stack's spacing bands, which drag its gap and its
+ * padding (ADR 0145); its size under it; and the agent's button on its top-left edge while the
+ * pointer is over it. Drawn outside the page's clip, so an element on the page's edge keeps them,
+ * at their size on screen whatever the zoom. A page's own frame draws its name and handles; this
+ * adds its bands, its size and the button. Nothing names an element on the canvas: Layers and the
+ * inspector do.
  */
 
 import type { DesignNode } from "@ultrapaint/contracts/document";
@@ -14,7 +15,11 @@ import {
   findLayer,
   layerIdOf,
 } from "@ultrapaint/design-document/instance-layers";
-import { findNode, nodeLabel } from "@ultrapaint/design-document/tree";
+import {
+  childrenOf,
+  findNode,
+  nodeLabel,
+} from "@ultrapaint/design-document/tree";
 import {
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
@@ -25,8 +30,9 @@ import {
 import { cn } from "@/lib/cn";
 import { askTaken, freshAsk, useAsk } from "../lib/ask-variations.ts";
 import { kindColor, selectionKindOf } from "../lib/selection-kind.ts";
+import { sidesOf } from "../lib/sides.ts";
 import { sizeLabel } from "../lib/size-label.ts";
-import { useBreakpoints } from "../state/design-system.ts";
+import { useBreakpoints, useDesignSystem } from "../state/design-system.ts";
 import {
   appFileOf,
   drawnRootOf,
@@ -35,13 +41,29 @@ import {
 } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { useEditsMain } from "../state/isolation.ts";
+import { useHeldSizes, withHeldSize } from "../state/node-sizing.ts";
 import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
 import { AskAgent } from "./ask-agent.tsx";
 import { unionOf } from "./boxes.ts";
 import { screenPx, UNZOOM, useExactInv } from "./camera.ts";
+import { frameOf, useFrameEvents } from "./editor-frame.ts";
 import type { Corner } from "./frame.tsx";
-import { beginNodeResize } from "./frame-gesture.ts";
+import {
+  beginNodeResize,
+  beginSpacingDrag,
+  useSpacingDrag,
+} from "./frame-gesture.ts";
 import { useMeasuring } from "./measure-key.ts";
+import {
+  type Band,
+  paddingPx,
+  spacingBands,
+  spacingLabel,
+  spacingNameOf,
+  spacingPx,
+  spacingTargets,
+  stackOf,
+} from "./spacing-bands.ts";
 
 const CORNERS: readonly Corner[] = ["nw", "ne", "sw", "se"];
 
@@ -193,6 +215,200 @@ const Handle = ({
   );
 };
 
+/** The thinnest a spacing band is to the pointer, on screen: a gap or padding of 0 is reachable. */
+const BAND_LEAST_PX = 6;
+
+/** A band's hatching: lines of its colour over a wash of it, at their size on screen. */
+const HATCH = `repeating-linear-gradient(-45deg, currentColor 0 ${screenPx(1)}, transparent ${screenPx(1)} ${screenPx(5)}), color-mix(in srgb, currentColor 12%, transparent)`;
+
+/**
+ * Where these children of a stack are drawn, in their order, read again each time the frame
+ * draws: while a band is dragged they move with it. A child that draws nothing is left out.
+ */
+const useChildRects = (frameId: string, ids: readonly string[]) => {
+  const read = () => {
+    const rects = frameOf(frameId).measure(ids);
+    return ids.flatMap((id) => rects[id] ?? []);
+  };
+  const [rects, setRects] = useState(read);
+  // A child added or taken out is drawn too: the frame draws again.
+  useFrameEvents(frameId, { rendered: () => setRects(read()) });
+  return rects;
+};
+
+/**
+ * One band: the space hatched in the selection's colour with a handle on it and a pill naming its
+ * value, shown while the pointer is over it or it is dragged. A press on it drags its spacing.
+ */
+const SpacingBand = ({
+  active,
+  band,
+  box,
+  color,
+  label,
+  onPress,
+}: {
+  active: boolean;
+  band: Band;
+  box: Rect;
+  color: string;
+  /** What its pill says; none for the other side Shift drags with the one pressed. */
+  label: string | null;
+  onPress: (e: ReactPointerEvent) => void;
+}) => {
+  const { hit, rect } = band;
+  const across = band.axis === "x";
+  const above = band.side === "bottom";
+  return (
+    <div
+      className={cn(
+        "group/band pointer-events-auto absolute",
+        across ? "cursor-ew-resize" : "cursor-ns-resize"
+      )}
+      data-spacing-band={band.key}
+      onPointerDown={onPress}
+      style={{
+        color,
+        height: hit.height,
+        left: hit.x - box.x,
+        top: hit.y - box.y,
+        width: hit.width,
+      }}
+    >
+      <div
+        className={cn(
+          "absolute hidden group-hover/band:block",
+          active && "block"
+        )}
+        style={{
+          height: rect.height,
+          left: rect.x - hit.x,
+          top: rect.y - hit.y,
+          width: rect.width,
+        }}
+      >
+        <div className="absolute inset-0" style={{ background: HATCH }} />
+        <div
+          className="-translate-1/2 absolute top-1/2 left-1/2 rounded-full bg-white"
+          data-spacing-handle
+          style={{
+            border: `${screenPx(1)} solid currentColor`,
+            height: screenPx(across ? 12 : 4),
+            width: screenPx(across ? 4 : 12),
+          }}
+        />
+        {label !== null && (
+          // Under the handle; over it for the bottom padding, clear of the size under the box.
+          <div
+            className={cn(
+              "absolute left-1/2 flex w-0 justify-center",
+              above ? "bottom-1/2 items-end" : "top-1/2"
+            )}
+            style={
+              above
+                ? { marginBottom: screenPx(10) }
+                : { marginTop: screenPx(10) }
+            }
+          >
+            <span
+              className={CANVAS_TAG}
+              style={{
+                background: color,
+                transform: UNZOOM,
+                transformOrigin: above ? "bottom center" : "top center",
+              }}
+            >
+              {label}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/**
+ * A selected stack's spacing bands (ADR 0145): its gaps and its padding's sides, worked out from
+ * where it and its children are drawn and its spacing as its view draws it, held at what a drag
+ * gives it. Nothing for a node without the stack's fields, nor while ⌥ measures.
+ */
+const SpacingBands = ({
+  box,
+  color,
+  frameId,
+  node,
+  stackBox = box,
+}: {
+  /** The chrome's box, which the bands are placed in. */
+  box: Rect;
+  color: string;
+  frameId: string;
+  node: DesignNode;
+  /** Where the stack is drawn, when not the chrome's box: a page taller than its frame. */
+  stackBox?: Rect;
+}) => {
+  const ds = useDesignSystem((s) => s.designSystem);
+  const held = useHeldSizes((s) => s.byFrame[frameId]);
+  const dragged = useSpacingDrag((s) =>
+    s.dragged?.frame === frameId ? s.dragged : null
+  );
+  const zoom = useEditor((s) => s.view.zoom);
+  const measuring = useMeasuring(frameId);
+  const stack = stackOf(node);
+  const children = useChildRects(
+    frameId,
+    stack ? childrenOf(node).map((c) => c.id) : []
+  );
+  const drawn = withHeldSize(node, held);
+  const shown = stackOf(drawn);
+  if (!(stack && shown) || measuring) {
+    return null;
+  }
+  const targets = spacingTargets(ds);
+  const bands = spacingBands(
+    {
+      align: shown.align,
+      box: stackBox,
+      children,
+      direction: shown.direction,
+      gap: spacingPx(shown.gap, ds),
+      padding: paddingPx(drawn.padding, ds),
+    },
+    BAND_LEAST_PX / zoom
+  );
+  const lengthOf = (band: Band) =>
+    band.side ? sidesOf(drawn.padding)[band.side] : shown.gap;
+  /** Its value as it is; dragged, the value the drag gives it, on the band pressed alone. */
+  const pillOf = (band: Band): string | null => {
+    if (!dragged?.keys.includes(band.key)) {
+      return spacingLabel(
+        band.field,
+        band.px,
+        spacingNameOf(lengthOf(band), targets)
+      );
+    }
+    return dragged.keys[0] === band.key ? dragged.label : null;
+  };
+  return (
+    <>
+      {bands.map((band) => {
+        const active = dragged?.keys.includes(band.key) ?? false;
+        return (
+          <SpacingBand
+            active={active}
+            band={band}
+            box={box}
+            color={color}
+            key={band.key}
+            label={pillOf(band)}
+            onPress={(e) => beginSpacingDrag(e, frameId, node, band)}
+          />
+        );
+      })}
+    </>
+  );
+};
+
 /**
  * The box the chrome hangs on, in the frame's own pixels. Its `--inv` is kept exact as the view
  * zooms, so what it holds keeps its size on screen through a gesture.
@@ -237,6 +453,7 @@ const ElementChrome = ({
     beginNodeResize(e, frameId, node.id, corner, rect);
   return (
     <Box rect={rect}>
+      <SpacingBands box={rect} color={color} frameId={frameId} node={node} />
       {CORNERS.map((corner) => (
         <Handle color={color} corner={corner} key={corner} onPress={onPress} />
       ))}
@@ -272,10 +489,18 @@ const RootChrome = ({
 }) => {
   const { ask, shown } = useAskShown(inside);
   const box = { height: frame.height, width: frame.width, x: 0, y: 0 };
+  const color = kindColor(selectionKindOf(node));
   return (
     <Box rect={box}>
+      <SpacingBands
+        box={box}
+        color={color}
+        frameId={frameId}
+        node={node}
+        stackBox={rect}
+      />
       <SizeTag
-        color={kindColor(selectionKindOf(node))}
+        color={color}
         frameId={frameId}
         label={
           isNode && rect

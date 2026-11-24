@@ -1,7 +1,7 @@
 /**
  * Frame gestures: moving and sizing a page's frame, sizing a node on the canvas or an element
- * inside a page (`beginNodeResize`), from the
- * press on the frame's name or corner to the release. The gesture follows the pointer as every
+ * inside a page (`beginNodeResize`), and dragging a stack's gap or padding (`beginSpacingDrag`),
+ * from the press on the frame's name, a corner or a spacing band to the release. The gesture follows the pointer as every
  * gesture on the canvas does (`pointer-gesture.ts`, ADR 0133), snaps to the grid or the frames
  * around it, and is saved once when it is let go: a page's frame rounded to the pixel
  * (`setFrame`), a node in one "Resize" edit. A cancelled pointer or Escape puts it back as it was,
@@ -9,9 +9,14 @@
  * where it lands), followed the same way.
  */
 
+import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { Box } from "@ultrapaint/contracts/canvas-layout";
+import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { FrameLayout } from "@ultrapaint/contracts/pages";
-import { updateNodes } from "../lib/node-actions.ts";
+import { create } from "zustand";
+import { setField, updateNodes, updateNodesWith } from "../lib/node-actions.ts";
+import { TOKEN_FIELDS } from "../lib/node-fields.ts";
+import { ACROSS, type Side, withSides } from "../lib/sides.ts";
 import { snapsToGrid } from "../state/canvas-grid.ts";
 import {
   isPicked,
@@ -19,9 +24,14 @@ import {
   togglePick,
   useCanvasPicks,
 } from "../state/canvas-picks.ts";
+import { useDesignSystem } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
-import { holdSize, holdSizeUntil } from "../state/node-sizing.ts";
+import {
+  type HeldSize,
+  holdSize,
+  holdSizeUntil,
+} from "../state/node-sizing.ts";
 import {
   doneDrawingFrame,
   drawingFrame,
@@ -46,6 +56,12 @@ import {
   snapToEdges,
 } from "./snap.ts";
 import { clearSnapGuides, showSnapGuides } from "./snap-guides.ts";
+import {
+  type Band,
+  snapSpacing,
+  spacingLabel,
+  spacingTargets,
+} from "./spacing-bands.ts";
 
 /** Where the pointer is and the keys held with it, as a pointer event says. */
 interface PointerAt {
@@ -321,6 +337,25 @@ const followNodeResize = (
 };
 
 /**
+ * Whether a press on the selection's chrome begins its gesture: the main button, unless Space or
+ * the Pan tool pans. Taken, it goes no further, a gesture still followed is put back, and the
+ * pointer's events go to the canvas until it is let go.
+ */
+const takesElementPress = (e: Press): boolean => {
+  const s = useEditor.getState();
+  if (e.button !== 0 || s.spacePan || s.mode === "pan") {
+    return false;
+  }
+  e.preventDefault();
+  e.stopPropagation();
+  putBackGesture();
+  (e.currentTarget as Element | null)
+    ?.closest?.("[data-canvas]")
+    ?.setPointerCapture(e.pointerId);
+  return true;
+};
+
+/**
  * Sizes an element inside a page by a corner of its selection (ADR 0086), which gives it a fixed
  * width and height at the view's breakpoint: drawn at the size the pointer gives it while it
  * moves, saved in one "Resize" edit when let go. Put back, it keeps its size.
@@ -332,16 +367,9 @@ export const beginNodeResize = (
   corner: Corner,
   rect: Box
 ) => {
-  const s = useEditor.getState();
-  if (e.button !== 0 || s.spacePan || s.mode === "pan") {
+  if (!takesElementPress(e)) {
     return;
   }
-  e.preventDefault();
-  e.stopPropagation();
-  putBackGesture();
-  (e.currentTarget as Element | null)
-    ?.closest?.("[data-canvas]")
-    ?.setPointerCapture(e.pointerId);
   let to: Box | null = null;
   followPointer(e, {
     cancel: () => holdSize(frame, null),
@@ -358,6 +386,90 @@ export const beginNodeResize = (
       const { height, width } = resized;
       holdSizeUntil(frame, { height, nodeId, width }, () =>
         updateNodes([{ frame, nodeId }], { height, width }, "Resize")
+      );
+    },
+  });
+};
+
+/** The spacing band being dragged, which the chrome keeps drawn with its value in the pill. */
+export const useSpacingDrag = create<{
+  dragged: {
+    readonly frame: string;
+    /** The bands it changes: its own, and the opposite side's with Shift. */
+    readonly keys: readonly string[];
+    readonly label: string;
+  } | null;
+}>(() => ({ dragged: null }));
+
+/**
+ * Drags a selected stack's gap or a side of its padding by its band (ADR 0145): the length
+ * follows the pointer along the band's axis, snapped to the spacing scale's named steps and the
+ * design system's named spacings (to the pixel with ⌘/Ctrl held), Shift giving a padding both
+ * sides of its axis. Drawn live as the stack held at it, and saved once let go in one edit, as
+ * the inspector's Gap and Padding write it, at the view's breakpoint. Put back, it is drawn as its
+ * document has it.
+ */
+export const beginSpacingDrag = (
+  e: Press,
+  frame: string,
+  node: Pick<DesignNode, "id" | "padding">,
+  band: Band
+) => {
+  if (!takesElementPress(e)) {
+    return;
+  }
+  const targets = spacingTargets(useDesignSystem.getState().designSystem);
+  let to: { held: HeldSize; sides: Side[]; value: JsonValue } | null = null;
+  const done = () => useSpacingDrag.setState({ dragged: null });
+  followPointer(e, {
+    cancel: () => {
+      done();
+      holdSize(frame, null);
+    },
+    move: (ev) => {
+      const { dx, dy } = movedBy(e, ev);
+      const moved = band.axis === "x" ? dx : dy;
+      const snapped = snapSpacing(
+        band.px + band.sign * moved,
+        targets,
+        holdsFree(ev)
+      );
+      const { side } = band;
+      const sides = side ? [side, ...(ev.shiftKey ? [ACROSS[side]] : [])] : [];
+      const held: HeldSize =
+        band.field === "gap"
+          ? { gap: snapped.value, nodeId: node.id }
+          : {
+              nodeId: node.id,
+              padding: withSides(node.padding, sides, snapped.value),
+            };
+      to = { held, sides, value: snapped.value };
+      holdSize(frame, held);
+      useSpacingDrag.setState({
+        dragged: {
+          frame,
+          keys: side ? sides.map((each) => `padding-${each}`) : [band.key],
+          label: spacingLabel(band.field, snapped.px, snapped.name),
+        },
+      });
+    },
+    up: () => {
+      done();
+      const dragged = to;
+      if (!dragged) {
+        return;
+      }
+      const target = [{ frame, nodeId: node.id }];
+      const { sides, value } = dragged;
+      holdSizeUntil(frame, dragged.held, () =>
+        band.field === "gap"
+          ? setField(TOKEN_FIELDS.gap, value, target)
+          : // Each side but those dragged kept as the view draws it.
+            updateNodesWith(
+              target,
+              (n) => ({ padding: withSides(n.padding, sides, value) }),
+              "Change the padding"
+            )
       );
     },
   });

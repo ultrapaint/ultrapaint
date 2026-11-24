@@ -1,15 +1,26 @@
 import "../testing/fake-browser.ts";
-import type { ApplyInput, DocumentState } from "@ultrapaint/contracts/document";
+import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
+import type {
+  AppliedChanges,
+  ApplyInput,
+  DesignNode,
+  DocumentState,
+} from "@ultrapaint/contracts/document";
 import type { FrameLayout, Page } from "@ultrapaint/contracts/pages";
-import { canvasDocOf } from "@ultrapaint/design-document/tree";
+import { addTokens } from "@ultrapaint/contracts/token-table";
+import { applyOps } from "@ultrapaint/design-document/ops";
+import { canvasDocOf, findNode } from "@ultrapaint/design-document/tree";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useCanvasPicks } from "../state/canvas-picks.ts";
+import { useComponents } from "../state/components.ts";
+import { useDesignSystem } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { useHeldSizes } from "../state/node-sizing.ts";
 import { layoutSaved } from "../state/page-layout.ts";
 import { useProject } from "../state/project.ts";
-import { selectedPageNow } from "../state/selection.ts";
+import { select, selectedPageNow } from "../state/selection.ts";
 import { followServer } from "../state/server-data.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { pageDocs } from "../testing/page-docs.ts";
@@ -18,13 +29,16 @@ import { useCreate } from "./create-tool.ts";
 import { useDrag } from "./drag.ts";
 import {
   beginFrameGesture,
+  beginSpacingDrag,
   cancelGesture,
   followLooseDrag,
   nameClickSelects,
   pickedFramesMoved,
   placeFrame,
   resizeFrom,
+  useSpacingDrag,
 } from "./frame-gesture.ts";
+import type { Band } from "./spacing-bands.ts";
 
 vi.mock(
   "../state/connection.ts",
@@ -502,5 +516,356 @@ describe("a frame gesture", () => {
     await layoutSaved();
     expect(saved()).toEqual([]);
     expect(selectedPageNow()).toBe(home.id);
+  });
+});
+
+describe("a stack's spacing dragged on the canvas (ADR 0145)", () => {
+  const HOME = "home.page.json";
+  /** A view of the home page at 800 px: `md`, of the default breakpoints. */
+  const TABLET = `${HOME}#tablet`;
+  /** A view of the home page at 390 px: below the first breakpoint, the base. */
+  const PHONE = `${HOME}#phone`;
+  const text = (id: string) =>
+    ({ id, role: "paragraph", text: id, type: "text" }) as DesignNode;
+  const hero = {
+    children: [text("title"), text("lede")],
+    gap: 8,
+    id: "hero",
+    padding: 8,
+    type: "row",
+  } as DesignNode;
+  const rect = { height: 20, width: 8, x: 40, y: 8 };
+  /** The band between the hero's two children, 8 wide. */
+  const GAP: Band = {
+    axis: "x",
+    field: "gap",
+    hit: rect,
+    key: "gap-0",
+    px: 8,
+    rect,
+    sign: 1,
+  };
+  /** The hero's top padding, 8 tall. */
+  const TOP: Band = {
+    axis: "y",
+    field: "padding",
+    hit: rect,
+    key: "padding-top",
+    px: 8,
+    rect,
+    side: "top",
+    sign: 1,
+  };
+  const heroIn = (doc = HOME) => {
+    const root = useDocuments.getState().docs[doc]?.root;
+    return root ? findNode(root, "hero") : null;
+  };
+  const edits = () =>
+    fakeApi.calls
+      .filter((c) => c.method === "documents.apply")
+      .map((c) => c.input as ApplyInput);
+  /** The pointer moved with keys held, as the window hears it. */
+  const fireWith = (
+    type: string,
+    clientX: number,
+    clientY: number,
+    keys: { metaKey?: boolean; shiftKey?: boolean }
+  ) =>
+    listeners.get(type)?.({
+      ...pointer(clientX, clientY),
+      ...keys,
+    } as unknown as Event);
+  const initial = {
+    components: useComponents.getState(),
+    designSystem: useDesignSystem.getState(),
+    documents: useDocuments.getState(),
+    editor: useEditor.getState(),
+    held: useHeldSizes.getState(),
+    project: useProject.getState(),
+  };
+  let versions = 0;
+
+  beforeEach(() => {
+    stubWindow();
+    fakeApi.reset();
+    // The server's side: the operations applied to the documents the editor has.
+    fakeApi.respond("documents.apply", (input: ApplyInput): AppliedChanges => {
+      const changes = input.edits.map(({ doc, ops }) => {
+        const before = useDocuments.getState().docs[doc];
+        if (!before?.root) {
+          throw new Error(`no document ${doc}`);
+        }
+        versions += 1;
+        return {
+          doc,
+          hash: `${doc}@${versions}`,
+          root: applyOps(before.root, ops, {
+            canvas: false,
+            next: () => "n",
+          }).root,
+        };
+      });
+      return { changes, created: [] };
+    });
+    useProject.setState({
+      canvases: [{ home: "/", id: "main", name: "Main" }],
+      info: { configured: true, storage: { mode: "managed" } },
+      pages: [],
+    });
+    useEditor.setState({
+      canvas: "main",
+      frames: {
+        [HOME]: {
+          height: 900,
+          preset: "desktop",
+          views: [
+            { height: 900, id: "tablet", width: 800, x: 1600, y: 0 },
+            { height: 900, id: "phone", width: 390, x: 2500, y: 0 },
+          ],
+          width: 1440,
+          x: 0,
+          y: 0,
+        },
+        [PHONE]: { height: 900, preset: "custom", width: 390, x: 2500, y: 0 },
+        [TABLET]: { height: 900, preset: "custom", width: 800, x: 1600, y: 0 },
+      },
+      held: {},
+      view: { x: 0, y: 0, zoom: 1 },
+    });
+    useDocuments.setState({
+      canvas: "main",
+      docs: {
+        [HOME]: {
+          doc: HOME,
+          hash: `${HOME}@0`,
+          root: { children: [hero], id: "home", type: "page" } as DesignNode,
+        },
+      },
+      loaded: true,
+    });
+    useHeldSizes.setState({ byFrame: {} });
+    select({ frame: PHONE, nodeId: "hero" });
+  });
+
+  afterEach(() => {
+    cancelGesture();
+    useComponents.setState(initial.components, true);
+    useDesignSystem.setState(initial.designSystem, true);
+    useDocuments.setState(initial.documents, true);
+    useEditor.setState(initial.editor, true);
+    useHeldSizes.setState(initial.held, true);
+    useProject.setState(initial.project, true);
+    vi.unstubAllGlobals();
+  });
+
+  it("holds the stack at the gap the pointer snaps to while it moves", () => {
+    beginSpacingDrag(press(0, 0), PHONE, hero, GAP);
+    fire("pointermove", 3, 0);
+    fire("pointermove", 7.6, 0);
+    expect(useHeldSizes.getState().byFrame[PHONE]).toEqual({
+      gap: 16,
+      nodeId: "hero",
+    });
+  });
+
+  it("says the field, the pixels and the step in the pill while it is dragged, and nothing once let go", () => {
+    beginSpacingDrag(press(0, 0), PHONE, hero, GAP);
+    fire("pointermove", 7.6, 0);
+    expect(useSpacingDrag.getState().dragged).toEqual({
+      frame: PHONE,
+      keys: ["gap-0"],
+      label: "Gap 16 · spacing-4",
+    });
+    fire("pointerup", 7.6, 0);
+    expect(useSpacingDrag.getState().dragged).toBeNull();
+  });
+
+  it("saves the gap let go of in one edit, which the document then has", async () => {
+    beginSpacingDrag(press(0, 0), PHONE, hero, GAP);
+    fire("pointermove", 7.6, 0);
+    fire("pointerup", 7.6, 0);
+    await fakeApi.requested("documents.apply");
+    expect(edits()).toEqual([
+      {
+        edits: [
+          {
+            doc: HOME,
+            ops: [{ id: "hero", op: "update", set: { gap: 16 } }],
+          },
+        ],
+        label: "Change the gap",
+      },
+    ]);
+    // Let go of once the document has it, which the inspector reads.
+    await until(useHeldSizes, (s) => s.byFrame[PHONE] === undefined);
+    expect(heroIn()).toMatchObject({ gap: 16 });
+  });
+
+  it("writes a named spacing it snaps to as its token", async () => {
+    useDesignSystem.setState({
+      designSystem: addTokens(emptyDesignSystem(), [
+        { name: "spacing-gutter", value: "1.5rem" },
+      ]),
+    });
+    beginSpacingDrag(press(0, 0), PHONE, hero, GAP);
+    fire("pointermove", 15, 0);
+    fire("pointerup", 15, 0);
+    await fakeApi.requested("documents.apply");
+    expect(edits()[0]?.edits[0]?.ops).toEqual([
+      { id: "hero", op: "update", set: { gap: "$spacing-gutter" } },
+    ]);
+  });
+
+  it("follows the pointer to the pixel with ⌘/Ctrl held, off the scale", async () => {
+    beginSpacingDrag(press(0, 0), PHONE, hero, GAP);
+    fireWith("pointermove", 7.2, 0, { metaKey: true });
+    expect(useSpacingDrag.getState().dragged?.label).toBe("Gap 15");
+    fireWith("pointerup", 7.2, 0, { metaKey: true });
+    await fakeApi.requested("documents.apply");
+    expect(edits()[0]?.edits[0]?.ops).toEqual([
+      { id: "hero", op: "update", set: { gap: 15 } },
+    ]);
+  });
+
+  it("changes one side of the padding, the others kept, as the inspector's Padding does", async () => {
+    beginSpacingDrag(press(0, 0), PHONE, hero, TOP);
+    fire("pointermove", 0, 7.6);
+    expect(useHeldSizes.getState().byFrame[PHONE]).toEqual({
+      nodeId: "hero",
+      padding: { bottom: 8, left: 8, right: 8, top: 16 },
+    });
+    fire("pointerup", 0, 7.6);
+    await fakeApi.requested("documents.apply");
+    expect(edits()).toEqual([
+      {
+        edits: [
+          {
+            doc: HOME,
+            ops: [
+              {
+                id: "hero",
+                op: "update",
+                set: { padding: { bottom: 8, left: 8, right: 8, top: 16 } },
+              },
+            ],
+          },
+        ],
+        label: "Change the padding",
+      },
+    ]);
+  });
+
+  it("changes both sides of the padding's axis with Shift held", async () => {
+    beginSpacingDrag(press(0, 0), PHONE, hero, TOP);
+    fireWith("pointermove", 0, 7.6, { shiftKey: true });
+    expect(useSpacingDrag.getState().dragged?.keys).toEqual([
+      "padding-top",
+      "padding-bottom",
+    ]);
+    fireWith("pointerup", 0, 7.6, { shiftKey: true });
+    await fakeApi.requested("documents.apply");
+    expect(edits()[0]?.edits[0]?.ops).toEqual([
+      {
+        id: "hero",
+        op: "update",
+        set: { padding: { bottom: 16, left: 8, right: 8, top: 16 } },
+      },
+    ]);
+  });
+
+  it("lands at the breakpoint of the view it is dragged in", async () => {
+    select({ frame: TABLET, nodeId: "hero" });
+    beginSpacingDrag(press(0, 0), TABLET, hero, GAP);
+    fire("pointermove", 7.6, 0);
+    fire("pointerup", 7.6, 0);
+    await fakeApi.requested("documents.apply");
+    expect(edits()[0]?.edits[0]?.ops).toEqual([
+      { at: "md", id: "hero", op: "update", set: { gap: 16 } },
+    ]);
+  });
+
+  it("on a layer of an app component's instance, lands as that instance's override (ADR 0114)", async () => {
+    useComponents.setState({
+      components: [
+        {
+          name: "Promo",
+          origin: "app",
+          properties: [],
+          slots: [],
+          tree: {
+            children: [{ ...hero, id: "bar" }],
+            id: "p-root",
+            type: "column",
+          } as DesignNode,
+          version: 1,
+        },
+      ],
+    });
+    useDocuments.setState({
+      docs: {
+        [HOME]: {
+          doc: HOME,
+          hash: `${HOME}@0`,
+          root: {
+            children: [
+              {
+                component: "Promo",
+                from: "#app",
+                id: "promo",
+                type: "instance",
+              },
+            ],
+            id: "home",
+            type: "page",
+          } as DesignNode,
+        },
+      },
+    });
+    select({ frame: PHONE, nodeId: "promo/bar" });
+    beginSpacingDrag(press(0, 0), PHONE, { ...hero, id: "promo/bar" }, GAP);
+    fire("pointermove", 7.6, 0);
+    fire("pointerup", 7.6, 0);
+    await fakeApi.requested("documents.apply");
+    expect(edits()[0]?.edits[0]?.ops).toEqual([
+      expect.objectContaining({
+        id: "promo/bar",
+        op: "update",
+        set: expect.objectContaining({ gap: 16 }),
+      }),
+    ]);
+    await until(useHeldSizes, (s) => s.byFrame[PHONE] === undefined);
+    const promo = findNode(
+      useDocuments.getState().docs[HOME]?.root ?? null,
+      "promo"
+    );
+    expect(promo).toMatchObject({ overrides: { bar: { gap: 16 } } });
+  });
+
+  it("Escape puts the stack back as its document has it and saves nothing", async () => {
+    beginSpacingDrag(press(0, 0), PHONE, hero, GAP);
+    fire("pointermove", 7.6, 0);
+    expect(cancelGesture()).toBe(true);
+    expect(useHeldSizes.getState().byFrame[PHONE]).toBeUndefined();
+    expect(useSpacingDrag.getState().dragged).toBeNull();
+    fire("pointerup", 7.6, 0);
+    await Promise.resolve();
+    expect(edits()).toEqual([]);
+  });
+
+  it("a cancelled pointer puts it back the same way", async () => {
+    beginSpacingDrag(press(0, 0), PHONE, hero, TOP);
+    fire("pointermove", 0, 7.6);
+    fire("pointercancel");
+    expect(useHeldSizes.getState().byFrame[PHONE]).toBeUndefined();
+    expect(useSpacingDrag.getState().dragged).toBeNull();
+    await Promise.resolve();
+    expect(edits()).toEqual([]);
+  });
+
+  it("a press let go where it was saves nothing", async () => {
+    beginSpacingDrag(press(0, 0), PHONE, hero, GAP);
+    fire("pointerup", 0, 0);
+    await Promise.resolve();
+    expect(edits()).toEqual([]);
   });
 });
