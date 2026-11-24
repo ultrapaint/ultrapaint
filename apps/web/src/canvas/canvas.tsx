@@ -50,7 +50,11 @@ import { EmptyState } from "./empty-state.tsx";
 import { Frame } from "./frame.tsx";
 import { beginFrameGesture, cancelGesture } from "./frame-gesture.ts";
 import { addImages, imageFiles } from "./items.ts";
-import { followPointer, isFollowing } from "./pointer-gesture.ts";
+import {
+  followPointer,
+  isFollowing,
+  putBackGesture,
+} from "./pointer-gesture.ts";
 import { holdsFree } from "./snap.ts";
 import { VariationsBeside } from "./variations-beside.tsx";
 
@@ -159,9 +163,13 @@ export const Canvas = () => {
     };
   }, []);
 
-  // Leaving the Group or Text tool leaves nothing of it on the canvas.
+  // Leaving the Group or Text tool leaves nothing of it on the canvas, nor its drawing following
+  // the pointer.
   useEffect(() => {
     if (!isCreateTool(mode)) {
+      if (useCreate.getState().from) {
+        putBackGesture();
+      }
       cancelCreate();
     }
   }, [mode]);

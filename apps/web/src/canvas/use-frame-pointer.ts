@@ -54,7 +54,11 @@ import {
 import { frameOf } from "./editor-frame.ts";
 import { hitUnlocked } from "./hit-test.ts";
 import { useMeasureKey } from "./measure-key.ts";
-import { followPointer, isFollowing } from "./pointer-gesture.ts";
+import {
+  followPointer,
+  isFollowing,
+  putBackGesture,
+} from "./pointer-gesture.ts";
 import { holdsFree } from "./snap.ts";
 
 /** Where a pointer event was, on the element it was heard on. */
@@ -359,6 +363,18 @@ export const useFramePointer = ({
   const [marquee, setMarquee] = useState<Rect | null>(null);
   /** Whether the last press travelled, dragging or drawing: the click that ends it is no click. */
   const dragging = useRef<boolean>(false);
+  /** Whether a press here is the gesture followed now. */
+  const pressing = useRef<boolean>(false);
+  // A frame taken off the canvas mid-press (its page gone, a board closed) leaves nothing of the
+  // press following the pointer.
+  useEffect(
+    () => () => {
+      if (pressing.current) {
+        putBackGesture();
+      }
+    },
+    []
+  );
 
   /**
    * A press, followed from here to its release or until it is put back (`pointer-gesture.ts`,
@@ -371,6 +387,9 @@ export const useFramePointer = ({
     if (e.button !== 0) {
       return;
     }
+    // A gesture still followed (its release never came) is put back before anything of this press
+    // is read: what this one starts from is where that one left things, not where it drew them.
+    putBackGesture();
     const layer = e.currentTarget as HTMLElement;
     /** Where the frame's corner is on the canvas, as last seen. */
     let corner = { x: 0, y: 0 };
@@ -492,6 +511,7 @@ export const useFramePointer = ({
     followPointer(e, {
       // Put back: what is dragged goes back where it was, and a marquee selects nothing.
       cancel: () => {
+        pressing.current = false;
         if (doing === "marquee") {
           putAway();
         } else if (doing === "drag" && useDrag.getState().dragged) {
@@ -501,6 +521,7 @@ export const useFramePointer = ({
       },
       move,
       up: () => {
+        pressing.current = false;
         if (doing === "marquee") {
           putAway();
           // Measured again: the view may have moved under a pointer that has not since.
@@ -524,6 +545,7 @@ export const useFramePointer = ({
         pressEnded();
       },
     });
+    pressing.current = true;
     // Kept from the frames the pointer crosses while it drags: their hover would show.
     layer.setPointerCapture(e.pointerId);
   };

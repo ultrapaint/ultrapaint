@@ -19,6 +19,7 @@ import { useProject } from "../state/project.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useDrag } from "./drag.ts";
 import { useWatchMeasureKey } from "./measure-key.ts";
+import { putBackGesture } from "./pointer-gesture.ts";
 import { useFramePointer } from "./use-frame-pointer.ts";
 
 vi.mock(
@@ -168,6 +169,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  putBackGesture();
   act(() => mounted.unmount());
   handlers = null;
   under.at = null;
@@ -611,6 +613,8 @@ describe("⌥ held over a page (ADR 0131)", () => {
     // The page is empty left of 100, the text in its card from there on.
     under.at = (x) => (x < 100 ? ["home-root"] : under.chain);
     act(() => current().onPointerDown(pointerAt(20, 20)));
+    // The press travels, the layer holding the pointer hearing it as the window does.
+    windowHears("pointermove", 300, 300);
     act(() => current().onPointerMove(pointerAt(300, 300)));
     windowHears("pointerup", 300, 300);
     alt("keydown");

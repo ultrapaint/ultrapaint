@@ -14,7 +14,11 @@ import { useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { Marquee, SelectLayer } from "./frame.tsx";
-import { followPointer, putBackGesture } from "./pointer-gesture.ts";
+import {
+  followPointer,
+  isFollowing,
+  putBackGesture,
+} from "./pointer-gesture.ts";
 import { useFramePointer } from "./use-frame-pointer.ts";
 
 vi.mock(
@@ -326,5 +330,14 @@ describe("a marquee drawn in a page", () => {
     }
     await send(target, pointer("pointermove", 20, 20));
     expect(useEditor.getState().hover).toBeNull();
+  });
+
+  it("taken off the canvas with its page, leaves nothing following the pointer", async () => {
+    await pressAndDrag({ x: 0, y: 0 }, { x: 40, y: 30 }, { x: 80, y: 60 });
+    expect(isFollowing()).toBe(true);
+    act(() => mounted.unmount());
+    expect(isFollowing()).toBe(false);
+    // The suite's own unmount finds nothing left to take away.
+    mounted = createRoot(ground);
   });
 });
