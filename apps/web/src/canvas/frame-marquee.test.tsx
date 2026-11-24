@@ -44,11 +44,20 @@ vi.mock("./editor-frame.ts", async (original) => ({
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 const HOME = "home.page.json";
+const t1 = {
+  id: "t1",
+  role: "paragraph",
+  text: "Hi",
+  type: "text",
+} as DesignNode;
+const t2 = {
+  id: "t2",
+  role: "paragraph",
+  text: "There",
+  type: "text",
+} as DesignNode;
 const root = {
-  children: [
-    { id: "t1", role: "paragraph", text: "Hi", type: "text" },
-    { id: "t2", role: "paragraph", text: "There", type: "text" },
-  ],
+  children: [t1, t2],
   id: "home-root",
   type: "page",
 } as DesignNode;
@@ -218,8 +227,43 @@ describe("a marquee drawn in a page", () => {
     act(() => useEditor.setState({ spacePan: true }));
     // The page panned right under the pointer: it now reaches 5 pixels into the page, short of t1.
     act(() => useEditor.setState({ view: { x: 75, y: 0, zoom: 1 } }));
+    // Drawn as it is let go: what it shows is what it selects.
+    await act(() => new Promise((next) => requestAnimationFrame(next)));
+    expect(drawn()).toEqual({ height: 60, width: 5, x: 0, y: 0 });
     await send(ground, pointer("pointerup", 80, 60));
     expect(drawn()).toBeNull();
+    expect(selected()).toEqual([]);
+  });
+
+  it("keeps its first corner where it was pressed on the canvas, though the page moved under it", async () => {
+    await pressAndDrag({ x: 0, y: 0 }, { x: 40, y: 30 }, { x: 80, y: 60 });
+    act(() => useEditor.setState({ spacePan: true }));
+    // A layout pushed meanwhile (an undo, an agent's edit) moves the page 200 to the right.
+    act(() =>
+      useEditor.setState({
+        frames: {
+          [HOME]: { height: 900, preset: "desktop", width: 1440, x: 200, y: 0 },
+        },
+      })
+    );
+    // Let go 5 pixels into the page where it is now: short of t1.
+    await send(ground, pointer("pointerup", 205, 60));
+    expect(selected()).toEqual([]);
+  });
+
+  it("selects nothing a node it covers was locked meanwhile", async () => {
+    await pressAndDrag({ x: 0, y: 0 }, { x: 40, y: 30 }, { x: 80, y: 60 });
+    act(() =>
+      useDocuments.setState({
+        docs: {
+          [HOME]: {
+            ...homeDoc,
+            root: { ...root, children: [{ ...t1, locked: true }, t2] },
+          } as DocumentState,
+        },
+      })
+    );
+    await send(ground, pointer("pointerup", 80, 60));
     expect(selected()).toEqual([]);
   });
 

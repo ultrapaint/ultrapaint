@@ -571,8 +571,9 @@ refactor and the board view left.
 - **Pointer gesture**: what a press on the canvas begins and its release ends, a marquee, a drag,
   a frame gesture, a group or text drawn, a pan (the web's `pointer-gesture`, ADR 0133): followed
   on the window by the pointer that pressed, whatever it crosses, let go on its release or its
-  first move with no button held, put back by a cancelled pointer, the window losing the focus,
-  Escape or the next press. One at a time.
+  first move with no button held; cancelled with the pointer, when the window loses the focus,
+  by Escape or by the next press: what it moved or picked put back, a pan keeping the view it
+  reached. One at a time.
 - **Frame gesture**: moving or sizing a page's frame, or sizing a node on the canvas, from the
   press on its name or corner to the release (the web's `frame-gesture`), a **pointer gesture**:
   drawn as it goes, saved once when let go (a page's frame rounded to the pixel, a node in one
