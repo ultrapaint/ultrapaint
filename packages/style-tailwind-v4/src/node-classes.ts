@@ -21,6 +21,17 @@ import {
   spacingStepAt,
   variableOf,
 } from "@ultrapaint/contracts/token-table";
+import {
+  type FillStop,
+  fillCss,
+  fillLayers,
+  type GradientLayer,
+  gradientHeadCss,
+  percentOf,
+  resolveFillTokens,
+  SIDE_DEGREES,
+  stopPositions,
+} from "@ultrapaint/design-document/fill";
 import { isToken, tokenName } from "@ultrapaint/design-document/tokens";
 import {
   COLOR_KEYWORDS,
@@ -167,6 +178,188 @@ const color =
       property
     );
   };
+
+// ---- A fill in layers (ADR 0134) ----
+
+/**
+ * What each part of a fill sets, as the breakpoints compare them: a gradient's stops each on its
+ * own, so that a breakpoint's fill with no middle stop bounds the one of the base.
+ */
+const BG_COLOR = "backgroundColor";
+const BG_IMAGE = "backgroundImage";
+
+/**
+ * A side or corner as Tailwind's `bg-linear-to-*` names it, by the angle the codec gives it:
+ * `to top right` is `tr`.
+ */
+const SIDE_SUFFIX: Readonly<Record<number, string>> = {
+  0: "t",
+  45: "tr",
+  90: "r",
+  135: "br",
+  180: "b",
+  225: "bl",
+  270: "l",
+  315: "tl",
+};
+
+/** The colour spaces Tailwind names as a gradient's modifier; its default, oklab, needs none. */
+const NAMED_SPACES = new Set(["srgb", "hsl", "oklch"]);
+const INTEGER_RE = /^-?\d+$/;
+
+/** A gradient's colour space as a modifier of its utility: `/oklch`, `/[in_display-p3]`. */
+const modifierOf = (interpolation: string) => {
+  if (interpolation === "oklab") {
+    return "";
+  }
+  return NAMED_SPACES.has(interpolation)
+    ? `/${interpolation}`
+    : `/${printArbitrary(`in ${interpolation}`)}`;
+};
+
+/** A whole number of degrees as a utility's value, below zero as its negative: `-bg-conic-45`. */
+const degreesClass = (prefix: string, angle: number, modifier: string) =>
+  angle < 0
+    ? `-${prefix}-${-angle}${modifier}`
+    : `${prefix}-${angle}${modifier}`;
+
+/**
+ * A gradient's own utility where Tailwind names one for how it runs (`bg-linear-45`,
+ * `bg-linear-to-r`, `bg-radial`, `bg-conic-90`), the colour space as its modifier; none for an
+ * angle in a fraction of a degree, a radial one's shape or a conic one's centre.
+ */
+const namedPosition = (
+  layer: GradientLayer,
+  interpolation: string
+): string | null => {
+  const { angle, geometry, shape, side } = layer;
+  if (angle !== undefined && !INTEGER_RE.test(String(angle))) {
+    return null;
+  }
+  const modifier = modifierOf(interpolation);
+  if (shape === "linear") {
+    const suffix = SIDE_SUFFIX[SIDE_DEGREES[side ?? "to bottom"] ?? -1];
+    if (angle !== undefined) {
+      return degreesClass("bg-linear", angle, modifier);
+    }
+    return suffix === undefined ? null : `bg-linear-to-${suffix}${modifier}`;
+  }
+  if (geometry !== undefined) {
+    return null;
+  }
+  if (shape === "radial") {
+    return `bg-radial${modifier}`;
+  }
+  return angle === undefined || angle === 0
+    ? `bg-conic${modifier}`
+    : degreesClass("bg-conic", angle, modifier);
+};
+
+/**
+ * The utility that sets how a gradient runs. One that names its colour space is Tailwind's own
+ * (`bg-linear-45`, `bg-radial`, `bg-conic-90/oklch`), which mixes in oklab unless told otherwise;
+ * one that names none is mixed as CSS mixes it, which only an arbitrary value says
+ * (`bg-linear-[90deg]`).
+ */
+const gradientPosition = (layer: GradientLayer): string =>
+  (layer.interpolation === undefined
+    ? null
+    : namedPosition(layer, layer.interpolation)) ??
+  `bg-${layer.shape}-${printArbitrary(gradientHeadCss(layer, true))}`;
+
+/** A stop's colour as its utility: `from-primary`, `via-transparent`, `to-[#ff0000]`. */
+const stopColor = (prefix: string, value: string) => {
+  const keyword = COLOR_KEYWORDS.keyword(value);
+  if (keyword !== undefined) {
+    return `${prefix}-${keyword}`;
+  }
+  return isToken(value)
+    ? fromToken(
+        prefix,
+        value,
+        colorNamespaces(prefix).map((ns) => ns.slice(0, -1))
+      )
+    : arbitrary(prefix, value);
+};
+
+/** Where Tailwind puts each of `from`, `via` and `to` unless told: 0%, 50% and 100%. */
+const DEFAULT_AT: Record<string, number> = { from: 0, to: 100, via: 50 };
+
+/**
+ * A gradient of two or three stops placed in percent as Tailwind's own utilities; null for one
+ * they cannot say.
+ */
+const namedGradient = (layer: GradientLayer): Utility[] | null => {
+  const { stops } = layer;
+  if (
+    stops.length > 3 ||
+    stops.some(
+      (s) => s.position !== undefined && percentOf(s.position) === null
+    )
+  ) {
+    return null;
+  }
+  const drawn = stopPositions(stops);
+  const names = stops.length === 2 ? ["from", "to"] : ["from", "via", "to"];
+  const stopUtilities = (gradientStop: FillStop, i: number): Utility[] => {
+    const part = names[i] ?? "to";
+    const position = drawn[i] ?? 0;
+    const hue = one(stopColor(part, gradientStop.color), `gradient-${part}`);
+    if (position === DEFAULT_AT[part]) {
+      return hue;
+    }
+    const cls = Number.isInteger(position)
+      ? `${part}-${position}%`
+      : arbitrary(part, `${position}%`);
+    return [...hue, ...one(cls, `gradient-${part}-position`)];
+  };
+  return [
+    ...one(gradientPosition(layer), BG_IMAGE),
+    ...stops.flatMap(stopUtilities),
+  ];
+};
+
+/** A fill's colour, under its gradients or alone, as its `bg` utility. */
+const bgColor = (value: string) =>
+  color("bg", BG_COLOR)(value, new Map(), { step: 0 });
+
+/** A fill's tokens as the variables Tailwind declares them as, for an arbitrary value. */
+const withVariables = (css: string) =>
+  resolveFillTokens(css, (name) => `var(${variableOf(name)})`);
+
+/**
+ * A fill (ADR 0134): a colour as its `bg` utility; a gradient, over a colour or not, as Tailwind's
+ * gradient utilities (`bg-linear-to-r from-primary to-accent`); what they cannot say (more stops
+ * than from, via and to hold, several gradients) as one arbitrary `bg-[…]`, its tokens as their
+ * variables; a fill the editor cannot read, as it is.
+ */
+const background: Rule = (value) => {
+  const layers = fillLayers(String(value));
+  const [only] = layers;
+  if (layers.length === 1 && only?.kind === "color") {
+    return bgColor(only.color);
+  }
+  if (layers.length === 0 || layers.some((l) => l.kind === "css")) {
+    return one(
+      arbitrary("bg", withVariables(String(value))),
+      BG_COLOR,
+      BG_IMAGE
+    );
+  }
+  const bottom = layers.at(-1);
+  const under = bottom?.kind === "color" ? bgColor(bottom.color) : [];
+  const images = bottom?.kind === "color" ? layers.slice(0, -1) : layers;
+  const [gradient] = images;
+  const named =
+    images.length === 1 && gradient?.kind === "gradient"
+      ? namedGradient(gradient)
+      : null;
+  if (named) {
+    return [...named, ...under];
+  }
+  const css = fillCss(images) ?? "";
+  return [...one(arbitrary("bg", withVariables(css)), BG_IMAGE), ...under];
+};
 
 /**
  * A keyword Tailwind names a utility after, of `values` (`items-center`, `justify-between` for
@@ -423,7 +616,7 @@ const RULES: Record<string, Rule> = {
     "baseline center flex-end flex-start stretch"
   ),
   alignSelf: named("alignSelf", "self", "center flex-end flex-start stretch"),
-  background: color("bg", "background"),
+  background,
   borderColor: color("border", "borderColor"),
   borderRadius: radius,
   borderStyle: named("borderStyle", "border", "dashed dotted solid"),

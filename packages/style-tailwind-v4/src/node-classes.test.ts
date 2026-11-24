@@ -244,6 +244,101 @@ describe("classesOf", () => {
   });
 });
 
+describe("a fill in layers", () => {
+  const bg = (background: string) => responsive([null, { background }]);
+
+  it("writes a gradient as Tailwind's own utilities, its token stops by name and its positions where they are not the default", () => {
+    expect(
+      bg(
+        "linear-gradient(90deg in oklab, $color-primary, $color-accent 40%, transparent)"
+      )
+    ).toEqual([
+      "bg-linear-90",
+      "from-primary",
+      "via-accent",
+      "via-40%",
+      "to-transparent",
+    ]);
+    expect(
+      bg(
+        "linear-gradient(to right in oklab, $color-primary 10%, $color-accent), $color-background"
+      )
+    ).toEqual([
+      "bg-linear-to-r",
+      "from-primary",
+      "from-10%",
+      "to-accent",
+      "bg-background",
+    ]);
+    expect(
+      bg("radial-gradient(in oklab, $color-glow, transparent 70%)")
+    ).toEqual(["bg-radial", "from-glow", "to-transparent", "to-70%"]);
+    expect(
+      bg("conic-gradient(from -45deg in oklch, $color-a, #ff0000 12.5%)")
+    ).toEqual(["-bg-conic-45/oklch", "from-a", "to-[#ff0000]", "to-[12.5%]"]);
+    expect(bg("linear-gradient(in oklab, $color-a, $color-b)")).toEqual([
+      "bg-linear-to-b",
+      "from-a",
+      "to-b",
+    ]);
+  });
+
+  it("gives a gradient that names no colour space the direction CSS mixes it in, as an arbitrary one", () => {
+    expect(
+      bg("linear-gradient(90deg, transparent, #ec4899, transparent)")
+    ).toEqual([
+      "bg-linear-[90deg]",
+      "from-transparent",
+      "via-[#ec4899]",
+      "to-transparent",
+    ]);
+    expect(bg("radial-gradient(circle at top, $color-a, $color-b)")).toEqual([
+      "bg-radial-[circle_at_top]",
+      "from-a",
+      "to-b",
+    ]);
+    expect(bg("radial-gradient($color-a, $color-b)")).toEqual([
+      "bg-radial-[ellipse]",
+      "from-a",
+      "to-b",
+    ]);
+  });
+
+  it("writes one arbitrary value where the named utilities cannot say it, its tokens as their variables", () => {
+    expect(bg("linear-gradient(90deg, #fff, #eee, #ddd, #ccc)")).toEqual([
+      "bg-[linear-gradient(90deg,_#fff,_#eee,_#ddd,_#ccc)]",
+    ]);
+    expect(
+      bg(
+        "radial-gradient($color-a, transparent), linear-gradient($color-b 10px, $color-c), $color-d"
+      )
+    ).toEqual([
+      "bg-[radial-gradient(var(--color-a),_transparent),_linear-gradient(var(--color-b)_10px,_var(--color-c))]",
+      "bg-d",
+    ]);
+  });
+
+  it("bounds a gradient where a breakpoint fills the box with a colour, and a colour where it takes a gradient", () => {
+    expect(
+      responsive(
+        [null, { background: "linear-gradient(in oklab, $color-a, $color-b)" }],
+        ["md", { background: "$color-c" }]
+      )
+    ).toEqual([
+      "max-md:bg-linear-to-b",
+      "max-md:from-a",
+      "max-md:to-b",
+      "md:bg-c",
+    ]);
+    expect(
+      responsive(
+        [null, { background: "$color-c" }],
+        ["md", { background: "linear-gradient(in oklab, $color-a, $color-b)" }]
+      )
+    ).toEqual(["max-md:bg-c", "md:bg-linear-to-b", "md:from-a", "md:to-b"]);
+  });
+});
+
 describe("a colour's keyword", () => {
   it("is written for the CSS keyword and for Tailwind's own value of it", () => {
     expect(
