@@ -955,10 +955,17 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       }
       // Asked since the stop, too: nobody answers them now.
       yield* cards.releaseAll;
-      // Ended as the agent would have: stopped, with the files it changed. The thread is idle.
-      yield* turn.endAtAgent({ stopReason: "cancelled" });
-      // Its process ends with the session's scope, through the handle that spawned it.
-      yield* stopLive;
+      // Ended as the agent would have: stopped, with the files it changed. The turn is taken
+      // first, so a late answer of the agent's changes nothing; its process then ends with the
+      // session's scope, through the handle that spawned it, before the files are read, so a
+      // write on its way out is counted. The thread is idle.
+      const ended = yield* turn.endAtAgent(
+        { stopReason: "cancelled" },
+        stopLive
+      );
+      if (!ended) {
+        yield* stopLive;
+      }
     }).pipe(Effect.withSpan("ThreadSession.forceStop"));
 
     const stop = Effect.gen(function* () {
