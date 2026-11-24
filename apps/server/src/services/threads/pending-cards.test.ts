@@ -219,6 +219,44 @@ describe("a form the agent waits on", () => {
       assert.include(late.message, "already answered");
     }));
 
+  test("from Claude's own question tool is one question, and a typed answer goes back as its Other (ADR 0140)", () =>
+    Effect.gen(function* () {
+      const { cards, threadId } = yield* cardsOfNewThread;
+      // AskUserQuestion as claude-agent-acp 0.95 asks it.
+      const claudeAsks = {
+        message: "A spacing check says the navbar sits close to the panel",
+        mode: "form",
+        requestedSchema: {
+          properties: {
+            question_0: {
+              oneOf: [
+                { const: "Add a rule", title: "Add a rule" },
+                { const: "Leave as is", title: "Leave as is" },
+              ],
+              title: "Navbar gap",
+              type: "string",
+            },
+            question_0_custom: { title: "Other", type: "string" },
+          },
+          type: "object",
+        },
+        sessionId: "session_1",
+      } as CreateElicitationRequest;
+      const reply = yield* Effect.forkChild(
+        cards.elicitation(claudeAsks, writtenAtOnce)
+      );
+      const [card] = yield* cardsWhen(threadId, "question");
+      assert.deepStrictEqual(
+        card?.kind === "question" ? card.questions.map((q) => q.id) : [],
+        ["question_0"]
+      );
+      yield* cards.answer(card?.id ?? "", { question_0: "8px of space" });
+      assert.deepStrictEqual(yield* Fiber.join(reply), {
+        action: "accept",
+        content: { question_0_custom: "8px of space" },
+      });
+    }));
+
   test("is declined by the user, and the agent hears so", () =>
     Effect.gen(function* () {
       const { cards, store, threadId } = yield* cardsOfNewThread;

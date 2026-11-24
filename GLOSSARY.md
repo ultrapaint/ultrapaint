@@ -247,6 +247,11 @@ refactor and the board view left.
   **expired** and a question an agent waited on is answered by the next prompt (`restartedAt`).
   Each card keeps when and how it was **settled** (`CardEnd`): answered, declined, withdrawn,
   released, repeated, expired or undelivered.
+- **Answer of one's own**: what the person types in the composer for an agent's question instead
+  of picking an option; every question takes one (ADR 0140). A form carries it in the **paired
+  field**, a text field beside the question's options under a name each agent gives it
+  (`<id>:other`, `_custom`, `_note`, `__other`), which the card never asks as a question of its
+  own (`elicitation.ts`).
 - **Agent launcher**: the seam an agent is started through: its sandboxed process (ADR 0013,
   unless the person turned the sandbox off, ADR 0119),
   or, in tests, a scripted in-memory agent or a **replay agent** playing a transcript of a real

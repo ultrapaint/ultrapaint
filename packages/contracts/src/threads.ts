@@ -534,7 +534,10 @@ export type QuestionOption = typeof QuestionOption.Type;
 
 /** One question an agent puts to the user, with the answers it offers. */
 export const Question = Schema.Struct({
-  /** The user may type an answer of their own instead of picking one. */
+  /**
+   * The user may type an answer of their own, unless `false`: every question the editor asks
+   * now takes one (ADR 0140), and a card saved before may say `true`.
+   */
   allowOther: Schema.optional(Schema.Boolean),
   /** More on what is asked, shown under the question. */
   description: Schema.optional(Schema.String),

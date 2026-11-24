@@ -72,15 +72,16 @@ describe("the card the composer answers", () => {
 });
 
 describe("a question's answer", () => {
-  it("is what was typed, over what was picked, when it takes typing", () => {
-    const open = { ...choice, allowOther: true };
+  it("is what was typed, over what was picked, on any question with options (ADR 0140)", () => {
     const d = draft({ other: { q: " mine " }, picked: { q: "a" } });
-    expect(answerOf(d, open)).toBe("mine");
+    expect(answerOf(d, choice)).toBe("mine");
+    expect(answeredWell(draft({ other: { q: "mine" } }), choice)).toBe(true);
   });
 
-  it("ignores typing a question does not take", () => {
+  it("ignores typing only on a question that says an option alone answers it", () => {
+    const closed = { ...choice, allowOther: false };
     const d = draft({ other: { q: "mine" }, picked: { q: "a" } });
-    expect(answerOf(d, choice)).toBe("a");
+    expect(answerOf(d, closed)).toBe("a");
   });
 
   it("is missing until given, unless the question is optional", () => {

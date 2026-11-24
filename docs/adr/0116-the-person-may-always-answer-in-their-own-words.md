@@ -1,6 +1,6 @@
 # ADR 0116: The person may always answer an agent's question in their own words
 
-Status: accepted, 2026-11-23. Amends 0022 (asking the user).
+Status: accepted, 2026-11-23. Amends 0022 (asking the user). Its MCP form rule amended by 0140.
 
 ## Context
 

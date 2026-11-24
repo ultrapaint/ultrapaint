@@ -47,11 +47,6 @@ export const AskUser = Tool.make("ask_user", {
   }),
 }).annotateMerge(doing("read"));
 
-/** The questions as the card asks them: each takes an answer of the user's own (ADR 0116). */
-const openTo = (
-  questions: typeof AskUser.parametersSchema.Type.questions
-): Question[] => questions.map((q) => ({ ...q, allowOther: true }));
-
 /** What the agent hears, once the user has answered, declined or let the card go. */
 const replyOf = (
   questions: readonly Question[],
@@ -81,7 +76,8 @@ export const askUserTool = Effect.gen(function* () {
   const ask = Effect.fn("AskUserTool.ask_user")(function* (
     params: typeof AskUser.parametersSchema.Type
   ) {
-    const questions = openTo(params.questions);
+    // Each takes an answer of the user's own, as every question does (ADR 0140).
+    const questions: readonly Question[] = params.questions;
     const request = yield* McpSchema.McpRequestContext;
     const threadId = yield* Effect.service(CallingThread);
     // The cards of the thread asking, which tell whether its agent's client shows forms.

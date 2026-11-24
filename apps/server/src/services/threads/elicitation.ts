@@ -8,9 +8,14 @@
  * translations, one for each end, and they are kept together so that they stay each other's
  * inverse. Pure: no Effect, no I/O.
  *
- * A question that takes an answer of the user's own as well as its options has no field kind of
- * its own, so it is two fields: the options under its id, the text under `<id>:other`. The card
- * puts them back together.
+ * Every question takes an answer of the user's own (ADR 0140). A form has no field kind for options
+ * with text beside them, so each agent pairs a text field with the options' field under a name of
+ * its own: the editor's `<id>:other`, Claude's `question_<n>_custom` (claude-agent-acp), Codex's
+ * `<id>_note` (codex-acp, marked in its `_meta` but paired by its name too, beside a "None of the
+ * above" option it adds), `<id>__other` (T3 Code reads it so). The card asks each pair as one
+ * question, never the text field as a question of its own, and a typed answer goes back in the
+ * paired field. A text field the form requires, or one beside a number, stays a question of its
+ * own. A choice with no paired field, a yes or no too, takes the typed answer as its own value.
  */
 
 import type {
@@ -70,7 +75,7 @@ export const formOf = (questions: readonly Question[]): ElicitationForm => {
       };
     }
     // Either field answers it, so neither is required on its own.
-    if (question.allowOther && options.length > 0) {
+    if (question.allowOther !== false && options.length > 0) {
       properties[otherOf(question.id)] = {
         title: `${question.question} (an answer of your own)`,
         type: "string",
@@ -120,8 +125,7 @@ const YES_NO: readonly QuestionOption[] = [
 const questionOf = (
   key: string,
   field: Record<string, unknown>,
-  required: boolean,
-  withOther: boolean
+  optional: boolean
 ): Question | null => {
   const base = {
     id: key,
@@ -129,8 +133,7 @@ const questionOf = (
     ...(text(field.description)
       ? { description: text(field.description) }
       : {}),
-    ...(withOther ? { allowOther: true } : {}),
-    ...(required || withOther ? {} : { optional: true }),
+    ...(optional ? { optional: true } : {}),
   };
   switch (field.type) {
     case "string":
@@ -151,11 +154,113 @@ const questionOf = (
   }
 };
 
+/** Codex's option that only says the answer is in the note (codex-acp's `USER_INPUT_OTHER_OPTION`). */
+const CODEX_OTHER = "None of the above";
+const CODEX_OTHER_SAYS = "Provide a different answer in the note field.";
+
+/** Where a question's typed answer goes: the field paired with it, and the pick that goes too. */
+interface TypedIn {
+  /**
+   * The editor's own `<id>:other`: its question is never optional, though `formOf` requires
+   * neither of its fields, since either answers it.
+   */
+  readonly editorsOwn: boolean;
+  readonly field: string;
+  /** Codex requires its question answered: "None of the above", the text in the note. */
+  readonly pick?: string;
+  /**
+   * The form requires the field of options: with no pick that says "see the text", the typed
+   * answer is its value too, as for a choice with no paired field.
+   */
+  readonly required: boolean;
+}
+
+/** The field with options a text field carries the typed answer of, by the names agents use. */
+const pairedWith = (
+  key: string,
+  field: Record<string, unknown>,
+  fields: Record<string, unknown>
+): { readonly base: string; readonly editorsOwn: boolean } | null => {
+  if (field.type !== "string" || optionsOf(field) !== null) {
+    return null;
+  }
+  const codex = Predicate.isObject(field._meta) ? field._meta.codex : undefined;
+  const candidates: { base: string | undefined; editorsOwn: boolean }[] = [
+    {
+      base:
+        Predicate.isObject(codex) && codex.role === "user_note"
+          ? text(codex.questionId)
+          : undefined,
+      editorsOwn: false,
+    },
+    { base: suffixed(key, OTHER), editorsOwn: true },
+    { base: suffixed(key, "__other"), editorsOwn: false },
+    { base: suffixed(key, "_custom"), editorsOwn: false },
+    { base: suffixed(key, "_note"), editorsOwn: false },
+  ];
+  for (const { base, editorsOwn } of candidates) {
+    const options = base === undefined ? undefined : fields[base];
+    if (
+      base !== undefined &&
+      base !== key &&
+      Predicate.isObject(options) &&
+      // Only text and lists of options take typing; a number or a yes or no keeps its note.
+      (options.type === "string" || options.type === "array") &&
+      optionsOf(
+        options.type === "array" && Predicate.isObject(options.items)
+          ? options.items
+          : options
+      ) !== null
+    ) {
+      return { base, editorsOwn };
+    }
+  }
+  return null;
+};
+
+const suffixed = (key: string, suffix: string) =>
+  key.endsWith(suffix) ? key.slice(0, -suffix.length) : undefined;
+
+/** Each field with options a form pairs a text field with, and where its typed answer goes. */
+const pairsOf = (
+  fields: Record<string, unknown>,
+  required: ReadonlySet<string>
+) => {
+  const typedIn = new Map<string, TypedIn>();
+  for (const [key, field] of Object.entries(fields)) {
+    const paired = Predicate.isObject(field)
+      ? pairedWith(key, field, fields)
+      : null;
+    // A text field the form requires is a question of its own, as T3 Code reads it too.
+    if (paired !== null && !required.has(key) && !typedIn.has(paired.base)) {
+      typedIn.set(paired.base, {
+        editorsOwn: paired.editorsOwn,
+        field: key,
+        required: required.has(paired.base),
+      });
+    }
+  }
+  return typedIn;
+};
+
+/** Codex's own way to say "my answer is in the note", which the typed answer itself says. */
+const codexOtherOf = (question: Question) =>
+  question.options.find(
+    (o) => o.id === CODEX_OTHER && o.description === CODEX_OTHER_SAYS
+  );
+
+/** The questions a form asks, and how the card's answers go back in its fields. */
+export interface FormQuestions {
+  /** The answers as the content the form is answered with, each in the field it goes in. */
+  readonly contentOf: (answers: Answers) => Record<string, ContentValue>;
+  readonly questions: Question[];
+}
+
 /**
  * The questions a form asks, or null when it has a field the card cannot draw: such an
  * elicitation is declined rather than half answered.
  */
-export const questionsOf = (form: unknown): Question[] | null => {
+export const questionsOf = (form: unknown): FormQuestions | null => {
   if (!(Predicate.isObject(form) && Predicate.isObject(form.properties))) {
     return null;
   }
@@ -165,36 +270,65 @@ export const questionsOf = (form: unknown): Question[] | null => {
       ? form.required.filter((k) => typeof k === "string")
       : []
   );
-  const isOther = (key: string) =>
-    key.endsWith(OTHER) &&
-    Predicate.isObject(fields[key.slice(0, -OTHER.length)]);
+  const typedIn = pairsOf(fields, required);
+  const pairedFields = new Set([...typedIn.values()].map((t) => t.field));
   const questions: Question[] = [];
   for (const [key, field] of Object.entries(fields)) {
-    if (isOther(key)) {
+    if (pairedFields.has(key)) {
       continue;
     }
+    const typed = typedIn.get(key);
     const question = Predicate.isObject(field)
       ? questionOf(
           key,
           field,
-          required.has(key),
-          Predicate.isObject(fields[otherOf(key)])
+          !(required.has(key) || typed?.editorsOwn === true)
         )
       : null;
     if (question === null) {
       return null;
     }
-    questions.push(question);
+    const codexOther =
+      typed?.editorsOwn === false ? codexOtherOf(question) : undefined;
+    if (typed !== undefined && codexOther !== undefined) {
+      typedIn.set(key, { ...typed, pick: codexOther.id });
+      questions.push({
+        ...question,
+        options: question.options.filter((o) => o !== codexOther),
+      });
+    } else {
+      questions.push(question);
+    }
   }
-  return questions;
+  return {
+    contentOf: (answers) => contentOf(questions, typedIn, answers),
+    questions,
+  };
 };
 
 const first = (answer: Answer) =>
   typeof answer === "string" ? answer : (answer[0] ?? "");
 
+/** One answer as its field's value, typed as the form says. */
+const fieldValueOf = (question: Question, answer: Answer): ContentValue => {
+  const one = first(answer);
+  if (question.value === "boolean") {
+    // Words of the user's own go as they are: the agent reads them, as it reads a choice's.
+    return one === "true" || one === "false" ? one === "true" : one;
+  }
+  if (question.value === "number" || question.value === "integer") {
+    return Number(one);
+  }
+  if (question.multiple) {
+    return typeof answer === "string" ? [answer] : [...answer];
+  }
+  return one;
+};
+
 /** The card's answers as the content an elicitation is answered with, typed as the form says. */
-export const contentOf = (
+const contentOf = (
   questions: readonly Question[],
+  typedIn: ReadonlyMap<string, TypedIn>,
   answers: Answers
 ): Record<string, ContentValue> => {
   const content: Record<string, ContentValue> = {};
@@ -204,20 +338,19 @@ export const contentOf = (
       continue;
     }
     const one = first(answer);
-    if (question.multiple) {
-      content[question.id] =
-        typeof answer === "string" ? [answer] : [...answer];
-    } else if (question.value === "boolean") {
-      content[question.id] = one === "true";
-    } else if (question.value === "number" || question.value === "integer") {
-      content[question.id] = Number(one);
-    } else if (
-      question.allowOther &&
-      !question.options.some((o) => o.id === one)
-    ) {
-      content[otherOf(question.id)] = one;
+    const paired = typedIn.get(question.id);
+    const typed =
+      typeof answer === "string" &&
+      question.value === undefined &&
+      !question.options.some((o) => o.id === one);
+    if (typed && paired) {
+      // Typed: in the field paired with the question, beside the pick that says so.
+      content[paired.field] = answer;
+      if (paired.pick !== undefined || paired.required) {
+        content[question.id] = fieldValueOf(question, paired.pick ?? answer);
+      }
     } else {
-      content[question.id] = one;
+      content[question.id] = fieldValueOf(question, answer);
     }
   }
   return content;

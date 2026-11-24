@@ -2,11 +2,16 @@
 import "../testing/fake-browser.ts";
 import { RequestError } from "@ultrapaint/client-runtime/connection";
 import type { Skill } from "@ultrapaint/contracts/skills";
-import type { QueuedPrompt, Thread } from "@ultrapaint/contracts/threads";
+import type {
+  QueuedPrompt,
+  Thread,
+  ThreadItem,
+} from "@ultrapaint/contracts/threads";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAgents } from "../state/agents.ts";
+import { useAnswers } from "../state/answers.ts";
 import { useAttachments } from "../state/attachments.ts";
 import { useDrafts } from "../state/drafts.ts";
 import { showLeftPanel } from "../state/panels.ts";
@@ -81,7 +86,8 @@ afterEach(() => {
   useDrafts.setState({ byThread: {} });
   useSlashCommands.setState({ commands: [], loaded: false });
   useSkills.setState({ loaded: false, skills: [] });
-  useAgents.setState({ current: null, view: "list" });
+  useAgents.setState({ current: null, items: {}, view: "list" });
+  useAnswers.setState({ drafts: {} });
   useSendKey.setState({ followUp: "steer", sendKey: "enter" });
   useQueuedEdits.setState({ byThread: {} });
   localStorage.clear();
@@ -429,5 +435,110 @@ describe("the commands' list", () => {
     expect(container.querySelector("[role='listbox']")).toBeNull();
     type("/imp");
     expect(container.querySelector("[role='listbox']")).not.toBeNull();
+  });
+});
+
+/**
+ * Claude's AskUserQuestion as the server draws it from claude-agent-acp's form: one question,
+ * options only, the agent waiting on the answer within its turn.
+ */
+const navbarGap: ThreadItem = {
+  answers: null,
+  at: 1,
+  elicitation: {
+    message: "A spacing check says the navbar (search) sits close to the panel",
+  },
+  id: "ask1",
+  kind: "question",
+  questions: [
+    {
+      id: "question_0",
+      optional: true,
+      options: [
+        { id: "Add a rule under navbar (Recommended)", label: "Add a rule" },
+        { id: "Leave as is", label: "Leave as is" },
+      ],
+      question: "Navbar gap",
+    },
+  ],
+};
+
+/** The composer's box while a question is open, which takes the answer. */
+const answerField = () =>
+  container.querySelector<HTMLTextAreaElement>(
+    "textarea[aria-label='Your answer']"
+  );
+
+describe("an agent's question in the composer (ADR 0140)", () => {
+  beforeEach(() => {
+    useAgents.setState({ items: { t1: [navbarGap] } });
+    show(idle);
+  });
+
+  it("takes an answer typed in the composer, on a question with only options", async () => {
+    const field = answerField();
+    expect(field?.readOnly).toBe(false);
+    expect(field?.placeholder).toBe("Pick an option, or type your own answer…");
+    const setValue = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value"
+    )?.set;
+    act(() => {
+      setValue?.call(field, "8px of space");
+      field?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(answerField()?.value).toBe("8px of space");
+    await act(async () => {
+      answerField()?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "Enter",
+        })
+      );
+      await fakeApi.requested("threads.answer");
+    });
+    expect(
+      fakeApi.calls.find((c) => c.method === "threads.answer")?.input
+    ).toEqual({
+      answers: { question_0: "8px of space" },
+      itemId: "ask1",
+      threadId: "t1",
+    });
+  });
+
+  it("takes an answer that starts with a digit: the digit picks, and typing on makes it words", () => {
+    const key = (k: string) =>
+      act(() => {
+        answerField()?.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            cancelable: true,
+            key: k,
+          })
+        );
+      });
+    key("2");
+    expect(
+      container.querySelector("[aria-pressed='true']")?.textContent
+    ).toContain("Leave as is");
+    key(" ");
+    expect(answerField()?.value).toBe("2 ");
+    expect(container.querySelector("[aria-pressed='true']")).toBeNull();
+  });
+
+  it("keeps the digit when Shift is pressed for a capital after it", () => {
+    for (const k of ["2", "Shift", "F"]) {
+      act(() => {
+        answerField()?.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            cancelable: true,
+            key: k,
+          })
+        );
+      });
+    }
+    expect(answerField()?.value).toBe("2F");
   });
 });

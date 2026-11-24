@@ -41,9 +41,9 @@ export const notANumber = (question: QuestionOf, typed: string) => {
   );
 };
 
-/** Whether an answer of one's own may be typed for this question. */
+/** Whether an answer of one's own may be typed for this question: always, as in T3 Code (ADR 0140). */
 export const takesTyping = (question: QuestionOf) =>
-  question.options.length === 0 || question.allowOther === true;
+  question.options.length === 0 || question.allowOther !== false;
 
 /** The answer a question has: what was typed, when anything was, or what was picked. */
 export const answerOf = (

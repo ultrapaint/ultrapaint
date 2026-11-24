@@ -516,23 +516,48 @@ export const onAnswerKey = (
     advance(answering, threadId, running);
     return;
   }
+  // A modifier pressed alone, as Shift for a capital, types nothing: the digit stays saved.
+  if (MODIFIER_KEYS.has(e.key)) {
+    return;
+  }
   const typed = draft.other[question.id] ?? "";
+  const plain = !(e.metaKey || e.ctrlKey || e.altKey);
+  const justPicked = pickedByDigit.get(asking.id);
+  pickedByDigit.delete(asking.id);
+  if (
+    justPicked &&
+    !typed &&
+    plain &&
+    e.key.length === 1 &&
+    [draft.picked[question.id] ?? []].flat().includes(justPicked.optionId)
+  ) {
+    // Typing on after a digit: the answer starts with it, and the digit was words (ADR 0140).
+    e.preventDefault();
+    setOther(asking.id, question, justPicked.digit + e.key);
+    return;
+  }
   const digit = Number(e.key);
   const option =
     Number.isInteger(digit) && digit >= 1
       ? question.options[digit - 1]
       : undefined;
-  if (option && !typed && !(e.metaKey || e.ctrlKey || e.altKey)) {
+  if (option && !typed && plain) {
     e.preventDefault();
     pick(asking.id, question, option.id);
+    pickedByDigit.set(asking.id, { digit: e.key, optionId: option.id });
   }
 };
+
+const MODIFIER_KEYS = new Set(["Alt", "CapsLock", "Control", "Meta", "Shift"]);
+
+/** The digit that just picked an option, by card: typed on, it starts an answer of one's own. */
+const pickedByDigit = new Map<string, { digit: string; optionId: string }>();
 
 const answerPlaceholder = (question: QuestionOf) => {
   if (question.options.length === 0) {
     return "Type your answer…";
   }
-  return question.allowOther
+  return takesTyping(question)
     ? "Pick an option, or type your own answer…"
     : "Pick an option, or press its number";
 };
@@ -549,6 +574,7 @@ export const AnswerField = ({
   return (
     <textarea
       aria-invalid={notANumber(question, typed) || undefined}
+      aria-label="Your answer"
       className={cn(composerText, "aria-invalid:text-destructive")}
       inputMode={
         question.value === "number" || question.value === "integer"
