@@ -344,20 +344,47 @@ interface EdWindow {
   };
 }
 
-/** Asks each chat's agent to stop; one stopped already is what was wanted. */
-const stopChats = (page: Page, started: string[]) =>
-  page.evaluate(
+/**
+ * Stops the chats and waits until each turn has ended (thirty seconds at most): whether all did.
+ * A cancel the server refuses (the turn ended already) is not taken on its word: what the
+ * threads say afterwards decides.
+ */
+const stopChats = async (page: Page, started: string[]) => {
+  await page.evaluate(
     (threads) =>
-      Promise.all(
+      Promise.allSettled(
         threads.map((threadId) =>
           (window as unknown as EdWindow).__ed
             .api()
             .request("threads.cancel", { threadId })
-            .catch(() => undefined)
         )
       ),
     started
   );
+  for (let tries = 0; tries < 60; tries += 1) {
+    // biome-ignore lint/performance/noAwaitInLoops: polling, one look at a time.
+    const busy = await chatsBusy(page, started);
+    if (busy === 0) {
+      return true;
+    }
+    await page.waitForTimeout(500);
+  }
+  return false;
+};
+
+/** How many of the chats still have a turn under way, or being stopped. */
+const chatsBusy = async (page: Page, started: string[]) => {
+  const threads = (await page.evaluate(() =>
+    (window as unknown as EdWindow).__ed
+      .api()
+      .request("threads.list", undefined)
+  )) as { id: string; status: string }[];
+  return started.filter((id) =>
+    ["running", "reviewing", "cancelling"].includes(
+      threads.find((t) => t.id === id)?.status ?? ""
+    )
+  ).length;
+};
 
 /** How many of the chats are no longer working. */
 const chatsStopped = async (page: Page, started: string[]) => {
@@ -682,8 +709,15 @@ const main = async () => {
     };
     // With `--mcp`, the edits the agents made and those refused: a run whose edits failed
     // measured no edits, and says so.
-    // The chats stopped first: a cancelled agent begins no edit, so none starts after the count.
-    await stopChats(page, ids);
+    // The chats' turns ended first: an agent stopped begins no edit, so none starts after the
+    // count. A turn not seen to end leaves the count open, and the run incomplete.
+    const ended = await stopChats(page, ids);
+    if (!ended) {
+      console.error(
+        "Incomplete: a chat's turn did not end within thirty seconds of its stop."
+      );
+      process.exitCode = 1;
+    }
     const mcpEdits = args.mcp ? await settledEdits(page, ids) : null;
     if (mcpEdits && (mcpEdits.failed > 0 || mcpEdits.done === 0)) {
       console.error(
