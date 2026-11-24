@@ -265,7 +265,7 @@ const gradientPosition = (layer: GradientLayer): string =>
   (layer.interpolation === undefined
     ? null
     : namedPosition(layer, layer.interpolation)) ??
-  `bg-${layer.shape}-${printArbitrary(gradientHeadCss(layer, true))}`;
+  `bg-${layer.shape}-${printArbitrary(withVariables(gradientHeadCss(layer, true)))}`;
 
 /** A fill's tokens as the variables Tailwind declares them as, for an arbitrary value. */
 const withVariables = (css: string) =>
@@ -346,8 +346,9 @@ const background: Rule = (value) => {
     return bgColor(only.color);
   }
   if (layers.length === 0 || layers.some((l) => l.kind === "css")) {
+    // Tailwind reads `bg-[…]` as a colour or as images, never as images over a colour.
     return one(
-      arbitrary("bg", withVariables(String(value))),
+      printArbitrary(withVariables(String(value)), "background"),
       BG_COLOR,
       BG_IMAGE
     );

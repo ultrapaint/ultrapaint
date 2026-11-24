@@ -28,6 +28,7 @@ import {
 import {
   fillCss,
   fillLayers,
+  type GradientLayer,
   placedInPercent,
   stopPositions,
 } from "@ultrapaint/design-document/fill";
@@ -120,8 +121,11 @@ const LONGHANDS: Record<string, readonly string[]> = {
   "padding-inline": ["padding-left", "padding-right"],
 };
 
-/** What the canvas's `background` is in Tailwind: a colour, or an image for a gradient. */
-const BACKGROUNDS = ["background-color", "background-image"];
+/**
+ * What the canvas's `background` is in Tailwind: a colour, an image for a gradient, or the
+ * shorthand for a fill the editor cannot read.
+ */
+const BACKGROUNDS = ["background-color", "background-image", "background"];
 
 const kebab = (property: string) =>
   property.replace(UPPER_RE, (c) => `-${c.toLowerCase()}`);
@@ -182,9 +186,24 @@ const withTailwindVariables = (
   return out;
 };
 
+/** How a gradient runs where it says nothing, spelled out: down, an ellipse, from the top. */
+const defaultHead = (layer: GradientLayer): Partial<GradientLayer> => {
+  switch (layer.shape) {
+    case "linear":
+      return layer.angle === undefined && layer.side === undefined
+        ? { side: "to bottom" }
+        : {};
+    case "radial":
+      return { geometry: layer.geometry ?? "ellipse" };
+    default:
+      return { angle: layer.angle ?? 0 };
+  }
+};
+
 /**
- * A fill with each gradient's stops where CSS draws them, so that `red, blue` and Tailwind's
- * `red 0%, blue 100%` compare the same; one with a stop placed in another unit, as written.
+ * A fill with each gradient's stops where CSS draws them and how it runs spelled out, so that
+ * `red, blue` and Tailwind's `to bottom, red 0%, blue 100%` compare the same; one with a stop
+ * placed in a length, as written.
  */
 const placedStops = (value: string): string => {
   const layers = fillLayers(value);
@@ -203,6 +222,7 @@ const placedStops = (value: string): string => {
     const at = stopPositions(layer.stops, layer.shape);
     return {
       ...layer,
+      ...defaultHead(layer),
       stops: layer.stops.map((s, i) => ({ ...s, position: `${at[i]}%` })),
     };
   });
@@ -342,7 +362,12 @@ const withOverrides = (root: DesignNode): DesignNode => {
           out.textStyle = "Body lg";
           at.md = { color: "$color-muted-foreground", weight: 600 };
         } else {
-          at.md = { border: { style: "dashed", width: 2 }, opacity: 0.5 };
+          at.md = {
+            border: { style: "dashed", width: 2 },
+            // A gradient that says neither its direction nor its colour space.
+            fill: "linear-gradient($color-primary, transparent)",
+            opacity: 0.5,
+          };
         }
     }
     if (Object.keys(at).length > 0) {
@@ -550,12 +575,20 @@ const winnerOf = (setters: readonly Setter[]): Setter | undefined => {
 const backgroundWinner = (
   setBy: ReadonlyMap<string, readonly Setter[]>
 ): Setter | undefined => {
-  const [image, color] = ["background-image", "background-color"].map((p) => {
+  const [image, color, whole] = [
+    "background-image",
+    "background-color",
+    "background",
+  ].map((p) => {
     const setters = setBy.get(p) ?? [];
     return setters.length === 0 ? null : (winnerOf(setters) ?? undefined);
   });
-  if (image === undefined || color === undefined) {
+  if (image === undefined || color === undefined || whole === undefined) {
     return undefined;
+  }
+  // The shorthand sets both, and wins over what it is as wide as or wider than.
+  if (whole && whole.from >= Math.max(image?.from ?? 0, color?.from ?? 0)) {
+    return whole;
   }
   if (image && color) {
     return {
