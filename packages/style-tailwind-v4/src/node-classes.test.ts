@@ -318,6 +318,25 @@ describe("a fill in layers", () => {
     ]);
   });
 
+  it("writes a fill it cannot read as the background shorthand, which takes an image over a colour", () => {
+    expect(
+      bg("linear-gradient(red 0% 25%, transparent 25% 50%), $color-bg")
+    ).toEqual([
+      "[background:linear-gradient(red_0%_25%,_transparent_25%_50%),_var(--color-bg)]",
+    ]);
+    expect(bg("var(--hero, linear-gradient(red, blue))")).toEqual([
+      "[background:var(--hero,_linear-gradient(red,_blue))]",
+    ]);
+  });
+
+  it("writes a token in a gradient's geometry as its variable", () => {
+    expect(bg("radial-gradient(circle at $spacing-4 50%, red, blue)")).toEqual([
+      "bg-radial-[circle_at_var(--spacing-4)_50%]",
+      "from-[red]",
+      "to-[blue]",
+    ]);
+  });
+
   it("keeps a colour above the bottom one an image, over the bottom one's utility", () => {
     expect(bg("linear-gradient(#ff000080, #ff000080), #0000ff")).toEqual([
       "bg-[linear-gradient(#ff000080,_#ff000080)]",
