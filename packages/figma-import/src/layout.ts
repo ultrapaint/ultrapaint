@@ -161,7 +161,8 @@ const gradientGeometry = (
   );
   if (geometry?.type === "linear") {
     const { end, start } = geometry;
-    const angle = cssDegrees(end.x - start.x, end.y - start.y);
+    // Across the lines a colour stays the same along, which a skew turns away from the handles.
+    const angle = cssDegrees(transform.m00 / width, transform.m01 / height);
     const rad = (angle * Math.PI) / 180;
     const [ux, uy] = [Math.sin(rad), -Math.cos(rad)];
     const length = Math.abs(width * ux) + Math.abs(height * uy);
