@@ -188,10 +188,10 @@ const withTailwindVariables = (
  */
 const placedStops = (value: string): string => {
   const layers = fillLayers(value);
-  // A position in another unit (`10px`) cannot be placed in percent: compared as written.
   const unplaceable = layers.some(
     (l) =>
-      l.kind === "css" || (l.kind === "gradient" && !placedInPercent(l.stops))
+      l.kind === "css" ||
+      (l.kind === "gradient" && !placedInPercent(l.stops, l.shape))
   );
   if (unplaceable) {
     return value;
@@ -200,7 +200,7 @@ const placedStops = (value: string): string => {
     if (layer.kind !== "gradient") {
       return layer;
     }
-    const at = stopPositions(layer.stops);
+    const at = stopPositions(layer.stops, layer.shape);
     return {
       ...layer,
       stops: layer.stops.map((s, i) => ({ ...s, position: `${at[i]}%` })),
@@ -306,6 +306,8 @@ const withOverrides = (root: DesignNode): DesignNode => {
         break;
       case 2:
         at.md = {
+          // A gradient placed in pixels, which no named utility says (ADR 0134).
+          fill: "linear-gradient(90deg, $color-primary 10px, transparent 40px)",
           padding: { left: 8, right: 8 },
           width: node.width === "fill" ? "hug" : "fill",
         };
@@ -331,7 +333,7 @@ const withOverrides = (root: DesignNode): DesignNode => {
           order: -1,
         };
         at.xl = {
-          fill: "conic-gradient(from 90deg in oklch, $color-primary, transparent), $color-muted-foreground",
+          fill: "conic-gradient(from 90deg in oklch, $color-primary 0deg, transparent 90deg), $color-muted-foreground",
           height: "hug",
         };
         break;

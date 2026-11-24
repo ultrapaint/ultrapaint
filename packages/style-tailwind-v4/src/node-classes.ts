@@ -22,13 +22,12 @@ import {
   variableOf,
 } from "@ultrapaint/contracts/token-table";
 import {
-  type FillLayer,
   type FillStop,
   fillCss,
   fillLayers,
   type GradientLayer,
   gradientHeadCss,
-  percentOf,
+  placedInPercent,
   resolveFillTokens,
   SIDE_DEGREES,
   stopPositions,
@@ -277,12 +276,12 @@ const withVariables = (css: string) =>
  * tokens are their variables, as the canvas draws a fill (`color-mix(in srgb, $color-primary
  * 50%, …)`).
  */
-const inFill = (value: string) =>
+const fillColorCss = (value: string) =>
   isToken(value) ? value : withVariables(value);
 
 /** A stop's colour as its utility: `from-primary`, `via-transparent`, `to-[#ff0000]`. */
 const stopColor = (prefix: string, raw: string) => {
-  const value = inFill(raw);
+  const value = fillColorCss(raw);
   const keyword = COLOR_KEYWORDS.keyword(value);
   if (keyword !== undefined) {
     return `${prefix}-${keyword}`;
@@ -305,15 +304,10 @@ const DEFAULT_AT: Record<string, number> = { from: 0, to: 100, via: 50 };
  */
 const namedGradient = (layer: GradientLayer): Utility[] | null => {
   const { stops } = layer;
-  if (
-    stops.length > 3 ||
-    stops.some(
-      (s) => s.position !== undefined && percentOf(s.position) === null
-    )
-  ) {
+  if (stops.length > 3 || !placedInPercent(stops, layer.shape)) {
     return null;
   }
-  const drawn = stopPositions(stops);
+  const drawn = stopPositions(stops, layer.shape);
   const names = stops.length === 2 ? ["from", "to"] : ["from", "via", "to"];
   const stopUtilities = (gradientStop: FillStop, i: number): Utility[] => {
     const part = names[i] ?? "to";
@@ -337,7 +331,7 @@ const namedGradient = (layer: GradientLayer): Utility[] | null => {
 
 /** A fill's colour, under its gradients or alone, as its `bg` utility. */
 const bgColor = (value: string) =>
-  color("bg", BG_COLOR)(inFill(value), new Map(), { step: 0 });
+  color("bg", BG_COLOR)(fillColorCss(value), new Map(), { step: 0 });
 
 /**
  * A fill (ADR 0134): a colour as its `bg` utility; a gradient, over a colour or not, as Tailwind's
@@ -370,19 +364,7 @@ const background: Rule = (value) => {
     return [...named, ...under];
   }
   // A colour above the bottom one is an image, a gradient of that colour alone.
-  const css =
-    fillCss(
-      images.map(
-        (layer): FillLayer =>
-          layer.kind === "color"
-            ? {
-                kind: "gradient",
-                shape: "linear",
-                stops: [{ color: layer.color }, { color: layer.color }],
-              }
-            : layer
-      )
-    ) ?? "";
+  const css = fillCss(images, { bottom: false }) ?? "";
   return [...one(arbitrary("bg", withVariables(css)), BG_IMAGE), ...under];
 };
 
