@@ -639,6 +639,30 @@ describe("a thread opened", () => {
     expect(useAgents.getState().threads[0]?.status).toBe("idle");
   });
 
+  it("keeps a rename or a settling over a list read at the same time, with the read's line (ADR 0141)", async () => {
+    fakeApi.respond("agents.list", () => []);
+    fakeApi.respond("threads.list", () => [
+      {
+        ...thread("t"),
+        summary: { text: "Read now", waiting: false },
+        title: "Before",
+        updatedAt: 2,
+      },
+    ]);
+    useAgents.setState({
+      threads: [
+        { ...thread("t"), settledAt: 5, title: "Renamed", updatedAt: 2 },
+      ],
+    });
+    await useAgents.getState().load();
+    const [kept] = useAgents.getState().threads;
+    expect([kept?.title, kept?.settledAt, kept?.summary?.text]).toEqual([
+      "Renamed",
+      5,
+      "Read now",
+    ]);
+  });
+
   it("says its transcript could not be read, until it is", async () => {
     fakeApi.respondStream("threads.follow", () => []);
     useAgents.setState({ threads: [thread("t")] });

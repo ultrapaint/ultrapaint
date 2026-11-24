@@ -1193,6 +1193,10 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       if (chosen instanceof Conflict) {
         return yield* chosen;
       }
+      // Sent into the turn, the prompt brings a settled chat back as one sent now does (ADR 0141).
+      if (thread.settledAt !== undefined) {
+        yield* store.update(threadId, { settledAt: undefined });
+      }
       if (isBusy(thread.status)) {
         return yield* sendNowBusy(chosen.id);
       }
