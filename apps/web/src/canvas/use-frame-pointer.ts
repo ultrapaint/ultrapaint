@@ -213,18 +213,19 @@ export const useFramePointer = ({
     hoverOn(nodeAt(e));
   };
   // ⌥ pressed or let go with the pointer at rest: what it is over is the innermost node there
-  // at once, to measure to (ADR 0131), and the one a click would select again once let go.
-  const hitAgain = useEffectEvent((held: boolean) => {
+  // at once, to measure to (ADR 0131), and the one a click would select again once let go,
+  // the innermost still while Ctrl or ⌘ is held.
+  const hitAgain = useEffectEvent((innermost: boolean) => {
     const at = resting.current;
     if (at !== null && !press.current) {
-      hoverOn(nodeUnder(toFrame(at), held));
+      hoverOn(nodeUnder(toFrame(at), innermost));
     }
   });
   useEffect(
     () =>
       useMeasureKey.subscribe((now, before) => {
         if (now.held !== before.held) {
-          hitAgain(now.held);
+          hitAgain(now.deep);
         }
       }),
     []

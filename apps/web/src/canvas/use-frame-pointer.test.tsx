@@ -19,7 +19,7 @@ import { useProject } from "../state/project.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useDrag } from "./drag.ts";
 import { cancelGesture } from "./frame-gesture.ts";
-import { useMeasureKey } from "./measure-key.ts";
+import { useWatchMeasureKey } from "./measure-key.ts";
 import { useFramePointer } from "./use-frame-pointer.ts";
 
 vi.mock(
@@ -75,6 +75,8 @@ const Probe = ({
   frameId?: string;
   report: (h: Handlers) => void;
 }) => {
+  // ⌥ is heard on the window, as the canvas hears it.
+  useWatchMeasureKey();
   const latest = useFramePointer({
     canvas: "main",
     frame: { x: 0, y: 0 },
@@ -571,23 +573,35 @@ describe("⌥ held over a page (ADR 0131)", () => {
     useEditor.setState({ selection: { frame: HOME, nodeId: "t2" } });
   };
   const hovered = () => useEditor.getState().hover?.nodeId;
-
-  afterEach(() => useMeasureKey.setState({ held: false }));
+  /** ⌥ pressed or let go on the window, with Ctrl or ⌘ held or not. */
+  const alt = (type: "keydown" | "keyup", others: { metaKey?: boolean } = {}) =>
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent(type, { key: "Alt", ...others }));
+    });
 
   it("hovers the innermost node under a pointer at rest the moment it is pressed", () => {
     inACard();
     act(() => current().onPointerMove(pointerAt(20, 20)));
     expect(hovered()).toBe("card");
-    act(() => useMeasureKey.setState({ held: true }));
+    alt("keydown");
     expect(hovered()).toBe("t1");
   });
 
   it("hovers again what a click would select once it is let go", () => {
     inACard();
     act(() => current().onPointerMove(pointerAt(20, 20)));
-    act(() => useMeasureKey.setState({ held: true }));
-    act(() => useMeasureKey.setState({ held: false }));
+    alt("keydown");
+    alt("keyup");
     expect(hovered()).toBe("card");
+  });
+
+  it("keeps hovering the innermost node when it is let go with ⌘ still held", () => {
+    inACard();
+    act(() => current().onPointerMove(pointerAt(20, 20)));
+    alt("keydown");
+    alt("keyup", { metaKey: true });
+    // A click with ⌘ held still goes to the innermost node.
+    expect(hovered()).toBe("t1");
   });
 
   it("hovers what is under the pointer where a press let it go", () => {
@@ -597,7 +611,7 @@ describe("⌥ held over a page (ADR 0131)", () => {
     act(() => current().onPointerDown(pointerAt(20, 20)));
     act(() => current().onPointerMove(pointerAt(300, 300)));
     act(() => current().onPointerUp());
-    act(() => useMeasureKey.setState({ held: true }));
+    alt("keydown");
     expect(hovered()).toBe("t1");
   });
 
