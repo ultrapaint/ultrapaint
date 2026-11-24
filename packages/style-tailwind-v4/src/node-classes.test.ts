@@ -517,6 +517,7 @@ describe("a box's shadows", () => {
 
   it("writes one shadow as it always has, a token by its name", () => {
     expect(shadow("$shadow-md")).toEqual(["shadow-md"]);
+    expect(shadow("$shadow-md,")).toEqual(["shadow-md"]);
     expect(shadow("$elevation-ring")).toEqual(["shadow-(--elevation-ring)"]);
     expect(shadow("inset 0 1px 0 #fff")).toEqual([
       "shadow-[inset_0_1px_0_#fff]",

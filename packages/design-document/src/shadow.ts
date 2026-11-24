@@ -30,13 +30,13 @@ export const tokensInShadow = (shadow: string): string[] =>
   });
 
 /**
- * A shadow with each of its shadows as `each` says it, a token as its variable; one shadow alone
- * as `each` says the whole value, as it always was.
+ * A shadow with each of its shadows as `each` says it, a token as its variable; a value with no
+ * shadow in it as `each` says it whole.
  */
 export const mapShadows = (
   shadow: string,
   each: (shadow: string) => string
 ): string => {
   const shadows = shadowsOf(shadow);
-  return shadows.length > 1 ? shadows.map(each).join(", ") : each(shadow);
+  return shadows.length > 0 ? shadows.map(each).join(", ") : each(shadow);
 };

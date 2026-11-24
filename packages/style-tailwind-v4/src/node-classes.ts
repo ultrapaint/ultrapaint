@@ -600,10 +600,11 @@ const shadow: Rule = (value) => {
   if (shadows.length > 1) {
     return one(arbitrary("shadow", shadows.map(cssOf).join(", ")), "boxShadow");
   }
+  const [only = text] = shadows;
   return one(
-    isToken(text)
-      ? fromToken("shadow", text, ["shadow"])
-      : arbitrary("shadow", text),
+    isToken(only)
+      ? fromToken("shadow", only, ["shadow"])
+      : arbitrary("shadow", only),
     "boxShadow"
   );
 };
