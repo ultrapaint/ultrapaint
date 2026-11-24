@@ -465,7 +465,7 @@ describe("the Text section", () => {
   it("names each paired field and leads it with its icon", () => {
     act(() => select({ frame: HOME, nodeId: "title" }));
     for (const name of ["Size", "Weight", "Line height", "Tracking"]) {
-      expect(field(name)?.querySelector("svg")).not.toBeNull();
+      expect(field(name)?.querySelector("svg")).toBeInstanceOf(SVGElement);
     }
   });
 
@@ -499,7 +499,7 @@ describe("the Text section", () => {
     act(() => select({ frame: HOME, nodeId: "title" }));
     expect(
       field("Size: from Body; a change detaches it")?.querySelector("svg")
-    ).not.toBeNull();
+    ).toBeInstanceOf(SVGElement);
   });
 
   it("holds the role in a popover titled Formatting", async () => {
