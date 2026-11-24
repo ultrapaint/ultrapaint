@@ -1,7 +1,7 @@
 import { Combobox as ComboboxPrimitive } from "@base-ui/react";
 import { ChevronDownIcon } from "lucide-react";
 import type * as React from "react";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   ComboboxContent,
   ComboboxEmpty,
@@ -15,6 +15,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
+import { splitPalettes } from "../lib/token-options.tsx";
 import { CutText } from "./cut-text.tsx";
 
 export interface StyleOption {
@@ -24,13 +25,27 @@ export interface StyleOption {
   internal?: boolean;
   label: string;
   preview?: React.ReactNode;
+  /**
+   * The palette's shade the option is (`blue-600` of Blue at 600), drawn as a swatch in its
+   * palette's row while nothing is typed.
+   */
+  shade?: PaletteShade;
   /** The value the option sets, e.g. `$color-primary` or `16`. */
   value: string;
+}
+
+/** A colour option's place in its palette: the palette, the step, and the colour its swatch is. */
+export interface PaletteShade {
+  readonly color: string;
+  readonly palette: string;
+  readonly step: number;
 }
 
 interface Item extends StyleOption {
   /** Built from the query rather than taken from the design system's options. */
   custom?: boolean;
+  /** A palette's place at a step it has no shade at: kept, unseen, so the steps line up. */
+  empty?: boolean;
   /** What a way's token comes to, after its name: `#2563eb`. */
   shown?: string;
   /** A way onto the design system for the value outside it, drawn at the top (ADR 0136). */
@@ -325,7 +340,49 @@ const ActiveCombobox = ({
     open && arbitrary && query.trim() === ""
       ? waysFor(nearest?.() ?? null, onNewToken !== undefined)
       : [];
-  const items = [...ways, ...itemsFor(options, query, custom)];
+  // While nothing is typed, a colour field's palettes are rows of swatches (ADR 0146).
+  const swatches = query.trim() === "" ? swatchGridOf(ways, options) : null;
+  const items = swatches
+    ? swatches.flatMap((row) => row.cells)
+    : [...ways, ...itemsFor(options, query, custom)];
+  // The item the keyboard or the pointer is on: a swatch is read under the palettes.
+  const [highlighted, setHighlighted] = useState<Item | null>(null);
+  // The grid's items by their values, for the arrow keys to hand the highlight to.
+  const cells = useRef(new Map<string, HTMLElement>());
+  const cellRef = (value: string) => (element: HTMLElement | null) => {
+    if (element) {
+      cells.current.set(value, element);
+    } else {
+      cells.current.delete(value);
+    }
+  };
+  /**
+   * Up and down into or out of a palette go by step, which the grid's own keys cannot: they take
+   * the nearest place in the row, and Base UI's only the place at or before it.
+   */
+  const onKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement> & {
+      preventBaseUIHandler?: () => void;
+    }
+  ) => {
+    const direction = { ArrowDown: 1, ArrowUp: -1 }[e.key];
+    if (!(swatches && highlighted && direction)) {
+      return;
+    }
+    const next = stepTo(swatches, highlighted.value, direction);
+    const element = next && cells.current.get(next.value);
+    if (!element) {
+      return;
+    }
+    e.preventDefault();
+    e.preventBaseUIHandler?.();
+    // Base UI keeps the focus in the input and leaves items no way in but the pointer's: a move
+    // over an item highlights it (WebKit counts a move only when the pointer did move).
+    element.dispatchEvent(
+      new MouseEvent("mousemove", { bubbles: true, movementX: 1 })
+    );
+    element.scrollIntoView?.({ block: "nearest" });
+  };
 
   const onOpenChange = (next: boolean) => {
     setOpen(next);
@@ -334,8 +391,10 @@ const ActiveCombobox = ({
       onPreview?.(null);
     }
   };
-  const onItemHighlighted = (item: Item | undefined) =>
+  const onItemHighlighted = (item: Item | undefined) => {
+    setHighlighted(item ?? null);
     onPreview?.(item && item.way !== "new" ? item.value : null);
+  };
   const onInputValueChange = (
     v: string,
     details: ComboboxPrimitive.Root.ChangeEventDetails
@@ -365,12 +424,13 @@ const ActiveCombobox = ({
       autoHighlight
       disabled={disabled}
       filter={null}
+      grid={swatches !== null}
       inputValue={open ? query : (selected?.label ?? display)}
       isItemEqualToValue={isEqual}
       items={items}
       itemToStringLabel={toLabel}
       onInputValueChange={onInputValueChange}
-      onItemHighlighted={onPreview ? onItemHighlighted : undefined}
+      onItemHighlighted={onItemHighlighted}
       onOpenChange={onOpenChange}
       onValueChange={onValueChange}
       open={open}
@@ -392,6 +452,7 @@ const ActiveCombobox = ({
             className={INPUT_CLASS}
             data-slot="input-group-control"
             onFocus={selectAll}
+            onKeyDown={onKeyDown}
             placeholder={selected?.label ?? display}
           />
           <InputGroupAddon
@@ -418,24 +479,189 @@ const ActiveCombobox = ({
           {emptyText(custom !== undefined, query.trim().toLowerCase())}
         </ComboboxEmpty>
         <ComboboxList>
-          {(item: Item) => (
-            <ComboboxItem
-              className={cn(
-                "pr-7",
-                item.custom && "border-t border-dashed first:border-t-0",
-                item.way === "new" && "border-b"
+          {swatches
+            ? swatches.map((row, i) =>
+                row.palette ? (
+                  <Fragment key={`palette:${row.palette}`}>
+                    <PaletteSwatches cellRef={cellRef} row={row} />
+                    {swatches[i + 1]?.palette ? null : (
+                      <SwatchReadout
+                        swatch={
+                          highlighted?.shade
+                            ? highlighted
+                            : (selected?.shade && selected) || null
+                        }
+                      />
+                    )}
+                  </Fragment>
+                ) : (
+                  row.cells.map((item) => (
+                    <ComboboxPrimitive.Row key={keyOf(item)}>
+                      <ListItem
+                        item={item}
+                        outside={outside}
+                        ref={cellRef(item.value)}
+                      />
+                    </ComboboxPrimitive.Row>
+                  ))
+                )
+              )
+            : (item: Item) => (
+                <ListItem item={item} key={keyOf(item)} outside={outside} />
               )}
-              key={item.way ? `way:${item.way}` : item.value}
-              value={item}
-            >
-              <ItemRow item={item} outside={outside} />
-            </ComboboxItem>
-          )}
         </ComboboxList>
       </ComboboxContent>
     </ComboboxPrimitive.Root>
   );
 };
+
+const keyOf = (item: Item) => (item.way ? `way:${item.way}` : item.value);
+
+/** One row of the list: an option, a way onto the system, or the value typed. */
+const ListItem = ({
+  item,
+  outside,
+  ref,
+}: {
+  item: Item;
+  outside: ((value: string) => boolean) | undefined;
+  ref?: React.Ref<HTMLDivElement>;
+}) => (
+  <ComboboxItem
+    className={cn(
+      "pr-7",
+      item.custom && "border-t border-dashed first:border-t-0",
+      item.way === "new" && "border-b"
+    )}
+    ref={ref}
+    value={item}
+  >
+    <ItemRow item={item} outside={outside} />
+  </ComboboxItem>
+);
+
+/**
+ * A row of the grid: a palette's, its places from the lightest (an empty one hidden where it has
+ * no shade, which no key or pointer lands on), or a list row of one item.
+ */
+interface GridRow {
+  readonly cells: readonly Item[];
+  readonly palette?: string;
+}
+
+/**
+ * A colour field's items laid out as the grid draws them, or null when it has no palette: the
+ * ways onto the system and the other options a row each, the palettes, then Clear. Its items in
+ * order are the combobox's, whose highlight goes by their place.
+ */
+const swatchGridOf = (
+  ways: readonly Item[],
+  options: readonly StyleOption[]
+): readonly GridRow[] | null => {
+  const { list, palettes } = splitPalettes(options);
+  if (palettes.length === 0) {
+    return null;
+  }
+  const rowOf = (item: Item): GridRow => ({ cells: [item] });
+  return [
+    ...ways.map(rowOf),
+    ...list.filter((o) => !o.internal).map(rowOf),
+    ...palettes.map((palette) => ({
+      cells: palette.shades.map(
+        (shade, i) =>
+          shade ?? {
+            empty: true,
+            label: "",
+            value: `__empty:${palette.name}:${i}`,
+          }
+      ),
+      palette: palette.name,
+    })),
+    ...list.filter((o) => o.internal).map(rowOf),
+  ];
+};
+
+/**
+ * Where up or down goes from an item when it leaves or enters a palette, or null to leave it to
+ * the list: from a list row to a palette's first shade; from a palette to the nearest shade at
+ * the same place, the lower of two as near; to a list row's item.
+ */
+const stepTo = (
+  rows: readonly GridRow[],
+  value: string,
+  direction: number
+): Item | null => {
+  const from = rows.findIndex((row) =>
+    row.cells.some((c) => c.value === value)
+  );
+  const source = rows[from];
+  const target = rows[from + direction];
+  if (!(source && target && (source.palette || target.palette))) {
+    return null;
+  }
+  const shades = target.cells.filter((c) => !c.empty);
+  if (!source.palette) {
+    return shades[0] ?? null;
+  }
+  const place = source.cells.findIndex((c) => c.value === value);
+  const distance = (c: Item) => Math.abs(target.cells.indexOf(c) - place);
+  return shades.reduce<Item | null>(
+    (best, c) => (best === null || distance(c) < distance(best) ? c : best),
+    null
+  );
+};
+
+/** A palette's row: its name, then a swatch at each of its places, lightest first. */
+const PaletteSwatches = ({
+  cellRef,
+  row,
+}: {
+  cellRef: (value: string) => React.Ref<HTMLDivElement>;
+  row: GridRow;
+}) => (
+  <ComboboxPrimitive.Row
+    aria-label={row.palette}
+    className="flex items-center gap-1 px-2 py-1"
+  >
+    <span
+      aria-hidden
+      className="w-16 shrink-0 truncate pr-1 font-body-small text-muted-foreground"
+    >
+      {row.palette}
+    </span>
+    {row.cells.map((cell) => (
+      <ComboboxPrimitive.Item
+        aria-label={cell.empty ? undefined : cell.label}
+        className="size-4 shrink-0 cursor-pointer rounded-sm border border-foreground/15 outline-none data-highlighted:ring-2 data-highlighted:ring-ring data-selected:ring-2 data-selected:ring-foreground data-highlighted:ring-offset-1 data-highlighted:ring-offset-popover data-selected:ring-offset-1 data-selected:ring-offset-popover"
+        disabled={cell.empty}
+        key={cell.value}
+        ref={cellRef(cell.value)}
+        style={
+          cell.empty
+            ? { visibility: "hidden" }
+            : { background: cell.shade?.color }
+        }
+        value={cell}
+      />
+    ))}
+  </ComboboxPrimitive.Row>
+);
+
+/** The name and value of the swatch the keyboard or the pointer is on, or of the field's own. */
+const SwatchReadout = ({ swatch }: { swatch: StyleOption | null }) => (
+  <div
+    aria-hidden
+    className="flex h-6 items-center gap-2 px-2 font-body-small text-muted-foreground"
+    data-slot="swatch-readout"
+  >
+    {swatch?.shade ? (
+      <>
+        <span className="text-foreground">{swatch.label}</span>
+        <span>{swatch.shade.color}</span>
+      </>
+    ) : null}
+  </div>
+);
 
 const Option = ({ item }: { item: StyleOption }) => (
   <>
