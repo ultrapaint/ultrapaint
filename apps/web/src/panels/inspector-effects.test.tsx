@@ -401,4 +401,22 @@ describe("the Effects section's shadows", () => {
     await typeAndTake("none");
     expect(sets()).toEqual([{ shadow: "$shadow-md" }]);
   });
+
+  it("closes a new token's naming when its shadow goes, one the same as it left", () => {
+    const naming = () =>
+      document.querySelector('input[aria-label="The new token\'s name"]');
+    useDesignSystem.setState({ designSystem: emptyDesignSystem() });
+    show({ box: `${RING}, ${RING}` });
+    openRow(1);
+    const newToken = [...document.querySelectorAll("[role=option]")].find(
+      (o) => o.textContent === "New token from this value…"
+    ) as HTMLElement | undefined;
+    if (!newToken) {
+      throw new Error("no New token");
+    }
+    act(() => newToken.click());
+    expect(naming()).not.toBeNull();
+    show({ box: RING });
+    expect(naming()).toBeNull();
+  });
 });
