@@ -1562,6 +1562,26 @@ describe("a stop the agent does not confirm", () => {
       assert.isUndefined(thread.error);
     }));
 
+  test("Force stop counts a file the agent writes as its process ends", () =>
+    Effect.gen(function* () {
+      const agents = yield* ScriptedAgents;
+      const fs = yield* FileSystem.FileSystem;
+      const { repo } = yield* ThreadFixture;
+      yield* agents.script({
+        onStop: Effect.orDie(
+          fs.writeFileString(path.join(repo, "designs/late.tsx"), "late")
+        ),
+      });
+      const { threadId } = yield* ignored();
+      yield* onThread(threadId, (s) => s.forceStop);
+      const { items } = yield* threadWhen(threadId, turnEnded);
+      const end = items.at(-1);
+      assert.include(
+        end?.kind === "turn_end" ? end.changedFiles : [],
+        "designs/late.tsx"
+      );
+    }));
+
   test("Force stop lets go of what the agent asked after the Stop", () =>
     Effect.gen(function* () {
       const { threadId, turn } = yield* ignored();

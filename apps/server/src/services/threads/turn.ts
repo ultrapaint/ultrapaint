@@ -101,9 +101,13 @@ export interface Turn {
   /**
    * `end`, for a turn at the agent only: one that is over already, force stopped (ADR 0124), is
    * left as it is. Taken in one step, so two ends of the same turn cannot both write it. Whether
-   * it ended the turn.
+   * it ended the turn. `meanwhile` runs once the turn is taken and before its files are read: a
+   * force stop ends the agent's process there, so a write it made on its way out is counted.
    */
-  readonly endAtAgent: (response: PromptResponse) => Effect.Effect<boolean>;
+  readonly endAtAgent: (
+    response: PromptResponse,
+    meanwhile?: Effect.Effect<void>
+  ) => Effect.Effect<boolean>;
   /** The turn went wrong: the transcript says why, and the thread takes prompts again. */
   readonly fail: (message: string) => Effect.Effect<void>;
   /** A terminal of the agent's is done with: the tool call that ran it keeps its output's tail. */
@@ -220,11 +224,14 @@ export const makeTurn = (
   const end = (response: PromptResponse) =>
     Effect.flatMap(over, (was) => written(was, response));
 
-  const endAtAgent = (response: PromptResponse) =>
+  const endAtAgent = (
+    response: PromptResponse,
+    meanwhile: Effect.Effect<void> = Effect.void
+  ) =>
     Effect.flatMap(overAtAgent, (was) =>
       was === null
         ? Effect.succeed(false)
-        : Effect.as(written(was, response), true)
+        : Effect.as(Effect.andThen(meanwhile, written(was, response)), true)
     );
 
   /** One thing an update does to the transcript, done. */

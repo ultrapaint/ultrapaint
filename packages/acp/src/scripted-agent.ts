@@ -57,6 +57,8 @@ export interface AgentScript {
   readonly loadSession?: boolean;
   /** The modes a new session offers: by default `ask` and `auto`, in `ask`. */
   readonly modes?: NewSessionResponse["modes"];
+  /** What it does as its process is stopped, before it is gone: a last write on its way out. */
+  readonly onStop?: Effect.Effect<void>;
   /** What `session/load` replays of the stored conversation before it answers. */
   readonly replay?: readonly SessionUpdate[];
   /** `session/new` is refused until `authenticate` was called, as by an agent not signed in. */
@@ -168,8 +170,11 @@ export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
   // Stopped, as a process is when its scope closes: whoever waits on its exit hears of it.
   yield* Effect.addFinalizer(() =>
     Effect.andThen(
-      Deferred.succeed(stopped, undefined),
-      Deferred.succeed(exitSignal, { code: null, signal: "SIGTERM" })
+      script.onStop ?? Effect.void,
+      Effect.andThen(
+        Deferred.succeed(stopped, undefined),
+        Deferred.succeed(exitSignal, { code: null, signal: "SIGTERM" })
+      )
     )
   );
 
