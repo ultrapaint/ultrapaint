@@ -134,7 +134,8 @@ const Tag = ({ threadId, work }: { threadId: string; work: AgentWork }) => {
           />
         }
       >
-        <span className="flex size-3.5 shrink-0 items-center justify-center rounded-full bg-white">
+        {/* The mark takes the text's colour (ADR 0132): the canvas's pink, on its white disc. */}
+        <span className="flex size-3.5 shrink-0 items-center justify-center rounded-full bg-white text-agent">
           <AgentIcon agentId={thread?.agentId ?? ""} className="size-2.5" />
         </span>
         <span className="truncate">{agent?.name ?? "Agent"}</span>
