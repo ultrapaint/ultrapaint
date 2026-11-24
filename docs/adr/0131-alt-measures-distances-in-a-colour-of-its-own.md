@@ -28,16 +28,18 @@ was left to draw a measurement in without taking another's meaning.
   edges, the four insets for one inside the other. A distance under half a pixel is not drawn.
 - **The parent is measured too.** Pointing at the selection's parent gives the selection's insets
   in it. Pointing at the selection itself gives the same insets, its parent measured on demand
-  through the frame (`frameOf(id).measure`), so a parent covered whole by its children can still
-  be measured; a page's root, which has no parent, draws nothing there. A layer of an instance is
-  measured in the layer around it (0114).
+  through the frame (`frameOf(id).measure`), read again each time the frame draws, so a parent
+  covered whole by its children can still be measured; a page's root, which has no parent, draws
+  nothing there. Several selected in one parent give the insets of the box around them in it;
+  several in different parents draw nothing there. A layer of an instance is measured in the
+  layer around it (0114). Empty page space is no element: nothing is measured to it.
 - **It is drawn as chrome**, beside the selection's (`measure-overlay`), in the frame's pixels and
   outside the page's clip, its lines a pixel thick and its pills set as the size label at any zoom.
   The selection's size label gives way while it draws, where the pill of a distance from the
   selection's bottom edge would cover it. Only the frame the selection was made in draws it:
   another page, or another view of the same page, is another drawing.
 - **It goes** as ⌥ is let go, as the window loses focus, as the pointer leaves the frame or every
-  element, and while a drag copies. ⌥ typed in a field, or in a text edited on the canvas, measures
+  element, while a drag copies, and while a marquee is drawn, which hovers nothing. ⌥ typed in a field, or in a text edited on the canvas, measures
   nothing. A click with ⌥ still selects the innermost node.
 - **A fourth canvas colour, `--measure`**, kept for measuring alone (distances now, a later
   story's snapping lines): an orange-red, `oklch(0.58 0.18 40)`, the same in the light and the dark

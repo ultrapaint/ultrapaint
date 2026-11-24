@@ -452,6 +452,9 @@ export const useFramePointer = ({
   ) => {
     marqueeIn.current = within;
     marqueeFrom.current = from;
+    // What the pointer was over as it pressed is not what a marquee is about: nothing is hovered,
+    // or measured with ⌥, while one is drawn.
+    leaveHover(frameId);
     drawingMarquee(() => {
       press.current = null;
       endMarquee(false);
