@@ -13,6 +13,7 @@ import {
   SquarePen,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -34,7 +35,7 @@ import { IconButton } from "../components/icon-button.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { createThread, startTask } from "../lib/start-thread.ts";
 import { threadView } from "../lib/thread-view.ts";
-import { isUnread, useAgents } from "../state/agents.ts";
+import { isUnread, lineOf, useAgents } from "../state/agents.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
@@ -149,10 +150,12 @@ const ThreadStatus = ({ thread }: { thread: Thread }) => {
 };
 
 const ThreadRow = ({
+  line,
   now,
   thread,
   unread,
 }: {
+  line: string;
   now: number;
   thread: Thread;
   unread: boolean;
@@ -188,7 +191,7 @@ const ThreadRow = ({
           </span>
         </span>
         <span className="truncate font-body-small text-muted-foreground">
-          {thread.summary?.text || "Nothing sent yet"}
+          {line || "Nothing sent yet"}
         </span>
         <span className="flex min-w-0 items-center gap-1.5 font-body-small text-muted-foreground">
           <AgentIcon agentId={thread.agentId} className="size-3 shrink-0" />
@@ -273,11 +276,13 @@ const usePreviews = (threads: readonly Thread[]) => {
 
 const Section = ({
   label,
+  lines,
   now,
   seen,
   threads,
 }: {
   label: string;
+  lines: Readonly<Record<string, string>>;
   now: number;
   seen: Record<string, number>;
   threads: readonly Thread[];
@@ -288,7 +293,13 @@ const Section = ({
         {label}
       </h3>
       {threads.map((t) => (
-        <ThreadRow key={t.id} now={now} thread={t} unread={isUnread(t, seen)} />
+        <ThreadRow
+          key={t.id}
+          line={lines[t.id] ?? ""}
+          now={now}
+          thread={t}
+          unread={isUnread(t, seen)}
+        />
       ))}
     </section>
   ) : null;
@@ -334,6 +345,12 @@ const NoChats = ({ unsetFolder }: { unsetFolder: string | null }) =>
 export const ThreadList = () => {
   const threads = useAgents((s) => s.threads);
   const seen = useAgents((s) => s.seen);
+  // Drawn again when a line changes, as an agent streams it, and not for every word of a reply.
+  const lines = useAgents(
+    useShallow((s) =>
+      Object.fromEntries(threads.map((t) => [t.id, lineOf(t, s.items[t.id])]))
+    )
+  );
   const activePage = useEditor((s) => s.activePage);
   const pageFile = useProject(
     (s) => s.pages.find((p) => p.id === activePage)?.file
@@ -366,11 +383,11 @@ export const ThreadList = () => {
       return (
         !q ||
         t.title.toLowerCase().includes(q) ||
-        (t.summary?.text.toLowerCase().includes(q) ?? false) ||
+        (lines[t.id]?.toLowerCase().includes(q) ?? false) ||
         (t.scope?.name.toLowerCase().includes(q) ?? false)
       );
     });
-  }, [threads, query, filter, pageFile]);
+  }, [threads, lines, query, filter, pageFile]);
   const today = shown.filter((t) => isToday(t.updatedAt, now));
   const earlier = shown.filter((t) => !isToday(t.updatedAt, now));
 
@@ -430,8 +447,20 @@ export const ThreadList = () => {
                 {emptyNote(filter, query.trim())}
               </PanelEmpty>
             ) : null}
-            <Section label="Today" now={now} seen={seen} threads={today} />
-            <Section label="Earlier" now={now} seen={seen} threads={earlier} />
+            <Section
+              label="Today"
+              lines={lines}
+              now={now}
+              seen={seen}
+              threads={today}
+            />
+            <Section
+              label="Earlier"
+              lines={lines}
+              now={now}
+              seen={seen}
+              threads={earlier}
+            />
           </div>
         </>
       )}

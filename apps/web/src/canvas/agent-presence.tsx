@@ -19,17 +19,26 @@ const VERBS: Record<AgentActivity["action"], string> = {
   thinking: "thinking",
 };
 
-/** The agent working on one page, if one is: its thread's id, its name and what it is doing. */
+/**
+ * The agent working on one page, if one is: its thread's id, its name and what it is doing. Read
+ * as plain values: the activity is worked out afresh with each word an agent streams, and a frame
+ * is drawn again only when what it shows changes.
+ */
 const usePresenceOn = (pageId: string) => {
-  const here = useAgentActivityOf((activity) =>
-    activityOnPage(activity, pageId)
+  const threadId = useAgentActivityOf(
+    (activity) => activityOnPage(activity, pageId)?.threadId ?? null
   );
-  const threads = useAgents((s) => s.threads);
-  if (!here) {
+  const action = useAgentActivityOf(
+    (activity) => activityOnPage(activity, pageId)?.action ?? null
+  );
+  // Its title alone: a thread's news is not this frame's.
+  const title = useAgents((s) =>
+    threadId ? s.threads.find((t) => t.id === threadId)?.title : undefined
+  );
+  if (!(threadId && action)) {
     return null;
   }
-  const name = threads.find((t) => t.id === here.threadId)?.title ?? "Agent";
-  return { action: here.action, name, threadId: here.threadId };
+  return { action, name: title ?? "Agent", threadId };
 };
 
 /** The outline of an agent working on one page, in the agents' colour over the frame's edge. */
