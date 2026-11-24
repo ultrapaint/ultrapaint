@@ -314,10 +314,11 @@ const ShadowSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
           {shadows.map((shadow, i) => (
             <ShadowRow
               first={i === 0}
-              // A row is its place and its shadow: one that moves or changes starts afresh, so
-              // that a new token's naming open on it never names the shadow taking its place.
+              // A row is its place in this list: every row starts afresh once the list changes, so
+              // that a new token's naming open on one never names the shadow taking its place,
+              // even one the same as it.
               // biome-ignore lint/suspicious/noArrayIndexKey: the place is half of what a row is
-              key={`${i}\0${shadow}`}
+              key={`${i}\0${shared}`}
               onChange={(value) => replace(i, value)}
               onRemove={() => replace(i, null)}
               value={shadow}
