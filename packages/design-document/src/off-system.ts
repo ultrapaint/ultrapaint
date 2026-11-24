@@ -9,12 +9,17 @@
  * writes as that step. Any other raw spacing, and any raw colour, radius, shadow or type value,
  * is off it.
  *
+ * A fill in layers (ADR 0134) is on the system when each of its colours is: a gradient whose
+ * every stop is a token, or a keyword that is no value, passes; a raw stop or a raw colour layer
+ * is off it.
+ *
  * Left alone: 0 and the CSS keywords that are no value (`none`, `transparent`, `auto`,
  * `currentColor`, `inherit`); sizes (a width, a height), which are the layout's; a round radius
  * given as a percentage; and an instance's props, which are its component's.
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { spacingStepAt } from "@ultrapaint/contracts/token-table";
+import { fillLayers } from "./fill.ts";
 import { isToken } from "./tokens.ts";
 import { childrenOf } from "./tree.ts";
 
@@ -72,6 +77,17 @@ export const isOffSystem = (
   const v = value.trim().toLowerCase();
   if (v === "" || v === "0" || NO_VALUE.has(v)) {
     return false;
+  }
+  if (kind === "color") {
+    const layers = fillLayers(value);
+    const read = layers.every((l) => l.kind !== "css");
+    if (read && (layers.length > 1 || layers[0]?.kind === "gradient")) {
+      return layers.some((layer) =>
+        layer.kind === "gradient"
+          ? layer.stops.some((stop) => isOffSystem(kind, stop.color))
+          : layer.kind === "color" && isOffSystem(kind, layer.color)
+      );
+    }
   }
   // A circle's radius: no token stands for it.
   return !(kind === "radius" && v.endsWith("%"));

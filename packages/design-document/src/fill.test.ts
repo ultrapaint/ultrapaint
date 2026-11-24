@@ -1,0 +1,202 @@
+import { describe, expect, it } from "vitest";
+import {
+  type FillLayer,
+  fillCss,
+  fillLayers,
+  resolveFillTokens,
+  stopPositions,
+  tokensInFill,
+} from "./fill.ts";
+
+describe("a fill as layers", () => {
+  it("reads a colour, a token and nothing", () => {
+    expect(fillLayers("#ffffff")).toEqual([
+      { color: "#ffffff", kind: "color" },
+    ]);
+    expect(fillLayers("$color-card")).toEqual([
+      { color: "$color-card", kind: "color" },
+    ]);
+    expect(fillLayers(undefined)).toEqual([]);
+  });
+
+  it("reads each gradient's shape, angle, geometry, interpolation and stops, tokens and positions among them", () => {
+    expect(
+      fillLayers(
+        "linear-gradient(45deg in oklab, $color-primary 10%, rgb(0 0 0 / 50%), transparent 90%)"
+      )
+    ).toEqual([
+      {
+        angle: 45,
+        interpolation: "oklab",
+        kind: "gradient",
+        shape: "linear",
+        stops: [
+          { color: "$color-primary", position: "10%" },
+          { color: "rgb(0 0 0 / 50%)" },
+          { color: "transparent", position: "90%" },
+        ],
+      },
+    ]);
+    expect(fillLayers("linear-gradient(to top right, red, blue)")).toEqual([
+      {
+        kind: "gradient",
+        shape: "linear",
+        side: "to top right",
+        stops: [{ color: "red" }, { color: "blue" }],
+      },
+    ]);
+    expect(
+      fillLayers("radial-gradient(circle at top, $color-accent, transparent)")
+    ).toEqual([
+      {
+        geometry: "circle at top",
+        kind: "gradient",
+        shape: "radial",
+        stops: [{ color: "$color-accent" }, { color: "transparent" }],
+      },
+    ]);
+    expect(
+      fillLayers("conic-gradient(from 0.25turn at 50% 50%, red, blue 50%, red)")
+    ).toEqual([
+      {
+        angle: 90,
+        geometry: "at 50% 50%",
+        kind: "gradient",
+        shape: "conic",
+        stops: [
+          { color: "red" },
+          { color: "blue", position: "50%" },
+          { color: "red" },
+        ],
+      },
+    ]);
+  });
+
+  it("reads several layers, the top one first, a flat gradient above another as a colour", () => {
+    expect(
+      fillLayers(
+        "linear-gradient(#0003, #0003), radial-gradient($color-glow, transparent), $color-bg"
+      )
+    ).toEqual([
+      { color: "#0003", kind: "color" },
+      {
+        kind: "gradient",
+        shape: "radial",
+        stops: [{ color: "$color-glow" }, { color: "transparent" }],
+      },
+      { color: "$color-bg", kind: "color" },
+    ]);
+  });
+
+  it("keeps a value it cannot read as one layer as it is: an image, a colour under nothing, CSS it does not know", () => {
+    for (const css of [
+      "url(hero.png) center / cover, $color-bg",
+      "red, blue",
+      "repeating-linear-gradient(red 0 10px, blue 10px 20px)",
+      "linear-gradient(red, 30%, blue)",
+      "none",
+    ]) {
+      expect(fillLayers(css)).toEqual([{ css, kind: "css" }]);
+      expect(fillCss(fillLayers(css))).toBe(css);
+    }
+  });
+
+  it("writes layers back as one background, a colour above another as a flat gradient", () => {
+    const layers: FillLayer[] = [
+      { color: "#0003", kind: "color" },
+      {
+        angle: 90,
+        interpolation: "oklab",
+        kind: "gradient",
+        shape: "linear",
+        stops: [
+          { color: "$color-primary", position: "0%" },
+          { color: "$color-accent", position: "40%" },
+          { color: "transparent", position: "100%" },
+        ],
+      },
+      {
+        angle: 45,
+        geometry: "at 25% 25%",
+        kind: "gradient",
+        shape: "conic",
+        stops: [{ color: "red" }, { color: "blue" }],
+      },
+      { color: "$color-bg", kind: "color" },
+    ];
+    // A first stop at 0% and a last one at 100% are where CSS puts them anyway.
+    expect(fillCss(layers)).toBe(
+      "linear-gradient(#0003, #0003), linear-gradient(90deg in oklab, $color-primary, $color-accent 40%, transparent), conic-gradient(from 45deg at 25% 25%, red, blue), $color-bg"
+    );
+    expect(fillLayers(fillCss(layers) ?? "")).toEqual([
+      layers[0],
+      {
+        ...layers[1],
+        stops: [
+          { color: "$color-primary" },
+          { color: "$color-accent", position: "40%" },
+          { color: "transparent" },
+        ],
+      },
+      layers[2],
+      layers[3],
+    ]);
+    expect(fillCss([])).toBeNull();
+  });
+
+  it("places each stop where CSS draws it, one without a position between its neighbours", () => {
+    expect(
+      stopPositions([
+        { color: "a" },
+        { color: "b" },
+        { color: "c", position: "80%" },
+        { color: "d" },
+      ])
+    ).toEqual([0, 40, 80, 100]);
+    expect(
+      stopPositions([
+        { color: "a", position: "60%" },
+        { color: "b", position: "20%" },
+      ])
+    ).toEqual([60, 60]);
+    expect(
+      stopPositions([{ color: "a" }, { color: "b" }, { color: "c" }])
+    ).toEqual([0, 50, 100]);
+    expect(
+      stopPositions([
+        { color: "a", position: "20%" },
+        { color: "b" },
+        { color: "c", position: "60%" },
+        { color: "d" },
+        { color: "e" },
+      ])
+    ).toEqual([20, 40, 60, 80, 100]);
+  });
+});
+
+describe("the tokens of a fill", () => {
+  it("are every token it names, wherever in it", () => {
+    expect(
+      tokensInFill(
+        "linear-gradient(in oklab, $color-primary 10%, $color-accent), url(a$b.png), $color-bg"
+      )
+    ).toEqual(["color-primary", "color-accent", "color-bg"]);
+  });
+
+  it("are none in a path that holds a `$`", () => {
+    expect(tokensInFill("url(/img/$hero.png), $color-bg")).toEqual([
+      "color-bg",
+    ]);
+  });
+
+  it("are drawn as their variables", () => {
+    expect(
+      resolveFillTokens(
+        "linear-gradient($color-primary, $color-accent 50%), $color-bg",
+        (name) => `var(--${name})`
+      )
+    ).toBe(
+      "linear-gradient(var(--color-primary), var(--color-accent) 50%), var(--color-bg)"
+    );
+  });
+});

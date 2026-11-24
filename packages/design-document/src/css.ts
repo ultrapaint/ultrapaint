@@ -435,12 +435,15 @@ export const pageDefaultsStyle = (
   return style;
 };
 
-/** Declarations as the canvas draws them: a token as its variable, a number as pixels. */
+/**
+ * Declarations as the canvas draws them: a token as its variable, a number as pixels, and every
+ * token of a fill, wherever in it.
+ */
 const resolved = (declarations: Declarations, resolver: TokenResolver): Style =>
   Object.fromEntries(
     Object.entries(declarations).map(([property, value]) => [
       property,
-      resolver.css(value),
+      property === "background" ? resolver.fill(value) : resolver.css(value),
     ])
   );
 
