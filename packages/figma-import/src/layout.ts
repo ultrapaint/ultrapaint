@@ -17,6 +17,7 @@ import {
   type FigNode,
   type FigPaint,
   type FigTransform,
+  type ResolvedRadialGradientGeometry,
   resolveGradientGeometry,
 } from "openfig-core";
 import {
@@ -121,15 +122,17 @@ const cssDegrees = (dx: number, dy: number) =>
  * whose radii swap).
  */
 const radiiOf = (
-  rx: number,
-  ry: number,
-  angle: number,
+  ellipse: Pick<
+    ResolvedRadialGradientGeometry,
+    "angle" | "radiusX" | "radiusY"
+  >,
   width: number,
   height: number
 ) => {
+  const { angle, radiusX, radiusY } = ellipse;
   const [cos, sin] = [Math.cos(angle), Math.sin(angle)];
-  const across = Math.hypot(rx * cos, ry * sin);
-  const down = Math.hypot(rx * sin, ry * cos);
+  const across = Math.hypot(radiusX * cos, radiusY * sin);
+  const down = Math.hypot(radiusX * sin, radiusY * cos);
   return `${percent(across / width)} ${percent(down / height)}`;
 };
 
@@ -168,7 +171,7 @@ const gradientGeometry = (
     return { at: (s) => from + s * (to - from), head: { angle } };
   }
   if (geometry?.type === "radial") {
-    const { angle, center, radiusX, radiusY } = geometry;
+    const { angle, center } = geometry;
     const centre = `at ${percent(center.x / width)} ${percent(center.y / height)}`;
     return {
       at: (s) => s,
@@ -179,7 +182,7 @@ const gradientGeometry = (
               geometry: centre,
             }
           : {
-              geometry: `${radiiOf(radiusX, radiusY, angle, width, height)} ${centre}`,
+              geometry: `${radiiOf(geometry, width, height)} ${centre}`,
             },
     };
   }
