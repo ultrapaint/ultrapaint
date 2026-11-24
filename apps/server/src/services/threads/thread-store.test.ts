@@ -192,6 +192,31 @@ describe("ThreadStore", () => {
   );
 
   it.effect(
+    "orders a thread's changes by changedAt, each later than the last within one millisecond (ADR 0141)",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const home = yield* fs.makeTempDirectoryScoped();
+        yield* Effect.gen(function* () {
+          const store = yield* ThreadStore;
+          yield* store.add(THREAD);
+          const changed = Effect.map(
+            store.get(THREAD.id),
+            (t) => t?.changedAt ?? 0
+          );
+          // The test clock stands still: every change below is in the same millisecond.
+          yield* store.update(THREAD.id, { title: "Read" });
+          const read = yield* changed;
+          yield* store.update(THREAD.id, { title: "Renamed" }, { news: false });
+          const renamed = yield* changed;
+          yield* store.update(THREAD.id, { settledAt: 5 }, { news: false });
+          assert.isAbove(renamed, read);
+          assert.isAbove(yield* changed, renamed);
+        }).pipe(Effect.provide(storeIn(home)));
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
     "keeps a thread settled across a restart, without moving its time (ADR 0141)",
     () =>
       Effect.gen(function* () {
