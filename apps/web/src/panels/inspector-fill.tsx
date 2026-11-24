@@ -18,6 +18,7 @@ import {
   type GradientLayer,
   type GradientShape,
   placedInPercent,
+  positionPercent,
   resolveFillTokens,
   stopPositions,
 } from "@ultrapaint/design-document/fill";
@@ -67,8 +68,11 @@ const writeFill = (layers: readonly FillLayer[]) =>
 const layersOfValue = (value: JsonValue): FillLayer[] =>
   value === null ? [] : fillLayers(String(value));
 
-const acceptsBackground = (q: string) =>
-  CSS.supports("background", q) || CSS.supports("color", q);
+/** Whether CSS takes a fill typed, its tokens stood in for by a colour, as the canvas draws them. */
+const acceptsBackground = (q: string) => {
+  const css = resolveFillTokens(q, () => "red");
+  return CSS.supports("background", css) || CSS.supports("color", css);
+};
 
 const SHAPE_NAMES: Record<GradientShape, string> = {
   conic: "Conic",
@@ -136,9 +140,16 @@ const stopsFor = (layer: GradientLayer, shape: GradientShape): FillStop[] => {
   if (!conic || placedInPercent(layer.stops, shape)) {
     return [...layer.stops];
   }
-  return placedInPercent(layer.stops, layer.shape)
-    ? placed(layer)
-    : layer.stops.map(({ color }) => ({ color }));
+  if (placedInPercent(layer.stops, layer.shape)) {
+    return placed(layer);
+  }
+  // Lengths, which a conic gradient cannot take, left for CSS to place; percentages kept.
+  return layer.stops.map((stop) =>
+    stop.position !== undefined &&
+    positionPercent(stop.position, shape) !== null
+      ? stop
+      : { color: stop.color }
+  );
 };
 
 /** A gradient of another shape, with its stops and colour space; an angle kept where both take one. */
@@ -171,11 +182,21 @@ const placed = (
     return [...stops];
   }
   const drawn = stopPositions(stops, shape);
-  return stops
-    .map((stop, i) => ({ at: at(i, drawn[i] ?? 0), stop }))
-    .sort((a, b) => a.at - b.at)
-    .map(({ at: p, stop }) => ({ color: stop.color, position: `${p}%` }));
+  let before = Number.NEGATIVE_INFINITY;
+  return (
+    stops
+      .map((stop, i) => ({ at: at(i, drawn[i] ?? 0), stop }))
+      .sort((a, b) => a.at - b.at)
+      // Written to a hundredth, never before the stop ahead of it.
+      .map(({ at: p, stop }) => {
+        before = Math.max(before, Math.round(p * 100) / 100);
+        return { color: stop.color, position: `${before}%` };
+      })
+  );
 };
+
+/** A place on the bar as its label reads it, to a tenth: `33.3%`. */
+const percentLabel = (p: number) => `${Math.round(p * 10) / 10}%`;
 
 /** A gradient's stops with one more at `to` percent, of the colour of the stop before it. */
 const withStopAt = (layer: GradientLayer, to: number): FillStop[] => {
@@ -320,7 +341,7 @@ const StopBar = ({
     >
       {(movable ? layer.stops : []).map((stop, i) => (
         <button
-          aria-label={`Stop ${i + 1} of ${layer.stops.length}, at ${at(i)}%`}
+          aria-label={`Stop ${i + 1} of ${layer.stops.length}, at ${percentLabel(at(i))}`}
           className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full border-2 border-background shadow-sm outline-none ring-1 ring-foreground/40 focus-visible:ring-2 focus-visible:ring-ring"
           data-stop={i}
           // biome-ignore lint/suspicious/noArrayIndexKey: a stop is its place in the gradient
@@ -408,7 +429,9 @@ const GradientFields = ({
         <Row
           // biome-ignore lint/suspicious/noArrayIndexKey: a stop is its place in the gradient
           key={i}
-          label={movable ? `${drawn[i] ?? 0}%` : (stop.position ?? "auto")}
+          label={
+            movable ? percentLabel(drawn[i] ?? 0) : (stop.position ?? "auto")
+          }
         >
           <ColorValue
             extra={[TRANSPARENT]}

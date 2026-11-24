@@ -487,6 +487,35 @@ describe("the Fill section's layers (ADR 0134)", () => {
     ]);
   });
 
+  it("keeps the percentages and drops only the lengths when a gradient turns conic", async () => {
+    show({
+      box: "linear-gradient(in oklab, $color-primary 10px, $color-accent 40%, transparent 80%)",
+    });
+    await openSwatch();
+    press("Conic");
+    expect(fills()).toEqual([
+      {
+        fill: "conic-gradient(from 180deg in oklab, $color-primary, $color-accent 40%, transparent 80%)",
+      },
+    ]);
+  });
+
+  it("takes a gradient of tokens typed into a colour's row, as the browser takes it with values", async () => {
+    // A browser refuses `$`; the field asks it with the tokens stood in for.
+    vi.stubGlobal("CSS", {
+      supports: (_property: string, value?: string) => !value?.includes("$"),
+    });
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
+    });
+    show({ box: "$color-card" });
+    openField("Colour");
+    await typeAndTake("linear-gradient($color-primary, transparent)");
+    expect(fills()).toEqual([
+      { fill: "linear-gradient($color-primary, transparent)" },
+    ]);
+  });
+
   it("gives a conic gradient's angles to another shape as their share of the turn", async () => {
     show({ box: CONIC });
     await openSwatch();
