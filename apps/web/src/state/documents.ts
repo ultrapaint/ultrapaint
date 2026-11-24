@@ -28,6 +28,7 @@ import { canvasIdOf } from "@ultrapaint/shared/canvas";
 import { create } from "zustand";
 import { appComponentOf, useComponents } from "./components.ts";
 import { api } from "./connection.ts";
+import { commitTokenWith, takeTokenMade } from "./design-system.ts";
 import { documentShown, frameRefOf, nodeFrameOf } from "./frame-ref.ts";
 import { reportError, useProject } from "./project.ts";
 import { follow } from "./server-data.ts";
@@ -203,11 +204,19 @@ export const applyEdits = async (
   if (!ensureEditable()) {
     return null;
   }
+  // A field set to a token made from its value goes in the token's step (ADR 0136).
+  const token = takeTokenMade();
   try {
-    const result = await api().request("documents.apply", {
-      edits,
-      ...(label !== undefined && { label }),
-    });
+    const result = token
+      ? {
+          changes:
+            (await commitTokenWith(token, { edits }, label)).changes ?? [],
+          created: [],
+        }
+      : await api().request("documents.apply", {
+          edits,
+          ...(label !== undefined && { label }),
+        });
     for (const change of result.changes) {
       useDocuments.getState().take(change);
     }

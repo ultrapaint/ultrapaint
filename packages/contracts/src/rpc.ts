@@ -363,12 +363,17 @@ const requestRpcs = [
   }),
   /**
    * The design system changed by the editor's operations (ADR 0045), in order, as one undo
-   * step; the code follows the values with `codeTokens: auto`. Returns the files written.
+   * step, with the documents' edits or the component's look change it carries made after them
+   * in the same step; the code follows the values with `codeTokens: auto`. Returns the files
+   * written, and what changed in each document edited, as `documents.apply` does.
    */
   Rpc.make("designSystem.edit", {
     error: Schema.Union([BadRequest, NotConfigured]),
     payload: DesignSystemEditInput,
-    success: Schema.Struct({ files: Schema.Array(Schema.String) }),
+    success: Schema.Struct({
+      changes: Schema.optional(Schema.Array(DocumentChange)),
+      files: Schema.Array(Schema.String),
+    }),
   }),
   /**
    * A whole design system saved, with DESIGN.md when given: a look chosen on the look page (ADR

@@ -1,4 +1,7 @@
-import type { AppComponentFile } from "@ultrapaint/contracts/components";
+import type {
+  AppComponentFile,
+  ComponentChange,
+} from "@ultrapaint/contracts/components";
 import {
   DESIGN_SYSTEM_FILE,
   type DesignFinding,
@@ -6,7 +9,11 @@ import {
   type DesignSystemState,
 } from "@ultrapaint/contracts/design-system";
 import type { DesignSystemEdit } from "@ultrapaint/contracts/design-system-edit";
-import type { DesignNode } from "@ultrapaint/contracts/document";
+import type {
+  DesignNode,
+  DocumentChange,
+  DocumentEdit,
+} from "@ultrapaint/contracts/document";
 import { BadRequest } from "@ultrapaint/contracts/errors";
 import type { Page } from "@ultrapaint/contracts/pages";
 import { tokenChangesBetween } from "@ultrapaint/contracts/token-table";
@@ -41,6 +48,7 @@ import {
   readGivenDesignSystem,
   writeDesignSystem,
 } from "./design-system-files.ts";
+import { type ApplyStep, DocumentService } from "./documents.ts";
 import { DESIGN_TOKENS_FILE } from "./dtcg.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { FigmaBaseline } from "./figma-baseline.ts";
@@ -56,6 +64,17 @@ const hrefOf = (pages: readonly Page[], link: string): string =>
   linkTargetOf(link)?.kind === "page"
     ? (pageOfLink(pages, link)?.route ?? link)
     : link;
+
+/**
+ * What a design system edit carries into its undo step, a field set to the token it makes (ADR
+ * 0136): the documents' edits, or one system component's look changed.
+ */
+export interface CarriedEdits {
+  readonly component?:
+    | { readonly change: ComponentChange; readonly name: string }
+    | undefined;
+  readonly edits?: readonly DocumentEdit[] | undefined;
+}
 
 /**
  * The design system as the project records it: `design-system.json` at the root of the designs
@@ -84,14 +103,22 @@ export class DesignSystemService extends Context.Service<
   {
     readonly detect: Effect.Effect<DesignSystem, EditFailure>;
     /**
-     * The editor's operations made in order (ADR 0045, `applyEdits`) and saved as one undo step.
-     * Nothing is written when one does not fit. Returns the files written, the code's with
-     * `codeTokens: auto`.
+     * The editor's operations made in order (ADR 0045, `applyEdits`) and saved as one undo step,
+     * with what they carry made after them in the same step: documents' edits, or a component's
+     * look changed (ADR 0136). Nothing is written when one does not fit. Returns the files written,
+     * the code's with `codeTokens: auto`, and what changed in each document edited.
      */
     readonly edit: (
       ops: readonly DesignSystemEdit[],
-      label?: string
-    ) => Effect.Effect<{ readonly files: readonly string[] }, BadRequest>;
+      label?: string,
+      carried?: CarriedEdits
+    ) => Effect.Effect<
+      {
+        readonly changes?: readonly DocumentChange[];
+        readonly files: readonly string[];
+      },
+      BadRequest
+    >;
     readonly get: Effect.Effect<DesignSystemState>;
     /**
      * The state read again, the stylesheets and the components from scratch: after a change to
@@ -162,7 +189,12 @@ export class DesignSystemService extends Context.Service<
       const figma = yield* FigmaBaseline;
       const styleSystem = yield* ProjectStyleSystem;
       // The Code tab lays an instance's children out as the components' slots do (ADR 0042).
-      const { catalogue, components: componentFiles } = yield* ComponentService;
+      const {
+        catalogue,
+        change: changeComponent,
+        components: componentFiles,
+      } = yield* ComponentService;
+      const documents = yield* DocumentService;
       const pages = yield* PagesService;
       const events = yield* EventBus;
       const fs = yield* FileSystem.FileSystem;
@@ -269,48 +301,53 @@ export class DesignSystemService extends Context.Service<
         readonly result: R;
       }
 
-      /**
-       * The one way the design system is written. `make` is given the design system as the step
-       * finds it, under the journal's lock, and says what to save; the files are written in one
-       * undo step, the baselines as the file has them. Then, outside the undo history: the
-       * baselines `make` gave are moved, the code is told what changed in the tokens' values
-       * (`codeTokens: auto`; nothing when there was no design system before, which the code is
-       * where it came from), what the code and the design system agree on is moved, and DESIGN.md's
-       * front matter follows. All of it is done before the write returns: whoever reads the
-       * files next reads them current.
-       */
-      const save = <R, E>(
-        label: string,
+      /** What `writeIn` wrote, for `settle` to follow once its step is over. */
+      interface Written<R> {
+        readonly before: DesignSystem | null;
+        readonly saved: DesignSystem;
+        readonly saving: Saving<R>;
+      }
+
+      /** The files of a step of `save` written in `tx`, the step `save`'s own or another's. */
+      const writeIn = <R, E>(
+        tx: EditTransaction,
         make: (read: DesignSystemRead) => Effect.Effect<Saving<R>, E>
       ) =>
         Effect.gen(function* () {
-          const { before, saved, saving } = yield* journal.transaction(
-            label,
-            (tx) =>
-              Effect.gen(function* () {
-                const read = yield* readIn(tx);
-                if (read.tokensProblem !== null) {
-                  return yield* new BadRequest({
-                    message: `${read.tokensProblem}. The design system is written again once it reads.`,
-                  });
-                }
-                const made = yield* make(read);
-                const kept = keepBaselines(
-                  made.designSystem,
-                  read.designSystem
-                );
-                const texts = writeDesignSystem(kept);
-                yield* tx.write(systemRel, texts.system);
-                yield* tx.write(tokensRel, texts.tokens);
-                if (made.document) {
-                  yield* tx.write(designMd.file, made.document.text);
-                  if (made.document.replaces) {
-                    yield* tx.remove(made.document.replaces);
-                  }
-                }
-                return { before: read.designSystem, saved: kept, saving: made };
-              })
-          );
+          const read = yield* readIn(tx);
+          if (read.tokensProblem !== null) {
+            return yield* new BadRequest({
+              message: `${read.tokensProblem}. The design system is written again once it reads.`,
+            });
+          }
+          const made = yield* make(read);
+          const kept = keepBaselines(made.designSystem, read.designSystem);
+          const texts = writeDesignSystem(kept);
+          yield* tx.write(systemRel, texts.system);
+          yield* tx.write(tokensRel, texts.tokens);
+          if (made.document) {
+            yield* tx.write(designMd.file, made.document.text);
+            if (made.document.replaces) {
+              yield* tx.remove(made.document.replaces);
+            }
+          }
+          return {
+            before: read.designSystem,
+            saved: kept,
+            saving: made,
+          } satisfies Written<R>;
+        });
+
+      /**
+       * What follows a step that wrote the design system, outside the undo history: the baselines
+       * `make` gave are moved, the code is told what changed in the tokens' values (`codeTokens:
+       * auto`; nothing when there was no design system before, which the code is where it came
+       * from), what the code and the design system agree on is moved, and DESIGN.md's front matter
+       * follows. All of it is done before the write returns: whoever reads the files next reads
+       * them current.
+       */
+      const settle = <R>({ before, saved, saving }: Written<R>) =>
+        Effect.gen(function* () {
           for (const [side, baseline] of Object.entries(
             saving.baselines ?? {}
           ) as [BaselineSide, Baselines[BaselineSide]][]) {
@@ -335,14 +372,33 @@ export class DesignSystemService extends Context.Service<
           };
         });
 
+      /**
+       * The one way the design system is written. `make` is given the design system as the step
+       * finds it, under the journal's lock, and says what to save; the files are written in one
+       * undo step, the baselines as the file has them (`writeIn`), and what follows is `settle`'s.
+       */
+      const save = <R, E>(
+        label: string,
+        make: (read: DesignSystemRead) => Effect.Effect<Saving<R>, E>
+      ) =>
+        Effect.flatMap(
+          journal.transaction(label, (tx) => writeIn(tx, make)),
+          settle
+        );
+
       const noDesignSystem = new BadRequest({
         message:
           "There is no design system yet to change a token in: Sync makes one.",
       });
 
       const edit = Effect.fn("DesignSystemService.edit")(
-        function* (ops: readonly DesignSystemEdit[], label?: string) {
-          const { files } = yield* save(label ?? editLabel(ops), (read) => {
+        function* (
+          ops: readonly DesignSystemEdit[],
+          label?: string,
+          carried: CarriedEdits = {}
+        ) {
+          const named = label ?? editLabel(ops);
+          const make = (read: DesignSystemRead) => {
             if (!read.designSystem) {
               return Effect.fail(noDesignSystem);
             }
@@ -350,8 +406,30 @@ export class DesignSystemService extends Context.Service<
             return "problem" in next
               ? Effect.fail(new BadRequest({ message: next.problem }))
               : Effect.succeed({ designSystem: next, result: null });
-          });
-          return { files };
+          };
+          const { component, edits = [] } = carried;
+          if (!component && edits.length === 0) {
+            const { files } = yield* save(named, make);
+            return { files };
+          }
+          // The design system is written first in the step that writes what it carries, under
+          // the step's name, and followed once the step is over.
+          let written: Written<null> | undefined;
+          const alongside = (step: ApplyStep) =>
+            Effect.gen(function* () {
+              yield* step.tx.name(named);
+              written = yield* writeIn(step.tx, make);
+            });
+          const changes = component
+            ? yield* Effect.as(
+                changeComponent(component.name, component.change, alongside),
+                undefined
+              )
+            : (yield* documents.apply({ edits, label: named }, (step) =>
+                Effect.as(alongside(step), undefined)
+              )).changes;
+          const { files } = written ? yield* settle(written) : { files: [] };
+          return { files, ...(changes && { changes }) };
         },
         Effect.mapError((error) =>
           error._tag === "BadRequest"

@@ -7,7 +7,9 @@
  * Renaming a token, which rewrites the pages and the code, and gradient tokens are not here yet.
  */
 import { Schema } from "effect";
+import { ComponentChange } from "./components.ts";
 import { TextStyle } from "./design-system.ts";
+import { DocumentEdit } from "./document.ts";
 
 export const DesignSystemEdit = Schema.Union([
   /**
@@ -61,6 +63,19 @@ export const DesignSystemEdit = Schema.Union([
 export type DesignSystemEdit = typeof DesignSystemEdit.Type;
 
 export const DesignSystemEditInput = Schema.Struct({
+  /**
+   * A system component's look changed in the same step, after the operations, as
+   * `components.change` changes it: a look's field set to the token a new token from its value
+   * made (ADR 0136). Not with `edits`.
+   */
+  component: Schema.optional(
+    Schema.Struct({ change: ComponentChange, name: Schema.String })
+  ),
+  /**
+   * Documents edited in the same step, after the operations, as `documents.apply` edits them: a
+   * node's field set to the token a new token from its value made (ADR 0136).
+   */
+  edits: Schema.optional(Schema.Array(DocumentEdit)),
   /** What the undo history calls the step; one is made up from the operations otherwise. */
   label: Schema.optional(Schema.String),
   ops: Schema.Array(DesignSystemEdit),

@@ -31,7 +31,55 @@ export interface StyleOption {
 interface Item extends StyleOption {
   /** Built from the query rather than taken from the design system's options. */
   custom?: boolean;
+  /** What a way's token comes to, after its name: `#2563eb`. */
+  shown?: string;
+  /** A way onto the design system for the value outside it, drawn at the top (ADR 0136). */
+  way?: "nearest" | "new";
 }
+
+/** The nearest token to a value outside the design system, as its list offers it (ADR 0136). */
+export interface NearestRow {
+  /** What it is called: `primary`, `spacing-4.5`. */
+  readonly name: string;
+  /** What it comes to: `#2563eb`, `18px`. */
+  readonly shown: string;
+  /** What picking it sets, as an option's value does. */
+  readonly value: string;
+}
+
+/** What New token from this value… picks, which no field takes as a value. */
+const NEW_TOKEN = "__newToken";
+
+/**
+ * The ways onto the design system the list starts with while nothing is typed and the value is
+ * outside it: Use nearest, when a token is near, then New token from this value….
+ */
+export const waysFor = (
+  nearest: NearestRow | null,
+  newToken: boolean
+): Item[] => [
+  ...(nearest
+    ? [
+        {
+          description: nearest.name,
+          label: "Use nearest",
+          value: nearest.value,
+          way: "nearest" as const,
+          ...(nearest.shown !== nearest.name && { shown: nearest.shown }),
+        },
+      ]
+    : []),
+  ...(newToken
+    ? [
+        {
+          internal: true,
+          label: "New token from this value…",
+          value: NEW_TOKEN,
+          way: "new" as const,
+        },
+      ]
+    : []),
+];
 
 const ArbitraryDot = ({ className }: { className?: string }) => (
   <Tooltip>
@@ -124,6 +172,16 @@ interface StyleComboboxProps {
    */
   hint?: string;
   leading?: React.ReactNode;
+  /**
+   * The nearest token to the value while it is outside the design system, offered first as Use
+   * nearest; asked for when the list opens.
+   */
+  nearest?: (() => NearestRow | null) | undefined;
+  /**
+   * Offers New token from this value… while the value is outside the design system; picked, it
+   * is told the field, to name the token by.
+   */
+  onNewToken?: ((field: HTMLElement) => void) | undefined;
   onPick: (cls: string) => void;
   /**
    * The value the list has highlighted while it is open (an option gone through, a value typed),
@@ -243,6 +301,8 @@ const ActiveCombobox = ({
   display,
   hint,
   leading,
+  nearest,
+  onNewToken,
   onPick,
   onPreview,
   options,
@@ -261,7 +321,11 @@ const ActiveCombobox = ({
   const selected = options.find((o) => o.value === current) ?? null;
   const arbitrary = current ? (outside?.(current) ?? false) : false;
 
-  const items = itemsFor(options, query, custom);
+  const ways =
+    open && arbitrary && query.trim() === ""
+      ? waysFor(nearest?.() ?? null, onNewToken !== undefined)
+      : [];
+  const items = [...ways, ...itemsFor(options, query, custom)];
 
   const onOpenChange = (next: boolean) => {
     setOpen(next);
@@ -271,7 +335,7 @@ const ActiveCombobox = ({
     }
   };
   const onItemHighlighted = (item: Item | undefined) =>
-    onPreview?.(item?.value ?? null);
+    onPreview?.(item && item.way !== "new" ? item.value : null);
   const onInputValueChange = (
     v: string,
     details: ComboboxPrimitive.Root.ChangeEventDetails
@@ -281,6 +345,12 @@ const ActiveCombobox = ({
     }
   };
   const onValueChange = (item: Item | null) => {
+    if (item?.way === "new") {
+      if (group.current) {
+        onNewToken?.(group.current);
+      }
+      return;
+    }
     if (item && item.value !== current) {
       onPick(item.value);
     }
@@ -352,19 +422,13 @@ const ActiveCombobox = ({
             <ComboboxItem
               className={cn(
                 "pr-7",
-                item.custom && "border-t border-dashed first:border-t-0"
+                item.custom && "border-t border-dashed first:border-t-0",
+                item.way === "new" && "border-b"
               )}
-              key={item.value}
+              key={item.way ? `way:${item.way}` : item.value}
               value={item}
             >
-              {item.custom ? (
-                <ArbitraryItem
-                  arbitrary={outside?.(item.value) ?? false}
-                  item={item}
-                />
-              ) : (
-                <Option item={item} />
-              )}
+              <ItemRow item={item} outside={outside} />
             </ComboboxItem>
           )}
         </ComboboxList>
@@ -382,6 +446,37 @@ const Option = ({ item }: { item: StyleOption }) => (
         <span key={hint}>{hint}</span>
       ))}
     </span>
+  </>
+);
+
+/** One item of the list as it is drawn: a way onto the system, a value typed, or an option. */
+const ItemRow = ({
+  item,
+  outside,
+}: {
+  item: Item;
+  outside: ((value: string) => boolean) | undefined;
+}) => {
+  if (item.way) {
+    return <WayItem item={item} />;
+  }
+  if (item.custom) {
+    return (
+      <ArbitraryItem arbitrary={outside?.(item.value) ?? false} item={item} />
+    );
+  }
+  return <Option item={item} />;
+};
+
+const WayItem = ({ item }: { item: Item }) => (
+  <>
+    <span className="truncate">{item.label}</span>
+    {item.way === "nearest" ? (
+      <span className="ml-auto flex items-center gap-1.5 pl-3 font-body-small text-muted-foreground">
+        <span>{item.description}</span>
+        {item.shown ? <span>{item.shown}</span> : null}
+      </span>
+    ) : null}
   </>
 );
 

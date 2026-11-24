@@ -2,11 +2,28 @@
  * A field over one value of a node: a number of pixels, a design token (`$color-primary`) or
  * plain CSS. The design system's tokens are the list, so they stay the easy path; anything else
  * is typed. Built on the style combobox, whose options are strings: numbers travel as their
- * decimal text and come back as numbers.
+ * decimal text and come back as numbers. A field that knows its kind of token offers a value
+ * outside the design system a way onto it (ADR 0136): the nearest token, or a new one made from it,
+ * which the field is set to in the same undo step.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
-import { isToken, tokenName } from "@ultrapaint/design-document/tokens";
+import { asTokenValue } from "@ultrapaint/contracts/nearest-token";
+import { isOffSystem } from "@ultrapaint/design-document/off-system";
+import {
+  isToken,
+  tokenName,
+  tokenRef,
+} from "@ultrapaint/design-document/tokens";
 import type * as React from "react";
+import { useState } from "react";
+import {
+  type ColorRole,
+  useWaysOnto,
+  type WaysOnto,
+} from "../lib/new-token.ts";
+import type { FieldTokenKind } from "../lib/token-options.tsx";
+import { makeTokenFor } from "../state/design-system.ts";
+import { NewTokenPopover } from "./new-token-popover.tsx";
 import { StyleCombobox, type StyleOption } from "./style-combobox.tsx";
 
 const NUMBER_RE = /^-?\d*\.?\d+$/;
@@ -68,13 +85,19 @@ const parseValue = (option: string): JsonValue => {
 /**
  * Whether a field's value, or a value typed in it, is outside the design system: set, and neither
  * a token (`$radius-lg`) nor one of the values the field offers (a step of the spacing scale,
- * `16px` as `16`; `fill`).
+ * `16px` as `16`; `fill`). A spacing field that knows its kind asks what the design's checks ask
+ * (`isOffSystem`): any whole or half step of the scale is on it, offered or not.
  */
 export const isOutsideDesignSystem = (
   option: string,
-  options: readonly StyleOption[]
+  options: readonly StyleOption[],
+  field?: WaysOnto["field"]
 ): boolean => {
-  const value = optionOf(parseValue(option));
+  const parsed = parseValue(option);
+  if (field?.kind === "spacing" && typeof parsed === "number") {
+    return isOffSystem("spacing", parsed, field.spacingBase);
+  }
+  const value = optionOf(parsed);
   return (
     value !== "" && !isToken(value) && !options.some((o) => o.value === value)
   );
@@ -93,6 +116,8 @@ export const displayOf = (value: JsonValue | undefined): string => {
 
 export const ValueField = ({
   autoOpen,
+  colors,
+  kind,
   value,
   options,
   onChange,
@@ -106,6 +131,13 @@ export const ValueField = ({
 }: {
   /** Opens the list as soon as it is drawn: the field was just added, to be given a value. */
   autoOpen?: boolean;
+  /** What a colour field colours, which names a new token's namespace in a detailed system. */
+  colors?: ColorRole;
+  /**
+   * The kind of token it takes: a value outside the design system is then offered the nearest
+   * token and a new token made from it (ADR 0136), and a spacing is on the system as the checks say.
+   */
+  kind?: FieldTokenKind;
   value: JsonValue | undefined;
   options: readonly StyleOption[];
   onChange: (value: JsonValue) => void;
@@ -128,24 +160,61 @@ export const ValueField = ({
   const current = optionOf(value);
   const custom = (query: string) => typedValue(query, accept);
   const withUnset = withClear(options, current);
+  const ways = useWaysOnto(kind, colors);
+  // The field a new token is being named for, which its popover is drawn by.
+  const [naming, setNaming] = useState<HTMLElement | null>(null);
+  const addToken = (name: string) => {
+    setNaming(null);
+    if (!ways || value === undefined || value === null) {
+      return;
+    }
+    makeTokenFor(
+      {
+        name,
+        op: "addToken",
+        value: asTokenValue(
+          ways.field.kind,
+          typeof value === "number" ? value : String(value)
+        ),
+      },
+      () => onChange(tokenRef(name))
+    );
+  };
   return (
-    <StyleCombobox
-      autoOpen={autoOpen}
-      className={className}
-      current={current}
-      custom={custom}
-      display={displayOf(value) || (placeholder ?? "")}
-      hint={hint}
-      leading={leading}
-      onPick={(picked) => onChange(parseValue(picked))}
-      onPreview={
-        onPreview &&
-        ((highlighted) =>
-          onPreview(highlighted === null ? undefined : parseValue(highlighted)))
-      }
-      options={withUnset}
-      outside={(option) => isOutsideDesignSystem(option, options)}
-      title={title}
-    />
+    <>
+      <StyleCombobox
+        autoOpen={autoOpen}
+        className={className}
+        current={current}
+        custom={custom}
+        display={displayOf(value) || (placeholder ?? "")}
+        hint={hint}
+        leading={leading}
+        nearest={ways ? () => ways.nearest(value) : undefined}
+        onNewToken={ways ? setNaming : undefined}
+        onPick={(picked) => onChange(parseValue(picked))}
+        onPreview={
+          onPreview &&
+          ((highlighted) =>
+            onPreview(
+              highlighted === null ? undefined : parseValue(highlighted)
+            ))
+        }
+        options={withUnset}
+        outside={(option) =>
+          isOutsideDesignSystem(option, options, ways?.field)
+        }
+        title={title}
+      />
+      {naming && ways ? (
+        <NewTokenPopover
+          anchor={naming}
+          nameOf={ways.nameOf}
+          onAdd={addToken}
+          onCancel={() => setNaming(null)}
+          prefix={ways.prefix}
+        />
+      ) : null}
+    </>
   );
 };

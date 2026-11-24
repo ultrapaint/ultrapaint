@@ -66,8 +66,14 @@ refactor and the board view left.
   kind's prefix (`card` for `color-card`). **The tokens with a value** are the tokens of a kind
   that hold it, by the token value's notion of the same value, in the design's order
   (`tokensByValue`); which of several to take is the caller's (Figma and the usage inventory the
-  first, Sync only one). A palette's **shade** is a colour token's step of a ramp, 50 to 950
-  (`shadeOf`, beside the ramp's steps).
+  first, Sync only one). The **nearest token** to a value is the token of its kind nearest to it,
+  each read in a theme: a colour within 0.1 in OKLab, a length in pixels, a weight or a unitless
+  line height as a number, a spacing a whole or half step of the scale unless a named spacing is
+  nearer; a font family and a shadow have none (contracts' `nearest-token`). A field whose value
+  is outside the design system offers two **ways onto the system** at the top of its list: **Use
+  nearest**, and **New token from this value…**, which makes the token and sets the field to it
+  in one undo step (`designSystem.edit` carrying the field's edit, ADR 0136). A palette's **shade**
+  is a colour token's step of a ramp, 50 to 950 (`shadeOf`, beside the ramp's steps).
 - **Token naming**: how a token another tool writes (a Figma variable or style, a Design Tokens
   file's token) becomes one of the design's: its **foreign path** (`Color/Text/Primary`,
   `font.size.sm`) and a **value hint** (what the tool says the value is) give its kind and name

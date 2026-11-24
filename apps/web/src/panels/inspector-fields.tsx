@@ -372,6 +372,7 @@ export const TokenField = ({
     <ValueField
       accept={(q) => !numeric || CSS.supports("width", q)}
       className={className}
+      kind={kind}
       onChange={onChange}
       options={options}
       placeholder={placeholder ?? "Default"}
@@ -402,6 +403,8 @@ export const NodeValueField = ({
     <ValueField
       accept={accept}
       autoOpen={autoOpen}
+      colors={field.colors}
+      kind={field.options}
       leading={leading}
       onChange={(v) => setField(field, v)}
       options={options}

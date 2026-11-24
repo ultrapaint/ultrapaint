@@ -37,6 +37,7 @@ import { type Pick, pickId } from "../boards/pick.ts";
 import { FOUNDATIONS } from "../boards/system-boards.ts";
 import { CutText } from "../components/cut-text.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
+import { takenName } from "../lib/new-token.ts";
 import {
   ownValueIn,
   rampEdits,
@@ -480,7 +481,7 @@ const AddToken = ({
       </Row>
       {taken ? (
         <span className="font-body-small text-destructive">
-          {name} exists already. Give the new token another name.
+          {takenName(name)}
         </span>
       ) : null}
       <Button

@@ -165,8 +165,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         components((c) => c.makeApp(id, nodeIds, name)),
       "components.remove": ({ name }) => components((c) => c.remove(name)),
       "designSystem.detect": () => designSystem((d) => d.detect),
-      "designSystem.edit": ({ label, ops }) =>
-        designSystem((d) => d.edit(ops, label)),
+      "designSystem.edit": ({ component, edits, label, ops }) =>
+        designSystem((d) => d.edit(ops, label, { component, edits })),
       "designSystem.get": () => designSystem((d) => d.get),
       "designSystem.placeDocument": () => designSystem((d) => d.placeDocument),
       "designSystem.setSection": ({ name, text }) =>

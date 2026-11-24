@@ -158,10 +158,13 @@ export class ComponentService extends Context.Service<
      * slots, one thing of a system component's look, a note added (its id made here) or taken
      * out. A property or a member renamed or taken out follows into the variants its tree keeps
      * and every instance's props, in every document as it is in the same undo step.
+     * `alongside` writes other files in that step, before the component's: the design system,
+     * for a token made with the change (ADR 0136).
      */
     readonly change: (
       name: string,
-      change: ComponentChange
+      change: ComponentChange,
+      alongside?: (step: ApplyStep) => Effect.Effect<void, EditFailure>
     ) => Effect.Effect<ComponentEntry, EditFailure | Conflict>;
     /**
      * A system component's file started from its default look (ADR 0040), so the design edits
@@ -282,12 +285,16 @@ export class ComponentService extends Context.Service<
         next: (
           now: ComponentRead | null
         ) => Effect.Effect<ComponentFile, BadRequest | NotFound>,
-        follow?: ComponentChange
+        follow?: ComponentChange,
+        alongside?: (step: ApplyStep) => Effect.Effect<void, EditFailure>
       ) {
         const file = componentFileOf(name);
         let saved: ComponentFile | undefined;
         yield* documents.apply({ edits: [], label }, (step) =>
           Effect.gen(function* () {
+            if (alongside) {
+              yield* alongside(step);
+            }
             const changed = yield* checked(yield* next(yield* fileNow(name)));
             yield* step.tx.write(repoOf(file), componentText(changed));
             saved = changed;
@@ -305,7 +312,8 @@ export class ComponentService extends Context.Service<
 
       const change = Effect.fn("ComponentService.change")(function* (
         name: string,
-        made: ComponentChange
+        made: ComponentChange,
+        alongside?: (step: ApplyStep) => Effect.Effect<void, EditFailure>
       ) {
         const noteId =
           made.op === "addNote" ? yield* makeId("note") : undefined;
@@ -327,7 +335,8 @@ export class ComponentService extends Context.Service<
               ? new BadRequest({ message: changed.problem })
               : Effect.succeed(changed);
           },
-          made
+          made,
+          alongside
         );
       });
 
