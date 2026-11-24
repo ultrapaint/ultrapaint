@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { create } from "zustand";
 import {
   type Chip,
+  chipKey,
   chipOfAttachment,
   setChips,
   useAttachments,
@@ -171,9 +172,33 @@ export const saveQueuedEdit = async (
 };
 
 /**
- * The prompt being edited left the queue some other way (another window sent or removed it):
- * the edit stays in the composer as a draft when the one set aside was empty, and is dropped
- * otherwise, as the reference product does.
+ * A prompt sent while a queued prompt was opened for editing over it: what was sent is taken off
+ * the draft set aside, and the edit is left as it is. Whether there was such an edit.
+ */
+export const clearedAside = (
+  threadId: string,
+  sent: string,
+  sentChips: readonly Chip[]
+) => {
+  const edit = useQueuedEdits.getState().byThread[threadId];
+  if (!edit) {
+    return false;
+  }
+  const gone = new Set(sentChips.map(chipKey));
+  const aside = {
+    chips: edit.aside.chips.filter((c) => !gone.has(chipKey(c))),
+    text: edit.aside.text === sent ? "" : edit.aside.text,
+  };
+  useQueuedEdits.setState((s) => ({
+    byThread: { ...s.byThread, [threadId]: { ...edit, aside } },
+  }));
+  return true;
+};
+
+/**
+ * The prompt being edited left the queue some other way (another window sent or removed it, or
+ * let its hold go): the edit stays in the composer as a draft when the one set aside was empty,
+ * and is dropped otherwise, as the reference product does.
  */
 export const lostQueuedEdit = (threadId: string) => {
   const edit = useQueuedEdits.getState().byThread[threadId];

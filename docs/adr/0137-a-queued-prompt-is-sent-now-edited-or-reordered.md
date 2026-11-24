@@ -61,11 +61,13 @@ that is being edited when the turn ends.
   some other way while being edited keeps the edit in an empty composer and drops it over a
   draft, as the reference product does.
 
-  An edit no window has open any more (the window closed or reloaded) reads "Being edited",
-  with Cancel and Edit, so it never holds the queue out of reach. A restart lets every edit
-  and every waiting steer go (`queueAtRest`).
+  One edit a thread at a time: opening one lets any other's hold go, and an edit whose hold
+  was let go (by another window) closes, its save refused. An edit no window has open any more
+  (the window closed or reloaded) reads "Being edited", with Cancel and Edit, so it never holds
+  the queue out of reach. A restart lets every edit and every waiting steer go (`queueAtRest`).
 - **A review round the person stops holds the queue**, as a stopped turn does: an edit finished
-  afterwards sends nothing.
+  afterwards sends nothing. After a restart, the hold is read off the transcript: the last turn
+  stopped or failed (`heldAtStart`).
 - **The person orders the queue.** Its prompts are dragged by a grip, and ⌥↑ ⌥↓ on the grip move
   one a place (`threads.moveQueued`). In an empty composer, ⌥↑ edits the last queued prompt and
   ⌘⇧Enter sends the first one now.

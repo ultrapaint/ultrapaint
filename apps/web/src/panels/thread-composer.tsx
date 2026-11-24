@@ -87,6 +87,7 @@ import { useRequest } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
 import {
   cancelQueuedEdit,
+  clearedAside,
   editQueued,
   saveQueuedEdit,
   useQueuedEdit,
@@ -266,7 +267,10 @@ export const Composer = ({ thread }: { thread: Thread }) => {
     try {
       const attachments = await collectAttachments(
         sentWith,
-        attachShot && page ? { frameId: shotFrame, name: page.name } : null
+        // A screenshot asked for is the draft's: an edited queued prompt keeps what it had.
+        attachShot && page && editedId === undefined
+          ? { frameId: shotFrame, name: page.name }
+          : null
       );
       await sendOrUpdate(sent, attachments, sentChips, alternate, editedId);
     } catch (error) {
@@ -309,6 +313,11 @@ export const Composer = ({ thread }: { thread: Thread }) => {
       text: sent,
       threadId: thread.id,
     });
+    // A queued prompt opened for editing while it went has the composer: what was sent is
+    // taken off the draft set aside for it instead.
+    if (clearedAside(thread.id, sent, sentChips)) {
+      return;
+    }
     // What was typed while it went is the next prompt, and stays.
     setText((current) => (current === sent ? "" : current));
     clearChips(thread.id, sentChips);

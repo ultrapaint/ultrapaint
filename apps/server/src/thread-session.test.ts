@@ -22,6 +22,7 @@ import { History } from "./services/history.ts";
 import { AgentDiscovery } from "./services/threads/agent-discovery.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
 import {
+  heldAtStart,
   statusAfter,
   type ThreadSession,
   ThreadSessions,
@@ -1788,6 +1789,51 @@ describe("editing a queued prompt (ADR 0137)", () => {
       assert.isTrue(next.prompt.some((block) => block.type === "image"));
     }));
 
+  test("is one at a time: opening another lets the first one's hold go", () =>
+    Effect.gen(function* () {
+      const store = yield* ThreadStore;
+      const { threadId } = yield* started("first");
+      yield* send(threadId, "second");
+      yield* send(threadId, "third");
+      const second = yield* queuedId(threadId, "second");
+      const third = yield* queuedId(threadId, "third");
+      yield* onThread(threadId, (s) =>
+        s.editQueued(second, { action: "start" })
+      );
+      yield* onThread(threadId, (s) =>
+        s.editQueued(third, { action: "start" })
+      );
+      assert.deepStrictEqual(
+        (yield* store.get(threadId))?.queued?.map((q) => [q.text, q.editing]),
+        [
+          ["second", undefined],
+          ["third", true],
+        ]
+      );
+    }));
+
+  test("refuses a save from an edit whose hold was let go meanwhile", () =>
+    Effect.gen(function* () {
+      const store = yield* ThreadStore;
+      const { threadId } = yield* started("first");
+      yield* send(threadId, "second");
+      const id = yield* queuedId(threadId, "second");
+      yield* onThread(threadId, (s) => s.editQueued(id, { action: "start" }));
+      yield* onThread(threadId, (s) => s.editQueued(id, { action: "cancel" }));
+      const refused = yield* Effect.result(
+        onThread(threadId, (s) =>
+          s.editQueued(id, { action: "save", attachments: [], text: "stale" })
+        )
+      );
+      assert.isTrue(
+        Result.isFailure(refused) && refused.failure._tag === "Conflict"
+      );
+      assert.deepStrictEqual(
+        (yield* store.get(threadId))?.queued?.map((q) => q.text),
+        ["second"]
+      );
+    }));
+
   test("answers nothing for a prompt no longer queued", () =>
     Effect.gen(function* () {
       const { threadId } = yield* started("first");
@@ -1825,6 +1871,29 @@ describe("reordering the queue (ADR 0137)", () => {
       const next = yield* agent.nextTurn;
       assert.include(next.texts, "third");
     }));
+});
+
+describe("a queue held at start (ADR 0137)", () => {
+  const end = (stopReason: "end_turn" | "cancelled"): ThreadItem => ({
+    at: 1,
+    changedFiles: [],
+    id: `end_${stopReason}`,
+    kind: "turn_end",
+    stopReason,
+  });
+  const failed: ThreadItem = {
+    at: 2,
+    id: "failed",
+    kind: "status",
+    text: "Turn failed: overloaded",
+  };
+
+  it("waits after a turn that was stopped or failed, and not after one that ended by itself", () => {
+    assert.isTrue(heldAtStart([end("cancelled")]));
+    assert.isTrue(heldAtStart([end("end_turn"), failed]));
+    assert.isFalse(heldAtStart([failed, end("end_turn")]));
+    assert.isFalse(heldAtStart([]));
+  });
 });
 
 describe("the thread's status", () => {

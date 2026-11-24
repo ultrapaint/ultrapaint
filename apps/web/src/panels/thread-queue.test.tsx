@@ -3,6 +3,7 @@ import "../testing/fake-browser.ts";
 import type { QueuedPrompt, Thread } from "@ultrapaint/contracts/threads";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { imageChip } from "../lib/file-chips.ts";
 import { useAgents } from "../state/agents.ts";
@@ -15,6 +16,11 @@ import { useSlashCommands } from "../state/slash-commands.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { Composer } from "./thread-composer.tsx";
 import { QueuedPrompts } from "./thread-queue.tsx";
+
+vi.mock("sonner", async (original) => ({
+  ...(await original<typeof import("sonner")>()),
+  toast: vi.fn(),
+}));
 
 vi.mock(
   "../state/connection.ts",
@@ -115,6 +121,7 @@ afterEach(() => {
   useSkills.setState({ loaded: false, skills: [] });
   useAgents.setState({ current: null, view: "list" });
   useProject.setState({ error: null });
+  vi.mocked(toast).mockClear();
 });
 
 describe("a queued prompt (ADR 0137)", () => {
@@ -365,7 +372,7 @@ describe("editing a queued prompt", () => {
       await Promise.resolve();
     });
     expect(prompt()?.value).toBe("");
-    expect(document.body.textContent).not.toContain("no longer queued");
+    expect(toast).not.toHaveBeenCalled();
   });
 
   it("saves the attachments no chip shows as they were", async () => {
@@ -413,6 +420,18 @@ describe("editing a queued prompt", () => {
     render(running([]));
     expect(prompt()?.value).toBe("Make the header taller, and bold");
     expect(useQueuedEdits.getState().byThread.t1).toBeUndefined();
+  });
+
+  it("is closed when another window lets its hold go", async () => {
+    render(running([header]));
+    type("and the footer shorter");
+    await edit();
+    render(running([{ ...header, editing: true }]));
+    expect(useQueuedEdits.getState().byThread.t1).toBeDefined();
+    render(running([header]));
+    expect(useQueuedEdits.getState().byThread.t1).toBeUndefined();
+    expect(prompt()?.value).toBe("and the footer shorter");
+    expect(toast).toHaveBeenCalled();
   });
 
   it("drops the edit, and brings the draft back, when its prompt left the queue over a draft", async () => {

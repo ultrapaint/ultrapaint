@@ -234,6 +234,21 @@ const queuedToSend = (
     : chosen;
 };
 
+/**
+ * Whether the last turn a transcript holds was stopped or failed, so its queue waits for the
+ * person (ADR 0137): read at start, when no turn has ended since the server started.
+ */
+export const heldAtStart = (items: readonly ThreadItem[]): boolean => {
+  const last = items.findLast(
+    (i) =>
+      i.kind === "turn_end" ||
+      (i.kind === "status" && i.text.startsWith("Turn failed:"))
+  );
+  return last?.kind === "turn_end"
+    ? last.stopReason === "cancelled"
+    : last !== undefined;
+};
+
 // ---- the session ----
 
 /** The live ACP session, while there is one. */
@@ -380,7 +395,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
      * The last turn was stopped or failed: its queue waits for the person's Send now, an edit
      * finished meanwhile included (ADR 0018, 0137). A prompt that opens a turn lets it go.
      */
-    let heldByStop = false;
+    let heldByStop: boolean | null = null;
     /**
      * The queued prompt whose steer is on its way to the agent: it is neither sent as a turn nor
      * edited until the agent has answered, so it reaches the agent once.
@@ -677,8 +692,17 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
         // Stopped for a queued prompt sent now: it goes in the round's place.
         const chosen = afterReviewWith;
         afterReviewWith = null;
+        // One edited meanwhile, in another window, stays for its edit.
         const sentNow =
-          chosen === null ? null : yield* taking.withPermit(takeQueued(chosen));
+          chosen === null
+            ? null
+            : yield* taking.withPermit(
+                Effect.flatMap(queueOf, (queue) =>
+                  queue.find((q) => q.id === chosen)?.editing
+                    ? Effect.succeed(null)
+                    : takeQueued(chosen)
+                )
+              );
         const ended = yield* prompting.withPermit(
           Effect.gen(function* () {
             yield* transition({ _tag: "ReviewEnded" });
@@ -1031,7 +1055,12 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
     const resumeQueue: Effect.Effect<void, ThreadFailure> = Effect.gen(
       function* () {
         const thread = yield* store.get(threadId);
-        if (thread?.status !== "idle" || reviewing !== null || heldByStop) {
+        if (thread?.status !== "idle" || reviewing !== null) {
+          return;
+        }
+        // No turn ended since the server started: the transcript says how the last one did.
+        const held = heldByStop ?? heldAtStart(yield* store.items(threadId));
+        if (held) {
           return;
         }
         yield* sendQueued;
@@ -1092,6 +1121,8 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
         steer: true,
         text: queued.text,
       });
+      // Its turn may have ended while the agent answered, the queue held for it meanwhile.
+      yield* resumeQueue;
     });
 
     const steerAfterStep = (id: string): Effect.Effect<void, ThreadFailure> =>
@@ -1182,6 +1213,12 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
               message: "the prompt is on its way to the agent",
             });
           }
+          // Its hold let go meanwhile, by another window: this edit no longer has it.
+          if (edit.action === "save" && !queued.editing) {
+            return yield* new Conflict({
+              message: "the prompt is no longer being edited here",
+            });
+          }
           const next: QueuedPrompt =
             edit.action === "start"
               ? { ...queued, editing: true, steering: undefined }
@@ -1193,7 +1230,19 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
                   }),
                   editing: undefined,
                 };
-          yield* changeQueued(id, () => next);
+          // One edit a thread at a time: opening one lets any other go, so no hold is left
+          // behind that no window has open.
+          const queue = yield* queueOf;
+          yield* store.update(threadId, {
+            queued: queue.map((q) => {
+              if (q.id === id) {
+                return next;
+              }
+              return edit.action === "start" && q.editing
+                ? { ...q, editing: undefined }
+                : q;
+            }),
+          });
           return next;
         })
       );
@@ -1474,8 +1523,18 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
         ),
       unqueue: (id) =>
         detached(
-          Effect.tap(taking.withPermit(takeQueued(id)), (taken) =>
-            taken?.editing ? resumeQueue : Effect.void
+          Effect.tap(
+            Effect.suspend(
+              (): Effect.Effect<QueuedPrompt | null, ThreadFailure> =>
+                id === delivering
+                  ? Effect.fail(
+                      new Conflict({
+                        message: "the prompt is on its way to the agent",
+                      })
+                    )
+                  : taking.withPermit(takeQueued(id))
+            ),
+            (taken) => (taken?.editing ? resumeQueue : Effect.void)
           )
         ),
     };
