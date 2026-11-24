@@ -5,7 +5,7 @@
  * Pure.
  */
 
-import type { ThreadItem } from "@ultrapaint/contracts/threads";
+import { answeredInTurn, type ThreadItem } from "@ultrapaint/contracts/threads";
 import { answersText } from "./elicitation.ts";
 
 /** Past this a message is cut: the agent needs the thread of the conversation, not every word. */
@@ -28,11 +28,12 @@ const lineOf = (item: ThreadItem): string | null => {
       if (item.answers === null) {
         return `(Assistant asked: ${item.questions.map((q) => q.question).join(" / ")}; ${item.outcome === "declined" ? "the user declined" : "not answered"})`;
       }
-      // Answers sent as a prompt are in the transcript already; answers to a card the agent
-      // waited on went back through the tool, and only the recap can carry them.
-      return item.elicitation === undefined
-        ? null
-        : `(${answersText(item.questions, item.answers)})`;
+      // Answers sent as a prompt are in the transcript already (a card a restart let go among
+      // them); answers to a card the agent waited on went back through the tool, and only the
+      // recap can carry them.
+      return answeredInTurn(item)
+        ? `(${answersText(item.questions, item.answers)})`
+        : null;
     case "status":
       return `(${item.text})`;
     case "turn_end":

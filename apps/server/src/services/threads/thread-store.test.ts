@@ -221,4 +221,94 @@ describe("ThreadStore", () => {
         ]);
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
   );
+
+  it.effect(
+    "settles the cards left open by the server before: a permission expires, a question waited on stays answerable by the next prompt",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const home = yield* fs.makeTempDirectoryScoped();
+        yield* fs.makeDirectory(path.join(home, "threads"));
+        const question = {
+          answers: null,
+          at: 1,
+          id: "item_asked",
+          kind: "question" as const,
+          questions: [{ id: "plan", options: [], question: "Which plan?" }],
+        };
+        yield* fs.writeFileString(
+          path.join(home, "threads", `${THREAD.id}.json`),
+          JSON.stringify({
+            items: [
+              {
+                at: 1,
+                decision: null,
+                id: "perm_open",
+                kind: "permission",
+                options: [],
+                requestId: "perm_open",
+                title: "Edit home",
+              },
+              {
+                at: 1,
+                decision: "allow",
+                id: "perm_done",
+                kind: "permission",
+                options: [],
+                requestId: "perm_done",
+                title: "Edit home",
+              },
+              {
+                ...question,
+                elicitation: { message: "The agent asks" },
+                id: "item_waited",
+              },
+              question,
+              { ...question, id: "item_old", outcome: "cancelled" },
+            ],
+            thread: THREAD,
+          })
+        );
+        const items = yield* Effect.gen(function* () {
+          const store = yield* ThreadStore;
+          return yield* store.items(THREAD.id);
+        }).pipe(Effect.provide(storeIn(home)));
+        const byId = new Map(items.map((i) => [i.id, i]));
+        const open = byId.get("perm_open");
+        assert.strictEqual(
+          open?.kind === "permission" && open.decision,
+          "expired"
+        );
+        assert.strictEqual(
+          open?.kind === "permission" && open.settled?.how,
+          "expired"
+        );
+        assert.strictEqual(
+          byId.get("perm_done")?.kind === "permission" &&
+            (byId.get("perm_done") as { decision: string }).decision,
+          "allow"
+        );
+        const waited = byId.get("item_waited");
+        assert.isTrue(
+          waited?.kind === "question" &&
+            waited.restartedAt !== undefined &&
+            waited.answers === null &&
+            waited.outcome === undefined
+        );
+        // The cards no agent waited on, and those settled already, read as they did.
+        assert.deepStrictEqual(byId.get("item_asked"), question);
+        assert.deepStrictEqual(byId.get("item_old"), {
+          ...question,
+          id: "item_old",
+          outcome: "cancelled",
+        });
+        // Written back, so a second restart finds them settled.
+        const stored = yield* storedIn(home);
+        assert.strictEqual(
+          (stored.items[0] as { decision?: string }).decision,
+          "expired"
+        );
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
 });

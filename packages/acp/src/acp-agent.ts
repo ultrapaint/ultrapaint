@@ -8,6 +8,8 @@
  */
 import { pathToFileURL } from "node:url";
 import {
+  type Stream as AcpStream,
+  type AnyMessage,
   type ContentBlock,
   type CreateElicitationRequest,
   type CreateElicitationResponse,
@@ -40,6 +42,7 @@ import {
   type Cause,
   Deferred,
   Effect,
+  Exit,
   Predicate,
   Queue,
   Result,
@@ -60,6 +63,7 @@ import type { AgentLaunch } from "./sandbox.ts";
 import { makeUpdates, type Updates } from "./updates.ts";
 
 export type {
+  AnyMessage,
   ContentBlock,
   CreateElicitationRequest,
   CreateElicitationResponse,
@@ -79,11 +83,21 @@ export type {
   SessionUpdate,
   SetSessionConfigOptionResponse,
   StopReason,
+  Stream as AcpStream,
   ToolCallContent,
   ToolCallLocation,
   ToolCallUpdate,
   WriteTextFileRequest,
 } from "@agentclientprotocol/sdk";
+
+/**
+ * Completes once the response a handler returned has gone to the agent: true when it was written,
+ * false when it could not be, the agent having exited or the connection closed first (ADR 0125).
+ */
+export type Written = Effect.Effect<boolean>;
+
+/** The response of a host that answers at once, and can tell no write. */
+export const writtenAtOnce: Written = Effect.succeed(true);
 
 /**
  * What the host does on behalf of the agent. A failing handler is reported to the agent as a
@@ -93,13 +107,17 @@ export type {
 export interface AcpHandlers {
   /**
    * Questions for the user from an MCP server the agent called, waited on within the turn. The
-   * editor says it draws forms; anything it cannot draw it declines.
+   * editor says it draws forms; anything it cannot draw it declines. `written` tells when the
+   * response reached the agent.
    */
   readonly onElicitation: (
-    request: CreateElicitationRequest
+    request: CreateElicitationRequest,
+    written: Written
   ) => Effect.Effect<CreateElicitationResponse>;
+  /** A permission the agent asks for; `written` tells when the pick reached it. */
   readonly onPermission: (
-    request: RequestPermissionRequest
+    request: RequestPermissionRequest,
+    written: Written
   ) => Effect.Effect<RequestPermissionResponse>;
   readonly onStderr: (text: string) => Effect.Effect<void>;
   /**
@@ -294,93 +312,88 @@ export const signalOf = (error: { readonly cause?: unknown }): string => {
 };
 
 /**
- * Starts the agent described by a launch: command, args and env, already wrapped in whatever
- * confines it. The process and the connection end with the surrounding scope.
+ * A response the editor wrote to the agent, by the id of the request it answers: what the stream
+ * the SDK writes to tells, once the write went through.
  */
-export const spawnAcpAgent = (
-  launch: AgentLaunch,
-  options: {
-    /** The editor's own version, which `initialize` tells the agent. */
-    readonly clientVersion: string;
-    readonly cwd: string;
-    /**
-     * The environment the agent starts from, under the launch's own variables: the server's
-     * (`ServerConfig`), not whatever the process happens to have.
-     */
-    readonly env: Readonly<Record<string, string>>;
-    readonly handlers: AcpHandlers;
-  }
-): Effect.Effect<
-  AcpAgent,
-  AcpSpawnError,
-  Scope.Scope | ChildProcessSpawner.ChildProcessSpawner
-> =>
+const responseId = (message: AnyMessage) =>
+  "method" in message ? undefined : message.id;
+
+/**
+ * The editor's side of ACP over `stream`, the agent's messages in and the editor's out, for as
+ * long as the scope: a process's stdio (`spawnAcpAgent`), or an agent in memory a test plays.
+ * `exited` completes when the agent is gone, which fails the calls in flight.
+ */
+export const connectAcpAgent = (options: {
+  readonly clientVersion: string;
+  readonly exited: Deferred.Deferred<AcpExit>;
+  readonly handlers: AcpHandlers;
+  readonly pid: number | undefined;
+  readonly stream: AcpStream;
+}): Effect.Effect<AcpAgent, never, Scope.Scope> =>
   Effect.gen(function* () {
-    const { handlers } = options;
+    const { handlers, exited: exitSignal } = options;
     const context = yield* Effect.context<never>();
     const run = Effect.runPromiseWith(context);
-    const exitSignal = yield* Deferred.make<AcpExit>();
     // The SDK answers a request synchronously but dispatches notifications through an async
     // handler chain, so updates sent before a response can reach us a few microtasks after it.
     // One macrotask later they have all been received.
     const updates = yield* makeUpdates(handlers.onUpdate, nextMacrotask);
     let initialized = BASELINE;
 
-    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-    // What the SDK writes, to the agent's stdin; ended when the SDK closes its side.
-    const input = yield* Queue.unbounded<Uint8Array, Cause.Done>();
-    const child = yield* spawner
-      .spawn(
-        ChildProcess.make(launch.command, launch.args, {
-          cwd: options.cwd,
-          // Its own process group (the spawner's default): `npx` starts the real agent as a
-          // grandchild, and stopping the agent stops the group.
-          env: { ...options.env, ...launch.env },
-          extendEnv: false,
-          forceKillAfter: KILL_AFTER,
-          stdin: Stream.fromQueue(input),
-        })
-      )
-      .pipe(
-        Effect.mapError(
-          (error) =>
-            new AcpSpawnError({
-              command: launch.command,
-              message: error.message,
-            })
-        )
-      );
-    // Detached: it ends with the process, which the scope stops, and says how it ended to
-    // whoever waits, the scope's own finalizers included.
-    yield* child.exitCode.pipe(
-      Effect.match({
-        onFailure: (error): AcpExit => ({
-          code: null,
-          signal: signalOf(error),
-        }),
-        onSuccess: (code): AcpExit => ({ code, signal: null }),
-      }),
-      Effect.flatMap((exit) => Deferred.succeed(exitSignal, exit)),
-      Effect.forkDetach
+    /*
+     * The responses a handler waits to hear were written, by the id of the request they answer
+     * (ADR 0125). Settled true once the SDK's write went through, false when it failed, or when
+     * the agent or the connection is gone before it was made.
+     */
+    const acks = new Map<string | number | null, Deferred.Deferred<boolean>>();
+    const settle = (id: string | number | null, written: boolean) => {
+      const ack = acks.get(id);
+      if (ack !== undefined) {
+        acks.delete(id);
+        Deferred.doneUnsafe(ack, Exit.succeed(written));
+      }
+    };
+    const settleAll = () => {
+      for (const id of [...acks.keys()]) {
+        settle(id, false);
+      }
+    };
+    yield* Effect.forkScoped(
+      Effect.andThen(Deferred.await(exitSignal), Effect.sync(settleAll))
     );
-    yield* child.stderr.pipe(
-      Stream.decodeText(),
-      Stream.runForEach((text) => handlers.onStderr(text.trimEnd())),
-      Effect.ignore,
-      Effect.forkScoped
-    );
-
-    const stream = ndJsonStream(
-      new WritableStream<Uint8Array>({
-        close: () => {
-          Queue.endUnsafe(input);
-        },
-        write: (chunk) => {
-          Queue.offerUnsafe(input, chunk);
+    let gone = false;
+    const writer = options.stream.writable.getWriter();
+    const stream: AcpStream = {
+      readable: options.stream.readable,
+      writable: new WritableStream<AnyMessage>({
+        abort: (reason) => writer.abort(reason),
+        close: () => writer.close(),
+        write: async (message) => {
+          const id = responseId(message);
+          try {
+            await writer.write(message);
+          } catch (error) {
+            if (id !== undefined) {
+              settle(id, false);
+            }
+            throw error;
+          }
+          if (id !== undefined) {
+            settle(id, true);
+          }
         },
       }),
-      Stream.toReadableStreamWith(child.stdout, context)
-    );
+    };
+    /** What a handler is given to hear its response was written, for the request `id`. */
+    const writtenFor = (id: string | number | null): Written => {
+      const ack = Deferred.makeUnsafe<boolean>();
+      if (gone || Deferred.isDoneUnsafe(exitSignal)) {
+        Deferred.doneUnsafe(ack, Exit.succeed(false));
+      } else {
+        acks.set(id, ack);
+      }
+      return Deferred.await(ack);
+    };
 
     /**
      * Runs a handler for the SDK; a typed failure becomes the rejection the agent sees, with its
@@ -412,10 +425,16 @@ export const spawnAcpAgent = (
         updates.receive(ctx.params);
       })
       .onRequest("session/request_permission", (ctx) =>
-        serve(handlers.onPermission(ctx.params), ctx.signal)
+        serve(
+          handlers.onPermission(ctx.params, writtenFor(ctx.requestId)),
+          ctx.signal
+        )
       )
       .onRequest("elicitation/create", (ctx) =>
-        serve(handlers.onElicitation(ctx.params), ctx.signal)
+        serve(
+          handlers.onElicitation(ctx.params, writtenFor(ctx.requestId)),
+          ctx.signal
+        )
       )
       .onRequest("fs/read_text_file", (ctx) =>
         serve(handlers.readTextFile(ctx.params))
@@ -440,7 +459,15 @@ export const spawnAcpAgent = (
       );
 
     const connection = yield* Effect.acquireRelease(
-      Effect.sync(() => app.connect(stream)),
+      Effect.sync(() => {
+        const open = app.connect(stream);
+        // A response not written by the time the connection closes never will be.
+        open.signal.addEventListener("abort", () => {
+          gone = true;
+          settleAll();
+        });
+        return open;
+      }),
       (open) => Effect.sync(() => open.close())
     );
 
@@ -510,7 +537,7 @@ export const spawnAcpAgent = (
             ...withMeta(session?.meta),
           })
         ),
-      pid: child.pid,
+      pid: options.pid,
       prompt: (sessionId, blocks) =>
         call("session/prompt", () =>
           agent.request("session/prompt", { prompt: blocks, sessionId })
@@ -560,4 +587,99 @@ export const spawnAcpAgent = (
           )
         ),
     } satisfies AcpAgent;
+  });
+
+/**
+ * Starts the agent described by a launch: command, args and env, already wrapped in whatever
+ * confines it. The process and the connection end with the surrounding scope.
+ */
+export const spawnAcpAgent = (
+  launch: AgentLaunch,
+  options: {
+    /** The editor's own version, which `initialize` tells the agent. */
+    readonly clientVersion: string;
+    readonly cwd: string;
+    /**
+     * The environment the agent starts from, under the launch's own variables: the server's
+     * (`ServerConfig`), not whatever the process happens to have.
+     */
+    readonly env: Readonly<Record<string, string>>;
+    readonly handlers: AcpHandlers;
+  }
+): Effect.Effect<
+  AcpAgent,
+  AcpSpawnError,
+  Scope.Scope | ChildProcessSpawner.ChildProcessSpawner
+> =>
+  Effect.gen(function* () {
+    const { handlers } = options;
+    const context = yield* Effect.context<never>();
+    const exitSignal = yield* Deferred.make<AcpExit>();
+
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    // What the SDK writes, to the agent's stdin; ended when the SDK closes its side.
+    const input = yield* Queue.unbounded<Uint8Array, Cause.Done>();
+    const child = yield* spawner
+      .spawn(
+        ChildProcess.make(launch.command, launch.args, {
+          cwd: options.cwd,
+          // Its own process group (the spawner's default): `npx` starts the real agent as a
+          // grandchild, and stopping the agent stops the group.
+          env: { ...options.env, ...launch.env },
+          extendEnv: false,
+          forceKillAfter: KILL_AFTER,
+          stdin: Stream.fromQueue(input),
+        })
+      )
+      .pipe(
+        Effect.mapError(
+          (error) =>
+            new AcpSpawnError({
+              command: launch.command,
+              message: error.message,
+            })
+        )
+      );
+    // Detached: it ends with the process, which the scope stops, and says how it ended to
+    // whoever waits, the scope's own finalizers included.
+    yield* child.exitCode.pipe(
+      Effect.match({
+        onFailure: (error): AcpExit => ({
+          code: null,
+          signal: signalOf(error),
+        }),
+        onSuccess: (code): AcpExit => ({ code, signal: null }),
+      }),
+      Effect.flatMap((exit) => Deferred.succeed(exitSignal, exit)),
+      Effect.forkDetach
+    );
+    yield* child.stderr.pipe(
+      Stream.decodeText(),
+      Stream.runForEach((text) => handlers.onStderr(text.trimEnd())),
+      Effect.ignore,
+      Effect.forkScoped
+    );
+
+    const stream = ndJsonStream(
+      new WritableStream<Uint8Array>({
+        close: () => {
+          Queue.endUnsafe(input);
+        },
+        write: (chunk) => {
+          // Its input ended, the agent never reads what is written now.
+          if (!Queue.offerUnsafe(input, chunk)) {
+            throw new Error("the agent's input is closed");
+          }
+        },
+      }),
+      Stream.toReadableStreamWith(child.stdout, context)
+    );
+
+    return yield* connectAcpAgent({
+      clientVersion: options.clientVersion,
+      exited: exitSignal,
+      handlers,
+      pid: child.pid,
+      stream,
+    });
   });

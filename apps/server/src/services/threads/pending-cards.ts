@@ -1,10 +1,12 @@
 /**
  * The cards a thread's agent waits on, as the user sees them in the thread: a permission it asks
  * for, a form an MCP server puts to the user through it within its turn, and the questions of an
- * agent that cannot wait, which the next prompt answers. A card is opened and awaited by the
- * agent's request, resolved by its item id, and every card the agent waits on is let go at once
- * when its turn is stopped or its session ends. A card the agent withdraws itself reads
- * `cancelled` alike.
+ * agent that cannot wait, which the next prompt answers. A card is answerable exactly while an
+ * agent waits on it (ADR 0125): it is opened and awaited by the agent's request, resolved by its
+ * item id, and every card the agent waits on is let go at once when its turn is stopped or its
+ * session ends. A card the agent withdraws itself reads `cancelled` alike (ADR 0109), and so does
+ * a form the agent asks again while a copy is open: it waits on the newest. An answer reads as
+ * given once it is written to the agent, and each card keeps when and how it stopped waiting.
  *
  * One per thread, made with its session: the cards count the thread's whole life, across its
  * agent's sessions. Nothing is answered from memory: an agent that offers "always" remembers the
@@ -15,9 +17,15 @@ import type {
   CreateElicitationResponse,
   RequestPermissionRequest,
   RequestPermissionResponse,
+  Written,
 } from "@ultrapaint/acp/acp-agent";
 import { Conflict, NotFound } from "@ultrapaint/contracts/errors";
-import type { Answers, Question } from "@ultrapaint/contracts/threads";
+import {
+  type Answers,
+  answeredInTurn,
+  type CardEnd,
+  type Question,
+} from "@ultrapaint/contracts/threads";
 import { Clock, Deferred, Effect } from "effect";
 import type { AppLog } from "../../app-log.ts";
 import { makeId } from "../../ids.ts";
@@ -33,8 +41,9 @@ const CANCELLED: RequestPermissionResponse = {
 export interface PendingCards {
   /**
    * The user's answers to a question card, recorded on it. The agent waiting on its form gets
-   * them back, and this is null; a card it did not wait on gives the text of the prompt that
-   * tells it, which the caller sends.
+   * them back, and this is null once they are written to it, or the card reads `undelivered`
+   * when they could not be; a card no agent waits on (one that cannot wait, or one a restart let
+   * go) gives the text of the prompt that tells it, which the caller sends.
    */
   readonly answer: (
     itemId: string,
@@ -46,7 +55,7 @@ export interface PendingCards {
   ) => Effect.Effect<void, NotFound>;
   /** Whether the agent can be asked with a form, as far as the thread has seen. */
   readonly canWait: Effect.Effect<boolean>;
-  /** The user's pick on a permission card. */
+  /** The user's pick on a permission card, recorded once it is written to the agent. */
   readonly choose: (
     requestId: string,
     optionId: string
@@ -61,10 +70,12 @@ export interface PendingCards {
   readonly declinedSeen: (mark: string | undefined) => Effect.Effect<boolean>;
   /**
    * A form the agent waits on within its turn, drawn as a question card. A link to follow, or a
-   * field the card has no input for, is declined at once, without a card.
+   * field the card has no input for, is declined at once, without a card. The same questions
+   * asked again while a copy is open let the older copy go: the agent waits on the newest.
    */
   readonly elicitation: (
-    request: CreateElicitationRequest
+    request: CreateElicitationRequest,
+    written: Written
   ) => Effect.Effect<CreateElicitationResponse>;
   /**
    * A form an MCP tool sends through the agent: the mark it is to come back with, the count of
@@ -73,7 +84,8 @@ export interface PendingCards {
   readonly formSent: Effect.Effect<string>;
   /** A permission the agent asks for, drawn as a card it waits on until the user picks. */
   readonly permission: (
-    request: RequestPermissionRequest
+    request: RequestPermissionRequest,
+    written: Written
   ) => Effect.Effect<RequestPermissionResponse>;
   /**
    * The agent stops waiting, as when its turn is stopped or its session ends: each permission is
@@ -82,11 +94,28 @@ export interface PendingCards {
   readonly releaseAll: Effect.Effect<void>;
 }
 
-/** A form the agent is waiting on, by its card's item id. */
-interface PendingForm {
-  readonly questions: readonly Question[];
-  readonly reply: Deferred.Deferred<CreateElicitationResponse>;
+/** A request the agent is waiting on: what settles it, and what tells it was written back. */
+interface Pending<A> {
+  readonly reply: Deferred.Deferred<A>;
+  readonly written: Written;
 }
+
+/** A form the agent is waiting on, by its card's item id. */
+interface PendingForm extends Pending<CreateElicitationResponse> {
+  readonly questions: readonly Question[];
+  /** What makes two forms the same questions: their ids, texts and options. */
+  readonly same: string;
+}
+
+/** Questions asked again are the same ids, texts and options in the same order. */
+const sameQuestions = (questions: readonly Question[]) =>
+  JSON.stringify(
+    questions.map((q) => [
+      q.id,
+      q.question,
+      q.options.map((o) => [o.id, o.label]),
+    ])
+  );
 
 export const makePendingCards = (
   threadId: string,
@@ -97,16 +126,25 @@ export const makePendingCards = (
   }
 ): PendingCards => {
   const { log, newItemId, store } = deps;
-  const permissions = new Map<
-    string,
-    Deferred.Deferred<RequestPermissionResponse>
-  >();
+  const permissions = new Map<string, Pending<RequestPermissionResponse>>();
   const forms = new Map<string, PendingForm>();
   let shown = 0;
   let cannotWait = false;
 
+  const settledNow = (how: CardEnd) =>
+    Effect.map(Clock.currentTimeMillis, (at) => ({ at, how }));
+
+  /** A permission card no longer waiting: what was decided, and how it stopped. */
+  const decided = (requestId: string, decision: string, how: CardEnd) =>
+    Effect.flatMap(settledNow(how), (settled) =>
+      store.patchItem(threadId, requestId, (i) =>
+        i.kind === "permission" ? { ...i, decision, settled } : i
+      )
+    );
+
   const permission = Effect.fnUntraced(function* (
-    request: RequestPermissionRequest
+    request: RequestPermissionRequest,
+    written: Written
   ) {
     const { toolCall } = request;
     const requestId = yield* makeId("perm");
@@ -116,18 +154,9 @@ export const makePendingCards = (
         ? [JSON.stringify(toolCall.rawInput).slice(0, 500)]
         : []),
     ].join("\n");
-    const decision = yield* Deferred.make<RequestPermissionResponse>();
-    const record = (heard: RequestPermissionResponse) => {
-      const picked =
-        heard.outcome.outcome === "selected"
-          ? heard.outcome.optionId
-          : "cancelled";
-      return store.patchItem(threadId, requestId, (i) =>
-        i.kind === "permission" ? { ...i, decision: picked } : i
-      );
-    };
-    const response = yield* Effect.gen(function* () {
-      permissions.set(requestId, decision);
+    const reply = yield* Deferred.make<RequestPermissionResponse>();
+    return yield* Effect.gen(function* () {
+      permissions.set(requestId, { reply, written });
       yield* store.push(threadId, {
         at: yield* Clock.currentTimeMillis,
         decision: null,
@@ -143,35 +172,32 @@ export const makePendingCards = (
         ...(detail ? { detail } : {}),
         ...(toolCall.toolCallId ? { toolCallId: toolCall.toolCallId } : {}),
       });
-      return yield* Deferred.await(decision);
+      return yield* Deferred.await(reply);
     }).pipe(
-      // Withdrawn by the agent, from the card's first moment: answered in the person's place,
-      // or no longer asked. The pick and the withdrawal settle the same deferred, so the card
-      // records whichever came first.
+      // Withdrawn by the agent, from the card's first moment: no longer asked. The pick and the
+      // withdrawal settle the same deferred, so the card records whichever came first, and the
+      // pick is recorded by `choose`.
       Effect.onInterrupt(() =>
-        Effect.andThen(
-          Deferred.succeed(decision, CANCELLED),
-          Effect.flatMap(Deferred.await(decision), record)
+        Effect.flatMap(Deferred.succeed(reply, CANCELLED), (withdrawn) =>
+          withdrawn ? decided(requestId, "cancelled", "withdrawn") : Effect.void
         )
       ),
       Effect.ensuring(Effect.sync(() => permissions.delete(requestId)))
     );
-    yield* record(response);
-    return response;
   });
 
   const choose = Effect.fnUntraced(function* (
     requestId: string,
     optionId: string
   ) {
-    const decision = permissions.get(requestId);
-    if (!decision) {
+    const pending = permissions.get(requestId);
+    if (!pending) {
       return yield* new NotFound({
         message: "permission request is no longer pending",
       });
     }
     // Refused when the agent withdrew the request first.
-    const taken = yield* Deferred.succeed(decision, {
+    const taken = yield* Deferred.succeed(pending.reply, {
       outcome: { optionId, outcome: "selected" },
     });
     if (!taken) {
@@ -179,10 +205,27 @@ export const makePendingCards = (
         message: "permission request is no longer pending",
       });
     }
+    // Picked once the agent has the pick.
+    yield* decided(
+      requestId,
+      optionId,
+      (yield* pending.written) ? "answered" : "undelivered"
+    );
   });
 
+  /** A question card whose agent stopped waiting, for `how`: no longer asked. */
+  const cancelled = (itemId: string, how: CardEnd) =>
+    Effect.flatMap(settledNow(how), (settled) =>
+      store.patchItem(threadId, itemId, (item) =>
+        item.kind === "question" && item.answers === null
+          ? { ...item, outcome: "cancelled" as const, settled }
+          : item
+      )
+    );
+
   const elicitation = Effect.fnUntraced(function* (
-    request: CreateElicitationRequest
+    request: CreateElicitationRequest,
+    written: Written
   ) {
     const questions =
       request.mode === "form" && "requestedSchema" in request
@@ -198,8 +241,19 @@ export const makePendingCards = (
     }
     const itemId = yield* newItemId;
     const reply = yield* Deferred.make<CreateElicitationResponse>();
+    const same = sameQuestions(questions);
     return yield* Effect.gen(function* () {
-      forms.set(itemId, { questions, reply });
+      // Asked again while a copy is open: the agent waits on the newest, and the older copy is
+      // no longer asked, so an answer never goes to a request nobody waits on.
+      for (const [olderId, older] of forms) {
+        if (
+          older.same === same &&
+          (yield* Deferred.succeed(older.reply, CANCEL))
+        ) {
+          yield* cancelled(olderId, "repeated");
+        }
+      }
+      forms.set(itemId, { questions, reply, same, written });
       shown += 1;
       yield* store.push(threadId, {
         answers: null,
@@ -216,20 +270,12 @@ export const makePendingCards = (
       // withdrawal settle the same deferred, so only one of them is ever recorded.
       Effect.onInterrupt(() =>
         Effect.flatMap(Deferred.succeed(reply, CANCEL), (withdrawn) =>
-          withdrawn ? cancelled(itemId) : Effect.void
+          withdrawn ? cancelled(itemId, "withdrawn") : Effect.void
         )
       ),
       Effect.ensuring(Effect.sync(() => forms.delete(itemId)))
     );
   });
-
-  /** A question card whose agent stopped waiting: no longer asked. */
-  const cancelled = (itemId: string) =>
-    store.patchItem(threadId, itemId, (item) =>
-      item.kind === "question" && item.answers === null
-        ? { ...item, outcome: "cancelled" as const }
-        : item
-    );
 
   const ask = Effect.fnUntraced(function* (questions: readonly Question[]) {
     if (!(yield* store.get(threadId))) {
@@ -262,14 +308,16 @@ export const makePendingCards = (
       });
     }
     // A form is answered within the agent's turn; the other cards by a prompt of their own.
-    const waiting =
-      card.elicitation === undefined ? undefined : forms.get(itemId);
-    if (card.elicitation !== undefined && waiting === undefined) {
+    const inTurn = answeredInTurn(card);
+    const waiting = inTurn ? forms.get(itemId) : undefined;
+    if (inTurn && waiting === undefined) {
       return yield* new Conflict({
         message: "the agent no longer waits for these answers",
       });
     }
-    // Taken by the agent before they are recorded: answers it withdrew from never read as given.
+    // Taken by the agent before they are recorded: answers it withdrew from never read as given,
+    // and they read as given once written to it.
+    let how: CardEnd = "answered";
     if (waiting !== undefined) {
       const taken = yield* Deferred.succeed(waiting.reply, {
         action: "accept",
@@ -280,11 +328,24 @@ export const makePendingCards = (
           message: "the agent no longer waits for these answers",
         });
       }
+      if (!(yield* waiting.written)) {
+        how = "undelivered";
+      }
     }
+    const settled = yield* settledNow(how);
     yield* store.patchItem(threadId, itemId, (item) =>
-      item.kind === "question" ? { ...item, answers } : item
+      item.kind === "question"
+        ? {
+            ...item,
+            answers,
+            settled,
+            ...(how === "undelivered"
+              ? { outcome: "undelivered" as const }
+              : {}),
+          }
+        : item
     );
-    return waiting === undefined ? answersText(card.questions, answers) : null;
+    return inTurn ? null : answersText(card.questions, answers);
   });
 
   const decline = Effect.fnUntraced(function* (itemId: string) {
@@ -299,26 +360,27 @@ export const makePendingCards = (
         message: "the agent no longer waits for these answers",
       });
     }
+    const settled = yield* settledNow("declined");
     yield* store.patchItem(threadId, itemId, (item) =>
       item.kind === "question"
-        ? { ...item, outcome: "declined" as const }
+        ? { ...item, outcome: "declined" as const, settled }
         : item
     );
   });
 
   const releaseAll = Effect.gen(function* () {
-    // Each permission's card is written by the request that waits on it, once it hears.
-    for (const decision of permissions.values()) {
-      yield* Deferred.succeed(decision, CANCELLED);
+    for (const [requestId, pending] of permissions) {
+      if (yield* Deferred.succeed(pending.reply, CANCELLED)) {
+        yield* decided(requestId, "cancelled", "released");
+      }
     }
     for (const [itemId, pending] of forms) {
       if (yield* Deferred.succeed(pending.reply, CANCEL)) {
-        yield* cancelled(itemId);
+        yield* cancelled(itemId, "released");
       }
     }
     forms.clear();
   });
-
   return {
     answer,
     ask,

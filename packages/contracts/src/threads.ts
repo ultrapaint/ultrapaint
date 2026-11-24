@@ -617,6 +617,30 @@ export const ReviewEnd = Schema.Literals([
 ]);
 export type ReviewEnd = typeof ReviewEnd.Type;
 
+/**
+ * How a card stopped waiting (ADR 0125): answered (a question's answers written to the agent, a
+ * permission's pick), declined by the person, withdrawn by the agent (`$/cancel_request`),
+ * released when its turn was stopped or its session ended, repeated (the agent asked the same
+ * questions again), expired (a permission open when the server restarted), or undelivered (the
+ * answers could not be written to the agent).
+ */
+export const CardEnd = Schema.Literals([
+  "answered",
+  "declined",
+  "withdrawn",
+  "released",
+  "repeated",
+  "expired",
+  "undelivered",
+]);
+export type CardEnd = typeof CardEnd.Type;
+
+/**
+ * When and how a card stopped waiting, kept in the thread to explain a stuck chat afterwards
+ * (ADR 0125); it was opened at its `at`. Absent while it waits, and on cards stored before.
+ */
+const CardSettled = Schema.Struct({ at: Schema.Number, how: CardEnd });
+
 export const ThreadItem = Schema.Union([
   Schema.Struct({
     at: Schema.Number,
@@ -667,6 +691,10 @@ export const ThreadItem = Schema.Union([
   }),
   Schema.Struct({
     at: Schema.Number,
+    /**
+     * The option picked, `cancelled` when the agent stopped asking, or `expired` when the server
+     * restarted while it asked (ADR 0125). Null while undecided.
+     */
     decision: Schema.NullOr(Schema.String),
     detail: Schema.optional(Schema.String),
     id: Schema.String,
@@ -684,6 +712,7 @@ export const ThreadItem = Schema.Union([
       })
     ),
     requestId: Schema.String,
+    settled: Schema.optional(CardSettled),
     title: Schema.String,
     toolCallId: Schema.optional(Schema.String),
   }),
@@ -703,9 +732,20 @@ export const ThreadItem = Schema.Union([
     elicitation: Schema.optional(Schema.Struct({ message: Schema.String })),
     id: Schema.String,
     kind: Schema.Literal("question"),
-    /** Why there are no answers: the user declined, or the agent stopped waiting. */
-    outcome: Schema.optional(Schema.Literals(["declined", "cancelled"])),
+    /**
+     * Why there are no answers: the user declined, or the agent stopped waiting; or, with the
+     * answers kept, that they could not be written to the agent (ADR 0125).
+     */
+    outcome: Schema.optional(
+      Schema.Literals(["declined", "cancelled", "undelivered"])
+    ),
     questions: Schema.Array(Question),
+    /**
+     * When the server restarted while the agent waited on the answers: no agent waits on them
+     * since, and the next prompt carries them (ADR 0125).
+     */
+    restartedAt: Schema.optional(Schema.Number),
+    settled: Schema.optional(CardSettled),
   }),
   Schema.Struct({
     at: Schema.Number,
@@ -899,6 +939,14 @@ const textOf = (item: ThreadItem | undefined): string => {
       return "";
   }
 };
+
+/**
+ * Whether the agent waits on a question's answers within its turn (`elicitation`), so that they
+ * go back to it there and the person may decline: not once a restart let the wait go.
+ */
+export const answeredInTurn = (
+  item: Extract<ThreadItem, { kind: "question" }>
+) => item.elicitation !== undefined && item.restartedAt === undefined;
 
 /**
  * A thread's last line, and whether it waits on the user: a question neither answered, declined

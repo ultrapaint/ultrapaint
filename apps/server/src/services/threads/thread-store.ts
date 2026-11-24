@@ -1,4 +1,5 @@
 import {
+  answeredInTurn,
   isBusy,
   isStopping,
   summarise,
@@ -46,6 +47,40 @@ const atRest = (stored: unknown): unknown => {
   return typeof thread === "object" && thread !== null
     ? { ...(stored as object), thread: { ...thread, status: "idle" } }
     : stored;
+};
+
+/**
+ * A thread's cards as they are read at start (ADR 0125): no agent waits on any of them, since no
+ * session survives a restart. A permission still asked expires, never granted to an agent no
+ * longer asking; a question its agent waited on stays answerable, its answers sent as the next
+ * prompt, as for an agent that cannot wait. Null when there was none to settle.
+ */
+const settledAtStart = (
+  items: readonly ThreadItem[],
+  now: number
+): ThreadItem[] | null => {
+  let changed = false;
+  const settled = items.map((item): ThreadItem => {
+    if (item.kind === "permission" && item.decision === null) {
+      changed = true;
+      return {
+        ...item,
+        decision: "expired",
+        settled: { at: now, how: "expired" },
+      };
+    }
+    if (
+      item.kind === "question" &&
+      answeredInTurn(item) &&
+      item.answers === null &&
+      item.outcome === undefined
+    ) {
+      changed = true;
+      return { ...item, restartedAt: now };
+    }
+    return item;
+  });
+  return changed ? settled : null;
 };
 
 /** Where the threads are kept in the state directory: a file each, named by the thread's id. */
@@ -152,6 +187,9 @@ export class ThreadStore extends Context.Service<
 
       yield* Effect.orDie(fs.makeDirectory(dir, { recursive: true }));
       const names = yield* Effect.orDie(fs.readDirectory(dir));
+      const startedAt = yield* Clock.currentTimeMillis;
+      // Threads whose cards were settled at start, written back once the store is up.
+      const settledOnRead: string[] = [];
       for (const name of names.filter((n) => n.endsWith(".json"))) {
         yield* fs.readFileString(path.join(dir, name)).pipe(
           Effect.flatMap(parseJson),
@@ -161,8 +199,12 @@ export class ThreadStore extends Context.Service<
           Effect.tap((stored) => safeFileId("thread", stored.thread.id)),
           Effect.tap((stored) =>
             Effect.sync(() => {
+              const settled = settledAtStart(stored.items, startedAt);
+              if (settled !== null) {
+                settledOnRead.push(stored.thread.id);
+              }
               threads.set(stored.thread.id, {
-                items: [...stored.items],
+                items: settled ?? [...stored.items],
                 thread: stored.thread,
               });
             })
@@ -236,6 +278,7 @@ export class ThreadStore extends Context.Service<
       yield* Effect.addFinalizer(() =>
         Effect.forEach([...dirty], flush, { discard: true })
       );
+      yield* Effect.forEach(settledOnRead, persistSoon, { discard: true });
 
       const update = Effect.fnUntraced(function* (
         id: string,

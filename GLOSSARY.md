@@ -194,11 +194,17 @@ refactor and the board view left.
   seen writing are, and the rest were **changed during the turn** (`changedDuring`).
 - **Card**: what the agent waits on the user for, a permission or a question
   (`PendingCards`, ADR 0022). The editor never answers a permission from memory: "always" is the
-  agent's own option. A card the agent withdraws reads cancelled, a question No longer asked
-  (ADR 0109).
+  agent's own option. A card is answerable exactly while an agent waits on it (ADR 0125). A card
+  the agent withdraws reads cancelled, a question No longer asked (ADR 0109), and so does the older
+  copy of questions the agent asks again. An answer reads Answered once it is **written** to the
+  agent, and **undelivered** when it could not be. At start, a permission left open is
+  **expired** and a question an agent waited on is answered by the next prompt (`restartedAt`).
+  Each card keeps when and how it was **settled** (`CardEnd`): answered, declined, withdrawn,
+  released, repeated, expired or undelivered.
 - **Agent launcher**: the seam an agent is started through: its sandboxed process (ADR 0013,
   unless the person turned the sandbox off, ADR 0119),
-  or a scripted in-memory agent in tests. It is given a **host** (the cards, the paths, what the
+  or, in tests, a scripted in-memory agent or a **replay agent** playing a real agent's recorded
+  transcript (`replay-agent.ts`, ADR 0125). It is given a **host** (the cards, the paths, what the
   agent may write) and builds the editor's side of the launch from it, the terminals confined.
   Each adapter keeps the order of the agent's updates itself (acp's `updates`), and a prompt
   returns once its turn's updates are handled.

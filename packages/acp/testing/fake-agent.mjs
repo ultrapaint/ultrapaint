@@ -7,6 +7,8 @@
  *   permission  asks for permission, then reports the chosen option as text
  *   elicit      asks the user a form (a choice and a number) and reports the answer as text;
  *               `elicit link` asks them to follow a link instead
+ *   abandon     asks the same form, then exits before the host answers, as an agent that
+ *               crashes while the person thinks
  *   withdraw    asks the same form, then withdraws it (`$/cancel_request`) as Claude Code does
  *               when it stops waiting, and says `withdraw:withdrawn` without the host's answer
  *   write       writes `designs/agent.tsx`, or the path given after it, through
@@ -102,6 +104,14 @@ const planForm = (sessionId) => ({
 });
 
 const scenarios = {
+  abandon(cx, sessionId) {
+    cx.request(methods.client.elicitation.create, planForm(sessionId)).catch(
+      () => undefined
+    );
+    // Once the host has the request.
+    setTimeout(() => process.exit(7), 100);
+    return new Promise(() => undefined);
+  },
   /** Repeats the project briefing, for a test that asks what the agent was told. */
   async briefing(cx, sessionId, _cwd, _rest, prompt) {
     const about = prompt.find(

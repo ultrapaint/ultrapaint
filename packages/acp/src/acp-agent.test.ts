@@ -166,6 +166,50 @@ describe("AcpAgent", () => {
       })
   );
 
+  agentTest("tells the handler its answer was written to the agent", () =>
+    Effect.gen(function* () {
+      const heard = yield* Deferred.make<boolean>();
+      const { agent, seen } = yield* open({
+        onElicitation: (_, written) =>
+          Effect.as(
+            Effect.forkDetach(
+              Effect.flatMap(written, (w) => Deferred.succeed(heard, w))
+            ),
+            { action: "accept", content: { plan: "pro", seats: 3 } }
+          ),
+      });
+      const { sessionId } = yield* agent.newSession(process.cwd());
+      yield* agent.prompt(sessionId, [{ text: "elicit", type: "text" }]);
+      assert.deepStrictEqual(seen, ['elicit:accept:{"plan":"pro","seats":3}']);
+      assert.isTrue(yield* Deferred.await(heard));
+    })
+  );
+
+  agentTest(
+    "tells the handler its answer was not written when the agent exited first",
+    () =>
+      Effect.gen(function* () {
+        // The agent is gone while the person thinks: whatever they answer never reaches it.
+        const heard = yield* Deferred.make<boolean>();
+        const { agent } = yield* open({
+          onElicitation: (_, written) =>
+            Effect.andThen(
+              Effect.forkDetach(
+                Effect.flatMap(written, (w) => Deferred.succeed(heard, w))
+              ),
+              Effect.never
+            ),
+        });
+        const { sessionId } = yield* agent.newSession(process.cwd());
+        yield* Effect.forkScoped(
+          Effect.ignore(
+            agent.prompt(sessionId, [{ text: "abandon", type: "text" }])
+          )
+        );
+        assert.isFalse(yield* Deferred.await(heard));
+      })
+  );
+
   agentTest(
     "reopens a session by loading it, its replay kept from the host",
     () =>

@@ -3,12 +3,13 @@
  * answered, declined and let go, and the mark a form comes back with.
  */
 import { assert, describe } from "@effect/vitest";
-import type {
-  CreateElicitationRequest,
-  RequestPermissionRequest,
+import {
+  type CreateElicitationRequest,
+  type RequestPermissionRequest,
+  writtenAtOnce,
 } from "@ultrapaint/acp/acp-agent";
 import type { ThreadItem } from "@ultrapaint/contracts/threads";
-import { Effect, Fiber } from "effect";
+import { Deferred, Effect, Fiber } from "effect";
 import { AppLog } from "../../app-log.ts";
 import { makeId } from "../../ids.ts";
 import { perTest } from "../../testing/each-test.ts";
@@ -99,11 +100,47 @@ const cardsWhen = (threadId: string, kind: "permission" | "question", n = 1) =>
 const decisionOf = (item: ThreadItem | undefined) =>
   item?.kind === "permission" ? item.decision : undefined;
 
+/** How a card stopped waiting, as the thread keeps it. */
+const settledOf = (item: ThreadItem | undefined) =>
+  item?.kind === "permission" || item?.kind === "question"
+    ? item.settled?.how
+    : undefined;
+
+const outcomeOf = (item: ThreadItem | undefined) =>
+  item?.kind === "question" ? item.outcome : undefined;
+
+/** The thread's question cards, as the store has them now. */
+const questionsIn = (threadId: string) =>
+  Effect.map(
+    Effect.flatMap(ThreadStore, (store) => store.items(threadId)),
+    (items) => items.filter((i) => i.kind === "question")
+  );
+
+const TIERS_FORM = {
+  ...PLAN_FORM,
+  requestedSchema: {
+    properties: {
+      tier: {
+        oneOf: [
+          { const: "basic", title: "Basic" },
+          { const: "team", title: "Team" },
+        ],
+        title: "Which tier?",
+        type: "string",
+      },
+    },
+    required: ["tier"],
+    type: "object",
+  },
+} as CreateElicitationRequest;
+
 describe("a permission card", () => {
   test("waits for the user's pick, and the card records it", () =>
     Effect.gen(function* () {
       const { cards, store, threadId } = yield* cardsOfNewThread;
-      const asking = yield* Effect.forkChild(cards.permission(EDIT_HOME));
+      const asking = yield* Effect.forkChild(
+        cards.permission(EDIT_HOME, writtenAtOnce)
+      );
       const [card] = yield* cardsWhen(threadId, "permission");
       assert.isNull(decisionOf(card));
       yield* cards.choose(card?.id ?? "", "reject");
@@ -132,13 +169,15 @@ describe("a permission card", () => {
           toolCall: { kind: "execute", title: command, toolCallId },
         }) as RequestPermissionRequest;
       const asking = yield* Effect.forkChild(
-        cards.permission(run("pnpm test", "call_1"))
+        cards.permission(run("pnpm test", "call_1"), writtenAtOnce)
       );
       const [card] = yield* cardsWhen(threadId, "permission");
       yield* cards.choose(card?.id ?? "", "allow");
       yield* Fiber.join(asking);
       // Another command: the user is asked about it, whatever was allowed before.
-      yield* Effect.forkChild(cards.permission(run("rm -rf src", "call_2")));
+      yield* Effect.forkChild(
+        cards.permission(run("rm -rf src", "call_2"), writtenAtOnce)
+      );
       const open = yield* cardsWhen(threadId, "permission", 2);
       assert.isNull(decisionOf(open.at(-1)));
     }));
@@ -146,7 +185,9 @@ describe("a permission card", () => {
   test("is answered cancelled when the cards are let go", () =>
     Effect.gen(function* () {
       const { cards, store, threadId } = yield* cardsOfNewThread;
-      const asking = yield* Effect.forkChild(cards.permission(EDIT_HOME));
+      const asking = yield* Effect.forkChild(
+        cards.permission(EDIT_HOME, writtenAtOnce)
+      );
       yield* cardsWhen(threadId, "permission");
       yield* cards.releaseAll;
       assert.deepStrictEqual(yield* Fiber.join(asking), {
@@ -163,7 +204,9 @@ describe("a form the agent waits on", () => {
   test("is answered within the turn: the answers go back typed, and no prompt follows", () =>
     Effect.gen(function* () {
       const { cards, threadId } = yield* cardsOfNewThread;
-      const reply = yield* Effect.forkChild(cards.elicitation(PLAN_FORM));
+      const reply = yield* Effect.forkChild(
+        cards.elicitation(PLAN_FORM, writtenAtOnce)
+      );
       const [card] = yield* cardsWhen(threadId, "question");
       assert.isNull(yield* cards.answer(card?.id ?? "", { plan: "pro" }));
       assert.deepStrictEqual(yield* Fiber.join(reply), {
@@ -179,7 +222,9 @@ describe("a form the agent waits on", () => {
   test("is declined by the user, and the agent hears so", () =>
     Effect.gen(function* () {
       const { cards, store, threadId } = yield* cardsOfNewThread;
-      const reply = yield* Effect.forkChild(cards.elicitation(PLAN_FORM));
+      const reply = yield* Effect.forkChild(
+        cards.elicitation(PLAN_FORM, writtenAtOnce)
+      );
       const [card] = yield* cardsWhen(threadId, "question");
       yield* cards.decline(card?.id ?? "");
       assert.deepStrictEqual(yield* Fiber.join(reply), { action: "decline" });
@@ -195,7 +240,9 @@ describe("a form the agent waits on", () => {
   test("is let go with the cards: the agent hears cancel, and it cannot be answered after", () =>
     Effect.gen(function* () {
       const { cards, threadId } = yield* cardsOfNewThread;
-      const reply = yield* Effect.forkChild(cards.elicitation(PLAN_FORM));
+      const reply = yield* Effect.forkChild(
+        cards.elicitation(PLAN_FORM, writtenAtOnce)
+      );
       const [card] = yield* cardsWhen(threadId, "question");
       yield* cards.releaseAll;
       assert.deepStrictEqual(yield* Fiber.join(reply), { action: "cancel" });
@@ -210,13 +257,16 @@ describe("a form the agent waits on", () => {
   test("that cannot be drawn is declined at once, and not counted", () =>
     Effect.gen(function* () {
       const { cards, store, threadId } = yield* cardsOfNewThread;
-      const reply = yield* cards.elicitation({
-        elicitationId: "el_1",
-        message: "Sign in",
-        mode: "url",
-        sessionId: "session_1",
-        url: "https://example.com/sign-in",
-      });
+      const reply = yield* cards.elicitation(
+        {
+          elicitationId: "el_1",
+          message: "Sign in",
+          mode: "url",
+          sessionId: "session_1",
+          url: "https://example.com/sign-in",
+        },
+        writtenAtOnce
+      );
       assert.deepStrictEqual(reply, { action: "decline" });
       assert.lengthOf(yield* store.items(threadId), 0);
       assert.strictEqual(yield* cards.formSent, "0");
@@ -258,7 +308,9 @@ describe("a form sent by a tool", () => {
       assert.isTrue(yield* cards.canWait);
       // Shown: a card came between the form going out and its answer.
       const mark = yield* cards.formSent;
-      const reply = yield* Effect.forkChild(cards.elicitation(PLAN_FORM));
+      const reply = yield* Effect.forkChild(
+        cards.elicitation(PLAN_FORM, writtenAtOnce)
+      );
       const [card] = yield* cardsWhen(threadId, "question");
       yield* cards.decline(card?.id ?? "");
       yield* Fiber.join(reply);
@@ -267,5 +319,151 @@ describe("a form sent by a tool", () => {
       // Not shown: the agent's own client turned it down.
       assert.isFalse(yield* cards.declinedSeen(yield* cards.formSent));
       assert.isFalse(yield* cards.canWait);
+    }));
+});
+
+describe("a card's life (ADR 0125)", () => {
+  test("a form asked again while a copy is open lets the older copy go", () =>
+    Effect.gen(function* () {
+      const { cards, threadId } = yield* cardsOfNewThread;
+      const first = yield* Effect.forkChild(
+        cards.elicitation(PLAN_FORM, writtenAtOnce)
+      );
+      yield* cardsWhen(threadId, "question");
+      const second = yield* Effect.forkChild(
+        cards.elicitation(PLAN_FORM, writtenAtOnce)
+      );
+      const [older, newer] = yield* cardsWhen(threadId, "question", 2);
+      assert.deepStrictEqual(yield* Fiber.join(first), { action: "cancel" });
+      const [olderNow] = yield* questionsIn(threadId);
+      assert.strictEqual(outcomeOf(olderNow), "cancelled");
+      assert.strictEqual(settledOf(olderNow), "repeated");
+      // The newest is the one the agent waits on, and it hears the answers.
+      assert.isNull(yield* cards.answer(newer?.id ?? "", { plan: "pro" }));
+      assert.deepStrictEqual(yield* Fiber.join(second), {
+        action: "accept",
+        content: { plan: "pro" },
+      });
+      const late = yield* Effect.flip(
+        cards.answer(older?.id ?? "", { plan: "free" })
+      );
+      assert.strictEqual(late._tag, "Conflict");
+    }));
+
+  test("two different forms both stay open, the oldest first", () =>
+    Effect.gen(function* () {
+      const { cards, threadId } = yield* cardsOfNewThread;
+      const plan = yield* Effect.forkChild(
+        cards.elicitation(PLAN_FORM, writtenAtOnce)
+      );
+      yield* cardsWhen(threadId, "question");
+      const tier = yield* Effect.forkChild(
+        cards.elicitation(TIERS_FORM, writtenAtOnce)
+      );
+      const [first, second] = yield* cardsWhen(threadId, "question", 2);
+      assert.isUndefined(outcomeOf(first));
+      yield* cards.answer(first?.id ?? "", { plan: "pro" });
+      yield* cards.answer(second?.id ?? "", { tier: "team" });
+      assert.deepStrictEqual(yield* Fiber.join(plan), {
+        action: "accept",
+        content: { plan: "pro" },
+      });
+      assert.deepStrictEqual(yield* Fiber.join(tier), {
+        action: "accept",
+        content: { tier: "team" },
+      });
+    }));
+
+  test("answers that could not be written to the agent read undelivered", () =>
+    Effect.gen(function* () {
+      const { cards, threadId } = yield* cardsOfNewThread;
+      yield* Effect.forkChild(
+        cards.elicitation(PLAN_FORM, Effect.succeed(false))
+      );
+      const [card] = yield* cardsWhen(threadId, "question");
+      assert.isNull(yield* cards.answer(card?.id ?? "", { plan: "pro" }));
+      const [after] = yield* questionsIn(threadId);
+      assert.strictEqual(outcomeOf(after), "undelivered");
+      assert.strictEqual(settledOf(after), "undelivered");
+      // What the person said stays on the card, to say again.
+      assert.deepStrictEqual(after?.kind === "question" && after.answers, {
+        plan: "pro",
+      });
+    }));
+
+  test("an answer reads as given only once it is written to the agent", () =>
+    Effect.gen(function* () {
+      const { cards, threadId } = yield* cardsOfNewThread;
+      const written = yield* Deferred.make<boolean>();
+      yield* Effect.forkChild(
+        cards.elicitation(PLAN_FORM, Deferred.await(written))
+      );
+      const [card] = yield* cardsWhen(threadId, "question");
+      const answering = yield* Effect.forkChild(
+        cards.answer(card?.id ?? "", { plan: "pro" })
+      );
+      yield* Effect.yieldNow;
+      const [before] = yield* questionsIn(threadId);
+      assert.isTrue(before?.kind === "question" && before.answers === null);
+      yield* Deferred.succeed(written, true);
+      yield* Fiber.join(answering);
+      const [after] = yield* questionsIn(threadId);
+      assert.strictEqual(settledOf(after), "answered");
+      assert.isUndefined(outcomeOf(after));
+    }));
+
+  test("each card keeps when and how it stopped waiting", () =>
+    Effect.gen(function* () {
+      const { cards, store, threadId } = yield* cardsOfNewThread;
+      // Picked, declined, withdrawn, and let go with the turn.
+      const picked = yield* Effect.forkChild(
+        cards.permission(EDIT_HOME, writtenAtOnce)
+      );
+      const [permission] = yield* cardsWhen(threadId, "permission");
+      yield* cards.choose(permission?.id ?? "", "allow");
+      yield* Fiber.join(picked);
+      yield* Effect.forkChild(cards.elicitation(PLAN_FORM, writtenAtOnce));
+      const [declined] = yield* cardsWhen(threadId, "question");
+      yield* cards.decline(declined?.id ?? "");
+      const withdrawn = yield* Effect.forkChild(
+        cards.elicitation(TIERS_FORM, writtenAtOnce)
+      );
+      yield* cardsWhen(threadId, "question", 2);
+      yield* Fiber.interrupt(withdrawn);
+      yield* Effect.forkChild(cards.permission(EDIT_HOME, writtenAtOnce));
+      yield* cardsWhen(threadId, "permission", 2);
+      yield* cards.releaseAll;
+      const items = yield* store.items(threadId);
+      assert.deepStrictEqual(items.map(settledOf), [
+        "answered",
+        "declined",
+        "withdrawn",
+        "released",
+      ]);
+      for (const item of items) {
+        assert.isTrue(
+          (item.kind === "permission" || item.kind === "question") &&
+            item.settled !== undefined &&
+            item.settled.at >= item.at
+        );
+      }
+    }));
+
+  test("questions a restart let go are answered by the next prompt", () =>
+    Effect.gen(function* () {
+      const { cards, store, threadId } = yield* cardsOfNewThread;
+      yield* store.push(threadId, {
+        answers: null,
+        at: 1,
+        elicitation: { message: "The agent asks" },
+        id: "item_restarted",
+        kind: "question",
+        questions: QUESTIONS,
+        restartedAt: 2,
+      });
+      const text = yield* cards.answer("item_restarted", { plan: "pro" });
+      assert.include(text ?? "", "1. Which plan? — Pro [pro]");
+      const [after] = yield* questionsIn(threadId);
+      assert.strictEqual(settledOf(after), "answered");
     }));
 });
