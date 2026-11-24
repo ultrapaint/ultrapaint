@@ -353,6 +353,8 @@ const StopBar = ({
               move(i, Math.min(100, Math.max(0, at(i) + by)));
             }
           }}
+          // A drag the browser cancels moves nothing.
+          onPointerCancel={() => setDrag(null)}
           onPointerDown={(e) => {
             e.stopPropagation();
             e.currentTarget.setPointerCapture?.(e.pointerId);
