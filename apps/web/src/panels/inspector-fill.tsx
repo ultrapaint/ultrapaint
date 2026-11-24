@@ -131,7 +131,9 @@ const asKind = (layer: FillLayer, kind: "color" | "gradient"): FillLayer => {
  * place.
  */
 const stopsFor = (layer: GradientLayer, shape: GradientShape): FillStop[] => {
-  if (placedInPercent(layer.stops, shape)) {
+  // A linear and a radial gradient take the same positions; a conic one takes angles, no lengths.
+  const conic = layer.shape === "conic" || shape === "conic";
+  if (!conic || placedInPercent(layer.stops, shape)) {
     return [...layer.stops];
   }
   return placedInPercent(layer.stops, layer.shape)
