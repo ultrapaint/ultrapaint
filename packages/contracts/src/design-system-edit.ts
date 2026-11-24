@@ -66,7 +66,7 @@ export const DesignSystemEditInput = Schema.Struct({
   /**
    * A system component's look changed in the same step, after the operations, as
    * `components.change` changes it: a look's field set to the token a new token from its value
-   * made (ADR 0136). Not with `edits`.
+   * made (ADR 0136). Not with `edits`: an edit carrying both is refused.
    */
   component: Schema.optional(
     Schema.Struct({ change: ComponentChange, name: Schema.String })

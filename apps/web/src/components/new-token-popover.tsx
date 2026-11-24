@@ -62,7 +62,8 @@ export const NewTokenPopover = ({
           className="h-7"
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
+            // The Enter that ends a composition (an IME's) is the composition's.
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) {
               add();
             }
           }}

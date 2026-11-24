@@ -317,6 +317,24 @@ describe("a new token from a field's value", () => {
     expect(naming()).toBeNull();
   });
 
+  it("makes nothing on the Enter that ends a composition", () => {
+    namingTheFill();
+    type("color-brand");
+    act(() => {
+      naming()?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          isComposing: true,
+          key: "Enter",
+        })
+      );
+    });
+    expect(fakeApi.calls.map((c) => c.method)).not.toContain(
+      "designSystem.edit"
+    );
+    expect(naming()?.value).toBe("color-brand");
+  });
+
   it("makes nothing while a point of the history is looked at", () => {
     namingTheFill();
     type("color-brand");

@@ -408,6 +408,12 @@ export class DesignSystemService extends Context.Service<
               : Effect.succeed({ designSystem: next, result: null });
           };
           const { component, edits = [] } = carried;
+          if (component && edits.length > 0) {
+            return yield* new BadRequest({
+              message:
+                "a design system edit carries documents' edits or a component's look change, not both",
+            });
+          }
           if (!component && edits.length === 0) {
             const { files } = yield* save(named, make);
             return { files };
