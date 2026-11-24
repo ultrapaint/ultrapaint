@@ -89,6 +89,7 @@ vi.mock("./preview-module.ts", () => {
               drawnAt.rects[id] ? [[id, drawnAt.rects[id]]] : []
             )
           ),
+        pageAt: () => [],
         render: (request: RenderRequest) => {
           renders.push({ frame: options.frame, request });
           told.set(options.frame, options.events);

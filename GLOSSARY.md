@@ -428,7 +428,8 @@ refactor and the board view left.
   **main component** where it stands against an **instance**: "Edit main component" changes every
   instance, an instance's props and its instance overrides change that one alone. It is edited
   only when asked (ADR 0114), a level at a time, the breadcrumb at the top of the inspector naming
-  each, its nodes outlined in the component colour (ADR 0120).
+  each, its nodes outlined in the component colour (ADR 0120); a click past a slot's node goes to
+  what the slot holds, at the level it belongs to (ADR 0123).
 - **Instance override**: a field of a layer of an app component changed on one instance alone
   (ADR 0114): kept on the instance (`overrides`), keyed by the layer's id in the component, a
   nested instance's layer by the way to it (`nav/label`), any field but never the structure

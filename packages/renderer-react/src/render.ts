@@ -45,6 +45,7 @@ import {
   type Drawing,
   type Mounted,
   NODE_ATTRIBUTE,
+  OUTSIDE_ATTRIBUTE,
   type RenderRequest,
   type RenderSetup,
   type RenderToCanvas,
@@ -112,11 +113,6 @@ const MESSAGE_STYLE = {
  * the instance is selected.
  */
 const APP_NODE_ATTRIBUTE = "data-ed-app-node";
-/**
- * What a page's nodes are marked with while an app component's instance is edited in place: not
- * the page's attribute, so only the component's nodes can be selected.
- */
-const OUTSIDE_ATTRIBUTE = "data-ed-outside";
 /** The page around an instance edited in place, dimmed. */
 const DIMMED = "rgb(9 9 11 / 0.5)";
 

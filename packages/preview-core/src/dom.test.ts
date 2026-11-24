@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from "vitest";
-import { elementsOf, unionRect } from "./dom.ts";
+import { elementsOf, pageChainAt, unionRect } from "./dom.ts";
 
 /** Gives an element the box the browser would lay it out in; happy-dom lays nothing out. */
 const place = (
@@ -73,5 +73,23 @@ describe("the rectangle of a node", () => {
       x: 0,
       y: 0,
     });
+  });
+});
+
+describe("the page's nodes under a point while an instance is edited in place (ADR 0123)", () => {
+  it("are those inside the innermost node of the component, outermost first", () => {
+    document.body.innerHTML = `
+<main data-ed-outside="page">
+  <div data-ed-node="root">
+    <div data-ed-node="slot">
+      <section data-ed-outside="card"><p id="in" data-ed-outside="title">Hi</p></section>
+    </div>
+  </div>
+  <p id="around" data-ed-outside="note">Dimmed</p>
+</main>`;
+    expect(pageChainAt(byId("in"))).toEqual(["card", "title"]);
+    // The page dimmed around the instance is in no node of the component's.
+    expect(pageChainAt(byId("around"))).toEqual([]);
+    expect(pageChainAt(null)).toEqual([]);
   });
 });

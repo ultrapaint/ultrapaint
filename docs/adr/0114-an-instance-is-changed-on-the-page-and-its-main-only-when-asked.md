@@ -6,6 +6,9 @@ of 0041 stands: properties, slots, variants, nesting, Detach and implementing.
 
 > Amended by [0120](0120-the-main-component-edited-is-said-in-the-inspector.md), 2026-11-23: the
 > breadcrumb, the instances and Done are at the top of the inspector, not in a banner.
+>
+> Amended by [0123](0123-a-click-past-a-slot-goes-to-what-it-holds.md), 2026-11-24: a click past a
+> slot's node in a main component edited goes to what the slot holds, at the level it belongs to.
 
 ## Context
 

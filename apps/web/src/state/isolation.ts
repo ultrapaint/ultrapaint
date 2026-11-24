@@ -5,8 +5,9 @@
  * as it changes. Edits land on the component's own fields, or on one member of one of its choices
  * (`size=lg`), which records an override as a view records a breakpoint's. It is entered only when
  * asked (ADR 0114), one level in from a component already edited there; Escape, Done or a click
- * outside goes up one level, the breadcrumb to any. Its nodes are outlined in the component colour,
- * and the inspector says what is edited, at the top of its Design tab (ADR 0120).
+ * outside goes up one level, the breadcrumb to any; a click past a slot's node on what the slot
+ * holds goes up to the level that holds it (ADR 0123). Its nodes are outlined in the component
+ * colour, and the inspector says what is edited, at the top of its Design tab (ADR 0120).
  *
  * The tree edited is the document's, which the server publishes whenever the component's file
  * changes, whoever changes it (ADR 0042): its file only starts it, so an edit is never shown
@@ -20,6 +21,7 @@ import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import { componentDocOf, variantKey } from "@ultrapaint/contracts/components";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import {
+  LAYER_SEPARATOR,
   layerIdOf,
   layerPath,
 } from "@ultrapaint/design-document/instance-layers";
@@ -27,11 +29,17 @@ import type { RenderRequest } from "@ultrapaint/preview-core/preview";
 import { useMemo } from "react";
 import { create } from "zustand";
 import { appComponentOf, useComponents } from "./components.ts";
-import { drawnRootOf, editFrameAs, useDocuments } from "./documents.ts";
+import {
+  drawnRootOf,
+  editFrameAs,
+  rootOfFrame,
+  useDocuments,
+} from "./documents.ts";
 import { useEditor } from "./editor.ts";
 import { frameRefOf } from "./frame-ref.ts";
 import { usePanels } from "./panels.ts";
 import { select } from "./selection.ts";
+import { unlockedChain } from "./tree.ts";
 
 /** A choice's member edits land on. */
 interface VariantEdited {
@@ -164,6 +172,45 @@ export const leaveIsolation = (): boolean => {
       ? null
       : { frame: isolated.frame, nodeId: isolated.instance }
   );
+  return true;
+};
+
+/**
+ * Up to the level what a slot of the component edited holds belongs to, and selects it there
+ * (ADR 0123). `held` is what the slot holds under a point, outermost first, as the frame draws it:
+ * the page's own nodes, or a level around's layers (`shell/x`, which is `x` at that level). The
+ * outermost of them is selected, the innermost when `innermost`, a locked one never; with all
+ * locked, the instance the level was left through is. Whether a component was edited to leave.
+ */
+export const leaveForHeld = (
+  held: readonly string[],
+  innermost: boolean
+): boolean => {
+  const [first] = held;
+  const start = useIsolation.getState().isolated;
+  if (!start || first === undefined) {
+    return false;
+  }
+  while (leaveIsolation()) {
+    const level = useIsolation.getState().isolated;
+    const prefix = level ? `${level.drawn}${LAYER_SEPARATOR}` : "";
+    if (first.startsWith(prefix)) {
+      const root = rootOfFrame(
+        useDocuments.getState().docs,
+        useEditor.getState().canvas,
+        start.frame
+      );
+      const ids = unlockedChain(
+        held.map((drawn) => drawn.slice(prefix.length)),
+        root
+      );
+      const id = innermost ? ids.at(-1) : ids[0];
+      if (id !== undefined) {
+        select({ frame: start.frame, nodeId: id });
+      }
+      return true;
+    }
+  }
   return true;
 };
 

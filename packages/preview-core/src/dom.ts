@@ -1,6 +1,6 @@
 /** Small DOM helpers the core and the renderers share. */
 
-import { NODE_ATTRIBUTE, nodeSelector } from "./preview.ts";
+import { NODE_ATTRIBUTE, nodeSelector, OUTSIDE_ATTRIBUTE } from "./preview.ts";
 
 /**
  * The elements a node is drawn as. An instance is usually the component's own root element,
@@ -36,6 +36,27 @@ export const chainAt = (el: Element | null): string[] => {
     current = current.parentElement;
   }
   return chain;
+};
+
+/**
+ * The page's own nodes an element is part of inside the innermost node it is drawn in, outermost
+ * first, while an instance is edited in place: what its slots hold there (ADR 0123). Empty when
+ * no node is around it, the page dimmed around the instance.
+ */
+export const pageChainAt = (el: Element | null): string[] => {
+  const chain: string[] = [];
+  let current: Element | null = el;
+  while (current) {
+    if (current.hasAttribute(NODE_ATTRIBUTE)) {
+      return chain;
+    }
+    const id = current.getAttribute(OUTSIDE_ATTRIBUTE);
+    if (id !== null) {
+      chain.unshift(id);
+    }
+    current = current.parentElement;
+  }
+  return [];
 };
 
 /** Text of an element that holds only text; null as soon as it has element children. */

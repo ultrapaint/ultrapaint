@@ -63,6 +63,7 @@ const fakePreview = () => {
         editText: () => undefined,
         hitTest: () => [],
         measure: () => ({}),
+        pageAt: () => [],
         render: (request: RenderRequest) => {
           renders.push({ frame: options.frame, request });
         },

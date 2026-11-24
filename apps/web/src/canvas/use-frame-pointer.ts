@@ -23,7 +23,11 @@ import {
 } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf, takesComments } from "../state/frame-ref.ts";
-import { leaveIsolation, useIsolation } from "../state/isolation.ts";
+import {
+  leaveForHeld,
+  leaveIsolation,
+  useIsolation,
+} from "../state/isolation.ts";
 import {
   isSelected,
   select,
@@ -138,6 +142,38 @@ export const useFramePointer = ({
     const [selected = null] = selectedIn(frameId);
     return stepInto(chain, currentRoot(), selected, deep(e), appFileOf);
   };
+  /**
+   * In a component edited in place, what a click goes on to past the component's innermost node
+   * under it: what that node's slot holds there, the page's own or a level around's (ADR 0123).
+   * Reached once that node is selected, or at once with Ctrl/⌘ or Alt; null while the click
+   * stays in the component.
+   */
+  const heldAt = (e: ReactMouseEvent) => {
+    const { x, y } = toFrame(e);
+    const innermost = hitUnlocked(frameId, x, y).at(-1);
+    // A locked node cuts the chain short: what it holds is not reached either.
+    if (
+      innermost === undefined ||
+      frameOf(frameId).hitTest(x, y).at(-1) !== innermost
+    ) {
+      return null;
+    }
+    const held = frameOf(frameId).pageAt(x, y);
+    const [selected = null] = selectedIn(frameId);
+    return held.length > 0 && (deep(e) || selected === innermost) ? held : null;
+  };
+  /**
+   * A click in the component edited in this frame that leaves it, which it does: on the page
+   * dimmed around it, where nothing is hit, or past a slot's node, on to what the slot holds
+   * (ADR 0123). Whether it left.
+   */
+  const leavesComponent = (e: ReactMouseEvent, id: string | null) => {
+    if (id === null) {
+      return leaveIsolation();
+    }
+    const held = heldAt(e);
+    return held !== null && leaveForHeld(held, deep(e));
+  };
   const onMove = (e: ReactPointerEvent) => {
     const now = performance.now();
     if (now - lastHit.current < 40) {
@@ -181,8 +217,7 @@ export const useFramePointer = ({
       return;
     }
     const id = nodeAt(e);
-    if (editing === frameId && id === null) {
-      leaveIsolation();
+    if (editing === frameId && leavesComponent(e, id)) {
       return;
     }
     if (id && e.shiftKey) {

@@ -16,7 +16,13 @@ import {
   type StyleContext,
 } from "@ultrapaint/design-document/css";
 import { toCanvas, toPng } from "html-to-image";
-import { chainAt, directText, elementsOf, unionRect } from "./dom.ts";
+import {
+  chainAt,
+  directText,
+  elementsOf,
+  pageChainAt,
+  unionRect,
+} from "./dom.ts";
 import { clearHost, showHost, writeClasses, writeStyle } from "./frame-host.ts";
 import { elementAt, type HitScope } from "./hit.ts";
 import type {
@@ -657,16 +663,19 @@ const mountFrame = (
     return cut.toDataURL("image/png");
   };
 
+  /** The element drawn under a point of the frame. */
+  const drawnAt = (x: number, y: number) => {
+    const at = placement();
+    return unobserved(() =>
+      elementAt(at.left + x * at.zoom, at.top + y * at.zoom, scope)
+    );
+  };
+
   const runtime: FrameRuntime = {
     editText: startTextEdit,
-    hitTest: (x, y) => {
-      const at = placement();
-      const el = unobserved(() =>
-        elementAt(at.left + x * at.zoom, at.top + y * at.zoom, scope)
-      );
-      return chainAt(el);
-    },
+    hitTest: (x, y) => chainAt(drawnAt(x, y)),
     measure,
+    pageAt: (x, y) => pageChainAt(drawnAt(x, y)),
     render,
     screenshot: (nodeId) => capture(nodeId).catch(() => null),
     scrollIntoView: (nodeId) => {
