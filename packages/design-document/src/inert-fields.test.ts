@@ -99,6 +99,16 @@ describe("inertFields", () => {
     });
   });
 
+  it("names no breakpoint value equal to the node's own while another breakpoint sets it otherwise", () => {
+    expect(
+      named([
+        { id: "b", op: "update", set: { size: 20 } },
+        { at: "sm", id: "b", op: "update", set: { size: 16 } },
+        { at: "md", id: "b", op: "update", set: { size: 20 } },
+      ])
+    ).toEqual([]);
+  });
+
   it("names a value the node already had, and a null on a field it did not have", () => {
     expect(
       inert([{ id: "b", op: "update", set: { fill: null, text: "b" } }])
