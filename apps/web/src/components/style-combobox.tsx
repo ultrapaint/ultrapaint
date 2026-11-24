@@ -81,7 +81,7 @@ export const waysFor = (
     : []),
 ];
 
-const ArbitraryDot = ({ className }: { className?: string }) => (
+export const ArbitraryDot = ({ className }: { className?: string }) => (
   <Tooltip>
     <TooltipTrigger
       render={
