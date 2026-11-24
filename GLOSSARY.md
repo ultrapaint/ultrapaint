@@ -108,8 +108,14 @@ refactor and the board view left.
   angle or side, its **geometry** (a radial one's shape, size and centre, a conic one's centre, as
   written) and its **colour space** (`interpolation`, the space its stops mix in). The document
   holds the CSS; the layers are the editor's reading of it. A token stands anywhere in a fill but in a
-  comment, a URL or a quoted string, in no other value.
+  comment, a URL or a quoted string; past a value's start only there and in a **shadow list**.
   _Avoid_: paint, background stack.
+- **Shadow list**: a box's `shadow` read as its shadows (design-document's `shadow`), split on
+  its top-level commas, the one drawn on top first, as CSS paints a box-shadow list. Each shadow
+  is a token (`$shadow-md`) or CSS, drop or inner (`inset`); the document holds the one string,
+  and the Effects section shows a row per shadow. In code, one shadow is its utility and several
+  are one arbitrary `shadow-[…]` in their order.
+  _Avoid_: shadow layers, shadow stack.
 - **Utility vocabulary**: Tailwind's utilities as the class writer and every reader of classes
   in the style adapter speak them (style-tailwind-v4's `utilities`): how a class is written (its
   variants, `!`, sign, utility and value, a colour's opacity, an **arbitrary value** and its

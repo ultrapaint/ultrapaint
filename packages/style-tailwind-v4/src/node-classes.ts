@@ -32,6 +32,7 @@ import {
   SIDE_DEGREES,
   stopPositions,
 } from "@ultrapaint/design-document/fill";
+import { shadowsOf } from "@ultrapaint/design-document/shadow";
 import { isToken, tokenName } from "@ultrapaint/design-document/tokens";
 import {
   COLOR_KEYWORDS,
@@ -585,10 +586,19 @@ const radius: Rule = (value) => {
   );
 };
 
+/**
+ * A shadow: one as its utility, a token of the `shadow` namespace by its name (`shadow-md`); several
+ * as one arbitrary `shadow-[…]` in their order, each token as its variable. Tailwind's own pairs
+ * (`shadow-md inset-shadow-sm`) hold one drop and one inner shadow, the inner always on top.
+ */
 const shadow: Rule = (value) => {
   const text = String(value).trim();
   if (text === "none") {
     return one("shadow-none", "boxShadow");
+  }
+  const shadows = shadowsOf(text);
+  if (shadows.length > 1) {
+    return one(arbitrary("shadow", shadows.map(cssOf).join(", ")), "boxShadow");
   }
   return one(
     isToken(text)

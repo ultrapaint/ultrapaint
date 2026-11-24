@@ -1,10 +1,12 @@
 /**
- * The inspector's appearance (opacity and radius), fill, border and shadow sections. Border and
- * shadow are each a section's + while a node has none, and its − once it has; the fill is its
- * layers (`inspector-fill`).
+ * The inspector's appearance (opacity and radius), fill, border and effects sections. The border
+ * is the section's + while a node has none, and its − once it has; the fill is its layers
+ * (`inspector-fill`), and the effects its shadows, a row each.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import { shadowListCss, shadowsOf } from "@ultrapaint/design-document/shadow";
+import { Minus, Plus } from "lucide-react";
 import { Segmented } from "../components/segmented.tsx";
 import type { StyleOption } from "../components/style-combobox.tsx";
 import { ValueField } from "../components/value-field.tsx";
@@ -18,6 +20,7 @@ import {
   nullIfMixed,
   Row,
   Section,
+  SectionAction,
   set,
   setEach,
   sharedOf,
@@ -160,36 +163,141 @@ const BorderSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
   );
 };
 
-/** The effects, a shadow: a + while there is none, which opens the shadows to pick one. */
+const SHADOW = TOKEN_FIELDS.shadow;
+
+/** Writes shadows as the shadow of every node inspected, or takes it off when none is left. */
+const writeShadows = (shadows: readonly string[]) =>
+  setField(SHADOW, shadowListCss(shadows));
+
+/** Whether CSS takes a shadow typed, a token aside. */
+const acceptsShadow = (q: string) => CSS.supports("box-shadow", q);
+
+/** One shadow's field, a token or CSS, picked from the shadows of the design system. */
+const ShadowValue = ({
+  autoOpen,
+  onChange,
+  value,
+}: {
+  autoOpen?: boolean;
+  onChange: (value: JsonValue) => void;
+  value: string | undefined;
+}) => {
+  const options = useTokenOptions(SHADOW.options);
+  return (
+    <ValueField
+      accept={acceptsShadow}
+      autoOpen={autoOpen}
+      kind={SHADOW.options}
+      onChange={onChange}
+      options={options}
+      placeholder="None"
+      title="Shadow"
+      value={value}
+    />
+  );
+};
+
+/** A row of the Effects section: one shadow's field and the − that takes it off. */
+const ShadowRow = ({
+  autoOpen,
+  first,
+  onChange,
+  onRemove,
+  value,
+}: {
+  autoOpen?: boolean;
+  /** Whether it is the section's first row, which the instance's override mark is on. */
+  first: boolean;
+  onChange: (value: JsonValue) => void;
+  onRemove: () => void;
+  value: string | undefined;
+}) => (
+  <Row fields={first ? ["shadow"] : undefined} label="Shadow">
+    <div
+      className="flex min-w-0 flex-1 items-center gap-1"
+      data-shadow={value === undefined ? "new" : "shadow"}
+    >
+      <ShadowValue autoOpen={autoOpen} onChange={onChange} value={value} />
+      <SectionAction onClick={onRemove} tooltip="Remove shadow">
+        <Minus />
+      </SectionAction>
+    </div>
+  </Row>
+);
+
+/**
+ * The effects: a row per shadow, the one drawn on top first, each a token or CSS with its own −,
+ * and a + that adds a shadow after them, its shadows open to pick one. Nodes whose shadows differ
+ * show one field reading Mixed, which gives them all one list.
+ */
 const ShadowSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
   const [adding, add] = useReveal();
-  const shadowed = sharedField(TOKEN_FIELDS.shadow, nodes) !== undefined;
+  const shared = sharedField(SHADOW, nodes);
+  const shadows = typeof shared === "string" ? shadowsOf(shared) : [];
+  /** The shadows with the one at `index` as `value`, or without it for null. */
+  const replace = (index: number, value: JsonValue) =>
+    writeShadows([
+      ...shadows.slice(0, index),
+      ...(value === null ? [] : shadowsOf(String(value))),
+      ...shadows.slice(index + 1),
+    ]);
   return (
     <Section
       action={
-        <AddOrRemove
-          name="shadow"
-          onAdd={() => add(true)}
-          onRemove={() => {
-            add(false);
-            setField(TOKEN_FIELDS.shadow, null);
-          }}
-          present={shadowed || adding}
-        />
+        shared === MIXED ? (
+          <SectionAction
+            onClick={() => setField(SHADOW, null)}
+            tooltip="Remove shadow"
+          >
+            <Minus />
+          </SectionAction>
+        ) : (
+          <SectionAction onClick={() => add(true)} tooltip="Add shadow">
+            <Plus />
+          </SectionAction>
+        )
       }
       title="Effects"
     >
-      {shadowed || adding ? (
+      {shared === MIXED ? (
         <Row fields={["shadow"]} label="Shadow">
-          <NodeValueField
-            accept={(q) => CSS.supports("box-shadow", q)}
-            autoOpen={adding && !shadowed}
-            field={TOKEN_FIELDS.shadow}
-            nodes={nodes}
-            placeholder="None"
-          />
+          <div className="flex min-w-0 flex-1" data-shadow="mixed">
+            <NodeValueField
+              accept={acceptsShadow}
+              field={SHADOW}
+              nodes={nodes}
+              placeholder="None"
+            />
+          </div>
         </Row>
-      ) : null}
+      ) : (
+        <>
+          {shadows.map((shadow, i) => (
+            <ShadowRow
+              first={i === 0}
+              // biome-ignore lint/suspicious/noArrayIndexKey: a shadow is its place in the list
+              key={i}
+              onChange={(value) => replace(i, value)}
+              onRemove={() => replace(i, null)}
+              value={shadow}
+            />
+          ))}
+          {adding ? (
+            <ShadowRow
+              autoOpen
+              first={shadows.length === 0}
+              onChange={(value) => {
+                add(false);
+                if (value !== null) {
+                  writeShadows([...shadows, ...shadowsOf(String(value))]);
+                }
+              }}
+              onRemove={() => add(false)}
+              value={undefined}
+            />
+          ) : null}
+        </>
+      )}
     </Section>
   );
 };

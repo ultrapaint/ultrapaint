@@ -129,7 +129,10 @@ interface BoxFields {
   readonly order?: number | undefined;
   readonly padding?: Padding | undefined;
   readonly radius?: Length | undefined;
-  /** A shadow token (`"$shadow-md"`) or a CSS box-shadow. */
+  /**
+   * A shadow token (`"$shadow-md"`) or a CSS box-shadow, or several of them as one list, the first
+   * drawn on top (`"$shadow-md, inset 0 1px 0 #fff"`).
+   */
   readonly shadow?: string | undefined;
   /**
    * The part of its parent system component it fills (ADR 0040): a slot's name (`dialog-footer`). A

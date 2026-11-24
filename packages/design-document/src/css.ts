@@ -436,14 +436,29 @@ export const pageDefaultsStyle = (
 };
 
 /**
- * Declarations as the canvas draws them: a token as its variable, a number as pixels, and every
- * token of a fill, wherever in it.
+ * A declaration as the canvas draws it: a token as its variable, a number as pixels, every token
+ * of a fill, wherever in it, and the token of each shadow of a shadow list.
  */
+const resolvedValue = (
+  property: string,
+  value: string | number,
+  resolver: TokenResolver
+): string => {
+  switch (property) {
+    case "background":
+      return resolver.fill(value);
+    case "boxShadow":
+      return resolver.shadow(value);
+    default:
+      return resolver.css(value);
+  }
+};
+
 const resolved = (declarations: Declarations, resolver: TokenResolver): Style =>
   Object.fromEntries(
     Object.entries(declarations).map(([property, value]) => [
       property,
-      property === "background" ? resolver.fill(value) : resolver.css(value),
+      resolvedValue(property, value, resolver),
     ])
   );
 

@@ -1,4 +1,5 @@
 import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
+import { shadowsOf } from "@ultrapaint/design-document/shadow";
 import type { FigNode, FigPaint } from "openfig-core";
 import { describe, expect, it } from "vitest";
 import { boxOf, frameSize, paddingOf, sizeOf, stackFields } from "./layout.ts";
@@ -63,6 +64,37 @@ describe("a node's box", () => {
       shadow: "0px 2px 4px 0px rgba(0, 0, 0, 1)",
       width: 100,
     });
+  });
+
+  it("writes a frame's drop and inner shadows as one list the shadow split reads as two", () => {
+    const box = boxOf(
+      node({
+        effects: [
+          {
+            color: { a: 0.25, b: 0, g: 0, r: 0 },
+            offset: { x: 0, y: 4 },
+            radius: 8,
+            type: "DROP_SHADOW",
+            visible: true,
+          },
+          {
+            color: { a: 1, b: 1, g: 1, r: 1 },
+            offset: { x: 0, y: 1 },
+            radius: 0,
+            type: "INNER_SHADOW",
+            visible: true,
+          },
+        ],
+        size: { x: 100, y: 40 },
+      } as Partial<FigNode>),
+      { direction: null },
+      { height: 40, width: 100 },
+      noTokens
+    );
+    expect(shadowsOf(box.shadow)).toEqual([
+      "0px 4px 8px 0px rgba(0, 0, 0, 0.25)",
+      "inset 0px 1px 0px 0px rgba(255, 255, 255, 1)",
+    ]);
   });
 
   /** A box of 200 by 100 filled with one gradient paint. */

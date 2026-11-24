@@ -50,6 +50,26 @@ describe("the tokens a design relies on", () => {
     expect([...tokensUsed(page, emptyDesignSystem())]).toEqual(["color-brand"]);
   });
 
+  it("reads the token of every shadow in a shadow list, and none from a text saying one after a comma", () => {
+    const page: PageNode = {
+      children: [
+        {
+          children: [],
+          id: "card",
+          shadow: "inset 0 1px 0 #fff, $shadow-md, $shadow-ring",
+          type: "column",
+        },
+        { id: "t", role: "paragraph", text: "Hi, $name", type: "text" },
+      ],
+      id: "root",
+      type: "page",
+    };
+    expect([...tokensUsed(page, emptyDesignSystem())]).toEqual([
+      "shadow-md",
+      "shadow-ring",
+    ]);
+  });
+
   it("reads an instance's property named fill as any property, not as a fill", () => {
     expect([
       ...tokensIn({
