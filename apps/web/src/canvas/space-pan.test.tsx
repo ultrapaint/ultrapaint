@@ -161,6 +161,19 @@ describe("Space held over the canvas", () => {
   });
 });
 
+describe("Space held, then the focus moved into a field", () => {
+  it("keeps its repeats the pan's, and types once pressed again", () => {
+    space("keydown");
+    field.focus();
+    const repeat = space("keydown", { repeat: true });
+    expect(repeat.defaultPrevented).toBe(true);
+    expect(useEditor.getState().spacePan).toBe(true);
+    space("keyup");
+    expect(space("keydown").defaultPrevented).toBe(false);
+    expect(useEditor.getState().spacePan).toBe(false);
+  });
+});
+
 describe("a pan by Space ends", () => {
   it("when Space is released on a field the focus went to", () => {
     space("keydown");
