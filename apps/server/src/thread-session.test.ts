@@ -2307,42 +2307,61 @@ describe("a question the agent waits on", () => {
       );
     }));
 
-  test("waits for the user however long nobody looks: open after 11 and 60 minutes, seen by a chat opened later, and its answers go back", () =>
+  test("waits for the user however long nobody looks, and its answers go back", () =>
     Effect.gen(function* () {
       const store = yield* ThreadStore;
-      // Asked while no chat follows the thread: the person is in the chat list.
       const { card, reply, threadId } = yield* asked();
-      /** The card as the store has it now, and whether the chat list says the thread asks. */
       const stillAsking = Effect.gen(function* () {
         const now = (yield* store.items(threadId)).find(
           (i) => i.id === card?.id
         );
-        assert.strictEqual(now?.kind === "question" && now.answers, null);
-        assert.isUndefined(now?.kind === "question" ? now.outcome : "");
-        assert.isUndefined(now?.kind === "question" ? now.settled : "");
+        assert(now?.kind === "question");
+        assert.isNull(now.answers);
+        assert.isUndefined(now.outcome);
+        assert.isUndefined(now.settled);
         assert.isUndefined(reply.pollUnsafe());
-        const listed = (yield* store.list).find((t) => t.id === threadId);
-        assert.isTrue(listed?.summary?.waiting);
       });
+      // Claude Code withdrew a question after 7.5 minutes; 60 is past any agent's patience.
       yield* TestClock.adjust("11 minutes");
       yield* stillAsking;
       yield* TestClock.adjust("49 minutes");
       yield* stillAsking;
-      // The chat opened again: what it is told holds the card, still asking.
-      const opened = yield* store.follow(threadId).pipe(
-        Stream.takeUntil((told) => told.kind === "synchronized"),
-        Stream.runCollect
-      );
-      const shown = opened
-        .flatMap((told) => (told.kind === "snapshot" ? told.items : []))
-        .find((i) => i.id === card?.id);
-      assert.strictEqual(shown?.kind === "question" && shown.answers, null);
       yield* onThread(threadId, (s) =>
         s.answer(card?.id ?? "", { plan: "free" })
       );
       assert.deepStrictEqual(yield* Fiber.join(reply), {
         action: "accept",
         content: { plan: "free" },
+      });
+    }));
+
+  test("asked while its chat is closed, is listed as asking and shown when the chat opens again", () =>
+    Effect.gen(function* () {
+      const store = yield* ThreadStore;
+      const { threadId, turn } = yield* started();
+      /** The chat opened: what it is told until it has caught up, and then closed. */
+      const openChat = store.follow(threadId).pipe(
+        Stream.takeUntil((told) => told.kind === "synchronized"),
+        Stream.runCollect
+      );
+      yield* openChat;
+      // The person goes back to the chat list, and the agent asks.
+      const reply = yield* Effect.forkChild(
+        turn.elicit(planForm(turn.sessionId))
+      );
+      yield* threadWhen(threadId, has("question"));
+      const listed = (yield* store.list).find((t) => t.id === threadId);
+      assert.isTrue(listed?.summary?.waiting);
+      const shown = (yield* openChat)
+        .flatMap((told) => (told.kind === "snapshot" ? told.items : []))
+        .find((i) => i.kind === "question");
+      assert(shown?.kind === "question");
+      assert.isNull(shown.answers);
+      assert.isUndefined(shown.outcome);
+      yield* onThread(threadId, (s) => s.answer(shown.id, { plan: "pro" }));
+      assert.deepStrictEqual(yield* Fiber.join(reply), {
+        action: "accept",
+        content: { plan: "pro" },
       });
     }));
 
