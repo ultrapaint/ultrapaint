@@ -30,9 +30,10 @@ was left to draw a measurement in without taking another's meaning.
   in it. Pointing at the selection itself gives the same insets, its parent measured on demand
   through the frame (`frameOf(id).measure`) and read again each time the frame draws
   (`rendered`), so a parent covered whole by its children can still be measured; a page's root,
-  which has no parent, draws nothing there. Several selected in one parent give the insets of the box around them in it;
-  several in different parents draw nothing there. A layer of an instance is measured in the
-  layer around it (0114). Empty page space is no element: nothing is measured to it.
+  which has no parent, draws nothing there. Several selected in one parent give the insets of
+  the box around them in it; several in different parents draw nothing there. A layer of an
+  instance is measured in the layer around it (0114). Empty page space is no element: nothing is
+  measured to it.
 - **It is drawn as chrome**, beside the selection's (`measure-overlay`), in the frame's pixels and
   outside the page's clip, its lines a pixel thick and its pills set as the size label at any zoom.
   The selection's size label gives way while it draws, where the pill of a distance from the
