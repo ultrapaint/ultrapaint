@@ -120,14 +120,20 @@ export const summarised = (
   if (!thread || items.length === 0) {
     return threads;
   }
-  const summary = summarise(items);
+  const told = summarise(items);
+  // Another chat's transcript is held only from the news since the list was read, which may not
+  // reach its prompt: its turn then began when the list says.
+  const since = told.since ?? thread.summary?.since;
   if (
-    thread.summary?.waiting === summary.waiting &&
-    thread.summary.since === summary.since
+    thread.summary?.waiting === told.waiting &&
+    thread.summary.since === since
   ) {
     return threads;
   }
-  return threads.with(at, { ...thread, summary });
+  return threads.with(at, {
+    ...thread,
+    summary: { ...told, ...(since !== undefined && { since }) },
+  });
 };
 
 /**
