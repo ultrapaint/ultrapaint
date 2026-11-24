@@ -5,7 +5,7 @@
  * (announced, under way, then done with what they read), and an answer streamed, each chunk a few
  * characters, `CHUNK_MS` apart. Given a node, it also changes its text through the editor's MCP
  * server once a cycle, as a design agent does. It first says `history` tool calls at once, done,
- * as the transcript of a chat that has been working for a while. It says nothing of what it is: a session is a session.
+ * as the transcript of a chat that has been working for a while. A cancel stops it wherever it is. It says nothing of what it is: a session is a session.
  */
 import { Readable, Writable } from "node:stream";
 import {
@@ -142,8 +142,11 @@ const edit = async (cx, sessionId, target, n) => {
     title: "mcp__ultrapaint__apply_operations",
     toolCallId,
   });
-  const result = await client
-    .call("apply_operations", {
+  // A refused or unreachable edit is a failed call, as an agent reports one: the bench counts them.
+  let result;
+  let failed = false;
+  try {
+    result = await client.call("apply_operations", {
       ...(canvas ? { canvas } : {}),
       ops: [
         {
@@ -153,8 +156,12 @@ const edit = async (cx, sessionId, target, n) => {
         },
       ],
       route,
-    })
-    .catch((error) => ({ error: String(error) }));
+    });
+    failed = Boolean(result?.error || result?.result?.isError);
+  } catch (error) {
+    result = { error: String(error) };
+    failed = true;
+  }
   await update(cx, sessionId, {
     content: [
       {
@@ -163,13 +170,13 @@ const edit = async (cx, sessionId, target, n) => {
       },
     ],
     sessionUpdate: "tool_call_update",
-    status: "completed",
+    status: failed ? "failed" : "completed",
     toolCallId,
   });
 };
 
 const work = async (cx, sessionId, seconds, target, history) => {
-  for (let i = 0; i < history; i += 1) {
+  for (let i = 0; i < history && !cancelled.has(sessionId); i += 1) {
     // biome-ignore lint/performance/noAwaitInLoops: a transcript, one call after the other.
     await tool(cx, sessionId, 0);
   }
@@ -183,7 +190,9 @@ const work = async (cx, sessionId, seconds, target, history) => {
       // biome-ignore lint/performance/noAwaitInLoops: one tool call after the other.
       await tool(cx, sessionId);
     }
-    await edit(cx, sessionId, target, n);
+    if (!cancelled.has(sessionId)) {
+      await edit(cx, sessionId, target, n);
+    }
     await stream(cx, sessionId, "agent_message_chunk", 60);
   }
 };

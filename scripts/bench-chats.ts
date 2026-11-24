@@ -255,6 +255,8 @@ interface ServerLine {
   delayMaxMs: number;
   delayMeanMs: number;
   delayP99Ms: number;
+  /** What the sample covered; absent from a probe older than this field. */
+  elapsedMs?: number;
   t: number;
 }
 
@@ -352,7 +354,7 @@ const main = async () => {
   const page = browser.pages()[0] ?? (await browser.newPage());
   // The chats started, stopped and deleted however the run ends: left running, they would stream
   // into the next run.
-  let ids: string[] = [];
+  const ids: string[] = [];
   try {
     await page.addInitScript(instrument);
     const cdp = await browser.newCDPSession(page);
@@ -368,7 +370,8 @@ const main = async () => {
         agentEvents.push(Date.now());
       }
     });
-    await page.goto(`${EDITOR}/`);
+    // A cold `pnpm dev` bundles its dependencies on the first load.
+    await page.goto(`${EDITOR}/`, { timeout: 120_000 });
     await page.waitForFunction(
       () =>
         ((window as unknown as Partial<EdWindow>).__ed?.useProject.getState()
@@ -398,19 +401,22 @@ const main = async () => {
       },
       { canvas: args.canvas, view: args.view }
     );
-    ids = await page.evaluate(async (n) => {
-      const { api } = (window as unknown as EdWindow).__ed;
-      const made: string[] = [];
-      for (let i = 0; i < n; i += 1) {
-        // biome-ignore lint/performance/noAwaitInLoops: the chats in the order they are named.
-        const t = (await api().request("threads.create", {
-          agentId: "load",
-          title: `load ${i + 1}`,
-        })) as { id: string };
-        made.push(t.id);
-      }
-      return made;
-    }, AGENTS);
+    // One at a time, each kept as soon as it is made, so that a failure leaves none behind.
+    for (let i = 0; i < AGENTS; i += 1) {
+      // biome-ignore lint/performance/noAwaitInLoops: the chats in the order they are named.
+      const id = await page.evaluate(
+        async (title) =>
+          (
+            (await (window as unknown as EdWindow).__ed
+              .api()
+              .request("threads.create", { agentId: "load", title })) as {
+              id: string;
+            }
+          ).id,
+        `load ${i + 1}`
+      );
+      ids.push(id);
+    }
     await page.evaluate(
       (id) => (window as unknown as EdWindow).__ed.showLeftPanel({ chat: id }),
       ids[0]
@@ -482,7 +488,8 @@ const main = async () => {
       (threadId, i) =>
         [
           threadId,
-          `load ${SECONDS + 10} ${targets[i % targets.length] ?? "-"} ${HISTORY}`,
+          // Streaming well past the busy window, whatever the warm-up took: stopped at the end.
+          `load ${SECONDS + 60} ${targets[i % targets.length] ?? "-"} ${HISTORY}`,
         ] as const
     );
     await page.evaluate(
@@ -496,8 +503,26 @@ const main = async () => {
         ),
       prompts
     );
-    // Long enough for the history the agents say first to be told.
-    await page.waitForTimeout(3000 + HISTORY * 15);
+    // Every chat's history told before the clock starts, then a moment of streaming.
+    await page.waitForFunction(
+      async ({ started, history }) => {
+        const { api } = (window as unknown as EdWindow).__ed;
+        const told = await Promise.all(
+          started.map(
+            async (threadId) =>
+              (
+                (await api().request("threads.items", { threadId })) as {
+                  kind: string;
+                }[]
+              ).filter((i) => i.kind === "tool").length
+          )
+        );
+        return told.every((n) => n >= history);
+      },
+      { history: HISTORY, started: ids },
+      { polling: 500, timeout: 120_000 }
+    );
+    await page.waitForTimeout(2000);
     if (args.renders) {
       await page.evaluate(() => {
         (window as unknown as EdWindow).__bench.counting = true;
@@ -568,13 +593,46 @@ const main = async () => {
             ),
           }),
         ...(server.length > 0 && {
+          // Over the time the samples covered: a late tick covers more than a second.
           serverCpuPercent: round(
-            server.reduce((s, l) => s + l.cpuMs, 0) / (server.length * 10)
+            (100 * server.reduce((s, l) => s + l.cpuMs, 0)) /
+              server.reduce((s, l) => s + (l.elapsedMs ?? 1000), 0)
           ),
           serverDelayP99Ms: round(Math.max(...server.map((l) => l.delayP99Ms))),
         }),
       };
     };
+    // With `--mcp`, the edits the agents made and those refused: a run whose edits failed
+    // measured no edits, and says so.
+    const mcpEdits = args.mcp
+      ? await page.evaluate(async (started) => {
+          const { api } = (window as unknown as EdWindow).__ed;
+          const calls = (
+            await Promise.all(
+              started.map(
+                (threadId) =>
+                  api().request("threads.items", { threadId }) as Promise<
+                    { kind: string; status?: string; title?: string }[]
+                  >
+              )
+            )
+          )
+            .flat()
+            .filter(
+              (i) => i.kind === "tool" && i.title?.endsWith("apply_operations")
+            );
+          return {
+            done: calls.filter((c) => c.status === "completed").length,
+            failed: calls.filter((c) => c.status === "failed").length,
+          };
+        }, ids)
+      : null;
+    if (mcpEdits && (mcpEdits.failed > 0 || mcpEdits.done === 0)) {
+      console.error(
+        `Incomplete: ${mcpEdits.failed} of the agents' page edits failed, ${mcpEdits.done} made.`
+      );
+      process.exitCode = 1;
+    }
     const top = (counts: Record<string, number>, n: number) =>
       Object.fromEntries(
         Object.entries(counts)
@@ -586,6 +644,7 @@ const main = async () => {
       busy: report("busy"),
       history: HISTORY,
       mcp: args.mcp ?? null,
+      mcpEdits,
       quiet: report("quiet"),
       seconds: SECONDS,
       ...(args.renders && {
