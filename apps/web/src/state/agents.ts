@@ -563,7 +563,14 @@ const newerOf = (
   const byId = new Map(held.map((t) => [t.id, t]));
   return read.map((t) => {
     const mine = byId.get(t.id);
-    return mine !== undefined && mine.updatedAt > t.updatedAt ? mine : t;
+    if (mine === undefined || mine.updatedAt < t.updatedAt) {
+      return t;
+    }
+    // At the same time, a change that is no news (a rename, a settling, ADR 0141) may have come
+    // after the read: the thread as held, with the line the read worked out.
+    return mine.updatedAt === t.updatedAt
+      ? { ...mine, summary: t.summary }
+      : mine;
   });
 };
 

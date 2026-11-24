@@ -184,7 +184,12 @@ const settle = (threadId: string, settled: boolean) =>
 const discardDraft = (threadId: string, draft: string) => {
   setDraft(threadId, "");
   toast("Draft discarded", {
-    action: { label: "Undo", onClick: () => setDraft(threadId, draft) },
+    // Back only into an empty composer: a draft written since is not thrown away for it.
+    action: {
+      label: "Undo",
+      onClick: () =>
+        setDraft(threadId, (current) => (current === "" ? draft : current)),
+    },
   });
 };
 
@@ -235,16 +240,16 @@ const TitleField = ({ thread }: { thread: Thread }) => {
   const [title, setTitle] = useState(thread.title);
   // Ended by Enter or Escape: the blur as the field goes is not a second ending.
   const ended = useRef<boolean>(false);
-  const end = () => {
+  const end = (byKey: boolean) => {
     ended.current = true;
-    done();
+    done(byKey);
   };
-  const send = () => {
+  const send = (byKey: boolean) => {
     if (ended.current) {
       return;
     }
     const given = title.trim();
-    end();
+    end(byKey);
     if (given && given !== thread.title) {
       api()
         .request("threads.rename", { threadId: thread.id, title: given })
@@ -256,17 +261,21 @@ const TitleField = ({ thread }: { thread: Thread }) => {
       aria-label="Chat title"
       autoFocus
       className="min-w-0 flex-1 rounded-sm bg-background px-1 font-body-medium text-foreground outline-none ring-2 ring-ring"
-      onBlur={send}
+      onBlur={() => send(false)}
       onChange={(e) => setTitle(e.target.value)}
       onFocus={(e) => e.target.select()}
       onKeyDown={(e) => {
+        // Enter confirming a word an input method composes is not the title's.
+        if (e.nativeEvent.isComposing) {
+          return;
+        }
         if (e.key === "Enter") {
           e.preventDefault();
-          send();
+          send(true);
         } else if (e.key === "Escape") {
           e.preventDefault();
           e.stopPropagation();
-          end();
+          end(true);
         }
       }}
       value={title}
@@ -285,6 +294,15 @@ const ThreadRow = ({
 }) => {
   const scopeLabel = useScopeLabel(thread);
   const renaming = useChatRename((s) => s.threadId === thread.id);
+  const refocus = useChatRename((s) => s.refocus === thread.id);
+  const button = useRef<HTMLButtonElement>(null);
+  // Back from its title by Enter or Escape: the keyboard is on the row again.
+  useEffect(() => {
+    if (refocus && button.current) {
+      button.current.focus();
+      useChatRename.setState({ refocus: null });
+    }
+  }, [refocus]);
   const open = () => useAgents.getState().open(thread.id);
   const where = (
     <span className="truncate font-body-small text-muted-foreground">
@@ -309,6 +327,7 @@ const ThreadRow = ({
         onContextMenu={(e) =>
           openMenuAt(e, { inList: true, kind: "thread", threadId: thread.id })
         }
+        ref={button}
         type="button"
       >
         <span className="flex min-w-0 items-center gap-2">

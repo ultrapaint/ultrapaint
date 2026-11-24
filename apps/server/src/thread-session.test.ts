@@ -1323,6 +1323,17 @@ describe("a settled chat (ADR 0141)", () => {
       assert.isUndefined((yield* store.get(threadId))?.settledAt);
     }));
 
+  test("comes back when a prompt queued in it is sent into its turn", () =>
+    Effect.gen(function* () {
+      const store = yield* ThreadStore;
+      const { threadId } = yield* started("first");
+      yield* send(threadId, "second");
+      yield* store.update(threadId, { settledAt: 1 }, { news: false });
+      const [queued] = (yield* store.get(threadId))?.queued ?? [];
+      yield* onThread(threadId, (s) => s.sendNow(queued?.id));
+      assert.isUndefined((yield* store.get(threadId))?.settledAt);
+    }));
+
   test("keeps the designer's title when its agent suggests another", () =>
     Effect.gen(function* () {
       const store = yield* ThreadStore;

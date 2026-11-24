@@ -2,7 +2,8 @@ import type { Thread } from "@ultrapaint/contracts/threads";
 import { describe, expect, it } from "vitest";
 import { groupChats } from "./chat-groups.ts";
 
-const NOW = Date.UTC(2026, 10, 24, 12);
+// Local noon, so the day the tests say is today in any time zone.
+const NOW = new Date(2026, 10, 24, 12).getTime();
 const DAY = 24 * 60 * 60_000;
 
 const chat = (id: string, extra: Partial<Thread> = {}): Thread => ({

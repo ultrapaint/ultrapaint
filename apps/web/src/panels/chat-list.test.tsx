@@ -271,6 +271,18 @@ describe("the chat list's actions (ADR 0141)", () => {
     expect(useDrafts.getState().byThread.t1).toBe("Also check the");
   });
 
+  it("keeps a draft written since when Undo would put a discarded one back", async () => {
+    useDrafts.setState({ byThread: { t1: "Also check the" } });
+    await show([chat("t1", "Pricing hero", "idle", ended)]);
+    await act(async () => button("Discard draft")?.click());
+    act(() => useDrafts.setState({ byThread: { t1: "Something else" } }));
+    const [, options] = vi.mocked(toast).mock.calls[0] ?? [];
+    const undo = (options as unknown as { action: { onClick: () => void } })
+      .action;
+    act(() => undo.onClick());
+    expect(useDrafts.getState().byThread.t1).toBe("Something else");
+  });
+
   it("renames a chat in place: Enter sends the title, Escape keeps the old one", async () => {
     await show([chat("t1", "Pricing hero", "idle", ended)]);
     const field = () =>
@@ -296,6 +308,8 @@ describe("the chat list's actions (ADR 0141)", () => {
     });
     // Sent once: the blur as the field goes is no second sending.
     expect(fakeApi.calls).toHaveLength(1);
+    // The keyboard is back on the chat's row.
+    expect(document.activeElement).toBe(row("Pricing hero"));
   });
 
   it("marks a chat unread: it reads Done again until it is opened", async () => {
