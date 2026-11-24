@@ -176,7 +176,9 @@ refactor and the board view left.
   agent does with it (`turn`: on its way to the agent, at the agent, or none; the one place a turn
   ends or fails). `ThreadSessions` creates and deletes threads and gives a thread's **session**
   (`ThreadSession`), which holds its live state and status, and switches its agent;
-  a thread is **busy** while a turn runs or is being stopped (`isBusy`). How a thread is shown
+  a thread is **busy** while a turn runs or is being stopped (`isBusy`). A stop the agent has not
+  confirmed in 10 seconds leaves the thread **unresponsive** (a status), and **Force stop**
+  (`forceStop`) ends the turn and the agent's process (ADR 0124). How a thread is shown
   (busy, waiting on the user, failed, and the word a list, a dot or a badge says) is the web's
   `threadView`; what a prompt carries for its chips, a comment sent to an agent's included, is
   `attachmentsOf`.

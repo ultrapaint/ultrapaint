@@ -712,6 +712,8 @@ const requestRpcs = [
   /** Sends the oldest queued prompt now, after a turn that was stopped or failed. */
   Rpc.make("threads.sendQueued", { error: ThreadError, payload: ThreadRef }),
   Rpc.make("threads.cancel", { error: ThreadError, payload: ThreadRef }),
+  /** Ends a turn whose agent did not confirm its stop, and the agent's process (ADR 0124). */
+  Rpc.make("threads.forceStop", { error: ThreadError, payload: ThreadRef }),
   Rpc.make("threads.delete", { payload: ThreadRef }),
   /**
    * The user's answers to a question card: back to the agent that waits for them, or as the

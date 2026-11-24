@@ -11,9 +11,20 @@ export interface ThreadView {
   /** The agent stopped on an error, which the thread's `error` says. */
   readonly failed: boolean;
   /** What a list says of it, null when there is nothing to say: idle, nothing asked. */
-  readonly label: "Working" | "Reviewing" | "Your turn" | "Stopped" | null;
+  readonly label:
+    | "Working"
+    | "Reviewing"
+    | "Not responding"
+    | "Your turn"
+    | "Stopped"
+    | null;
   /** The colour the label is in. */
   readonly tone: "working" | "attention" | "failed" | null;
+  /**
+   * The agent was asked to stop and has not confirmed it in time (ADR 0124): the person may force
+   * stop the turn. Busy still.
+   */
+  readonly unresponsive: boolean;
   /** The agent's turn ended on something the user is asked (its summary says so). */
   readonly waiting: boolean;
 }
@@ -23,6 +34,7 @@ const IDLE: ThreadView = {
   failed: false,
   label: null,
   tone: null,
+  unresponsive: false,
   waiting: false,
 };
 
@@ -40,18 +52,24 @@ export const threadView = (
   const busy = isBusy(thread.status);
   const waiting = isWaiting(thread);
   const failed = thread.status === "error";
+  const unresponsive = thread.status === "unresponsive";
+  const flags = { busy, failed, unresponsive, waiting };
   // A question or a permission undecided needs the person, its turn under way or not: the tab
   // over the window shows the same, its dot before the spinner (ADR 0107).
   if (waiting) {
-    return { busy, failed, label: "Your turn", tone: "attention", waiting };
+    return { ...flags, label: "Your turn", tone: "attention" };
+  }
+  // A stop the agent ignored needs the person too: Force stop is theirs (ADR 0124).
+  if (unresponsive) {
+    return { ...flags, label: "Not responding", tone: "attention" };
   }
   if (busy) {
     // Its review models look at what it made (ADR 0063): still working, in other words.
     const label = thread.status === "reviewing" ? "Reviewing" : "Working";
-    return { busy, failed, label, tone: "working", waiting };
+    return { ...flags, label, tone: "working" };
   }
   if (failed) {
-    return { busy, failed, label: "Stopped", tone: "failed", waiting };
+    return { ...flags, label: "Stopped", tone: "failed" };
   }
   return IDLE;
 };

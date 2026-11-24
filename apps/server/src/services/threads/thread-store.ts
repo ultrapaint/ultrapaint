@@ -1,5 +1,6 @@
 import {
   isBusy,
+  isStopping,
   summarise,
   Thread,
   ThreadItem,
@@ -70,7 +71,8 @@ export interface TurnsEnded {
 
 /**
  * How a turn ended when a thread's status goes from `before` to `after`: none while it is still
- * under way, or was not. A turn stopped while it was being cancelled was cancelled.
+ * under way, or was not. A turn stopped while it was being cancelled, or force stopped, was
+ * cancelled.
  */
 export const turnEnd = (
   before: ThreadStatus,
@@ -82,7 +84,7 @@ export const turnEnd = (
   if (after === "error") {
     return "failed";
   }
-  return before === "cancelling" ? "cancelled" : "finished";
+  return isStopping(before) ? "cancelled" : "finished";
 };
 
 /**

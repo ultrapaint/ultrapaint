@@ -98,6 +98,12 @@ export interface Turn {
   readonly drop: Effect.Effect<void>;
   /** The agent answered: the turn is over, with the files it changed and what it spent. */
   readonly end: (response: PromptResponse) => Effect.Effect<void>;
+  /**
+   * `end`, for a turn at the agent only: one that is over already, force stopped (ADR 0124), is
+   * left as it is. Taken in one step, so two ends of the same turn cannot both write it. Whether
+   * it ended the turn.
+   */
+  readonly endAtAgent: (response: PromptResponse) => Effect.Effect<boolean>;
   /** The turn went wrong: the transcript says why, and the thread takes prompts again. */
   readonly fail: (message: string) => Effect.Effect<void>;
   /** A terminal of the agent's is done with: the tool call that ran it keeps its output's tail. */
@@ -145,6 +151,19 @@ export const makeTurn = (
       was._tag === "AtAgent" ? Effect.as(ended, was) : Effect.succeed(was)
   );
 
+  /** Over if it is at the agent, in one step with the look; null, and left as it is, if not. */
+  const overAtAgent = Effect.flatMap(
+    Effect.sync(() => {
+      const was = state;
+      if (was._tag !== "AtAgent") {
+        return null;
+      }
+      state = { _tag: "None" };
+      return was;
+    }),
+    (was) => (was === null ? Effect.succeed(null) : Effect.as(ended, was))
+  );
+
   /** Over, with nothing to say of its files. */
   const overSilently = Effect.flatMap(over, (was) =>
     was._tag === "AtAgent" ? was.witness.close : Effect.void
@@ -169,8 +188,11 @@ export const makeTurn = (
     );
   };
 
-  const end = Effect.fnUntraced(function* (response: PromptResponse) {
-    const was = yield* over;
+  /** The end of a turn that `was`, written: its files, what it spent, and the status. */
+  const written = Effect.fnUntraced(function* (
+    was: TurnState,
+    response: PromptResponse
+  ) {
     // Stopped before the agent had it: nothing was changed.
     let files: TurnFiles = { changedFiles: [] };
     if (was._tag === "AtAgent") {
@@ -194,6 +216,16 @@ export const makeTurn = (
     });
     yield* transition({ _tag: "TurnEnded" });
   });
+
+  const end = (response: PromptResponse) =>
+    Effect.flatMap(over, (was) => written(was, response));
+
+  const endAtAgent = (response: PromptResponse) =>
+    Effect.flatMap(overAtAgent, (was) =>
+      was === null
+        ? Effect.succeed(false)
+        : Effect.as(written(was, response), true)
+    );
 
   /** One thing an update does to the transcript, done. */
   const apply = (action: TranscriptAction): Effect.Effect<void> => {
@@ -279,6 +311,7 @@ export const makeTurn = (
     broke,
     drop: overSilently,
     end,
+    endAtAgent,
     fail,
     keepTerminal: Effect.fnUntraced(function* (
       terminalId: string,

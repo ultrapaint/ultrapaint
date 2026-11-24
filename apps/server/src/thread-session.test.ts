@@ -1409,6 +1409,17 @@ describe("the thread's status", () => {
     );
     assert.isNull(statusAfter("idle", { _tag: "CancelOutlived" }));
     assert.isNull(statusAfter("running", { _tag: "CancelOutlived" }));
+    // A stop the agent has not confirmed in time says so, and only while it is being stopped.
+    assert.deepStrictEqual(
+      statusAfter("cancelling", { _tag: "StopUnconfirmed" }),
+      { status: "unresponsive" }
+    );
+    assert.isNull(statusAfter("idle", { _tag: "StopUnconfirmed" }));
+    assert.isNull(statusAfter("unresponsive", { _tag: "CancelAsked" }));
+    assert.deepStrictEqual(
+      statusAfter("unresponsive", { _tag: "CancelOutlived" }),
+      { status: "idle" }
+    );
     // An exit is a failure only while the agent works on a turn it was not asked to stop.
     assert.deepStrictEqual(
       statusAfter("running", { _tag: "AgentExited", reason: "7" }),
@@ -1459,6 +1470,146 @@ describe("the thread's status", () => {
       yield* turn.end("cancelled");
       const { thread } = yield* threadWhen(threadId, turnEnded);
       assert.isUndefined(thread.error);
+    }));
+});
+
+describe("a stop the agent does not confirm", () => {
+  const unresponsive = (thread: { readonly status: string }) =>
+    thread.status === "unresponsive";
+
+  /** A turn the agent was asked to stop 10 seconds ago and still works on. */
+  const ignored = Effect.fnUntraced(function* (text = "hello") {
+    const turn = yield* started(text);
+    yield* onThread(turn.threadId, (s) => s.cancel);
+    yield* TestClock.adjust("10 seconds");
+    yield* threadWhen(turn.threadId, unresponsive);
+    return turn;
+  });
+
+  test("says the agent is not responding 10 seconds after it was asked, and not before", () =>
+    Effect.gen(function* () {
+      const store = yield* ThreadStore;
+      const { threadId } = yield* started();
+      yield* onThread(threadId, (s) => s.cancel);
+      yield* TestClock.adjust("9 seconds");
+      assert.strictEqual((yield* store.get(threadId))?.status, "cancelling");
+      yield* TestClock.adjust("1 second");
+      yield* threadWhen(threadId, unresponsive);
+    }));
+
+  test("counts the 10 seconds from the first Stop, however often it is asked again", () =>
+    Effect.gen(function* () {
+      const { threadId } = yield* started();
+      yield* onThread(threadId, (s) => s.cancel);
+      yield* TestClock.adjust("9 seconds");
+      yield* onThread(threadId, (s) => s.cancel);
+      yield* TestClock.adjust("1 second");
+      yield* threadWhen(threadId, unresponsive);
+    }));
+
+  test("Force stop before the 10 seconds changes nothing", () =>
+    Effect.gen(function* () {
+      const store = yield* ThreadStore;
+      const { threadId } = yield* started();
+      yield* onThread(threadId, (s) => s.cancel);
+      yield* onThread(threadId, (s) => s.forceStop);
+      assert.strictEqual((yield* store.get(threadId))?.status, "cancelling");
+      assert.notInclude(kinds(yield* store.items(threadId)), "turn_end");
+    }));
+
+  test("a stop the agent confirms in time is never unconfirmed", () =>
+    Effect.gen(function* () {
+      const store = yield* ThreadStore;
+      const { threadId, turn } = yield* started();
+      yield* onThread(threadId, (s) => s.cancel);
+      yield* TestClock.adjust("5 seconds");
+      yield* turn.end("cancelled");
+      yield* threadWhen(threadId, turnEnded);
+      yield* TestClock.adjust("10 seconds");
+      assert.strictEqual((yield* store.get(threadId))?.status, "idle");
+    }));
+
+  test("the next turn's stop has its own 10 seconds", () =>
+    Effect.gen(function* () {
+      const store = yield* ThreadStore;
+      const { agent, threadId, turn } = yield* started();
+      yield* onThread(threadId, (s) => s.cancel);
+      yield* TestClock.adjust("5 seconds");
+      yield* turn.end("cancelled");
+      yield* threadWhen(threadId, turnEnded);
+      yield* send(threadId, "again");
+      yield* agent.nextTurn;
+      yield* TestClock.adjust("1 second");
+      yield* onThread(threadId, (s) => s.cancel);
+      // Ten seconds after the first Stop, four after this one.
+      yield* TestClock.adjust("4 seconds");
+      assert.strictEqual((yield* store.get(threadId))?.status, "cancelling");
+      yield* TestClock.adjust("6 seconds");
+      yield* threadWhen(threadId, unresponsive);
+    }));
+
+  test("Force stop ends the turn as stopped, and the agent's process", () =>
+    Effect.gen(function* () {
+      const { agent, threadId } = yield* ignored();
+      yield* onThread(threadId, (s) => s.forceStop);
+      const { items, thread } = yield* threadWhen(threadId, turnEnded);
+      yield* agent.stopped;
+      const end = items.at(-1);
+      assert.strictEqual(
+        end?.kind === "turn_end" && end.stopReason,
+        "cancelled"
+      );
+      assert.isUndefined(thread.error);
+    }));
+
+  test("Force stop lets go of what the agent asked after the Stop", () =>
+    Effect.gen(function* () {
+      const { threadId, turn } = yield* ignored();
+      const asking = yield* Effect.forkChild(turn.requestPermission(EDIT_HOME));
+      yield* threadWhen(threadId, has("permission"));
+      yield* onThread(threadId, (s) => s.forceStop);
+      assert.deepStrictEqual(yield* Fiber.join(asking), {
+        outcome: { outcome: "cancelled" },
+      });
+      const { items } = yield* threadWhen(threadId, turnEnded);
+      const card = items.find((i) => i.kind === "permission");
+      assert.strictEqual(
+        card?.kind === "permission" && card.decision,
+        "cancelled"
+      );
+    }));
+
+  test("Force stop keeps the queue for the person to send", () =>
+    Effect.gen(function* () {
+      const { threadId } = yield* ignored("first");
+      yield* send(threadId, "second");
+      yield* onThread(threadId, (s) => s.forceStop);
+      const { thread } = yield* threadWhen(threadId, turnEnded);
+      assert.deepStrictEqual(
+        thread.queued?.map((q) => q.text),
+        ["second"]
+      );
+    }));
+
+  test("the next prompt after a Force stop reopens the conversation", () =>
+    Effect.gen(function* () {
+      const agents = yield* ScriptedAgents;
+      yield* agents.script({ resume: true });
+      const first = yield* ignored();
+      yield* onThread(first.threadId, (s) => s.forceStop);
+      yield* first.agent.stopped;
+      yield* threadWhen(first.threadId, turnEnded);
+
+      yield* send(first.threadId, "again");
+      const agent = yield* agents.next;
+      const turn = yield* agent.nextTurn;
+      assert.deepStrictEqual(methodsOf(yield* agent.calls), [
+        "initialize",
+        "session/resume",
+        "session/prompt",
+      ]);
+      assert.strictEqual(turn.sessionId, first.turn.sessionId);
+      assert.include(turn.texts, "again");
     }));
 });
 
