@@ -329,6 +329,45 @@ describe("a fill in layers", () => {
     ]);
   });
 
+  it("keeps a variable a whole stop may come from in the image, and a variable under images in the shorthand", () => {
+    expect(bg("linear-gradient(var(--start, red 25%), blue)")).toEqual([
+      "bg-[linear-gradient(var(--start,_red_25%),_blue)]",
+    ]);
+    expect(
+      bg(
+        "linear-gradient(red, transparent), var(--under, linear-gradient(green, yellow))"
+      )
+    ).toEqual([
+      "[background:linear-gradient(red,_transparent),_var(--under,_linear-gradient(green,_yellow))]",
+    ]);
+  });
+
+  it("bounds a shorthand base where a breakpoint's fill takes over, its size and repeat with it", () => {
+    expect(
+      responsive(
+        [
+          null,
+          {
+            background: "linear-gradient(red, blue) 0 0 / 10px 10px no-repeat",
+          },
+        ],
+        [
+          "md",
+          {
+            background:
+              "linear-gradient(90deg in oklab, $color-a, transparent), $color-b",
+          },
+        ]
+      )
+    ).toEqual([
+      "max-md:[background:linear-gradient(red,_blue)_0_0_/_10px_10px_no-repeat]",
+      "md:bg-linear-90",
+      "md:from-a",
+      "md:to-transparent",
+      "md:bg-b",
+    ]);
+  });
+
   it("writes a token in a gradient's geometry as its variable", () => {
     expect(bg("radial-gradient(circle at $spacing-4 50%, red, blue)")).toEqual([
       "bg-radial-[circle_at_var(--spacing-4)_50%]",
