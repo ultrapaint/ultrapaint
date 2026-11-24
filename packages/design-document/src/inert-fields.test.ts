@@ -173,4 +173,47 @@ describe("inertFields", () => {
       },
     ]);
   });
+
+  it("names children on a node put in that holds none, and a breakpoint's value that is its own", () => {
+    const { found, root } = applyOps(
+      page(),
+      [
+        {
+          node: { ...text("leaf"), children: [] } as unknown as DesignNode,
+          op: "insert",
+          parent: null,
+        },
+        {
+          node: {
+            at: { md: { gap: 8 } },
+            children: [text("x"), text("y")],
+            gap: 8,
+            id: "pair",
+            type: "row",
+          },
+          op: "insert",
+          parent: null,
+        },
+      ],
+      { canvas: false, next: makeIdGenerator(["root"]) }
+    );
+    expect(inertFields(found, root)).toEqual([
+      { field: "children", id: "leaf", why: "a text has no children" },
+      { field: "at.md.gap", id: "pair", why: "the same as its own gap" },
+    ]);
+  });
+
+  it("names a layer's breakpoint value that is its instance override's own", () => {
+    expect(
+      inert([
+        { at: "md", id: "shell/title", op: "update", set: { color: "red" } },
+      ])
+    ).toEqual([
+      {
+        field: "at.md.color",
+        id: "shell/title",
+        why: "the same as its own color",
+      },
+    ]);
+  });
 });
