@@ -281,7 +281,15 @@ describe("what a slot of a component edited in place holds (ADR 0123)", () => {
   const page: DesignNode = {
     children: [
       {
-        children: [{ id: "t2", role: "paragraph", text: "Hi", type: "text" }],
+        children: [
+          {
+            children: [
+              { id: "t2-inner", role: "paragraph", text: "Hi", type: "text" },
+            ],
+            id: "t2",
+            type: "column",
+          },
+        ],
         component: "Promo",
         from: "#app",
         id: "promo",
