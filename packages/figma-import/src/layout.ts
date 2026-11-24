@@ -8,7 +8,17 @@ import type {
   Sides,
   Size,
 } from "@ultrapaint/contracts/document";
-import type { FigNode } from "openfig-core";
+import {
+  fillCss,
+  type GradientLayer,
+  type GradientShape,
+} from "@ultrapaint/design-document/fill";
+import {
+  type FigNode,
+  type FigPaint,
+  type FigTransform,
+  resolveGradientGeometry,
+} from "openfig-core";
 import {
   cssRgba,
   shadowCss,
@@ -85,22 +95,116 @@ const borderOf = (node: FigNode, tokens: TokenMatcher): Border | undefined => {
   });
 };
 
+/** The kinds of gradient a fill brings, as the shape CSS draws each with (ADR 0134). */
+const GRADIENTS: Record<string, GradientShape> = {
+  GRADIENT_ANGULAR: "conic",
+  GRADIENT_LINEAR: "linear",
+  GRADIENT_RADIAL: "radial",
+};
+
+const IDENTITY: FigTransform = {
+  m00: 1,
+  m01: 0,
+  m02: 0,
+  m10: 0,
+  m11: 1,
+  m12: 0,
+};
+
+/** Degrees clockwise from up, as CSS gives a gradient's direction, from 0 to 360. */
+const cssDegrees = (dx: number, dy: number) =>
+  round(((((Math.atan2(dx, -dy) * 180) / Math.PI) % 360) + 360) % 360);
+
+/** A share of a gradient as CSS writes a stop's position, `40%`. */
+const percent = (share: number) => `${round(share * 100)}%`;
+
+/**
+ * How a gradient paint runs over a box of `width` by `height` as CSS says it, from the paint's
+ * transform: a linear one's angle, with where its handles' ends fall on CSS's gradient line (CSS
+ * runs a gradient corner to corner, Figma between its handles); a radial one as an ellipse at
+ * its centre; an angular one as a conic gradient from its start handle.
+ */
+const gradientGeometry = (
+  shape: GradientShape,
+  transform: FigTransform,
+  width: number,
+  height: number
+): {
+  readonly head: Partial<GradientLayer>;
+  readonly at: (s: number) => number;
+} => {
+  const geometry = resolveGradientGeometry(
+    { transform, type: shape === "linear" ? "linear" : "radial" },
+    width,
+    height
+  );
+  if (geometry?.type === "linear") {
+    const { end, start } = geometry;
+    const angle = cssDegrees(end.x - start.x, end.y - start.y);
+    const rad = (angle * Math.PI) / 180;
+    const [ux, uy] = [Math.sin(rad), -Math.cos(rad)];
+    const length = Math.abs(width * ux) + Math.abs(height * uy);
+    const along = (p: { x: number; y: number }) =>
+      ((p.x - width / 2) * ux + (p.y - height / 2) * uy) / length + 0.5;
+    const [from, to] = [along(start), along(end)];
+    return { at: (s) => from + s * (to - from), head: { angle } };
+  }
+  if (geometry?.type === "radial") {
+    const { angle, center, radiusX, radiusY } = geometry;
+    const centre = `at ${percent(center.x / width)} ${percent(center.y / height)}`;
+    return {
+      at: (s) => s,
+      head:
+        shape === "conic"
+          ? {
+              angle: cssDegrees(Math.cos(angle), Math.sin(angle)),
+              geometry: centre,
+            }
+          : {
+              geometry: `${percent(radiusX / width)} ${percent(radiusY / height)} ${centre}`,
+            },
+    };
+  }
+  return { at: (s) => s, head: shape === "linear" ? { angle: 180 } : {} };
+};
+
+/**
+ * A gradient paint as CSS: its shape, how it runs, and its stops, each the colour token that
+ * holds its colour where the design system has one.
+ */
+const gradientOf = (
+  node: FigNode,
+  paint: FigPaint,
+  tokens: TokenMatcher
+): string | undefined => {
+  const shape = GRADIENTS[paint.type];
+  if (!(shape && paint.stops && paint.stops.length > 0)) {
+    return undefined;
+  }
+  const { at, head } = gradientGeometry(
+    shape,
+    paint.transform ?? IDENTITY,
+    node.size?.x ?? 1,
+    node.size?.y ?? 1
+  );
+  const stops = [...paint.stops]
+    .sort((a, b) => a.position - b.position)
+    .map((stop) => ({
+      color: tokens(cssRgba(stop.color, paint.opacity ?? 1)),
+      position: percent(at(stop.position)),
+    }));
+  return fillCss([{ ...head, kind: "gradient", shape, stops }]) ?? undefined;
+};
+
 const fillOf = (node: FigNode, tokens: TokenMatcher): string | undefined => {
   const paint = topPaint(node.fillPaints, "SOLID");
   if (paint?.color) {
     return tokens(solidColor([paint]) ?? "");
   }
-  const gradient = topPaint(node.fillPaints, "GRADIENT_LINEAR");
-  if (gradient?.stops && gradient.stops.length > 0) {
-    const stops = gradient.stops
-      .map(
-        (stop) =>
-          `${cssRgba(stop.color, gradient.opacity ?? 1)} ${round(stop.position * 100)}%`
-      )
-      .join(", ");
-    return `linear-gradient(180deg, ${stops})`;
-  }
-  return undefined;
+  const gradient = [...(node.fillPaints ?? [])]
+    .reverse()
+    .find((p) => p.visible !== false && GRADIENTS[p.type] !== undefined);
+  return gradient ? gradientOf(node, gradient, tokens) : undefined;
 };
 
 /** How a node is sized on each axis: its own sizing, unless its parent's layout stretches it. */
