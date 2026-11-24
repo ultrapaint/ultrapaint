@@ -41,8 +41,8 @@ export type AgentConfig = typeof AgentConfig.Type;
 
 /**
  * Where a thread is with its agent: `idle`, `running` (from the prompt on, the agent's start
- * included), `cancelling` and `error`. A thread file read at start is idle whatever it says, so
- * one written with an older status (`starting`, `closed`) still reads.
+ * included), `cancelling`, `unresponsive` and `error`. A thread file read at start is idle
+ * whatever it says, so one written with an older status (`starting`, `closed`) still reads.
  */
 export const ThreadStatus = Schema.Literals([
   "idle",
@@ -50,16 +50,28 @@ export const ThreadStatus = Schema.Literals([
   /** The design's review models look at what the turn made (ADR 0063); the designer waits. */
   "reviewing",
   "cancelling",
+  /**
+   * The agent was asked to stop and has not confirmed it in 10 seconds (ADR 0124): the person
+   * may force stop the turn, which ends the agent's process.
+   */
+  "unresponsive",
   "error",
 ]);
 export type ThreadStatus = typeof ThreadStatus.Type;
+
+/**
+ * The agent was asked to stop its turn and has not ended it: `cancelling`, or `unresponsive` once
+ * the stop has gone unconfirmed (ADR 0124). A turn that ends from either was stopped.
+ */
+export const isStopping = (status: ThreadStatus | undefined): boolean =>
+  status === "cancelling" || status === "unresponsive";
 
 /**
  * The agent is on a turn, or stopping one: a prompt sent now waits in the thread's queue, the
  * agent cannot be switched, and stopping the server would cut it off.
  */
 export const isBusy = (status: ThreadStatus | undefined): boolean =>
-  status === "running" || status === "reviewing" || status === "cancelling";
+  status === "running" || status === "reviewing" || isStopping(status);
 
 /**
  * The agent waits on the person: a question it asked or a permission it needs is undecided (its

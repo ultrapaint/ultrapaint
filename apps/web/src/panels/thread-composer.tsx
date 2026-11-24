@@ -216,7 +216,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
   const workspace = useEditor((s) => s.workspace);
   const canvas = useEditor((s) => s.canvas);
   const shotFrame = shotFrameOf(workspace, canvas, page);
-  const running = threadView(thread).busy;
+  const { busy: running, unresponsive } = threadView(thread);
   const answering = useAnswering(thread.id);
   const menu = useCommandMenu(thread, text, setText, answering === null);
 
@@ -295,6 +295,10 @@ export const Composer = ({ thread }: { thread: Thread }) => {
   };
   const cancel = () =>
     api().request("threads.cancel", { threadId: thread.id }).catch(reportError);
+  const forceStop = () =>
+    api()
+      .request("threads.forceStop", { threadId: thread.id })
+      .catch(reportError);
 
   const showShot = Boolean(page && attachShot);
 
@@ -309,6 +313,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
       {failed ? (
         <SendFailed busy={busy} message={failed} onRetry={send} />
       ) : null}
+      {unresponsive ? <NotResponding onForceStop={forceStop} /> : null}
       <div className="flex flex-col" data-composer-stack>
         <FileDropBox
           className={cn(composerBox, "relative z-1")}
@@ -635,6 +640,29 @@ const SendFailed = ({
         variant="outline"
       >
         Try again
+      </Button>
+    </div>
+  </div>
+);
+
+/**
+ * Over the composer while a stop goes unconfirmed (ADR 0124): the agent was asked to stop 10
+ * seconds ago and is still on its turn. Force stop ends its process and the turn; the next prompt
+ * reopens the conversation.
+ */
+const NotResponding = ({ onForceStop }: { onForceStop: () => void }) => (
+  <div
+    className="flex gap-2 rounded-lg bg-muted px-3 py-2 font-body-small"
+    role="status"
+  >
+    <CircleAlert aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+    <div className="flex min-w-0 flex-col items-start gap-2">
+      <p>
+        The agent isn't responding to Stop. Force stop ends it; your next prompt
+        picks the conversation up again.
+      </p>
+      <Button onClick={onForceStop} size="sm" variant="outline">
+        Force stop
       </Button>
     </div>
   </div>

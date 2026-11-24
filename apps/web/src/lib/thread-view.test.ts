@@ -23,6 +23,16 @@ describe("threadView", () => {
     ["running", undefined, true, false, false, "Working", "working"],
     ["running", true, true, true, false, "Your turn", "attention"],
     ["cancelling", undefined, true, false, false, "Working", "working"],
+    [
+      "unresponsive",
+      undefined,
+      true,
+      false,
+      false,
+      "Not responding",
+      "attention",
+    ],
+    ["unresponsive", true, true, true, false, "Your turn", "attention"],
     ["reviewing", undefined, true, false, false, "Reviewing", "working"],
     ["error", undefined, false, false, true, "Stopped", "failed"],
     ["error", true, false, true, true, "Your turn", "attention"],
@@ -34,6 +44,7 @@ describe("threadView", () => {
         failed,
         label,
         tone,
+        unresponsive: status === "unresponsive",
         waiting: asks,
       });
     }

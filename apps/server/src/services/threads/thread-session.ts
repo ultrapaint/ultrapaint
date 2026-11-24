@@ -30,6 +30,7 @@ import {
   type Answers,
   EDITOR_MCP_SERVER,
   isBusy,
+  isStopping,
   modelNameOf,
   type PromptInput,
   type QueuedPrompt,
@@ -98,6 +99,12 @@ export type ThreadFailure =
 /** How long a stopped turn is waited for before what comes next goes ahead without it. */
 const TURN_END_WAIT = "10 seconds";
 
+/**
+ * How long the agent has to confirm a stop, by ending its turn, before the thread says it is not
+ * responding and the person may force stop it (ADR 0124): the reference product's wait.
+ */
+const STOP_CONFIRM_WAIT = "10 seconds";
+
 /** How much of a prompt a turn's point of the history keeps as its words. */
 const PROMPT_WORDS = 200;
 
@@ -111,6 +118,8 @@ type StatusEvent =
   | { readonly _tag: "CancelAsked" }
   /** The agent was asked to stop a turn that had already ended. */
   | { readonly _tag: "CancelOutlived" }
+  /** The agent has not ended the turn it was asked to stop, `STOP_CONFIRM_WAIT` later. */
+  | { readonly _tag: "StopUnconfirmed" }
   /** A turn is over: its end is in the transcript. */
   | { readonly _tag: "TurnEnded" }
   /** A turn, or the session it needed, went wrong. */
@@ -130,9 +139,10 @@ type StatusPatch = Pick<Thread, "status"> & Partial<Pick<Thread, "error">>;
 
 /**
  * The status after an event, and the error with it; null leaves the thread as it is. A cancel
- * stops only a turn under way. A cancel that outlived its turn takes the thread out of
- * "cancelling", which nothing else would. An exit while the user stops the turn, or a session
- * closing, is not a failure, and leaves a failure shown.
+ * stops only a turn under way, once. A cancel that outlived its turn takes the thread out of
+ * "cancelling", which nothing else would. A stop the agent has not confirmed in time leaves it
+ * "unresponsive" until the turn ends, by the agent or by force (ADR 0124). An exit while the
+ * user stops the turn, or a session closing, is not a failure, and leaves a failure shown.
  */
 export const statusAfter = (
   status: ThreadStatus,
@@ -142,9 +152,13 @@ export const statusAfter = (
     case "Prompted":
       return { error: undefined, status: "running" };
     case "CancelAsked":
-      return isBusy(status) ? { status: "cancelling" } : null;
+      return status === "running" || status === "reviewing"
+        ? { status: "cancelling" }
+        : null;
     case "CancelOutlived":
-      return status === "cancelling" ? { status: "idle" } : null;
+      return isStopping(status) ? { status: "idle" } : null;
+    case "StopUnconfirmed":
+      return status === "cancelling" ? { status: "unresponsive" } : null;
     case "TurnEnded":
       return { status: "idle" };
     case "Failed":
@@ -223,6 +237,13 @@ export interface ThreadSession {
   readonly cards: PendingCards;
   /** Removes the thread: a turn on its way, an agent booting and the live session stop. */
   readonly delete: Effect.Effect<void>;
+  /**
+   * Ends a turn whose agent has not confirmed its stop (the thread is `unresponsive`, ADR 0124):
+   * the turn ends cancelled, its cards are let go and the session's scope closes, which stops
+   * the agent's process through the handle that spawned it. The queue stays, and the next
+   * prompt starts a session that reopens the conversation. Any other thread is left as it is.
+   */
+  readonly forceStop: Effect.Effect<void, ThreadFailure>;
   /** Sends a prompt; while the agent works, it waits in the thread's queue instead. */
   readonly prompt: (input: PromptInput) => Effect.Effect<void, ThreadFailure>;
   /** Sends the oldest queued prompt, unless the agent works. */
@@ -296,6 +317,8 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
     let booting: Fiber.Fiber<unknown, unknown> | null = null;
     /** The review's round under way: Stop interrupts it (ADR 0063). */
     let reviewing: Fiber.Fiber<unknown> | null = null;
+    /** The wait for the agent to confirm a stop, while the thread is being stopped (ADR 0124). */
+    let confirming: Fiber.Fiber<void> | null = null;
     // One session start, however many calls ask for it at once.
     const starting = Semaphore.makeUnsafe(1);
     // One prompt at a time, so two cannot both find the thread idle.
@@ -304,7 +327,11 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
     const taking = Semaphore.makeUnsafe(1);
     const cards = makePendingCards(threadId, { log, newItemId, store });
 
-    /** The only way the thread's status changes; `extra` goes with it when it does. */
+    /**
+     * The only way the thread's status changes; `extra` goes with it when it does. A thread out of
+     * "cancelling" no longer waits for its stop to be confirmed: the wait is the turn's it began
+     * in, and must not say the next one's stop was ignored. The patch, when there was one.
+     */
     const transition = Effect.fnUntraced(function* (
       event: StatusEvent,
       extra: Partial<Thread> = {}
@@ -313,7 +340,13 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       const patch = thread ? statusAfter(thread.status, event) : null;
       if (patch) {
         yield* store.update(threadId, { ...extra, ...patch });
+        const wait = confirming;
+        if (wait !== null && patch.status !== "cancelling") {
+          confirming = null;
+          yield* Fiber.interrupt(wait);
+        }
       }
+      return patch;
     });
     /**
      * A turn of variations is over (ADR 0098): the takes not handed in failed, and the chat says
@@ -619,7 +652,13 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       Effect.catchTag("NotConfigured", () => transition({ _tag: "TurnEnded" }))
     );
 
-    /** The agent's answer ends the turn; what follows it runs on its own. */
+    /** Whether a turn is at the agent now. */
+    const atAgent = Effect.map(turn.state, (now) => now._tag === "AtAgent");
+
+    /**
+     * The agent's answer ends the turn; what follows it runs on its own. A turn force stopped
+     * meanwhile is over already (ADR 0124): the agent's late answer changes nothing.
+     */
     const runTurn = (
       session: Live,
       sessionId: string,
@@ -627,10 +666,19 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
     ) =>
       session.agent.prompt(sessionId, blocks).pipe(
         Effect.matchEffect({
-          onFailure: (error) => turn.fail(error.message),
+          onFailure: (error) =>
+            Effect.flatMap(atAgent, (at) =>
+              at
+                ? turn.fail(error.message)
+                : // Force stopped meanwhile: the turn ended cancelled, and its prompt failing
+                  // after says nothing more of it.
+                  Effect.void
+            ),
           onSuccess: (response) =>
             Effect.gen(function* () {
-              yield* turn.end(response);
+              if (!(yield* turn.endAtAgent(response))) {
+                return;
+              }
               // A turn the user stopped leaves the queue for them to send or drop; one under
               // review sends it when the review is over.
               if (response.stopReason !== "cancelled" && reviewing === null) {
@@ -852,18 +900,32 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       const now = yield* current;
       // Only a turn the agent is working on is stopped. One that has ended leaves the thread
       // as it is: nothing would take it out of "cancelling" again.
-      if (now === null || (yield* turn.state)._tag !== "AtAgent") {
+      if (now === null || !(yield* atAgent)) {
         return;
       }
       const { session, sessionId } = now;
-      yield* transition({ _tag: "CancelAsked" });
+      // Asked for the first time: the agent has `STOP_CONFIRM_WAIT` to end the turn before the
+      // thread says it is not responding. The wait goes with the session; asking again does not
+      // put it off.
+      if ((yield* transition({ _tag: "CancelAsked" })) !== null) {
+        confirming = yield* Effect.forkIn(
+          Effect.andThen(
+            Effect.sleep(STOP_CONFIRM_WAIT),
+            Effect.suspend(() => {
+              confirming = null;
+              return Effect.asVoid(transition({ _tag: "StopUnconfirmed" }));
+            })
+          ),
+          session.scope
+        );
+      }
       // The client answers every permission request still open with `cancelled` (ACP), and
       // will not wait for the forms it asked with either.
       yield* cards.releaseAll;
       // The agent ends the turn itself and answers the prompt with `cancelled`.
       yield* Effect.mapError(session.agent.cancel(sessionId), agentFailure);
       // Unless the turn ended on its own meanwhile, and its end has already been written.
-      if ((yield* turn.state)._tag !== "AtAgent") {
+      if (!(yield* atAgent)) {
         yield* transition({ _tag: "CancelOutlived" });
       }
     }).pipe(Effect.withSpan("ThreadSession.cancel"));
@@ -886,6 +948,18 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
         }
       })
     );
+
+    const forceStop = Effect.gen(function* () {
+      if ((yield* store.get(threadId))?.status !== "unresponsive") {
+        return;
+      }
+      // Asked since the stop, too: nobody answers them now.
+      yield* cards.releaseAll;
+      // Ended as the agent would have: stopped, with the files it changed. The thread is idle.
+      yield* turn.endAtAgent({ stopReason: "cancelled" });
+      // Its process ends with the session's scope, through the handle that spawned it.
+      yield* stopLive;
+    }).pipe(Effect.withSpan("ThreadSession.forceStop"));
 
     const stop = Effect.gen(function* () {
       // An agent that cannot be asked to stop may still end its turn: it is waited for alike.
@@ -1023,6 +1097,8 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
         // Last: a review stopped just now left its pages waiting for the next round.
         yield* reviews.forget(threadId);
       }),
+      // Under `prompting`: no prompt takes the session it is about to close.
+      forceStop: detached(prompting.withPermit(forceStop)),
       prompt: (input) => detached(prompting.withPermit(promptNow(input))),
       sendQueued: detached(sendQueued),
       setConfigOption,

@@ -209,6 +209,36 @@ describe("Send", () => {
   });
 });
 
+describe("Force stop", () => {
+  const forceStop = () =>
+    [...container.querySelectorAll("button")].find(
+      (b) => b.textContent === "Force stop"
+    );
+
+  it("is offered only once the agent has not confirmed a stop", () => {
+    expect(forceStop()).toBeUndefined();
+    show({ ...thread, status: "cancelling" });
+    expect(forceStop()).toBeUndefined();
+    show({ ...thread, status: "unresponsive" });
+    expect(container.querySelector("[role='status']")?.textContent).toContain(
+      "isn't responding"
+    );
+    expect(forceStop()).toBeDefined();
+  });
+
+  it("asks the server to force stop the turn", async () => {
+    fakeApi.respond("threads.forceStop", () => undefined);
+    show({ ...thread, status: "unresponsive" });
+    await act(async () => {
+      forceStop()?.click();
+      await fakeApi.requested("threads.forceStop");
+    });
+    expect(
+      fakeApi.calls.find((c) => c.method === "threads.forceStop")?.input
+    ).toEqual({ threadId: "t1" });
+  });
+});
+
 /** The labels of the buttons under `selector`, up to their colon. */
 const buttonNames = (selector: string) =>
   [...container.querySelectorAll<HTMLButtonElement>(selector)].map(
