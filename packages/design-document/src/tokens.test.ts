@@ -50,6 +50,14 @@ describe("the tokens a design relies on", () => {
     expect([...tokensUsed(page, emptyDesignSystem())]).toEqual(["color-brand"]);
   });
 
+  it("reads a field named as an object's own member as any other", () => {
+    expect([
+      ...tokensIn({
+        props: { constructor: "$color-a", hasOwnProperty: "y", valueOf: "x" },
+      }),
+    ]).toEqual(["color-a"]);
+  });
+
   it("takes a named spacing for itself, not for a step of the base", () => {
     expect([
       ...tokensIn({ gap: "$spacing-4x", padding: "$spacing-gutter" }),
