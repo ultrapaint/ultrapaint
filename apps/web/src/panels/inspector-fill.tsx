@@ -265,6 +265,9 @@ const ColorValue = ({
     <ValueField
       accept={accept}
       autoOpen={autoOpen}
+      // A raw colour is offered its nearest token, or a new one (ADR 0136).
+      colors="background"
+      kind="color"
       leading={leading}
       onChange={onChange}
       options={[...colors, ...extra]}
