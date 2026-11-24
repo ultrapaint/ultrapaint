@@ -73,7 +73,11 @@ refactor and the board view left.
   is outside the design system offers two **ways onto the system** at the top of its list: **Use
   nearest**, and **New token from this value…**, which makes the token and sets the field to it
   in one undo step (`designSystem.edit` carrying the field's edit, ADR 0136). A palette's **shade**
-  is a colour token's step of a ramp, 50 to 950 (`shadeOf`, beside the ramp's steps).
+  is a colour token's step of a ramp, 50 to 950 (`shadeOf`, beside the ramp's steps). A colour
+  field draws each palette (a ramp, `isRamp`, its shades each at a step of their own) as a row of
+  its shades' **swatches** under the
+  other colours while nothing is typed, the steps lined up across the palettes (`splitPalettes`,
+  ADR 0146).
 - **Token naming**: how a token another tool writes (a Figma variable or style, a Design Tokens
   file's token) becomes one of the design's: its **foreign path** (`Color/Text/Primary`,
   `font.size.sm`) and a **value hint** (what the tool says the value is) give its kind and name
