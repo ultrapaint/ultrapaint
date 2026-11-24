@@ -410,6 +410,29 @@ describe("the Fill section's layers (ADR 0134)", () => {
     ]);
   });
 
+  it("keeps stops placed in another unit where they are written: the bar moves none, and taking one off leaves the others", async () => {
+    show({
+      box: "linear-gradient(in oklab, $color-primary 10px, $color-accent, transparent)",
+    });
+    await openSwatch();
+    const bar = document.querySelector("[data-stop-bar]") as HTMLElement;
+    bar.getBoundingClientRect = () =>
+      ({ height: 24, left: 0, top: 0, width: 200 }) as DOMRect;
+    act(() => {
+      bar.dispatchEvent(
+        new PointerEvent("pointerdown", { bubbles: true, clientX: 100 })
+      );
+    });
+    expect(edits()).toBe(0);
+    const removes = [...document.querySelectorAll("button")].filter(
+      (b) => b.getAttribute("aria-label") === "Remove stop"
+    );
+    act(() => removes[1]?.click());
+    expect(fills()).toEqual([
+      { fill: "linear-gradient(in oklab, $color-primary 10px, transparent)" },
+    ]);
+  });
+
   it("reads Mixed for boxes whose fills differ, and gives them all a gradient set there", async () => {
     show({ a: GRADIENT, b: "$color-card" }, "a");
     act(() => toggleSelected({ frame: HOME, nodeId: "b" }));
