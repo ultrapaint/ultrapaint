@@ -1,14 +1,14 @@
 /**
  * A design chat as turns (ADR 0095): each prompt of the person's, then what the agent did for it,
  * up to their next prompt. The chat draws a turn as its prompt, one card (the page it changed, the
- * run's progress, the review, the steps folded) and the agent's last message; the steps are there
- * for whoever opens them. Pure, so the grouping is tested without the stores.
+ * run's progress, the review, the questions asked and the steps folded) and the agent's last
+ * message; the steps are there for whoever opens them. Pure, so the grouping is tested without the stores.
  */
 import {
   isEditorMcpCall,
   type ThreadItem,
 } from "@ultrapaint/contracts/threads";
-import { isOpenQuestion } from "./answers.ts";
+import { isOpenQuestion, type QuestionItem } from "./answers.ts";
 import { isRunPlan, type ReviewItem } from "./design-run.ts";
 
 type ToolItem = Extract<ThreadItem, { kind: "tool" }>;
@@ -103,11 +103,13 @@ export const stepTitle = (tool: ToolItem, active: boolean): string => {
 export interface TurnParts {
   /** The agent's last message, read under the card once the turn is over. */
   readonly answer: AgentItem | undefined;
+  /** The questions no longer waiting, folded into one row of the card (ADR 0129). */
+  readonly asked: readonly QuestionItem[];
   /** Files the turn's agent changed, each once. */
   readonly changed: readonly string[];
   /** When the turn's last part ended, once it is over. */
   readonly endedAt: number | undefined;
-  /** Shown in the transcript as they are: an answered question, a permission, a notice. */
+  /** Shown in the transcript as they are: a permission, a notice. */
   readonly inline: readonly ThreadItem[];
   /** The run's plan (Outline, Build), when the agent kept one. */
   readonly plan: PlanItem | undefined;
@@ -133,13 +135,13 @@ export const turnParts = (turn: Turn, over: boolean): TurnParts => {
   );
   return {
     answer,
+    asked: turn.items.filter(
+      (i): i is QuestionItem => i.kind === "question" && !isOpenQuestion(i)
+    ),
     changed,
     endedAt: over ? (turn.items.at(-1)?.at ?? lastEnd?.at) : undefined,
     inline: turn.items.filter(
-      (i) =>
-        (i.kind === "question" && !isOpenQuestion(i)) ||
-        i.kind === "permission" ||
-        i.kind === "status"
+      (i) => i.kind === "permission" || i.kind === "status"
     ),
     plan: plans.at(-1),
     rounds: turn.items.filter((i): i is ReviewItem => i.kind === "review"),

@@ -103,6 +103,35 @@ describe("a turn's parts", () => {
   });
 });
 
+describe("the questions a turn asked (ADR 0129)", () => {
+  const question = (
+    id: string,
+    rest: Partial<Extract<ThreadItem, { kind: "question" }>> = {}
+  ): ThreadItem => ({
+    answers: null,
+    at: 0,
+    id,
+    kind: "question",
+    questions: [{ id: "q", options: [], question: "Which?" }],
+    ...rest,
+  });
+
+  it("folds those no longer waiting into the card, leaving permissions and notices in the transcript", () => {
+    const parts = turnParts(
+      onlyTurn([
+        user("u1"),
+        question("answered", { answers: { q: "Pro" } }),
+        question("lapsed", { outcome: "cancelled" }),
+        question("open"),
+        { at: 0, id: "note", kind: "status", text: "Session restarted" },
+      ]),
+      false
+    );
+    expect(parts.asked.map((i) => i.id)).toEqual(["answered", "lapsed"]);
+    expect(parts.inline.map((i) => i.id)).toEqual(["note"]);
+  });
+});
+
 describe("a step in words", () => {
   it("says what an editor tool does, as it happens and once done", () => {
     expect(stepTitle(tool("c", "mcp__ultrapaint__get_screenshot"), true)).toBe(

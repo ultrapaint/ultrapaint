@@ -717,6 +717,24 @@ describe("ask_user", () => {
       })
   );
 
+  inAProject(
+    "tells an agent whose questions lapsed to carry on without writing them out again",
+    () =>
+      Effect.gen(function* () {
+        const first = yield* ask({ clientCapabilities: FORMS });
+        const lapsed = yield* ask({
+          clientCapabilities: FORMS,
+          inputResponses: { answers: { action: "cancel" } },
+          requestState:
+            first instanceof McpSchema.InputRequired
+              ? first.requestState
+              : undefined,
+        });
+        assert.include(textOf(lapsed), "do not write the questions out");
+        assert.notInclude(textOf(lapsed), "Which plan?");
+      })
+  );
+
   inAProject("says there is nowhere to ask without a form or a thread", () =>
     Effect.gen(function* () {
       const nowhere = yield* ask({});

@@ -1,18 +1,14 @@
 /**
  * A design chat's turn as the chat draws it (ADR 0095): the person's prompt, one card for what the
- * agent did (the page it changed, the run's progress, the review, its steps folded), and the
- * agent's last message under it. Every step stays one click away; "Show every step" in the
- * chat's menu draws the transcript as the agent reported it instead.
+ * agent did (the page it changed, the run's progress, the review, the questions it asked (ADR
+ * 0129) and its steps, folded), and the agent's last message under it. Every step stays one
+ * click away; "Show every step" in the chat's menu draws the transcript as the agent reported it
+ * instead.
  */
 import type { Thread } from "@ultrapaint/contracts/threads";
-import { ChevronRight, Crosshair, LocateFixed, ScanEye } from "lucide-react";
-import { type ReactNode, useContext, useMemo, useState } from "react";
+import { Crosshair, LocateFixed, ScanEye } from "lucide-react";
+import { type ReactNode, useContext, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { cn } from "@/lib/cn";
 import { Markdown } from "../components/markdown.tsx";
 import { endLine, runSteps, scoreRange } from "../lib/design-run.ts";
@@ -30,6 +26,8 @@ import { useAgents } from "../state/agents.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { ScopePicture } from "./chat-list.tsx";
+import { Fold } from "./thread-fold.tsx";
+import { Asked } from "./thread-questions.tsx";
 import { Rounds, RunContextValue, StepRow } from "./thread-review.tsx";
 import { Item } from "./thread-transcript.tsx";
 import { WorkingIndicator } from "./thread-work.tsx";
@@ -38,32 +36,6 @@ import { WorkingIndicator } from "./thread-work.tsx";
 const Section = ({ children }: { children: ReactNode }) => (
   <div className="border-t first:border-t-0">{children}</div>
 );
-
-/** A row that opens what is under it: its line, then a chevron at the right that turns. */
-const Fold = ({
-  children,
-  label,
-  lead,
-  trail,
-}: {
-  children: ReactNode;
-  label: ReactNode;
-  lead?: ReactNode;
-  trail?: ReactNode;
-}) => {
-  const [open, setOpen] = useState(false);
-  return (
-    <Collapsible onOpenChange={setOpen} open={open}>
-      <CollapsibleTrigger className="group/fold flex h-9 w-full min-w-0 items-center gap-2 px-3 text-left outline-none transition-colors duration-100 hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset [&_svg]:size-3.5 [&_svg]:shrink-0">
-        {lead}
-        <span className="min-w-0 flex-1 truncate">{label}</span>
-        {trail}
-        <ChevronRight className="text-muted-foreground transition-transform duration-150 group-data-panel-open/fold:rotate-90" />
-      </CollapsibleTrigger>
-      <CollapsibleContent className="px-3 pb-3">{children}</CollapsibleContent>
-    </Collapsible>
-  );
-};
 
 /** The pages a turn's changed files are, in the order the agent changed them. */
 const useChangedPages = (changed: readonly string[]) => {
@@ -331,11 +303,20 @@ export const TurnView = ({
         <RunSteps parts={parts} stopped={runStopped} />
       ) : null}
       <ReviewSection parts={parts} />
+      {parts.asked.length > 0 ? (
+        <Section>
+          <Asked asked={parts.asked} />
+        </Section>
+      ) : null}
       <Activity parts={parts} running={working} since={since} turn={turn} />
     </>
   );
   const hasCard =
-    working || parts.steps.length > 0 || parts.plan || parts.rounds.length > 0;
+    working ||
+    parts.steps.length > 0 ||
+    parts.plan ||
+    parts.rounds.length > 0 ||
+    parts.asked.length > 0;
   return (
     <div className="flex flex-col gap-3">
       {turn.prompt ? (

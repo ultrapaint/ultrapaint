@@ -4,6 +4,7 @@ import {
   type AnswerDraft,
   answeredWell,
   answerOf,
+  askedSummary,
   openQuestionOf,
   type QuestionItem,
   type QuestionOf,
@@ -97,5 +98,41 @@ describe("a question's answer", () => {
     };
     expect(answeredWell(draft({ other: { q: "2.5" } }), amount)).toBe(false);
     expect(answeredWell(draft({ other: { q: "3" } }), amount)).toBe(true);
+  });
+});
+
+describe("what a turn's questions come to, once they no longer wait (ADR 0129)", () => {
+  const two: QuestionOf = { ...choice, id: "r", optional: true };
+
+  it("reads the answers given, in the order asked, and how many went unanswered", () => {
+    const summary = askedSummary([
+      card("c1", { answers: { q: "b" } }),
+      card("c2", {
+        answers: { q: ["a", "b"] },
+        questions: [{ ...choice, multiple: true }, two],
+      }),
+    ]);
+    expect(summary.answers).toEqual(["B", "A, B"]);
+    expect(summary.unanswered).toBe(1);
+    expect(summary.lost).toBe(false);
+  });
+
+  it("says once how the cards without answers ended", () => {
+    const summary = askedSummary([
+      card("c1", { outcome: "cancelled" }),
+      card("c2", { outcome: "cancelled" }),
+      card("c3", { outcome: "declined" }),
+    ]);
+    expect(summary.answers).toEqual([]);
+    expect(summary.ends).toEqual(["No longer asked", "Declined"]);
+    expect(summary.unanswered).toBe(3);
+  });
+
+  it("knows when answers may not have reached the agent", () => {
+    expect(
+      askedSummary([
+        card("c1", { answers: { q: "a" }, outcome: "undelivered" }),
+      ]).lost
+    ).toBe(true);
   });
 });

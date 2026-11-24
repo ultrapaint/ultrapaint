@@ -67,8 +67,9 @@ const replyOf = (
         "The user declined to answer. Decide yourself, and say what you chose."
       );
     default:
+      // The chat shows the questions, folded; written out again they fill the reply (ADR 0129).
       return said(
-        "The questions were dismissed before they were answered. Do not ask again unless the user does."
+        "The questions went unanswered. Carry on with your own choices and say each in a line; do not write the questions out, and do not ask again unless the user does."
       );
   }
 };

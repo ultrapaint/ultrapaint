@@ -1,7 +1,7 @@
 # ADR 0095: A chat shows each turn as a card, and chooses its own design skills
 
 Status: accepted, 2026-11-13. Amends 0063 (the run card, the Review chip) and 0094 (what a chat
-is told).
+is told). Amended by 0129 (answered questions).
 
 ## Context
 
@@ -30,8 +30,9 @@ tray under the composer, the Ultrapaint skill by default (the Chat canvas, `docs
   - the steps: while the agent works, what it is doing and for how long; once done, "Worked 5m ·
     9 steps", opening to one line per tool call in words ("Edited a page", the editor's tools named
     by what they do) and the agent's words between them, muted.
-- Answered questions, permissions and notices stay in the transcript as they are. An open question
-  sits over the composer, as before.
+- Answered questions, permissions and notices stay in the transcript as they are (answered
+  questions: amended by 0129, a row of the card). An open question sits over the composer, as
+  before.
 - "Show every step" in the chat's ⋯ menu draws the transcript as the agent reported it, for every
   chat. It is a preference of the person's (`everyStep`), kept in the browser.
 - The briefing already asks the agent to say its plan once, not narrate, and end with where the
