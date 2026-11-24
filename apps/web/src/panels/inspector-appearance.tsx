@@ -1,6 +1,7 @@
 /**
- * The inspector's appearance (opacity and radius), fill, border and shadow sections. Fill, border
- * and shadow are each a section's + while a node has none, and its − once it has.
+ * The inspector's appearance (opacity and radius), fill, border and shadow sections. Border and
+ * shadow are each a section's + while a node has none, and its − once it has; the fill is its
+ * layers (`inspector-fill`).
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode } from "@ultrapaint/contracts/document";
@@ -13,7 +14,6 @@ import { MIXED, shownAs } from "../lib/shared-value.ts";
 import { Swatch, useColorOf, useTokenOptions } from "../lib/token-options.tsx";
 import {
   AddOrRemove,
-  ColorField,
   NodeValueField,
   nullIfMixed,
   Row,
@@ -23,6 +23,7 @@ import {
   sharedOf,
   useReveal,
 } from "./inspector-fields.tsx";
+import { FillSection } from "./inspector-fill.tsx";
 
 /** The opacities an opacity field offers, a node's and a component's look's alike. */
 export const OPACITY_OPTIONS: readonly StyleOption[] = [
@@ -81,38 +82,6 @@ const LookSection = ({ nodes }: { nodes: readonly DesignNode[] }) => (
     </Row>
   </Section>
 );
-
-/** The fill: a + while there is none, which opens the colours to pick one. */
-const FillSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
-  const [adding, add] = useReveal();
-  const filled = sharedField(TOKEN_FIELDS.fill, nodes) !== undefined;
-  return (
-    <Section
-      action={
-        <AddOrRemove
-          name="fill"
-          onAdd={() => add(true)}
-          onRemove={() => {
-            add(false);
-            setField(TOKEN_FIELDS.fill, null);
-          }}
-          present={filled || adding}
-        />
-      }
-      title="Fill"
-    >
-      {filled || adding ? (
-        <Row fields={["fill"]} label="Colour">
-          <ColorField
-            autoOpen={adding && !filled}
-            field={TOKEN_FIELDS.fill}
-            nodes={nodes}
-          />
-        </Row>
-      ) : null}
-    </Section>
-  );
-};
 
 /** The border: a + that draws one pixel of it, then its width, style and colour. */
 const BorderSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
