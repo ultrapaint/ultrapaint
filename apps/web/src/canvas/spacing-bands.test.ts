@@ -233,6 +233,39 @@ describe("a short stack's side bands", () => {
   });
 });
 
+describe("a tiny stack's padding bands", () => {
+  it.each([
+    [6, 5],
+    [5, 5],
+    [8, 40],
+    [40, 8],
+    [1, 1],
+  ])("each have an area of their own on a %ix%i stack", (width, height) => {
+    const tiny = {
+      ...row,
+      box: { height, width, x: 0, y: 0 },
+      children: [],
+      padding: NONE,
+    };
+    const hits = spacingBands(tiny, 6).map((b) => b.hit);
+    expect(hits).toHaveLength(4);
+    for (const hit of hits) {
+      expect(hit.width).toBeGreaterThan(0);
+      expect(hit.height).toBeGreaterThan(0);
+    }
+    for (const [i, a] of hits.entries()) {
+      for (const b of hits.slice(i + 1)) {
+        expect(
+          a.x < b.x + b.width &&
+            b.x < a.x + a.width &&
+            a.y < b.y + b.height &&
+            b.y < a.y + a.height
+        ).toBe(false);
+      }
+    }
+  });
+});
+
 describe("the stack a node is", () => {
   it("is a row, a column or a page, and nothing else", () => {
     const kids = { children: [] };
