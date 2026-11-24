@@ -1,12 +1,12 @@
 /**
  * Frame gestures: moving and sizing a page's frame, sizing a node on the canvas or an element
  * inside a page (`beginNodeResize`), from the
- * press on the frame's name or corner to the release. The gesture follows the pointer on the
- * window, snaps to the grid or the frames around it, and is saved once when it is let go: a page's
- * frame rounded to the pixel (`setFrame`), a node in one "Resize" edit. A cancelled pointer or
- * Escape puts it back as it was, and saves nothing. A node on the canvas moved by its name is a
- * drag (`drag.ts`, which knows where it lands), followed the same way. Escape puts away a marquee
- * a frame draws (`use-frame-pointer.ts`) through here too.
+ * press on the frame's name or corner to the release. The gesture follows the pointer as every
+ * gesture on the canvas does (`pointer-gesture.ts`, ADR 0133), snaps to the grid or the frames
+ * around it, and is saved once when it is let go: a page's frame rounded to the pixel
+ * (`setFrame`), a node in one "Resize" edit. A cancelled pointer or Escape puts it back as it was,
+ * and saves nothing. A node on the canvas moved by its name is a drag (`drag.ts`, which knows
+ * where it lands), followed the same way.
  */
 
 import type { Box } from "@ultrapaint/contracts/canvas-layout";
@@ -37,6 +37,7 @@ import { cancelCreate, useCreate } from "./create-tool.ts";
 import { beginDrag, cancelDrag, endDrag, moveDrag, useDrag } from "./drag.ts";
 import type { Corner } from "./frame.tsx";
 import { isFrameLocked } from "./hit-test.ts";
+import { followPointer, putBackGesture } from "./pointer-gesture.ts";
 import { holdsFree, snapBox, snapPoint, snapToEdges } from "./snap.ts";
 
 /** Where the pointer is and the keys held with it, as a pointer event says. */
@@ -58,80 +59,30 @@ interface Press extends PointerAt {
   stopPropagation: () => void;
 }
 
-/** What puts back the gesture being followed and stops following it; null when there is none. */
-let putBack: (() => void) | null = null;
-
-/** What stops the marquee being drawn in a frame, selecting nothing; null when none is. */
-let stopMarquee: (() => void) | null = null;
-
 /**
- * A marquee is drawn in a frame from now on, `stop` putting it away (Escape); null once it is
- * done. The frame follows it on its own layer, which holds the pointer.
- */
-export const drawingMarquee = (stop: (() => void) | null) => {
-  stopMarquee = stop;
-};
-
-/** Whether a gesture follows the pointer: what the canvas would show under it waits. */
-export const isFollowing = () => putBack !== null;
-
-/**
- * Follows the pointer on the window until it is let go (`up`) or the browser takes it away
- * (`cancel`). A gesture still followed (its pointerup never came) is put back first: put back
- * after, it would take the new one with it.
- */
-const follow = (gesture: {
-  move: (e: PointerEvent) => void;
-  up: () => void;
-  cancel: () => void;
-}) => {
-  putBack?.();
-  const stop = () => {
-    window.removeEventListener("pointermove", gesture.move);
-    window.removeEventListener("pointerup", up);
-    window.removeEventListener("pointercancel", cancel);
-    putBack = null;
-  };
-  const up = () => {
-    stop();
-    gesture.up();
-  };
-  const cancel = () => {
-    stop();
-    gesture.cancel();
-  };
-  putBack = cancel;
-  window.addEventListener("pointermove", gesture.move);
-  window.addEventListener("pointerup", up);
-  window.addEventListener("pointercancel", cancel);
-};
-
-/**
- * Puts back whatever the pointer is doing on the canvas: a frame gesture, a drag, a marquee, a
- * group or a text being drawn. Whether there was one: Escape stops there when there was.
+ * Puts back whatever the pointer is doing on the canvas: the gesture it follows (a frame moved or
+ * sized, a marquee, a drag, a group being drawn, `pointer-gesture.ts`), or a component from the
+ * Library dragged over it. Whether there was one: Escape stops there when there was.
  */
 export const cancelGesture = (): boolean => {
-  const following = putBack !== null;
-  const marquee = stopMarquee !== null;
+  const followed = putBackGesture();
   const dragged = useDrag.getState().dragged !== null;
   const creating = useCreate.getState().from !== null;
-  putBack?.();
-  stopMarquee?.();
   if (dragged) {
     cancelDrag();
   }
   if (creating) {
     cancelCreate();
   }
-  return following || marquee || dragged || creating;
+  return followed || dragged || creating;
 };
 
 /** Drags a node on the canvas by its name: put back, it stays where it was. */
 export const followLooseDrag = (
   node: { frame: string; nodeId: string; origin: { x: number; y: number } },
-  e: PointerAt
+  e: PointerAt & { readonly pointerId: number }
 ) => {
-  follow({
+  followPointer(e, {
     cancel: cancelDrag,
     move: (ev) => moveDrag(ev.clientX, ev.clientY, ev.altKey, holdsFree(ev)),
     up: () => endDrag(),
@@ -167,10 +118,10 @@ const followFrame = (
   kind: "move" | "resize",
   corner: Corner,
   start: FrameLayout,
-  from: PointerAt
+  from: Press
 ) => {
   let moved = false;
-  follow({
+  followPointer(from, {
     // Shown where it was, as saved, or as a layout pushed meanwhile has it; nothing is sent.
     cancel: () => {
       const pushed = doneDrawingFrame();
@@ -250,7 +201,7 @@ export const nameClickSelects = (detail: number | undefined): boolean => {
  * their frames, saved as one step, nodes on the canvas held where they go until their documents
  * have them. A locked node stays where it is.
  */
-const followPicks = (ids: readonly string[], from: PointerAt) => {
+const followPicks = (ids: readonly string[], from: Press) => {
   const s = useEditor.getState();
   const boxes = allFrames();
   const pages = ids.flatMap((id) => {
@@ -266,7 +217,7 @@ const followPicks = (ids: readonly string[], from: PointerAt) => {
   });
   let moved = false;
   movedPicks = false;
-  follow({
+  followPointer(from, {
     cancel: () => {
       for (const page of pages) {
         showFrame(page.id, page.frame);
@@ -324,11 +275,11 @@ const followNodeResize = (
   nodeId: string,
   corner: Corner,
   start: Box,
-  from: PointerAt
+  from: Press
 ) => {
   const before = useEditor.getState().held[frame];
   let to: Box | null = null;
-  follow({
+  followPointer(from, {
     // Drawn as it was held before, its document's size when it was not.
     cancel: () => hold(frame, before ?? null),
     move: (e) => {
@@ -373,11 +324,12 @@ export const beginNodeResize = (
   }
   e.preventDefault();
   e.stopPropagation();
+  putBackGesture();
   (e.currentTarget as Element | null)
     ?.closest?.("[data-canvas]")
     ?.setPointerCapture(e.pointerId);
   let to: Box | null = null;
-  follow({
+  followPointer(e, {
     cancel: () => holdSize(frame, null),
     move: (ev) => {
       const { dx, dy } = movedBy(e, ev);
@@ -408,12 +360,16 @@ export const beginFrameGesture = (
   kind: "move" | "resize",
   corner: Corner = "se"
 ) => {
-  const s = useEditor.getState();
-  if (e.button === 1 || s.spacePan || s.mode === "pan") {
+  const { mode, spacePan } = useEditor.getState();
+  if (e.button === 1 || spacePan || mode === "pan") {
     return;
   }
   e.preventDefault();
   e.stopPropagation();
+  // A gesture still followed (its release never came) is put back before anything of this press
+  // is read: what this one starts from is where that one was, not where it was drawn meanwhile.
+  putBackGesture();
+  const s = useEditor.getState();
   // A press starts afresh: what the last one settled is forgotten, its click there or not.
   movedPicks = false;
   toggledPick = false;

@@ -20,14 +20,7 @@ import { ensureEditable } from "../state/setup.ts";
 import { useFollowAgent } from "./agent-presence.tsx";
 import { useFramesInView } from "./camera.ts";
 import { CanvasGround } from "./canvas-ground.tsx";
-import {
-  beginCanvasMarquee,
-  CanvasMarquee,
-  cancelCanvasMarquee,
-  endCanvasMarquee,
-  isDrawingCanvasMarquee,
-  moveCanvasMarquee,
-} from "./canvas-marquee.tsx";
+import { beginCanvasMarquee, CanvasMarquee } from "./canvas-marquee.tsx";
 import {
   CanvasComments,
   commentCursor,
@@ -55,12 +48,9 @@ import {
 import { CreateOverlay, DragOverlay } from "./drag-overlay.tsx";
 import { EmptyState } from "./empty-state.tsx";
 import { Frame } from "./frame.tsx";
-import {
-  beginFrameGesture,
-  cancelGesture,
-  isFollowing,
-} from "./frame-gesture.ts";
+import { beginFrameGesture, cancelGesture } from "./frame-gesture.ts";
 import { addImages, imageFiles } from "./items.ts";
+import { followPointer, isFollowing } from "./pointer-gesture.ts";
 import { holdsFree } from "./snap.ts";
 import { VariationsBeside } from "./variations-beside.tsx";
 
@@ -186,9 +176,10 @@ export const Canvas = () => {
 
   /**
    * The Group and Text tools draw what they make; the select tool draws a marquee from a press
-   * on nothing (`canvas-marquee.tsx`), which picks the frames it touches; the comment tool starts
-   * a comment on the canvas itself where it is pressed on nothing (ADR 0097); a press anywhere
-   * else is the ground's.
+   * on nothing (`canvas-marquee.tsx`), which picks the frames it touches: each followed from the
+   * press to the release (`pointer-gesture.ts`, ADR 0133). The comment tool starts a comment on
+   * the canvas itself where it is pressed on nothing (ADR 0097); a press anywhere else is the
+   * ground's.
    */
   const onPointerDown = (e: ReactPointerEvent) => {
     if (e.button === 0 && mode === "comment" && e.target === e.currentTarget) {
@@ -202,7 +193,14 @@ export const Canvas = () => {
       if (!ensureEditable()) {
         return;
       }
+      const tool = mode;
+      followPointer(e, {
+        cancel: cancelCreate,
+        move: (ev) => moveCreate(ev.clientX, ev.clientY, holdsFree(ev)),
+        up: () => endCreate(tool),
+      });
       beginCreate(e.clientX, e.clientY, holdsFree(e));
+      // Kept from the frames under the pointer while it draws: their hover would show.
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
       return;
     }
@@ -213,31 +211,12 @@ export const Canvas = () => {
     }
   };
 
+  /** Where a tool would put what it makes, shown while no gesture follows the pointer. */
   const onPointerMove = (e: ReactPointerEvent, panning: boolean) => {
     lastPointer.current = canvasPoint(e.clientX, e.clientY);
-    if (isDrawingCanvasMarquee()) {
-      moveCanvasMarquee(e);
-      return;
-    }
     if (!panning && isCreateTool(mode) && !spacePan && !isFollowing()) {
-      moveCreate(e.clientX, e.clientY, holdsFree(e));
       hoverCreate(e.clientX, e.clientY);
     }
-  };
-
-  const onPointerUp = () => {
-    if (isDrawingCanvasMarquee()) {
-      endCanvasMarquee();
-      return;
-    }
-    if (isCreateTool(mode) && useCreate.getState().from) {
-      endCreate(mode);
-    }
-  };
-
-  const onPointerCancel = () => {
-    cancelCreate();
-    cancelCanvasMarquee();
   };
 
   /**
@@ -272,11 +251,9 @@ export const Canvas = () => {
       groundCursor={mode === "comment" ? commentCursor : undefined}
       groundRef={ref}
       onContextMenu={onContextMenu}
-      onPointerCancel={onPointerCancel}
       onPointerDown={onPointerDown}
       onPointerLeave={onPointerLeave}
       onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
       onSize={setSize}
       overlay={pages.length === 0 && nodes.length === 0 && <EmptyState />}
     >

@@ -27,12 +27,10 @@ import {
 import { pageDocs } from "../testing/page-docs.ts";
 import {
   beginCanvasMarquee,
-  cancelCanvasMarquee,
-  endCanvasMarquee,
   framesTouching,
-  moveCanvasMarquee,
   useCanvasMarquee,
 } from "./canvas-marquee.tsx";
+import { putBackGesture } from "./pointer-gesture.ts";
 
 vi.mock(
   "../state/connection.ts",
@@ -86,8 +84,24 @@ const NODE = "node:n1";
 const at = (x: number, y: number, shiftKey = false) => ({
   clientX: x,
   clientY: y,
+  pointerId: 1,
   shiftKey,
 });
+
+/** The pointer pressed on the ground moves to a point, as the window hears it. */
+const moveTo = (x: number, y: number) =>
+  window.dispatchEvent(
+    new PointerEvent("pointermove", {
+      buttons: 1,
+      clientX: x,
+      clientY: y,
+      pointerId: 1,
+    })
+  );
+
+/** The pointer is let go. */
+const letGo = () =>
+  window.dispatchEvent(new PointerEvent("pointerup", { pointerId: 1 }));
 
 let stop: () => void = () => undefined;
 
@@ -123,7 +137,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  cancelCanvasMarquee();
+  putBackGesture();
   stop();
 });
 
@@ -150,7 +164,7 @@ describe("framesTouching", () => {
 describe("the marquee over the ground", () => {
   it("picks what it touches as it is drawn, and keeps them picked once let go", () => {
     beginCanvasMarquee(at(-10, -10));
-    moveCanvasMarquee(at(450, 50));
+    moveTo(450, 50);
     expect(useCanvasMarquee.getState().rect).toEqual({
       height: 60,
       width: 460,
@@ -158,7 +172,7 @@ describe("the marquee over the ground", () => {
       y: -10,
     });
     expect(useCanvasPicks.getState().ids).toEqual([ABOUT.id, HOME.id, NODE]);
-    endCanvasMarquee();
+    letGo();
     expect(useCanvasMarquee.getState().rect).toBeNull();
     expect(useCanvasPicks.getState().ids).toHaveLength(3);
     // The pages among them are what a page's menu acts on.
@@ -167,8 +181,8 @@ describe("the marquee over the ground", () => {
 
   it("selects the one frame it touches, as a click on its name would", () => {
     beginCanvasMarquee(at(-10, 250));
-    moveCanvasMarquee(at(20, 320));
-    endCanvasMarquee();
+    moveTo(20, 320);
+    letGo();
     expect(useCanvasPicks.getState().ids).toEqual([]);
     expect(selectedPageNow()).toBe(SHOP.id);
   });
@@ -176,16 +190,16 @@ describe("the marquee over the ground", () => {
   it("adds to what is selected with Shift", () => {
     pickFrames([SHOP.id]);
     beginCanvasMarquee(at(-10, -10, true));
-    moveCanvasMarquee(at(20, 20));
-    endCanvasMarquee();
+    moveTo(20, 20);
+    letGo();
     expect(useCanvasPicks.getState().ids).toEqual([SHOP.id, HOME.id]);
   });
 
   it("is the ground's own press when the pointer did not move", () => {
     select({ frame: HOME.id, nodeId: "x" });
     beginCanvasMarquee(at(1000, 1000));
-    moveCanvasMarquee(at(1001, 1001));
-    endCanvasMarquee();
+    moveTo(1001, 1001);
+    letGo();
     expect(useCanvasMarquee.getState().rect).toBeNull();
     expect(useEditor.getState().selection).toBeNull();
   });
@@ -193,9 +207,9 @@ describe("the marquee over the ground", () => {
   it("put away with Escape picks what was picked before", () => {
     pickFrames([HOME.id, ABOUT.id]);
     beginCanvasMarquee(at(-10, 250, true));
-    moveCanvasMarquee(at(20, 320));
+    moveTo(20, 320);
     expect(useCanvasPicks.getState().ids).toHaveLength(3);
-    cancelCanvasMarquee();
+    putBackGesture();
     expect(useCanvasPicks.getState().ids).toEqual([HOME.id, ABOUT.id]);
   });
 });
@@ -203,10 +217,10 @@ describe("the marquee over the ground", () => {
 describe("frames picked together", () => {
   it("leave the right panel away while the marquee is drawn, and are its subject once it is let go (ADR 0121)", () => {
     beginCanvasMarquee(at(-10, -10));
-    moveCanvasMarquee(at(450, 50));
+    moveTo(450, 50);
     expect(rightHasSubject()).toBe(false);
     expect(inspected()).toBeNull();
-    endCanvasMarquee();
+    letGo();
     expect(rightHasSubject()).toBe(true);
   });
 

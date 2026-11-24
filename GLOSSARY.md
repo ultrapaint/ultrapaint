@@ -568,11 +568,16 @@ refactor and the board view left.
   piece (`whole`: the checkpoints, the snapshots, git's status). A snapshot on screen is the
   other **source** of what it keeps (the pages, the documents, the layouts), whose news waits
   until the editor goes back to now (ADR 0019).
+- **Pointer gesture**: what a press on the canvas begins and its release ends, a marquee, a drag,
+  a frame gesture, a group or text drawn, a pan (the web's `pointer-gesture`, ADR 0133): followed
+  on the window by the pointer that pressed, whatever it crosses, let go on its release or its
+  first move with no button held, put back by a cancelled pointer, the window losing the focus,
+  Escape or the next press. One at a time.
 - **Frame gesture**: moving or sizing a page's frame, or sizing a node on the canvas, from the
-  press on its name or corner to the release (the web's `frame-gesture`): drawn as it goes, saved
-  once when let go (a page's frame rounded to the pixel, a node in one "Resize" edit). A cancelled
-  pointer or Escape puts back whatever the pointer is doing, a drag or a group being drawn too, and
-  saves nothing.
+  press on its name or corner to the release (the web's `frame-gesture`), a **pointer gesture**:
+  drawn as it goes, saved once when let go (a page's frame rounded to the pixel, a node in one
+  "Resize" edit). A cancelled pointer or Escape puts back whatever the pointer is doing, a drag or
+  a group being drawn too, and saves nothing.
 - **Space pan**: the hand Space held over a canvas gives, whatever the tool (`spacePan`, ADR
   0128): the key is the pan's alone while it pans, never a focused control's, and the pan ends on
   its release, when the window loses the focus or when the page is hidden. The Pan tool (H) is the

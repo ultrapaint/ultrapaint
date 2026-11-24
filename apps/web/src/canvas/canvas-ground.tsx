@@ -2,8 +2,10 @@
  * The ground of the main area, the page canvas's and a board view's alike (ADR 0045): what the
  * one camera moves (the layer under it, `useCamera`), panned by the pointer (the middle button,
  * Space held, the pan tool) and by the wheel, zoomed about the pointer with ⌘/Ctrl or a pinch,
- * with the cursors a pan shows, on the surface's background. A press on nothing is the surface's
- * (`onGroundPress`); what else the pointer does on the ground is the caller's.
+ * with the cursors a pan shows, on the surface's background. A pan is followed from the press to
+ * the release as every gesture on the canvas is (`pointer-gesture.ts`, ADR 0133). A press on
+ * nothing is the surface's (`onGroundPress`); what else the pointer does on the ground is the
+ * caller's.
  */
 
 import {
@@ -26,6 +28,7 @@ import { groundIsAt } from "./drag.ts";
 import { fromFrame } from "./from-frame.ts";
 import { dotsBackground, gridBackground } from "./grid.ts";
 import { useWatchMeasureKey } from "./measure-key.ts";
+import { followPointer, putBackGesture } from "./pointer-gesture.ts";
 
 /** Whether the pointer pans whatever it is over: Space held, or the pan tool. */
 export const pansAnywhere = (s: { mode: string; spacePan: boolean }) =>
@@ -47,11 +50,9 @@ export const CanvasGround = ({
   groundCursor,
   groundRef,
   onContextMenu,
-  onPointerCancel,
   onPointerDown,
   onPointerLeave,
   onPointerMove,
-  onPointerUp,
   onSize,
   overlay,
 }: {
@@ -65,13 +66,14 @@ export const CanvasGround = ({
   /** The ground's element, for what listens to it besides the pointer (drops, pastes). */
   groundRef?: RefObject<HTMLDivElement | null>;
   onContextMenu: (e: ReactMouseEvent) => void;
-  onPointerCancel?: () => void;
-  /** A press that does not pan; a press on nothing the caller leaves alone is the surface's. */
+  /**
+   * A press that does not pan; a press on nothing the caller leaves alone is the surface's. What
+   * it begins is followed to its release by `followPointer`.
+   */
   onPointerDown?: (e: ReactPointerEvent) => void;
   onPointerLeave?: () => void;
+  /** The pointer over the ground, as it hovers; `panning` while it pans. */
   onPointerMove?: (e: ReactPointerEvent, panning: boolean) => void;
-  /** A release that ends no pan. */
-  onPointerUp?: () => void;
   /** The ground's size whenever it changes: what can be seen of the frames. */
   onSize?: (size: { height: number; width: number }) => void;
   /** What sits over the ground and does not move with the camera. */
@@ -130,17 +132,21 @@ export const CanvasGround = ({
     };
   }, [ref]);
 
-  /** The ground being panned by the pointer: where it was pressed and where the view was then. */
-  const panFrom = useRef<{
-    startX: number;
-    startY: number;
-    vx: number;
-    vy: number;
-  } | null>(null);
+  /** Whether the ground is being panned by the pointer. */
+  const pans = useRef<boolean>(false);
   const stopPan = () => {
-    panFrom.current = null;
+    pans.current = false;
     setPanning(false);
   };
+  // A ground taken away while it pans (a board closed) leaves nothing following the pointer.
+  useEffect(
+    () => () => {
+      if (pans.current) {
+        putBackGesture();
+      }
+    },
+    []
+  );
 
   /**
    * A press anywhere on the canvas takes the focus from what had it outside, the chat's composer
@@ -167,37 +173,23 @@ export const CanvasGround = ({
       return;
     }
     e.preventDefault();
+    // Kept from the frames under the pointer while it pans: their hover would show.
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    setPanning(true);
     const from = nextView();
-    panFrom.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      vx: from.x,
-      vy: from.y,
-    };
+    const { clientX, clientY } = e;
+    followPointer(e, {
+      cancel: stopPan,
+      move: (ev) =>
+        setViewSoon({
+          x: from.x + (ev.clientX - clientX),
+          y: from.y + (ev.clientY - clientY),
+        }),
+      up: stopPan,
+    });
+    pans.current = true;
+    setPanning(true);
   };
-  const onMove = (e: ReactPointerEvent) => {
-    const p = panFrom.current;
-    if (p) {
-      setViewSoon({
-        x: p.vx + (e.clientX - p.startX),
-        y: p.vy + (e.clientY - p.startY),
-      });
-    }
-    onPointerMove?.(e, p !== null);
-  };
-  const onUp = () => {
-    if (panFrom.current) {
-      stopPan();
-      return;
-    }
-    onPointerUp?.();
-  };
-  const onCancel = () => {
-    stopPan();
-    onPointerCancel?.();
-  };
+  const onMove = (e: ReactPointerEvent) => onPointerMove?.(e, pans.current);
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the canvas is the pointer's; its menu is on the context menu key too.
@@ -213,12 +205,10 @@ export const CanvasGround = ({
       data-board-canvas={background === "board" ? "" : undefined}
       data-canvas
       onContextMenu={onContextMenu}
-      onPointerCancel={onCancel}
       onPointerDown={onDown}
       onPointerDownCapture={onDownCapture}
       onPointerLeave={onPointerLeave}
       onPointerMove={onMove}
-      onPointerUp={onUp}
       ref={ref}
       style={pansAll ? undefined : { cursor: groundCursor }}
     >

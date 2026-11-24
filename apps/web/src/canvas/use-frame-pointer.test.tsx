@@ -18,7 +18,6 @@ import { isolate, leaveTo, useIsolation } from "../state/isolation.ts";
 import { useProject } from "../state/project.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useDrag } from "./drag.ts";
-import { cancelGesture } from "./frame-gesture.ts";
 import { useWatchMeasureKey } from "./measure-key.ts";
 import { useFramePointer } from "./use-frame-pointer.ts";
 
@@ -96,12 +95,26 @@ const pointerAt = (clientX: number, clientY: number) =>
     ctrlKey: false,
     currentTarget: {
       getBoundingClientRect: () => ({ left: 0, top: 0 }),
+      isConnected: true,
       setPointerCapture: () => undefined,
     },
     metaKey: false,
     pointerId: 1,
     shiftKey: false,
   }) as unknown as ReactPointerEvent;
+
+/** The pointer pressed in the frame, as the window hears it until it is let go. */
+const windowHears = (type: string, clientX = 0, clientY = 0) =>
+  act(() => {
+    window.dispatchEvent(
+      new PointerEvent(type, {
+        buttons: type === "pointerup" ? 0 : 1,
+        clientX,
+        clientY,
+        pointerId: 1,
+      })
+    );
+  });
 
 const current = (): Handlers => {
   if (!handlers) {
@@ -165,17 +178,17 @@ afterEach(() => {
 
 describe("a node dragged inside a page", () => {
   it("is put back when the browser takes the pointer away", async () => {
-    current().onPointerDown(pointerAt(20, 20));
+    act(() => current().onPointerDown(pointerAt(20, 20)));
     // Off the page, over the empty canvas: let go there, it would land on the canvas.
-    current().onPointerMove(pointerAt(2000, 2000));
+    windowHears("pointermove", 2000, 2000);
     expect(useDrag.getState()).toMatchObject({
       dragged: { kind: "node" },
       drop: { kind: "canvas" },
     });
-    current().onPointerCancel();
+    windowHears("pointercancel");
     expect(useDrag.getState().dragged).toBeNull();
     // The pointerup that may still come lands nothing.
-    current().onPointerUp();
+    windowHears("pointerup");
     await Promise.resolve();
     expect(fakeApi.calls.filter((c) => c.method === "documents.apply")).toEqual(
       []
@@ -183,9 +196,9 @@ describe("a node dragged inside a page", () => {
   });
 
   it("lands where it is let go", async () => {
-    current().onPointerDown(pointerAt(20, 20));
-    current().onPointerMove(pointerAt(2000, 2000));
-    current().onPointerUp();
+    act(() => current().onPointerDown(pointerAt(20, 20)));
+    windowHears("pointermove", 2000, 2000);
+    windowHears("pointerup", 2000, 2000);
     await fakeApi.requested("documents.apply");
     expect(
       fakeApi.calls.filter((c) => c.method === "documents.apply")
@@ -198,31 +211,9 @@ describe("a marquee", () => {
     useEditor.setState({ hover: { frame: HOME, nodeId: "t2" } });
     under.chain = ["home-root"];
     act(() => current().onPointerDown(pointerAt(0, 0)));
-    act(() => current().onPointerMove(pointerAt(40, 30)));
+    windowHears("pointermove", 40, 30);
     expect(useEditor.getState().hover).toBeNull();
-  });
-
-  it("is put away by Escape: nothing drawn, the selection as it was", async () => {
-    under.chain = ["home-root"];
-    useEditor.setState({ selection: { frame: HOME, nodeId: "t2" } });
-    act(() => current().onPointerDown(pointerAt(0, 0)));
-    act(() => current().onPointerMove(pointerAt(40, 30)));
-    act(() => current().onPointerMove(pointerAt(80, 60)));
-    await act(() => new Promise((drawn) => requestAnimationFrame(drawn)));
-    expect(current().marquee).toEqual({ height: 60, width: 80, x: 0, y: 0 });
-    let stopped = false;
-    act(() => {
-      stopped = cancelGesture();
-    });
-    expect(stopped).toBe(true);
-    expect(current().marquee).toBeNull();
-    // Nothing is left to put away, and its release selects nothing.
-    expect(cancelGesture()).toBe(false);
-    act(() => current().onPointerUp());
-    expect(useEditor.getState().selection).toEqual({
-      frame: HOME,
-      nodeId: "t2",
-    });
+    windowHears("pointerup", 40, 30);
   });
 });
 
@@ -490,10 +481,10 @@ describe("an instance's layers on a page (ADR 0114)", () => {
   it("are never moved on the page, and a double-click opens no main component", () => {
     useEditor.setState({ selection: { frame: HOME, nodeId: "shell/side" } });
     under.chain = ["home-root", "shell", "shell/side"];
-    current().onPointerDown(pointerAt(20, 20));
-    current().onPointerMove(pointerAt(400, 400));
+    act(() => current().onPointerDown(pointerAt(20, 20)));
+    windowHears("pointermove", 400, 400);
     expect(useDrag.getState().dragged).toBeNull();
-    current().onPointerUp();
+    windowHears("pointerup", 400, 400);
     under.chain = ["home-root", "shell"];
     act(() => current().onDoubleClick(click(20)));
     expect(useIsolation.getState().isolated).toBeNull();
@@ -611,7 +602,7 @@ describe("⌥ held over a page (ADR 0131)", () => {
     alt("keydown");
     // The press keeps what it is about while it lasts.
     expect(hovered()).toBe("card");
-    act(() => current().onPointerUp());
+    windowHears("pointerup", 20, 20);
     expect(hovered()).toBe("t1");
   });
 
@@ -621,7 +612,7 @@ describe("⌥ held over a page (ADR 0131)", () => {
     under.at = (x) => (x < 100 ? ["home-root"] : under.chain);
     act(() => current().onPointerDown(pointerAt(20, 20)));
     act(() => current().onPointerMove(pointerAt(300, 300)));
-    act(() => current().onPointerUp());
+    windowHears("pointerup", 300, 300);
     alt("keydown");
     expect(hovered()).toBe("t1");
   });

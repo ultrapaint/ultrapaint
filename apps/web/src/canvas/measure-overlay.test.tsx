@@ -12,6 +12,7 @@ import { viewFrameOf } from "../state/frame-ref.ts";
 import { useDrag } from "./drag.ts";
 import { useMeasureKey, useWatchMeasureKey } from "./measure-key.ts";
 import { MeasureOverlay } from "./measure-overlay.tsx";
+import { putBackGesture } from "./pointer-gesture.ts";
 import { SelectionChrome } from "./selection-chrome.tsx";
 import { useFramePointer } from "./use-frame-pointer.ts";
 
@@ -129,6 +130,7 @@ const pointerAt = (fields: Partial<Record<string, unknown>> = {}) =>
     ctrlKey: false,
     currentTarget: {
       getBoundingClientRect: () => ({ left: 0, top: 0 }),
+      isConnected: true,
       setPointerCapture: () => undefined,
     },
     detail: 1,
@@ -222,6 +224,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  putBackGesture();
   act(() => mounted.unmount());
   host.remove();
   handlers = null;
@@ -327,7 +330,17 @@ describe("⌥ held over another element in the selection's frame", () => {
     // A press on the page itself, where nothing is hit, travels: a marquee.
     page.chain = ["home-root"];
     act(() => pointer().onPointerDown(pointerAt()));
-    act(() => pointer().onPointerMove(pointerAt({ clientX: 200 })));
+    // The press is followed on the window (ADR 0133).
+    act(() => {
+      window.dispatchEvent(
+        new PointerEvent("pointermove", {
+          buttons: 1,
+          clientX: 200,
+          clientY: 70,
+          pointerId: 1,
+        })
+      );
+    });
     expect(lengthsIn()).toEqual([]);
   });
 
