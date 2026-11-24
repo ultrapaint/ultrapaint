@@ -125,6 +125,20 @@ const asKind = (layer: FillLayer, kind: "color" | "gradient"): FillLayer => {
   return layer;
 };
 
+/**
+ * A gradient's stops as another shape takes them: a conic gradient's angles as their share of the
+ * turn, which a linear or radial one reads; a length, which a conic one cannot, left for CSS to
+ * place.
+ */
+const stopsFor = (layer: GradientLayer, shape: GradientShape): FillStop[] => {
+  if (placedInPercent(layer.stops, shape)) {
+    return [...layer.stops];
+  }
+  return placedInPercent(layer.stops, layer.shape)
+    ? placed(layer)
+    : layer.stops.map(({ color }) => ({ color }));
+};
+
 /** A gradient of another shape, with its stops and colour space; an angle kept where both take one. */
 const asShape = (
   layer: GradientLayer,
@@ -132,7 +146,7 @@ const asShape = (
 ): GradientLayer => ({
   kind: "gradient",
   shape,
-  stops: layer.stops,
+  stops: stopsFor(layer, shape),
   ...(layer.interpolation !== undefined && {
     interpolation: layer.interpolation,
   }),
@@ -142,12 +156,19 @@ const asShape = (
     layer.geometry !== undefined && { geometry: layer.geometry }),
 });
 
-/** Stops each at the place CSS draws it, `at` overriding some, in the order they then run. */
+/**
+ * A gradient's stops each in percent at the place CSS draws it, `at` overriding some, in the order
+ * they then run; as they are written where one is placed in a length, which percent cannot say.
+ */
 const placed = (
-  stops: readonly FillStop[],
+  layer: GradientLayer,
   at: (i: number, drawn: number) => number = (_i, drawn) => drawn
 ): FillStop[] => {
-  const drawn = stopPositions(stops);
+  const { shape, stops } = layer;
+  if (!placedInPercent(stops, shape)) {
+    return [...stops];
+  }
+  const drawn = stopPositions(stops, shape);
   return stops
     .map((stop, i) => ({ at: at(i, drawn[i] ?? 0), stop }))
     .sort((a, b) => a.at - b.at)
@@ -217,21 +238,23 @@ const colorName = (color: string) =>
 /**
  * The bar a gradient's stops sit on, drawn as the gradient runs from left to right: pressed, it
  * adds a stop there; a stop dragged along it, or moved with the arrow keys, goes where it is let
- * go, as one edit. A gradient with a stop placed in another unit (`10px`, a conic's `90deg`) is
- * drawn and left where it is written: placing one stop in percent would move the others.
+ * go, as one edit. A gradient with a stop placed in a length (`10px`, `calc(…)`) is drawn and
+ * left where it is written, with no stop to move: only the box could say where the others sit.
  */
 const StopBar = ({
   layer,
+  movable,
   onChange,
 }: {
   layer: GradientLayer;
+  /** Whether its stops can be placed in percent (`placedInPercent`). */
+  movable: boolean;
   onChange: (stops: FillStop[]) => void;
 }) => {
   const bar = useRef<HTMLDivElement>(null);
   const preview = usePreview();
   const [drag, setDrag] = useState<{ index: number; at: number } | null>(null);
-  const drawn = stopPositions(layer.stops);
-  const movable = placedInPercent(layer.stops);
+  const drawn = stopPositions(layer.stops, layer.shape);
   const at = (i: number) => (drag?.index === i ? drag.at : (drawn[i] ?? 0));
   const css = fillCss([
     {
@@ -247,11 +270,11 @@ const StopBar = ({
     },
   ]);
   const move = (index: number, to: number) =>
-    onChange(placed(layer.stops, (i, p) => (i === index ? to : p)));
+    onChange(placed(layer, (i, p) => (i === index ? to : p)));
   const add = (to: number) => {
     const before = drawn.findLastIndex((p) => p <= to);
     const color = layer.stops[Math.max(0, before)]?.color ?? "transparent";
-    const stops = placed(layer.stops);
+    const stops = placed(layer);
     const after = drawn.findIndex((p) => p > to);
     stops.splice(after < 0 ? stops.length : after, 0, {
       color,
@@ -274,12 +297,11 @@ const StopBar = ({
       ref={bar}
       style={{ background: preview(css ?? "") }}
     >
-      {layer.stops.map((stop, i) => (
+      {(movable ? layer.stops : []).map((stop, i) => (
         <button
           aria-label={`Stop ${i + 1} of ${layer.stops.length}, at ${at(i)}%`}
-          className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full border-2 border-background shadow-sm outline-none ring-1 ring-foreground/40 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+          className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize rounded-full border-2 border-background shadow-sm outline-none ring-1 ring-foreground/40 focus-visible:ring-2 focus-visible:ring-ring"
           data-stop={i}
-          disabled={!movable}
           // biome-ignore lint/suspicious/noArrayIndexKey: a stop is its place in the gradient
           key={i}
           onKeyDown={(e) => {
@@ -328,8 +350,8 @@ const GradientFields = ({
 }) => {
   const stops = (next: readonly FillStop[]) =>
     onChange({ ...layer, stops: next });
-  const drawn = stopPositions(layer.stops);
-  const movable = placedInPercent(layer.stops);
+  const drawn = stopPositions(layer.stops, layer.shape);
+  const movable = placedInPercent(layer.stops, layer.shape);
   return (
     <>
       <Row label="Shape">
@@ -342,12 +364,17 @@ const GradientFields = ({
           value={layer.shape}
         />
       </Row>
-      <StopBar layer={layer} onChange={stops} />
+      <StopBar layer={layer} movable={movable} onChange={stops} />
+      {movable ? null : (
+        <p className="font-body-small text-muted-foreground">
+          Stops placed in a length stay where they are written.
+        </p>
+      )}
       {layer.stops.map((stop, i) => (
         <Row
           // biome-ignore lint/suspicious/noArrayIndexKey: a stop is its place in the gradient
           key={i}
-          label={movable ? `${drawn[i] ?? 0}%` : (stop.position ?? "")}
+          label={movable ? `${drawn[i] ?? 0}%` : (stop.position ?? "auto")}
         >
           <ColorValue
             extra={[TRANSPARENT]}
@@ -366,13 +393,7 @@ const GradientFields = ({
           <IconButton
             className="shrink-0 text-muted-foreground"
             disabled={layer.stops.length <= 2}
-            onClick={() =>
-              stops(
-                (movable ? placed(layer.stops) : layer.stops).filter(
-                  (_, j) => j !== i
-                )
-              )
-            }
+            onClick={() => stops(placed(layer).filter((_, j) => j !== i))}
             size="icon-sm"
             tooltip="Remove stop"
           >
