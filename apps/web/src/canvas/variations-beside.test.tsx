@@ -751,7 +751,7 @@ describe("one part of a variation (ADR 0098)", () => {
       popover
         ?.querySelector('[data-slot="select-trigger"]')
         ?.closest("fieldset[disabled]")
-    ).not.toBeNull();
+    ).toBeInstanceOf(HTMLFieldSetElement);
   });
 
   it("adds a part the preview lacks in its place in its parent, writing nothing", () => {
