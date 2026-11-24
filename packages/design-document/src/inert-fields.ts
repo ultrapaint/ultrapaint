@@ -73,7 +73,10 @@ const unchanged = (
 
 /**
  * Why a breakpoint's value changes nothing on the node (or a layer's instance override) as the
- * call leaves it: it is its own.
+ * call leaves it: it is its own, and no other breakpoint sets the field otherwise. A breakpoint's
+ * value holds up to the next that sets it, and which breakpoints are smaller is the design
+ * system's to say: while another sets it otherwise, this value may be the one that brings the
+ * own value back, and is not told.
  */
 const sameAsOwn = (
   fields: Readonly<Record<string, unknown>> | null | undefined,
@@ -84,12 +87,19 @@ const sameAsOwn = (
     return null;
   }
   const own = fields[key];
-  const over = (
-    fields.at as Record<string, Record<string, unknown>> | undefined
-  )?.[at]?.[key];
-  return own !== undefined && over !== undefined && sameJson(own, over)
-    ? `the same as its own ${key}`
-    : null;
+  const breakpoints = (fields.at ?? {}) as Record<
+    string,
+    Record<string, unknown> | undefined
+  >;
+  const over = breakpoints[at]?.[key];
+  if (own === undefined || over === undefined || !sameJson(own, over)) {
+    return null;
+  }
+  const otherwise = Object.entries(breakpoints).some(
+    ([name, set]) =>
+      name !== at && set?.[key] !== undefined && !sameJson(set[key], own)
+  );
+  return otherwise ? null : `the same as its own ${key}`;
 };
 
 /** Why a gap or a wrap spaces nothing: its stack holds one node or none as the call leaves it. */
