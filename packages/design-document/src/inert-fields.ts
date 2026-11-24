@@ -73,15 +73,15 @@ const unchanged = (
 
 /**
  * Why a breakpoint's value changes nothing on the node (or a layer's instance override) as the
- * call leaves it: it is its own, and no other breakpoint sets the field otherwise. A breakpoint's
- * value holds up to the next that sets it, and which breakpoints are smaller is the design
- * system's to say: while another sets it otherwise, this value may be the one that brings the
- * own value back, and is not told.
+ * call leaves it: it is the value the node already has there, its own (ADR 0036, mobile-first),
+ * and no smaller breakpoint (`order`, the design system's, smallest first) sets the field
+ * otherwise. One that brings the own value back above a smaller breakpoint's does something.
  */
 const sameAsOwn = (
   fields: Readonly<Record<string, unknown>> | null | undefined,
   key: string,
-  at: string | undefined
+  at: string | undefined,
+  order: readonly string[]
 ): string | null => {
   if (!fields || at === undefined) {
     return null;
@@ -92,14 +92,18 @@ const sameAsOwn = (
     Record<string, unknown> | undefined
   >;
   const over = breakpoints[at]?.[key];
-  if (own === undefined || over === undefined || !sameJson(own, over)) {
-    return null;
-  }
-  const otherwise = Object.entries(breakpoints).some(
-    ([name, set]) =>
-      name !== at && set?.[key] !== undefined && !sameJson(set[key], own)
-  );
-  return otherwise ? null : `the same as its own ${key}`;
+  // The value from below: the nearest smaller breakpoint's that sets the field, or the own.
+  const below = order
+    .slice(0, Math.max(order.indexOf(at), 0))
+    .toReversed()
+    .map((name) => breakpoints[name]?.[key])
+    .find((value) => value !== undefined);
+  return own !== undefined &&
+    over !== undefined &&
+    sameJson(own, over) &&
+    (below === undefined || sameJson(below, own))
+    ? `the same as its own ${key}`
+    : null;
 };
 
 /** Why a gap or a wrap spaces nothing: its stack holds one node or none as the call leaves it. */
@@ -155,7 +159,8 @@ const fieldName = ({ at, key }: Setting) =>
 const updateWhy = (
   node: DesignNode | null,
   fields: Found["fields"],
-  { at, inner, key, value }: Setting
+  { at, inner, key, value }: Setting,
+  order: readonly string[]
 ): string | null => {
   const before = inner ? null : unchanged(fields, key, value, at);
   if (value === null) {
@@ -164,7 +169,7 @@ const updateWhy = (
   return (
     lacks(node?.type, `a ${node?.type}`, key, at) ??
     before ??
-    sameAsOwn(asFields(node), key, at) ??
+    sameAsOwn(asFields(node), key, at, order) ??
     unspaced(node, key)
   );
 };
@@ -199,7 +204,8 @@ const layerWhy = (
   kind: string | undefined,
   override: Readonly<Record<string, unknown>> | undefined,
   fields: Found["fields"],
-  { at, inner, key, value }: Setting
+  { at, inner, key, value }: Setting,
+  order: readonly string[]
 ): string | null => {
   const before = inner ? null : unchanged(fields, key, value, at);
   if (value === null) {
@@ -208,14 +214,15 @@ const layerWhy = (
   return (
     lacks(kind, `a ${kind} layer`, key, at) ??
     before ??
-    sameAsOwn(override, key, at)
+    sameAsOwn(override, key, at, order)
   );
 };
 
 /** What one operation set that did nothing, each field with why, or `null` where it did. */
 const judged = (
   entry: Found,
-  after: DesignNode
+  after: DesignNode,
+  order: readonly string[]
 ): { field: string; id: string; why: string | null }[] => {
   const { op } = entry;
   if (op.op === "insert" || op.op === "replace") {
@@ -230,7 +237,7 @@ const judged = (
               id: node.id,
               why:
                 lacks(node.type, `a ${node.type}`, s.key, s.at) ??
-                sameAsOwn(asFields(node), s.key, s.at) ??
+                sameAsOwn(asFields(node), s.key, s.at, order) ??
                 unspaced(node, s.key),
             }));
       }
@@ -245,14 +252,14 @@ const judged = (
     return settings.map((s) => ({
       field: fieldName(s),
       id: op.id,
-      why: layerWhy(kind, override, entry.fields, s),
+      why: layerWhy(kind, override, entry.fields, s, order),
     }));
   }
   const node = findNode(after, op.id);
   return settings.map((s) => ({
     field: fieldName(s),
     id: op.id,
-    why: updateWhy(node, entry.fields, s),
+    why: updateWhy(node, entry.fields, s, order),
   }));
 };
 
@@ -263,10 +270,14 @@ const judged = (
  */
 export const inertFields = (
   found: readonly Found[],
-  after: DesignNode
+  after: DesignNode,
+  /** The design system's breakpoints, smallest first: what a breakpoint's value is judged by. */
+  order: readonly string[]
 ): InertField[] => {
   const inert = new Map<string, InertField>();
-  for (const { field, id, why } of found.flatMap((f) => judged(f, after))) {
+  for (const { field, id, why } of found.flatMap((f) =>
+    judged(f, after, order)
+  )) {
     if (why !== null) {
       inert.set(`${id}\u0000${field}\u0000${why}`, { field, id, why });
     }

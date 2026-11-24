@@ -244,7 +244,10 @@ export const DocumentToolsLive = DocumentTools.toLayer(
     const events = yield* EventBus;
     const { canvasOf, documents, project, where } = yield* makeLookup;
 
-    /** Refuses a breakpoint the design system does not have: the code has no prefix for it. */
+    /**
+     * Refuses a breakpoint the design system does not have: the code has no prefix for it.
+     * Answers with its breakpoints, smallest first.
+     */
     const knownBreakpoints = Effect.fnUntraced(function* (
       ops: readonly DocOp[]
     ) {
@@ -260,6 +263,7 @@ export const DocumentToolsLive = DocumentTools.toLayer(
           message: `${unknown.join(", ")} is not a breakpoint of the design system: ${known.join(", ")}`,
         });
       }
+      return known;
     });
 
     /** What a design can place: how an instance's slots lay out what they hold (ADR 0042). */
@@ -300,7 +304,7 @@ export const DocumentToolsLive = DocumentTools.toLayer(
               })
           )
         );
-        yield* knownBreakpoints(decoded);
+        const breakpoints = yield* knownBreakpoints(decoded);
         const given = asWritten(decoded, raw);
         const result = yield* documents((d) =>
           d.apply({
@@ -333,7 +337,7 @@ export const DocumentToolsLive = DocumentTools.toLayer(
         // What the call set that did nothing, then the fills on the page with no room.
         const { ignored, warnings } = after.root
           ? {
-              ignored: inertFields(result.found, after.root),
+              ignored: inertFields(result.found, after.root, breakpoints),
               warnings: warningsOf(after.root, yield* catalogue),
             }
           : { ignored: [], warnings: [] };
