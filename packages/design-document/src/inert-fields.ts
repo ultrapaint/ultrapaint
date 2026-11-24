@@ -72,8 +72,7 @@ const unchanged = (
 };
 
 /**
- * Why a breakpoint's value changes nothing on the node (or a layer's instance override) as the
- * call leaves it: it is the value the node already has there, its own (ADR 0036, mobile-first),
+ * Why a breakpoint's value changes nothing on the node as the call leaves it: it is the value the node already has there, its own (ADR 0036, mobile-first),
  * and no smaller breakpoint (`order`, the design system's, smallest first) sets the field
  * otherwise. One that brings the own value back above a smaller breakpoint's does something.
  */
@@ -83,7 +82,8 @@ const sameAsOwn = (
   at: string | undefined,
   order: readonly string[]
 ): string | null => {
-  if (!fields || at === undefined) {
+  // A breakpoint the design system does not name is not judged: what is below it is unknown.
+  if (!fields || at === undefined || !order.includes(at)) {
     return null;
   }
   const own = fields[key];
@@ -94,7 +94,7 @@ const sameAsOwn = (
   const over = breakpoints[at]?.[key];
   // The value from below: the nearest smaller breakpoint's that sets the field, or the own.
   const below = order
-    .slice(0, Math.max(order.indexOf(at), 0))
+    .slice(0, order.indexOf(at))
     .toReversed()
     .map((name) => breakpoints[name]?.[key])
     .find((value) => value !== undefined);
@@ -177,45 +177,34 @@ const updateWhy = (
 const asFields = (node: DesignNode | null) =>
   node as unknown as Readonly<Record<string, unknown>> | null;
 
-/**
- * A layer of an instance as the call leaves it: its instance override, and the kind it is drawn
- * as, the override's or its main component's.
- */
-const layerAfter = (
+/** The kind a layer of an instance is drawn as: its instance override's, or its main component's. */
+const layerKind = (
   after: DesignNode,
   id: string,
   main: string | undefined
-) => {
+): string | undefined => {
   const way = instanceLayerOf(id);
   const instance = way === null ? null : findNode(after, way.instance);
-  const override =
+  const own =
     instance?.type === "instance" && way !== null
-      ? instance.overrides?.[way.layer]
+      ? instance.overrides?.[way.layer]?.type
       : undefined;
-  const overrideKind = override?.type;
-  return {
-    kind: typeof overrideKind === "string" ? overrideKind : main,
-    override,
-  };
+  return typeof own === "string" ? own : main;
 };
 
 /** Why a field an update set on a layer of an instance did nothing. */
 const layerWhy = (
   kind: string | undefined,
-  override: Readonly<Record<string, unknown>> | undefined,
   fields: Found["fields"],
-  { at, inner, key, value }: Setting,
-  order: readonly string[]
+  { at, inner, key, value }: Setting
 ): string | null => {
   const before = inner ? null : unchanged(fields, key, value, at);
   if (value === null) {
     return before;
   }
-  return (
-    lacks(kind, `a ${kind} layer`, key, at) ??
-    before ??
-    sameAsOwn(override, key, at, order)
-  );
+  // A breakpoint's value is not judged against the own: its main component's layer may set the
+  // field at that breakpoint or a smaller one, which the page does not show.
+  return lacks(kind, `a ${kind} layer`, key, at) ?? before;
 };
 
 /** What one operation set that did nothing, each field with why, or `null` where it did. */
@@ -248,11 +237,11 @@ const judged = (
   }
   const settings = settingsOf(op.set, op.at);
   if (entry.layer) {
-    const { kind, override } = layerAfter(after, op.id, entry.layer.kind);
+    const kind = layerKind(after, op.id, entry.layer.kind);
     return settings.map((s) => ({
       field: fieldName(s),
       id: op.id,
-      why: layerWhy(kind, override, entry.fields, s, order),
+      why: layerWhy(kind, entry.fields, s),
     }));
   }
   const node = findNode(after, op.id);

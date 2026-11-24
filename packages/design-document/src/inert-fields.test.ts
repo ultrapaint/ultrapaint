@@ -122,6 +122,17 @@ describe("inertFields", () => {
     ).toEqual(["b.at.md.size"]);
   });
 
+  it("judges a breakpoint value by the nearest smaller breakpoint that sets the field", () => {
+    expect(
+      named([
+        { id: "b", op: "update", set: { size: 20 } },
+        { at: "sm", id: "b", op: "update", set: { size: 16 } },
+        { at: "md", id: "b", op: "update", set: { size: 20 } },
+        { at: "lg", id: "b", op: "update", set: { size: 20 } },
+      ])
+    ).toEqual(["b.at.lg.size"]);
+  });
+
   it("names a value the node already had, and a null on a field it did not have", () => {
     expect(
       inert([{ id: "b", op: "update", set: { fill: null, text: "b" } }])
@@ -229,17 +240,12 @@ describe("inertFields", () => {
     ]);
   });
 
-  it("names a layer's breakpoint value that is its instance override's own", () => {
+  it("names no layer's breakpoint value equal to its instance override's own, which its main component may set otherwise there", () => {
     expect(
-      inert([
+      named([
+        { at: "sm", id: "shell/title", op: "update", set: { color: "red" } },
         { at: "md", id: "shell/title", op: "update", set: { color: "red" } },
       ])
-    ).toEqual([
-      {
-        field: "at.md.color",
-        id: "shell/title",
-        why: "the same as its own color",
-      },
-    ]);
+    ).toEqual([]);
   });
 });
