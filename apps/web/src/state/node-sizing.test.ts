@@ -25,3 +25,32 @@ describe("an element held at the size its corner is dragged to", () => {
     );
   });
 });
+
+describe("a stack held at the spacing its band is dragged to (ADR 0145)", () => {
+  it("is drawn with that gap or padding, its other fields as they were", () => {
+    expect(withHeldSize(root, { gap: 24, nodeId: "header" })).toMatchObject({
+      children: [{ gap: 24, id: "header" }],
+    });
+    const padded = withHeldSize(root, {
+      nodeId: "root",
+      padding: { left: 8, top: 16 },
+    });
+    expect(padded).toMatchObject({ padding: { left: 8, top: 16 } });
+    expect(padded).not.toHaveProperty("width");
+  });
+
+  it("draws a layer of an instance with it as the instance's override (ADR 0114)", () => {
+    const page = {
+      children: [
+        { component: "Promo", from: "#app", id: "promo", type: "instance" },
+      ],
+      id: "root",
+      type: "page",
+    } as DesignNode;
+    expect(withHeldSize(page, { gap: 12, nodeId: "promo/bar" })).toMatchObject({
+      children: [{ id: "promo", overrides: { bar: { gap: 12 } } }],
+    });
+    // An instance the page no longer has: drawn as it is.
+    expect(withHeldSize(page, { gap: 12, nodeId: "gone/bar" })).toBe(page);
+  });
+});

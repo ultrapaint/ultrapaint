@@ -630,10 +630,19 @@ refactor and the board view left.
 - **Selection chrome**: what the selection carries on the canvas, as Figma draws it (the web's
   `selection-chrome`, ADR 0086): a handle on each corner of an element inside a page, which
   sizes it (`beginNodeResize`, drawn at its **held size** until the document has it); its size
-  under it ("52 Hug × 15 Hug", `sizeLabel`); and the agent's ✦ button on its top-left edge
+  under it ("52 Hug × 15 Hug", `sizeLabel`); a stack's **spacing bands**, which drag its gap and
+  padding (ADR 0145); and the agent's ✦ button on its top-left edge
   while the pointer is over it, which opens **Ask an agent** (`ask-agent`): a prompt sent in a
   new chat with the selection attached. Only a page is named on the canvas, by its frame's
-  header; its fields are the inspector's alone.
+  header; its fields are the inspector's, but for the size and the spacing the canvas drags.
+- **Spacing band**: a space of a selected row, column or page the pointer drags on the canvas
+  (the web's `spacing-bands` and `beginSpacingDrag`, ADR 0145): one for each gap between two
+  children next to each other in a line, none where the alignment spreads them, and one for each
+  side of its padding. Hatched in the selection's colour under the pointer, with a handle and a
+  pill naming its value ("Gap 16 · spacing-4"); dragged, it snaps to the spacing scale's named
+  steps and the named spacings (the pixel with ⌘/Ctrl, both sides of an axis with Shift), the
+  stack drawn with it as its **held size** is (`node-sizing`) until the document has it, and
+  saved as the inspector writes it.
 - **Measurement**: the distances ⌥ held draws from the selection to the element the pointer is
   over in the same frame, or to the selection's parent while it points at the selection itself
   (the web's `measure`, `measure-overlay`, and `measure-key` for ⌥ held, ADR 0132): lines
@@ -644,7 +653,8 @@ refactor and the board view left.
   every frame with an edge on it, the space to the nearest in a pill, in canvas pixels, in
   `--measure`.
 - **Field**: one of a node's fields that the inspector edits (align,
-  text style, colour, fill, tint, radius, shadow, gap), declared once in the web's `node-fields`:
+  text style, colour, fill, tint, radius, shadow, gap; the gap dragged on the canvas too, by its
+  **spacing bands**), declared once in the web's `node-fields`:
   how the nodes selected read as one value, what a node without it is drawn with (a text's
   align is `start`), what setting a value writes (`null` takes it off), its undo label and the
   kind of token it offers. An edit lands at the view's breakpoint, where
