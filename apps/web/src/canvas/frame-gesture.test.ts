@@ -755,6 +755,31 @@ describe("a stack's spacing dragged on the canvas (ADR 0145)", () => {
     ]);
   });
 
+  it("builds on a padding still being saved when another side is dragged before it lands", async () => {
+    const pending = { bottom: 8, left: 8, right: 8, top: 16 };
+    useHeldSizes.setState({
+      byFrame: { [PHONE]: { nodeId: "hero", padding: pending } },
+    });
+    const right: Band = {
+      ...TOP,
+      axis: "x",
+      key: "padding-right",
+      side: "right",
+      sign: -1,
+    };
+    beginSpacingDrag(press(0, 0), PHONE, hero, right);
+    fire("pointermove", -7.6, 0);
+    fire("pointerup", -7.6, 0);
+    await fakeApi.requested("documents.apply");
+    expect(edits()[0]?.edits[0]?.ops).toEqual([
+      {
+        id: "hero",
+        op: "update",
+        set: { padding: { bottom: 8, left: 8, right: 16, top: 16 } },
+      },
+    ]);
+  });
+
   it("changes both sides of the padding's axis with Shift held", async () => {
     beginSpacingDrag(press(0, 0), PHONE, hero, TOP);
     fireWith("pointermove", 0, 7.6, { shiftKey: true });

@@ -189,6 +189,29 @@ describe("a stack's spacing bands", () => {
   });
 });
 
+describe("a short stack's side bands", () => {
+  it("run the box's height when its top and bottom leave no room between them", () => {
+    const empty = {
+      ...row,
+      box: { height: 32, width: 100, x: 0, y: 0 },
+      children: [],
+      padding: { bottom: 16, left: 8, right: 8, top: 16 },
+    };
+    const left = spacingBands(empty, 6).find((b) => b.key === "padding-left");
+    expect(left?.hit).toEqual({ height: 32, width: 8, x: 0, y: 0 });
+    // Shorter than two of the least, with no padding: never a negative height.
+    const flat = {
+      ...empty,
+      box: { height: 10, width: 100, x: 0, y: 0 },
+      padding: NONE,
+    };
+    for (const band of spacingBands(flat, 6)) {
+      expect(band.hit.height).toBeGreaterThan(0);
+      expect(band.rect.height).toBeGreaterThanOrEqual(0);
+    }
+  });
+});
+
 describe("the stack a node is", () => {
   it("is a row, a column or a page, and nothing else", () => {
     const kids = { children: [] };

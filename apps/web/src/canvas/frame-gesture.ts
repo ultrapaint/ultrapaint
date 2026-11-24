@@ -11,7 +11,7 @@
 
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { Box } from "@ultrapaint/contracts/canvas-layout";
-import type { DesignNode } from "@ultrapaint/contracts/document";
+import type { DesignNode, Padding } from "@ultrapaint/contracts/document";
 import type { FrameLayout } from "@ultrapaint/contracts/pages";
 import { create } from "zustand";
 import { setField, updateNodes, updateNodesWith } from "../lib/node-actions.ts";
@@ -31,6 +31,7 @@ import {
   type HeldSize,
   holdSize,
   holdSizeUntil,
+  useHeldSizes,
 } from "../state/node-sizing.ts";
 import {
   doneDrawingFrame,
@@ -419,6 +420,13 @@ export const beginSpacingDrag = (
     return;
   }
   const targets = spacingTargets(useDesignSystem.getState().designSystem);
+  // A padding dragged before the last one's save has landed builds on that one, not on the
+  // document's: saved after it, it would put back the side the last one changed.
+  const pending = useHeldSizes.getState().byFrame[frame];
+  const saving =
+    pending?.nodeId === node.id && pending.padding !== undefined
+      ? (pending.padding as Padding)
+      : undefined;
   let to: { held: HeldSize; sides: Side[]; value: JsonValue } | null = null;
   const done = () => useSpacingDrag.setState({ dragged: null });
   followPointer(e, {
@@ -441,7 +449,7 @@ export const beginSpacingDrag = (
           ? { gap: snapped.value, nodeId: node.id }
           : {
               nodeId: node.id,
-              padding: withSides(node.padding, sides, snapped.value),
+              padding: withSides(saving ?? node.padding, sides, snapped.value),
             };
       to = { held, sides, value: snapped.value };
       holdSize(frame, held);
@@ -467,7 +475,9 @@ export const beginSpacingDrag = (
           : // Each side but those dragged kept as the view draws it.
             updateNodesWith(
               target,
-              (n) => ({ padding: withSides(n.padding, sides, value) }),
+              (n) => ({
+                padding: withSides(saving ?? n.padding, sides, value),
+              }),
               "Change the padding"
             )
       );

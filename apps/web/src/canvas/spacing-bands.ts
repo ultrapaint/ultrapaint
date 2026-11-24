@@ -183,9 +183,15 @@ const paddingBands = (stack: DrawnStack, least: number): Band[] => {
     side: s,
     sign,
   });
-  const middle = { height: box.height - top - below, y: box.y + top };
+  // The sides are grabbed between the top's and the bottom's; along the whole box where those
+  // leave them less than the least, so a short stack's sides are still reached.
+  const room = box.height - top - below;
+  const middle =
+    room >= least
+      ? { height: room, y: box.y + top }
+      : { height: box.height, y: box.y };
   const between = {
-    height: box.height - padding.top - padding.bottom,
+    height: Math.max(0, box.height - padding.top - padding.bottom),
     y: box.y + padding.top,
   };
   return [
