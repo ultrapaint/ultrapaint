@@ -162,6 +162,44 @@ eachTest(Themed)("the design system edited from the editor", (it) => {
   );
 
   it.effect(
+    "refuses an edit carrying both documents' edits and a component's look change, and writes nothing",
+    () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        yield* client["designSystem.detect"]();
+        yield* client["components.fromDefault"]({ name: "Button" });
+        const refused = yield* Effect.flip(
+          client["designSystem.edit"]({
+            component: {
+              change: { op: "addNote", text: "A note" },
+              name: "Button",
+            },
+            edits: [
+              {
+                doc: "home.page.json",
+                ops: [
+                  {
+                    id: "heading",
+                    op: "update",
+                    set: { color: "$color-ink" },
+                  },
+                ],
+              },
+            ],
+            ops: [{ name: "color-ink", op: "addToken", value: "#111827" }],
+          })
+        );
+        assert.strictEqual(refused._tag, "BadRequest");
+        assert.isUndefined(
+          tokenOf(
+            (yield* client["designSystem.get"]()).designSystem as DesignSystem,
+            "color-ink"
+          )
+        );
+      })
+  );
+
+  it.effect(
     "makes a token and sets a system component's look to it in one undo step, which undo puts back",
     () =>
       Effect.gen(function* () {
