@@ -187,7 +187,13 @@ refactor and the board view left.
   (`forceStop`) ends the turn and the agent's process (ADR 0124). How a thread is shown
   (busy, waiting on the user, failed, and the word a list, a dot or a badge says) is the web's
   `threadView`; what a prompt carries for its chips, a comment sent to an agent's included, is
-  `attachmentsOf`.
+  `attachmentsOf`. Each change to a thread is numbered by its **sequence** (`ThreadStore`, kept
+  in its file); the chat **follows** the thread open in it (`threads.follow`, `followOpen`): a
+  **snapshot** at a sequence or the changes after the last one it **applied**, then
+  `synchronized` and each change as made, from the last applied again after a reconnect; the
+  numbers are of the server's **run**, and a resume from another run gets a snapshot. A
+  request that changes a thread carries a **command id** the editor made, and one sent again is
+  answered with the first one's result (`ThreadSessions.command`, ADR 0130).
 - **File from disk**: a picture or a text file pasted, dropped or picked into a prompt (ADR 0064),
   read by the web's `attach-files` (`readFiles`, `admit` for a prompt's limits) into an image chip
   or a **text attachment** (`kind: "text"`, at most `TEXT_ATTACHMENT_LIMIT`), which the agent gets

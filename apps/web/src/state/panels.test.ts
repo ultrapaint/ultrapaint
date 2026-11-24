@@ -63,18 +63,25 @@ const home: DocumentState = {
   } as DocumentState["root"],
 };
 
-/** The transcripts the chat read, by thread. */
+/** The threads the chat followed, by thread. */
 const read = () =>
-  fakeApi.calls
-    .filter((c) => c.method === "threads.items")
-    .map((c) => (c.input as { threadId: string }).threadId);
+  fakeApi.started.map((s) => (s.input as { threadId: string }).threadId);
 
 const initial = useEditor.getState();
 const initialBoard = useBoard.getState();
 
 beforeEach(() => {
   fakeApi.reset();
-  fakeApi.respond("threads.items", () => []);
+  fakeApi.respondStream("threads.follow", ({ threadId }) => [
+    {
+      items: [],
+      kind: "snapshot",
+      run: "run_1",
+      sequence: 0,
+      thread: thread(threadId),
+    },
+    { kind: "synchronized", run: "run_1", sequence: 0 },
+  ]);
   prompted.count = 0;
   // Every panel put away, the right one too.
   usePanels.setState({ left: true, right: true });
@@ -212,13 +219,13 @@ describe("showLeftPanel", () => {
     expect(takeRequest({ draft: "t5" })).toBeNull();
   });
 
-  it("shows a thread just created without reading its transcript", async () => {
+  it("shows a thread just created at once, and follows it", async () => {
     await showLeftPanel({ chat: thread("t3"), draft: "/implement " });
     expect(useAgents.getState()).toMatchObject({
       current: "t3",
       view: "thread",
     });
-    expect(read()).toEqual([]);
+    expect(read()).toEqual(["t3"]);
     expect(takeRequest({ draft: "t3" })).toBe("/implement ");
   });
 

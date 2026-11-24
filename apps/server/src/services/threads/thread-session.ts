@@ -71,6 +71,7 @@ import { AgentDiscovery } from "./agent-discovery.ts";
 import { AgentLauncher } from "./agent-launcher.ts";
 import { agentFailure, makeSessionOpener } from "./agent-session.ts";
 import { ChatPreferences } from "./chat-preferences.ts";
+import { makeCommandReceipts } from "./command-receipts.ts";
 import { makePendingCards, type PendingCards } from "./pending-cards.ts";
 import {
   makePromptContent,
@@ -1149,6 +1150,15 @@ interface NewThread {
 export class ThreadSessions extends Context.Service<
   ThreadSessions,
   {
+    /**
+     * A request that changes a thread, by the command id the editor made for it (ADR 0130):
+     * done once, and one sent again with the same id is answered with the first one's result.
+     * Without an id, it is done each time.
+     */
+    readonly command: <A, E>(
+      commandId: string | undefined,
+      act: Effect.Effect<A, E>
+    ) => Effect.Effect<A, E>;
     /** A new thread, with the chat's default agent unless one is named. Nothing is started. */
     readonly create: (
       options?: NewThread
@@ -1227,6 +1237,9 @@ export class ThreadSessions extends Context.Service<
       });
 
       return ThreadSessions.of({
+        command: makeCommandReceipts((effect) =>
+          Effect.forkIn(effect, serviceScope)
+        ),
         create,
         delete: Effect.fn("ThreadSessions.delete")(
           function* (threadId) {

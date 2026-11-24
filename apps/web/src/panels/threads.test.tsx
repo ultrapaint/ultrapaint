@@ -36,11 +36,6 @@ const STARTER = "Check what Ultrapaint found";
 
 let mounted: Root;
 let container: HTMLElement;
-/** The reads of the transcript asked for and not answered yet, oldest first. */
-let reads: {
-  answer: (items: readonly ThreadItem[]) => void;
-  fail: (error: Error) => void;
-}[] = [];
 
 const initial = useAgents.getState();
 
@@ -49,28 +44,39 @@ const button = (label: string) =>
     (b) => b.textContent === label
   );
 
-/** Settles the oldest read of the transcript, and draws what follows. */
-const settle = (how: (read: (typeof reads)[number]) => void) =>
+/** The thread's stream says its transcript, `items`, and that it is up to date. */
+const told = (items: readonly ThreadItem[]) =>
   act(async () => {
-    const read = reads.shift();
-    if (read) {
-      how(read);
-    }
+    fakeApi.send("threads.follow", {
+      items,
+      kind: "snapshot",
+      run: "run_1",
+      sequence: 1,
+      thread,
+    });
+    fakeApi.send("threads.follow", {
+      kind: "synchronized",
+      run: "run_1",
+      sequence: 1,
+    });
     await Promise.resolve();
   });
 
+/** The thread's stream fails, as a transcript that cannot be read does. */
+const failed = (error: RequestError) =>
+  act(async () => {
+    fakeApi.failStream("threads.follow", error);
+    await Promise.resolve();
+  });
+
+const follows = () => fakeApi.started.length;
+
 beforeEach(async () => {
   fakeApi.reset();
-  reads = [];
   fakeApi.respond("agents.list", () => []);
   fakeApi.respond("threads.list", () => [thread]);
-  fakeApi.respond(
-    "threads.items",
-    () =>
-      new Promise((resolve, reject) => {
-        reads.push({ answer: resolve, fail: reject });
-      })
-  );
+  // Followed, and nothing said of it yet.
+  fakeApi.respondStream("threads.follow", () => []);
   useAgents.setState(initial, true);
   useAgents.setState({ threads: [thread] });
   useProject.setState({
@@ -102,32 +108,26 @@ describe("a chat opened", () => {
   it("draws no starters while its transcript is read, and a new chat's once it is read empty", async () => {
     expect(container.textContent).toContain("Landing page");
     expect(button(STARTER)).toBeUndefined();
-    await settle((read) => read.answer([]));
+    await told([]);
     expect(button(STARTER)).toBeDefined();
   });
 
   it("says in place that its transcript didn’t load, and reads it again", async () => {
-    await settle((read) =>
-      read.fail(new RequestError("internal", "the file is gone"))
-    );
+    await failed(new RequestError("internal", "the file is gone"));
     expect(button(STARTER)).toBeUndefined();
     expect(container.querySelector("[role='alert']")?.textContent).toBe(
       "The chat didn’t loadTry again"
     );
-    const asked = fakeApi.calls.filter((c) => c.method === "threads.items");
+    const asked = follows();
     await act(async () => {
       button("Try again")?.click();
       await Promise.resolve();
     });
-    expect(
-      fakeApi.calls.filter((c) => c.method === "threads.items")
-    ).toHaveLength(asked.length + 1);
+    expect(follows()).toBe(asked + 1);
     expect(container.textContent).not.toContain("The chat didn’t load");
-    // Read this time, as the read the panel asked for as it was shown is: something was said.
+    // Read this time: something was said.
     const said: ThreadItem = { at: 1, id: "1", kind: "agent", text: "Hello" };
-    await settle((read) => read.answer([said]));
-    await settle((read) => read.answer([said]));
-    expect(reads).toEqual([]);
+    await told([said]);
     expect(container.textContent).toContain("Hello");
     expect(button(STARTER)).toBeUndefined();
   });

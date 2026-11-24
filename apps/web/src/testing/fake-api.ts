@@ -14,6 +14,9 @@ import type {
   RequestInput,
   RequestName,
   RequestOutput,
+  StreamInput,
+  StreamItem,
+  StreamName,
 } from "@ultrapaint/contracts/rpc";
 
 type Listener<E extends EventName> = (payload: EventPayload<E>) => void;
@@ -22,6 +25,25 @@ type Listener<E extends EventName> = (payload: EventPayload<E>) => void;
 export type Responder<M extends RequestName> = (
   input: RequestInput<M>
 ) => RequestOutput<M> | Promise<RequestOutput<M>>;
+
+/**
+ * What a stream followed sends as it starts: what it would send up to `synchronized`, or nothing
+ * yet for a test that sends it (`send`). A stream with none set up fails as it starts, as a
+ * request with no answer does.
+ */
+export type StreamResponder<M extends StreamName> = (
+  input: StreamInput<M>
+) => readonly StreamItem<M>[];
+
+/** A stream the editor follows, as `Connection.follow` keeps it. */
+interface Follower {
+  readonly handlers: {
+    readonly onError: (error: RequestError) => void;
+    readonly onItem: (item: never) => void;
+  };
+  readonly input: () => unknown;
+  readonly method: StreamName;
+}
 
 interface ConnectionStore {
   connection: typeof fakeApi;
@@ -34,6 +56,28 @@ const responders = new Map<RequestName, (input: never) => unknown>();
 const watchers = new Set<
   (now: ConnectionStore, before: ConnectionStore) => void
 >();
+const followers = new Set<Follower>();
+/** Followers whose stream failed: told nothing until it starts again, at the next open. */
+const failed = new Set<Follower>();
+const streamResponders = new Map<StreamName, (input: never) => unknown>();
+
+/** Starts a stream followed: what it was asked with is kept, and its answer sent. */
+const start = (follower: Follower) => {
+  failed.delete(follower);
+  const input = follower.input();
+  fakeApi.started.push({ input, method: follower.method });
+  const responder = streamResponders.get(follower.method);
+  if (!responder) {
+    follower.handlers.onError(
+      new RequestError("internal", `${follower.method}: no answer was set up`)
+    );
+    return;
+  }
+  for (const item of responder(input as never) as never[]) {
+    follower.handlers.onItem(item);
+  }
+};
+
 /** Who waits for requests (`requested`): looked at again with every request made. */
 const requestWaiters = new Set<() => void>();
 let store: ConnectionStore;
@@ -52,8 +96,13 @@ const setState = (state: ConnectionState) => {
 export const fakeApi = {
   /** Every request made, in order. */
   calls: [] as { input: unknown; method: RequestName }[],
-  /** The connection opens again, as it does after the server restarted. */
-  connect: () => setState("open"),
+  /** The connection opens again, as it does after the server restarted: the streams start again. */
+  connect: () => {
+    setState("open");
+    for (const follower of followers) {
+      start(follower);
+    }
+  },
   /** The connection drops: requests fail, and what the server sends meanwhile is lost. */
   disconnect: () => setState("closed"),
   /** Sends an event as the server would; nobody hears it while the connection is down. */
@@ -64,6 +113,33 @@ export const fakeApi = {
     for (const listener of listeners.get(event) ?? []) {
       listener(payload);
     }
+  },
+  /** Fails every stream of `method` followed, as the server would: they are not started again. */
+  failStream: (method: StreamName, error: RequestError) => {
+    for (const follower of followers) {
+      if (follower.method === method) {
+        failed.add(follower);
+        follower.handlers.onError(error);
+      }
+    }
+  },
+  follow: <M extends StreamName>(
+    method: M,
+    input: () => StreamInput<M>,
+    handlers: {
+      readonly onError: (error: RequestError) => void;
+      readonly onItem: (item: StreamItem<M>) => void;
+    }
+  ) => {
+    const follower: Follower = { handlers, input, method };
+    followers.add(follower);
+    if (store.state === "open") {
+      start(follower);
+    }
+    return () => {
+      followers.delete(follower);
+      failed.delete(follower);
+    };
   },
   on: <E extends EventName>(event: E, listener: Listener<E>) => {
     const set = listeners.get(event) ?? new Set();
@@ -114,6 +190,10 @@ export const fakeApi = {
    */
   reset: () => {
     fakeApi.calls.length = 0;
+    fakeApi.started.length = 0;
+    followers.clear();
+    failed.clear();
+    streamResponders.clear();
     requestWaiters.clear();
     responders.clear();
     listeners.clear();
@@ -124,6 +204,26 @@ export const fakeApi = {
   respond: <M extends RequestName>(method: M, responder: Responder<M>) => {
     responders.set(method, responder);
   },
+  /** What each stream of `method` followed sends as it starts, from now on. */
+  respondStream: <M extends StreamName>(
+    method: M,
+    responder: StreamResponder<M>
+  ) => {
+    streamResponders.set(method, responder);
+  },
+  /** Sends an item on every stream of `method` followed; nobody hears it while the connection is down. */
+  send: <M extends StreamName>(method: M, item: StreamItem<M>) => {
+    if (store.state !== "open") {
+      return;
+    }
+    for (const follower of followers) {
+      if (follower.method === method && !failed.has(follower)) {
+        follower.handlers.onItem(item as never);
+      }
+    }
+  },
+  /** Every stream started, with what it was asked: at `follow` and at each connection open. */
+  started: [] as { input: unknown; method: StreamName }[],
 };
 
 store = { connection: fakeApi, state: "open" };
@@ -143,6 +243,6 @@ const fakeConnection = {
 
 /** What `vi.mock("…/state/connection.ts")` stands in with. */
 export const connectionModule = {
-  api: (): Pick<Connection, "on" | "request"> => fakeApi,
+  api: (): Pick<Connection, "follow" | "on" | "request"> => fakeApi,
   useConnection: fakeConnection,
 };

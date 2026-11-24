@@ -6,7 +6,9 @@ import {
   summarise,
   TERMINAL_TAIL,
   type Thread,
+  type ThreadEvent,
   type ThreadItem,
+  type ThreadStreamItem,
   withChunk,
 } from "@ultrapaint/contracts/threads";
 import { create } from "zustand";
@@ -22,6 +24,13 @@ import { follow } from "./server-data.ts";
 
 interface AgentsStore {
   agents: readonly AgentConfig[];
+  /**
+   * The number of the last change the editor applied of the thread it follows, the one open in
+   * the chat (ADR 0130): what its stream resumes from after a reconnect.
+   */
+  applied: Record<string, number>;
+  /** The server's run the applied numbers are of, by thread: resumed from only in that run. */
+  appliedRun: Record<string, string>;
   /** Back from a thread to the list of threads; the thread's session goes on. */
   back: () => void;
   /** Files agent turns changed while the app was open, until they are looked at. */
@@ -43,7 +52,7 @@ interface AgentsStore {
   /** When each thread was last looked at, so the list can say which ones have news. */
   seen: Record<string, number>;
   setFollowing: (threadId: string | null) => void;
-  /** Opens a thread just created: it has no transcript to fetch. */
+  /** Opens a thread just created, at once: it has no transcript to wait for, and is followed. */
   show: (thread: Thread) => void;
   /** Output of the terminals agents are running, by `terminalKey`, as it arrives. */
   terminals: Record<string, string>;
@@ -204,7 +213,12 @@ export const terminalKey = (threadId: string, terminalId: string) =>
 
 export const useAgents = create<AgentsStore>((set) => ({
   agents: [],
-  back: () => set({ view: "list" }),
+  applied: {},
+  appliedRun: {},
+  back: () => {
+    set({ view: "list" });
+    followOpen().catch(reportError);
+  },
   changed: [],
   clearChanged: (files) =>
     set((s) => ({
@@ -214,16 +228,13 @@ export const useAgents = create<AgentsStore>((set) => ({
   focused: {},
   following: null,
   items: {},
-  // The transcript's piece is asked for with the lists', so that every connection open reads it.
   load: async () => {
-    await Promise.all([
-      agentsData.read().catch(reportError),
-      transcriptData.read().catch(reportError),
-    ]);
+    await agentsData.read().catch(reportError);
   },
   open: async (threadId) => {
     if (!threadId) {
       set({ current: null, view: "list" });
+      followOpen().catch(reportError);
       return;
     }
     set((s) => {
@@ -237,12 +248,12 @@ export const useAgents = create<AgentsStore>((set) => ({
         view: "thread",
       };
     });
-    await transcriptData.read().catch(reportError);
+    await followOpen();
   },
   readFailed: {},
   seen: readSeen(),
   setFollowing: (threadId) => set({ following: threadId }),
-  show: (thread) =>
+  show: (thread) => {
     set((s) => ({
       current: thread.id,
       items: { ...s.items, [thread.id]: s.items[thread.id] ?? [] },
@@ -251,66 +262,68 @@ export const useAgents = create<AgentsStore>((set) => ({
         ? s.threads
         : [thread, ...s.threads],
       view: "thread",
-    })),
+    }));
+    followOpen().catch(reportError);
+  },
   terminals: {},
   threads: [],
   view: "list",
   working: {},
 }));
 
-/** The thread open in the chat: the one whose transcript the editor reads, and reads again. */
+/** The thread open in the chat: the one whose stream the editor follows. */
 const openThread = () => {
   const { current, view } = useAgents.getState();
   return view === "thread" ? current : null;
 };
 
-/**
- * News that does not continue what the editor holds of a transcript: a chunk that starts past
- * the end of its message, or news of an item it does not hold. Something told before it was
- * missed, so it is not taken, and the transcript of the thread open in the chat is read again;
- * another thread's is when it is opened. One that could not be read is not asked for again with
- * every chunk: opening it, or the connection, asks.
- */
-const missed = (threadId: string) => {
-  if (openThread() === threadId && !useAgents.getState().readFailed[threadId]) {
-    transcriptData.read().catch(reportError);
-  }
-};
+type Change = Partial<AgentsStore> | null;
 
 /**
  * A streamed chunk: only its item changes, and only its text, by what the chunk says past the
- * end of it (`withChunk`).
+ * end of it (`withChunk`). A chunk of an item not held, or one past the end of its text, changes
+ * nothing: in a thread not followed, its stream's snapshot puts it right once it is opened.
  */
-const takeChunk = (ev: Extract<AgentEvent, { type: "itemText" }>) => {
-  const held = useAgents.getState().items[ev.threadId];
+const chunked = (
+  s: AgentsStore,
+  ev: Extract<ThreadEvent, { type: "itemText" }>
+): Change => {
+  const held = s.items[ev.threadId];
   const at = held?.findLastIndex((i) => i.id === ev.itemId) ?? -1;
   const item = held?.[at];
-  if (!(held && item)) {
-    missed(ev.threadId);
-    return;
-  }
-  if (item.kind !== "agent" && item.kind !== "thought") {
-    return;
+  if (!(held && item) || (item.kind !== "agent" && item.kind !== "thought")) {
+    return null;
   }
   const text = withChunk(item.text, ev);
-  if (text === null) {
-    missed(ev.threadId);
-    return;
-  }
-  if (text === item.text) {
-    return;
+  if (text === null || text === item.text) {
+    return null;
   }
   const items = held.with(at, { ...item, text });
-  useAgents.setState((s) => ({
+  return {
     items: { ...s.items, [ev.threadId]: items },
     threads: summarised(s.threads, ev.threadId, items),
-  }));
+  };
 };
 
+/** An item added to a thread, or updated: put where it is in what the editor holds. */
+const withItem = (s: AgentsStore, threadId: string, item: ThreadItem) => {
+  const held = s.items[threadId] ?? [];
+  const at = held.findIndex((i) => i.id === item.id);
+  const items = at === -1 ? [...held, item] : held.with(at, item);
+  return {
+    items: { ...s.items, [threadId]: items },
+    threads: summarised(s.threads, threadId, items),
+  };
+};
+
+const holds = (threadId: string, itemId: string) =>
+  useAgents.getState().items[threadId]?.some((i) => i.id === itemId) ?? false;
+
 /**
- * A thread's news: itself changed, an item added or updated, or the thread gone. What is told
- * of a transcript may be in the transcript read already (the server answers a read from its
- * memory, beside the events it is still sending), so each is taken only as far as it is news.
+ * A thread's news: itself changed, an item added or updated, or the thread gone. The items of
+ * the thread followed are its stream's to tell, in order (`takeStreamed`); another thread's are
+ * taken as far as they are news, which keeps the list's summaries live, and its stream's
+ * snapshot puts them right once it is opened.
  */
 const takeAgentEvent = (ev: AgentEvent) => {
   const set = useAgents.setState;
@@ -335,45 +348,10 @@ const takeAgentEvent = (ev: AgentEvent) => {
       }
       return { current: s.current ?? ev.thread.id, threads };
     });
-  } else if (ev.type === "item") {
-    const { item } = ev;
-    set((s) => {
-      const held = s.items[ev.threadId] ?? [];
-      // An item the transcript read already held stays as it was read: no older than this.
-      const known = held.some((i) => i.id === item.id);
-      const items = known ? held : [...held, item];
-      return {
-        changed:
-          item.kind === "turn_end"
-            ? [...new Set([...s.changed, ...item.changedFiles])]
-            : s.changed,
-        items: known ? s.items : { ...s.items, [ev.threadId]: items },
-        threads: summarised(s.threads, ev.threadId, items),
-      };
-    });
-  } else if (ev.type === "itemText") {
-    takeChunk(ev);
-  } else if (ev.type === "itemUpdate") {
-    // A card answered or declined is asked no more: what was being given to it is let go of.
-    if (ev.item.kind === "question" && !isOpenQuestion(ev.item)) {
-      forgetAnswers([ev.item.id]);
-    }
-    if (
-      !useAgents.getState().items[ev.threadId]?.some((i) => i.id === ev.item.id)
-    ) {
-      missed(ev.threadId);
-      return;
-    }
-    set((s) => {
-      const items = (s.items[ev.threadId] ?? []).map((i) =>
-        i.id === ev.item.id ? ev.item : i
-      );
-      return {
-        items: { ...s.items, [ev.threadId]: items },
-        threads: summarised(s.threads, ev.threadId, items),
-      };
-    });
-  } else if (ev.type === "removed") {
+    return;
+  }
+  if (ev.type === "removed") {
+    const followed = openThread() === ev.threadId;
     forgetThread(ev.threadId);
     set((s) => {
       const threads = s.threads.filter((t) => t.id !== ev.threadId);
@@ -390,7 +368,168 @@ const takeAgentEvent = (ev: AgentEvent) => {
         view: gone ? ("list" as const) : s.view,
       };
     });
+    if (followed) {
+      followOpen().catch(reportError);
+    }
+    return;
   }
+  if (ev.type === "item" && ev.item.kind === "turn_end") {
+    const files = ev.item.changedFiles;
+    set((s) => ({ changed: [...new Set([...s.changed, ...files])] }));
+  }
+  // A card answered or declined is asked no more: what was being given to it is let go of.
+  if (
+    ev.type === "itemUpdate" &&
+    ev.item.kind === "question" &&
+    !isOpenQuestion(ev.item)
+  ) {
+    forgetAnswers([ev.item.id]);
+  }
+  // The thread followed: its stream tells its items, in order.
+  if (Object.hasOwn(useAgents.getState().applied, ev.threadId)) {
+    return;
+  }
+  if (ev.type === "itemText") {
+    set((s) => chunked(s, ev) ?? s);
+    return;
+  }
+  const held = holds(ev.threadId, ev.item.id);
+  // An item held already stays as it is held, no older than this.
+  const added = ev.type === "item" && !held;
+  // An update of one not held waits for the thread's snapshot.
+  const updated = ev.type === "itemUpdate" && held;
+  if (added || updated) {
+    set((s) => withItem(s, ev.threadId, ev.item));
+  }
+};
+
+/**
+ * What the thread followed's stream says (ADR 0130): a snapshot in place of what the editor
+ * held, then each change after the last one applied, in order; a change at or below it was
+ * applied already, and is dropped. A snapshot read while a change was being made may hold the
+ * change it then tells: taken by its item's id, or by its offset for a chunk, it changes nothing.
+ */
+const takeStreamed = (threadId: string, told: ThreadStreamItem) =>
+  useAgents.setState((s) => {
+    const last = s.applied[threadId];
+    // Up to date: its transcript is read, whether or not anything was told before it.
+    if (told.kind === "synchronized") {
+      return {
+        applied: {
+          ...s.applied,
+          [threadId]: Math.max(last ?? told.sequence, told.sequence),
+        },
+        appliedRun: { ...s.appliedRun, [threadId]: told.run },
+        readFailed: nowRead(s.readFailed, threadId),
+      };
+    }
+    if (
+      told.kind !== "snapshot" &&
+      last !== undefined &&
+      told.sequence <= last
+    ) {
+      return s;
+    }
+    const applied = { ...s.applied, [threadId]: told.sequence };
+    if (told.kind === "snapshot") {
+      return {
+        applied,
+        appliedRun: { ...s.appliedRun, [threadId]: told.run },
+        items: { ...s.items, [threadId]: told.items },
+        readFailed: nowRead(s.readFailed, threadId),
+        threads: summarised(s.threads, threadId, told.items),
+      };
+    }
+    if (told.event.type === "thread") {
+      return { applied };
+    }
+    const { event } = told;
+    const change =
+      event.type === "itemText"
+        ? chunked(s, event)
+        : withItem(s, threadId, event.item);
+    return { ...change, applied };
+  });
+
+/** The thread whose stream the editor follows, and who waits for it to be up to date. */
+let streamed: {
+  readonly stop: () => void;
+  readonly threadId: string;
+  readonly synchronized: () => void;
+} | null = null;
+
+/**
+ * Follows the thread open in the chat, from the last change applied of it, and stops following
+ * any other: called whenever the thread open may have changed. The connection starts its stream
+ * again at every open, from the last change applied then. Settles once the stream has told
+ * everything up to now, or failed, or is stopped.
+ */
+const followOpen = (): Promise<void> => {
+  const threadId = openThread();
+  const before = streamed;
+  streamed = null;
+  before?.stop();
+  before?.synchronized();
+  if (before && before.threadId !== threadId) {
+    useAgents.setState((s) => {
+      const { [before.threadId]: _gone, ...applied } = s.applied;
+      const { [before.threadId]: _run, ...appliedRun } = s.appliedRun;
+      return { applied, appliedRun };
+    });
+  }
+  if (threadId === null) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    let waiting = true;
+    const synchronized = () => {
+      waiting = false;
+      resolve();
+    };
+    const stop = api().follow(
+      "threads.follow",
+      () => {
+        const { applied, appliedRun } = useAgents.getState();
+        const afterSequence = applied[threadId];
+        const run = appliedRun[threadId];
+        return afterSequence === undefined || run === undefined
+          ? { threadId }
+          : { afterSequence, run, threadId };
+      },
+      {
+        onError: (error) => {
+          useAgents.setState((s) => ({
+            readFailed: { ...s.readFailed, [threadId]: true },
+          }));
+          reportError(error);
+          synchronized();
+        },
+        onItem: (told) => {
+          takeStreamed(threadId, told);
+          if (told.kind === "synchronized" && waiting) {
+            synchronized();
+          }
+        },
+      }
+    );
+    streamed = { stop, synchronized, threadId };
+  });
+};
+
+/**
+ * The threads a list read says, each kept as held where the row held is newer: a read made as the
+ * connection opened is answered after the events that followed it, and must not take a thread
+ * back to what it was before them (ADR 0130).
+ */
+const newerOf = (
+  held: readonly Thread[],
+  read: readonly Thread[]
+): Thread[] => {
+  const byId = new Map(held.map((t) => [t.id, t]));
+  return read.map((t) => {
+    const mine = byId.get(t.id);
+    return mine !== undefined && mine.updatedAt > t.updatedAt ? mine : t;
+  });
 };
 
 interface AgentsRead {
@@ -398,16 +537,22 @@ interface AgentsRead {
   readonly threads: readonly Thread[];
 }
 
-/** The agents and the threads, and what the agents say they work on, change and run. */
+/**
+ * The agents and the threads, and what the agents say they work on, change and run. The threads'
+ * news is followed from the start, not only while the chat is open, as the badge over the tool
+ * strip reports turns that changed files; the transcript of the thread open in the chat is its
+ * stream's (`followOpen`).
+ */
 const agentsData = follow({
   // Read with the threads, the project known by then: what this project's pages saw.
   apply: ({ agents, threads }: AgentsRead) =>
     useAgents.setState((s) => ({
       agents,
       seen: { ...readSeen(), ...s.seen },
-      threads,
+      threads: newerOf(s.threads, threads),
     })),
   on: {
+    agent: takeAgentEvent,
     "agent.edited": (ev) =>
       useAgents.setState((s) => ({
         working: {
@@ -441,38 +586,6 @@ const agentsData = follow({
       api().request("threads.list", undefined),
     ]);
     return { agents, threads };
-  },
-});
-
-/**
- * The transcript of the thread open in the chat, and the threads' news: followed from the start,
- * not only while the chat is open, as the badge over the tool strip reports turns that changed
- * files. The chat opens on the list; a thread is opened by choice, and its transcript read then
- * and at every connection open.
- *
- * A read is ordered with the news as a document's is (ADR 0044): what is told while it is on its
- * way waits for its answer, which the server may have read before it, and is taken after it. The
- * answer may as well hold what the editor is yet to be told, which `takeAgentEvent` tells apart.
- */
-const transcriptData = follow({
-  apply: (items: readonly ThreadItem[], threadId: string) =>
-    useAgents.setState((s) => ({
-      items: { ...s.items, [threadId]: items },
-      readFailed: nowRead(s.readFailed, threadId),
-    })),
-  key: openThread,
-  news: ["agent"],
-  on: { agent: takeAgentEvent },
-  read: async (threadId) => {
-    try {
-      return await api().request("threads.items", { threadId });
-    } catch (error) {
-      // Said before the news that waited is taken, which would ask for it again (`missed`).
-      useAgents.setState((s) => ({
-        readFailed: { ...s.readFailed, [threadId]: true },
-      }));
-      throw error;
-    }
   },
 });
 

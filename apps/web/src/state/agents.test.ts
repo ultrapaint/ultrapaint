@@ -1,9 +1,13 @@
 import "../testing/fake-browser.ts";
 import { RequestError } from "@ultrapaint/client-runtime/connection";
-import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
+import type {
+  Thread,
+  ThreadEvent,
+  ThreadItem,
+  ThreadStreamItem,
+} from "@ultrapaint/contracts/threads";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "../testing/fake-api.ts";
-import { until } from "../testing/until.ts";
 import {
   type AgentWork,
   editedWork,
@@ -15,7 +19,7 @@ import {
 } from "./agents.ts";
 import { pick, sendAnswers, useAnswers } from "./answers.ts";
 import { addChip, useAttachments } from "./attachments.ts";
-import { caughtUp, followServer } from "./server-data.ts";
+import { followServer } from "./server-data.ts";
 
 vi.mock(
   "./connection.ts",
@@ -49,21 +53,48 @@ const reply = () => {
   return item?.kind === "agent" ? item.text : undefined;
 };
 
-const transcriptReads = () =>
-  fakeApi.calls.filter((c) => c.method === "threads.items").length;
+/** Thread `t` as its stream says it is at `sequence`, holding `items`. */
+const snapshot = (
+  sequence: number,
+  items: readonly ThreadItem[],
+  run = "run_1"
+): ThreadStreamItem => ({
+  items,
+  kind: "snapshot",
+  run,
+  sequence,
+  thread: thread("t"),
+});
 
-/** `threads.items` left unanswered until the test answers it. */
-const heldRead = () => {
-  let answer: (items: readonly ThreadItem[]) => void = () => undefined;
-  fakeApi.respond(
-    "threads.items",
-    () =>
-      new Promise((resolve) => {
-        answer = resolve;
-      })
+const synchronized = (sequence: number, run = "run_1"): ThreadStreamItem => ({
+  kind: "synchronized",
+  run,
+  sequence,
+});
+
+/** A change to thread `t`, numbered `sequence`, as its stream tells it. */
+const change = (sequence: number, event: ThreadEvent): ThreadStreamItem => ({
+  event,
+  kind: "event",
+  sequence,
+});
+
+/** Where each start of a thread's stream asked to follow it from: `afterSequence`, by thread. */
+const followedFrom = () =>
+  fakeApi.started.map(
+    (s) => s.input as { afterSequence?: number; run?: string; threadId: string }
   );
-  return (items: readonly ThreadItem[]) => answer(items);
-};
+
+/** Thread `t`'s stream answers a snapshot of `items` at `sequence`, as it starts. */
+const answersSnapshot = (
+  sequence: number,
+  items: readonly ThreadItem[],
+  run = "run_1"
+) =>
+  fakeApi.respondStream("threads.follow", () => [
+    snapshot(sequence, items, run),
+    synchronized(sequence, run),
+  ]);
 
 type QuestionItem = Extract<ThreadItem, { kind: "question" }>;
 
@@ -291,7 +322,6 @@ describe("the agent events", () => {
     useAgents.setState({ items: { t: [said("1", "Hello ")] } });
     fakeApi.emit("agent", chunk(9, "ld"));
     expect(reply()).toBe("Hello ");
-    expect(transcriptReads()).toBe(0);
   });
 
   it("holds an item told again once, as it holds it", () => {
@@ -324,7 +354,10 @@ describe("the agent events", () => {
   });
 
   it("forgets a removed thread's chips, when it was looked at, and the answers it was being given", async () => {
-    fakeApi.respond("threads.items", () => []);
+    fakeApi.respondStream("threads.follow", ({ threadId }) => [
+      { ...snapshot(0, []), thread: thread(threadId) },
+      synchronized(0),
+    ]);
     const card = asked("q1");
     const other = asked("q2");
     useAgents.setState({
@@ -386,15 +419,8 @@ describe("the agent events", () => {
 });
 
 describe("a thread opened", () => {
-  it("holds nothing of its transcript until it is read: not an empty one", async () => {
-    let answer: (items: readonly ThreadItem[]) => void = () => undefined;
-    fakeApi.respond(
-      "threads.items",
-      () =>
-        new Promise((resolve) => {
-          answer = resolve;
-        })
-    );
+  it("holds nothing of its transcript until its stream says it: not an empty one", async () => {
+    fakeApi.respondStream("threads.follow", () => []);
     useAgents.setState({ threads: [thread("t")] });
     const opened = useAgents.getState().open("t");
     expect(useAgents.getState()).toMatchObject({
@@ -402,94 +428,190 @@ describe("a thread opened", () => {
       view: "thread",
     });
     expect(useAgents.getState().items.t).toBeUndefined();
-    answer([]);
+    fakeApi.send("threads.follow", snapshot(0, []));
+    fakeApi.send("threads.follow", synchronized(0));
     await opened;
     expect(useAgents.getState().items.t).toEqual([]);
     expect(useAgents.getState().readFailed).toEqual({});
   });
 
-  it("takes a chunk told while its transcript is read after the answer, which may be older", async () => {
-    const answer = heldRead();
-    const opened = useAgents.getState().open("t");
-    fakeApi.emit("agent", chunk(9, "ld"));
-    answer([said("1", "Hello wor")]);
-    await opened;
+  it("is followed from a snapshot, then takes the changes after it in order", async () => {
+    answersSnapshot(3, [said("1", "Hello ")]);
+    await useAgents.getState().open("t");
+    expect(followedFrom()).toEqual([{ threadId: "t" }]);
+    fakeApi.send("threads.follow", change(4, chunk(6, "world")));
+    fakeApi.send(
+      "threads.follow",
+      change(5, { item: said("2", "Done"), threadId: "t", type: "item" })
+    );
+    expect(useAgents.getState().items.t).toEqual([
+      said("1", "Hello world"),
+      said("2", "Done"),
+    ]);
+  });
+
+  it("drops a change at or below the last one it applied", async () => {
+    answersSnapshot(3, [said("1", "Hello ")]);
+    await useAgents.getState().open("t");
+    const held = useAgents.getState().items;
+    // Already in the snapshot, told again.
+    fakeApi.send(
+      "threads.follow",
+      change(3, { item: said("2", "Again"), threadId: "t", type: "item" })
+    );
+    fakeApi.send(
+      "threads.follow",
+      change(2, { item: said("1", "Old"), threadId: "t", type: "itemUpdate" })
+    );
+    expect(useAgents.getState().items).toBe(held);
+    fakeApi.send("threads.follow", change(4, chunk(6, "world")));
+    fakeApi.send("threads.follow", change(4, chunk(6, "world")));
     expect(reply()).toBe("Hello world");
   });
 
-  it("takes nothing twice of a reply its transcript already held when it was read", async () => {
-    fakeApi.respond("threads.items", () => [said("1", "Hello world")]);
+  it("takes no news of its items from the threads' news, which its stream tells in order", async () => {
+    answersSnapshot(3, [said("1", "Hello ")]);
     await useAgents.getState().open("t");
-    // Sent before the transcript was answered, and reaching the editor after it.
+    fakeApi.emit("agent", chunk(6, "world"));
     fakeApi.emit("agent", {
-      item: said("1", "Hello "),
+      item: said("2", "Done"),
       threadId: "t",
       type: "item",
     });
-    fakeApi.emit("agent", chunk(6, "wor"));
-    fakeApi.emit("agent", chunk(9, "ld"));
+    expect(useAgents.getState().items.t).toEqual([said("1", "Hello ")]);
+  });
+
+  it("resumes after a reconnect from the last change it applied", async () => {
+    answersSnapshot(3, [said("1", "Hello ")]);
+    await useAgents.getState().open("t");
+    fakeApi.send("threads.follow", change(4, chunk(6, "wor")));
+    fakeApi.disconnect();
+    // Told while the editor was away: the stream tells it again from where it was.
+    fakeApi.respondStream("threads.follow", () => [
+      change(5, chunk(9, "ld")),
+      change(6, { item: said("2", "Done"), threadId: "t", type: "item" }),
+      synchronized(6),
+    ]);
+    fakeApi.connect();
+    expect(followedFrom()).toEqual([
+      { threadId: "t" },
+      { afterSequence: 4, run: "run_1", threadId: "t" },
+    ]);
+    expect(useAgents.getState().items.t).toEqual([
+      said("1", "Hello world"),
+      said("2", "Done"),
+    ]);
+  });
+
+  it("puts a snapshot in place of the items it held", async () => {
+    answersSnapshot(3, [said("1", "Hello "), asked("q1")]);
+    await useAgents.getState().open("t");
+    fakeApi.disconnect();
+    // Too far behind: the server sends the thread as it is, the card settled meanwhile gone.
+    answersSnapshot(400, [said("1", "Hello world")]);
+    fakeApi.connect();
     expect(useAgents.getState().items.t).toEqual([said("1", "Hello world")]);
-    fakeApi.emit("agent", chunk(11, "!"));
-    expect(reply()).toBe("Hello world!");
+    fakeApi.send("threads.follow", change(400, chunk(11, "!")));
+    expect(reply()).toBe("Hello world");
   });
 
-  it("reads its transcript again at a chunk that starts past the end of its message, and takes what is told meanwhile after it", async () => {
-    fakeApi.respond("threads.items", () => [said("1", "Hello ")]);
+  it("is followed again from nothing once it is opened again after the list", async () => {
+    answersSnapshot(3, [said("1", "Hello")]);
     await useAgents.getState().open("t");
-    const answer = heldRead();
-    // "wor" never came.
-    fakeApi.emit("agent", chunk(9, "ld"));
-    expect(reply()).toBe("Hello ");
-    expect(transcriptReads()).toBe(2);
-    fakeApi.emit("agent", chunk(11, "!"));
-    answer([said("1", "Hello world")]);
-    await until(useAgents, () => reply() === "Hello world!");
-    expect(transcriptReads()).toBe(2);
-  });
-
-  it("reads its transcript again at a chunk of a message it does not hold", async () => {
-    fakeApi.respond("threads.items", () => []);
+    useAgents.getState().back();
     await useAgents.getState().open("t");
-    fakeApi.respond("threads.items", () => [said("1", "Hello world")]);
-    fakeApi.emit("agent", chunk(6, "world"));
-    await until(useAgents, () => reply() === "Hello world");
+    expect(followedFrom()).toEqual([{ threadId: "t" }, { threadId: "t" }]);
   });
 
-  it("does not ask with every chunk for a transcript that could not be read", async () => {
-    fakeApi.respond("threads.items", () =>
-      Promise.reject(new RequestError("internal", "the file is gone"))
-    );
-    await useAgents.getState().open("t");
-    fakeApi.emit("agent", chunk(6, "world"));
-    fakeApi.emit("agent", chunk(11, "!"));
-    expect(transcriptReads()).toBe(1);
-  });
-
-  it("is read again when the connection opens again, shown without being opened too", async () => {
-    fakeApi.respond("agents.list", () => []);
-    fakeApi.respond("threads.list", () => [thread("t")]);
-    fakeApi.respond("threads.items", () => [said("1", "Hello")]);
-    await useAgents.getState().load();
+  it("is followed when shown without being opened, and again from where it was when the connection opens again", () => {
+    answersSnapshot(1, []);
     useAgents.getState().show(thread("t"));
     expect(useAgents.getState().items.t).toEqual([]);
     fakeApi.disconnect();
+    answersSnapshot(2, [said("1", "Hello")]);
     fakeApi.connect();
-    await caughtUp();
+    expect(followedFrom()).toEqual([
+      { threadId: "t" },
+      { afterSequence: 1, run: "run_1", threadId: "t" },
+    ]);
     expect(useAgents.getState().items.t).toEqual([said("1", "Hello")]);
   });
 
-  it("says its transcript could not be read, until it is", async () => {
-    fakeApi.respond("threads.items", () =>
-      Promise.reject(new RequestError("internal", "the file is gone"))
+  it("follows a restarted server's run from its own numbers, lower as they may be", () => {
+    answersSnapshot(3, [said("1", "Hello"), said("2", "Lost")]);
+    useAgents.getState().show(thread("t"));
+    // The server was killed and started again: another run, at a lower number.
+    fakeApi.disconnect();
+    answersSnapshot(0, [said("1", "Hello")], "run_2");
+    fakeApi.connect();
+    expect(useAgents.getState().items.t).toEqual([said("1", "Hello")]);
+    fakeApi.send(
+      "threads.follow",
+      change(1, { item: said("3", "New"), threadId: "t", type: "item" })
     );
+    expect(useAgents.getState().items.t).toEqual([
+      said("1", "Hello"),
+      said("3", "New"),
+    ]);
+    fakeApi.disconnect();
+    fakeApi.connect();
+    expect(followedFrom().at(-1)).toEqual({
+      afterSequence: 1,
+      run: "run_2",
+      threadId: "t",
+    });
+  });
+
+  it("is read again once its stream is up to date, even with nothing to replay", () => {
+    answersSnapshot(1, [said("1", "Hello")]);
+    useAgents.getState().show(thread("t"));
+    fakeApi.failStream(
+      "threads.follow",
+      new RequestError("internal", "the file is gone")
+    );
+    expect(useAgents.getState().readFailed).toEqual({ t: true });
+    fakeApi.respondStream("threads.follow", () => [synchronized(1)]);
+    fakeApi.disconnect();
+    fakeApi.connect();
+    expect(useAgents.getState().readFailed).toEqual({});
+    expect(useAgents.getState().items.t).toEqual([said("1", "Hello")]);
+  });
+
+  it("keeps a thread's newer row over a list read answered after it", async () => {
+    fakeApi.respond("agents.list", () => []);
+    fakeApi.respond("threads.list", () => [
+      { ...thread("t"), status: "idle", updatedAt: 1 },
+    ]);
+    useAgents.setState({
+      threads: [{ ...thread("t"), status: "running", updatedAt: 2 }],
+    });
+    await useAgents.getState().load();
+    expect(useAgents.getState().threads[0]?.status).toBe("running");
+    fakeApi.respond("threads.list", () => [
+      { ...thread("t"), status: "idle", updatedAt: 3 },
+    ]);
+    await useAgents.getState().load();
+    expect(useAgents.getState().threads[0]?.status).toBe("idle");
+  });
+
+  it("says its transcript could not be read, until it is", async () => {
+    fakeApi.respondStream("threads.follow", () => []);
     useAgents.setState({ threads: [thread("t")] });
-    await useAgents.getState().open("t");
+    const opened = useAgents.getState().open("t");
+    fakeApi.failStream(
+      "threads.follow",
+      new RequestError("internal", "the file is gone")
+    );
+    await opened;
     expect(useAgents.getState().readFailed).toEqual({ t: true });
     expect(useAgents.getState().items.t).toBeUndefined();
     // Asked again, it is being read: not failed while it is, nor once it is read.
-    fakeApi.respond("threads.items", () => [said("1", "Hello")]);
     const again = useAgents.getState().open("t");
     expect(useAgents.getState().readFailed).toEqual({});
+    // On a stream of its own: the failed one hears nothing more.
+    expect(followedFrom()).toHaveLength(2);
+    fakeApi.send("threads.follow", snapshot(1, [said("1", "Hello")]));
+    fakeApi.send("threads.follow", synchronized(1));
     await again;
     expect(useAgents.getState().items.t).toEqual([said("1", "Hello")]);
   });
