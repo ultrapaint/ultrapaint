@@ -12,6 +12,7 @@ import type { Thread } from "@ultrapaint/contracts/threads";
 import { applyOps } from "@ultrapaint/design-document/ops";
 import { canvasDocOf, canvasOfDoc } from "@ultrapaint/design-document/tree";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { EditorFrame } from "../canvas/editor-frame.ts";
 import { useAgents } from "../state/agents.ts";
 import {
   openBoard,
@@ -822,6 +823,7 @@ const EVERY_ACTION = {
     makeApp: true,
     paste: true,
     rename: true,
+    selectLayerUnder: true,
     selectParent: true,
     unwrap: true,
     variations: true,
@@ -868,6 +870,8 @@ const EVERY_ACTION = {
 /** Targets whose menus between them hold every kind of action. */
 const everyTarget = (): MenuTarget[] => [
   nodeAt(HOME, "title"),
+  // Right-clicked: the layers under the pointer (ADR 0143).
+  { at: { x: 10, y: 10 }, frame: HOME, kind: "node", nodeId: "title" },
   nodeAt(HOME, "hero"),
   nodeAt(HOME, "promo"),
   homePage,
@@ -928,7 +932,12 @@ const setUpForEvery = () => {
 };
 
 describe("every action", () => {
-  it("is in a menu, and runs", async () => {
+  it("is in a menu, and runs", async ({ onTestFinished }) => {
+    // What the home page has under the right-clicked point: the title, in the hero.
+    const hit = vi
+      .spyOn(EditorFrame.prototype, "hitTest")
+      .mockReturnValue(["home", "hero", "title"]);
+    onTestFinished(() => hit.mockRestore());
     setUpForEvery();
     const seen = new Map<string, MenuAction>();
     for (const target of everyTarget()) {

@@ -39,6 +39,8 @@ export interface Item<A> {
 export type SubmenuId =
   | "arrange"
   | "copyTo"
+  /** The layers under the point the menu was right-clicked at (ADR 0143). */
+  | "layers"
   | "link"
   | "moveTo"
   | "preset"
@@ -138,6 +140,8 @@ export type NodeAction =
   /** Asks for a URL or another site to lead to. */
   | { kind: "linkUrl" }
   | { kind: "selectParent" }
+  /** One of the layers under the point the menu was right-clicked at, selected alone (ADR 0143). */
+  | { kind: "selectLayerUnder"; id: string }
   | { kind: "copyLink" }
   | { kind: "copyRef" }
   | { kind: "copy" }
@@ -151,6 +155,15 @@ export type NodeAction =
   | { kind: "lock"; locked: boolean }
   | { kind: "zoomTo" }
   | { kind: "delete" };
+
+/** A layer under the point a menu was right-clicked at, as Select layer lists it (ADR 0143). */
+export interface LayerUnder {
+  id: string;
+  /** What the Layers panel calls it. */
+  label: string;
+  /** It is one of the selection. */
+  selected: boolean;
+}
 
 export interface NodeFacts {
   /** Something copied that can be pasted. */
@@ -175,6 +188,11 @@ export interface NodeFacts {
    * its main component's to move, copy, detach or rename.
    */
   layer?: boolean;
+  /**
+   * The layers under the point the menu was right-clicked at, the deepest first and the frame's
+   * root last (ADR 0143); none for a menu opened without a point (the keyboard, a Layers row).
+   */
+  layersUnder?: readonly LayerUnder[];
   /** The canvas's pages a link can lead to, by file; empty for a node beside the pages. */
   /** The routes, then the drafts (ADR 0075), which a link to gives a route first. */
   linkTargets?: readonly { draft?: boolean; name: string; path: string }[];
@@ -221,6 +239,26 @@ const linkEntries = (f: NodeFacts): Entry<NodeAction> | false => {
     kind: "submenu",
     label: link === undefined ? "Link to" : "Links to",
   };
+};
+
+/**
+ * Select layer: every layer under the point the menu was right-clicked at, one pick away, the
+ * selected ones ticked (ADR 0143). Not offered for a single layer, which is no choice.
+ */
+const layerEntries = (f: NodeFacts): Entry<NodeAction> | false => {
+  const under = f.layersUnder ?? [];
+  return (
+    under.length > 1 && {
+      entries: under.map((l) =>
+        item({ id: l.id, kind: "selectLayerUnder" }, l.label, {
+          checked: l.selected,
+        })
+      ),
+      id: "layers",
+      kind: "submenu",
+      label: "Select layer",
+    }
+  );
 };
 
 /** The node's name and what it is, once when they are the same. */
@@ -310,6 +348,7 @@ export const nodeEntries = (f: NodeFacts): Entry<NodeAction>[] => {
         ...one,
         command: "escape",
       }),
+    layerEntries(f),
     separator,
     ...addressEntries(f),
     separator,
