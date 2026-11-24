@@ -110,6 +110,15 @@ describe("a node's box", () => {
     expect(gradientBox({ transform: IDENTITY, type: "GRADIENT_RADIAL" })).toBe(
       "radial-gradient(50% 50% at 50% 50%, rgba(255, 255, 255, 1), rgba(0, 0, 0, 1))"
     );
+    // Turned a quarter, its ellipse's axes swap: still half the box each way.
+    expect(
+      gradientBox({
+        transform: { m00: 0, m01: 1, m02: 0, m10: -1, m11: 0, m12: 1 },
+        type: "GRADIENT_RADIAL",
+      })
+    ).toBe(
+      "radial-gradient(50% 50% at 50% 50%, rgba(255, 255, 255, 1), rgba(0, 0, 0, 1))"
+    );
     // Its start handle pointing down from the centre.
     expect(
       gradientBox({

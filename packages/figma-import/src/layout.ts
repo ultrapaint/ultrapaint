@@ -115,6 +115,24 @@ const IDENTITY: FigTransform = {
 const cssDegrees = (dx: number, dy: number) =>
   round(((((Math.atan2(dx, -dy) * 180) / Math.PI) % 360) + 360) % 360);
 
+/**
+ * An ellipse's radii along the box's axes, as CSS gives a radial gradient's size: a CSS ellipse
+ * cannot turn, so one Figma turned is the ellipse its turned one spans (exact on a quarter turn,
+ * whose radii swap).
+ */
+const radiiOf = (
+  rx: number,
+  ry: number,
+  angle: number,
+  width: number,
+  height: number
+) => {
+  const [cos, sin] = [Math.cos(angle), Math.sin(angle)];
+  const across = Math.hypot(rx * cos, ry * sin);
+  const down = Math.hypot(rx * sin, ry * cos);
+  return `${percent(across / width)} ${percent(down / height)}`;
+};
+
 /** A share of a gradient as CSS writes a stop's position, `40%`. */
 const percent = (share: number) => `${round(share * 100)}%`;
 
@@ -161,7 +179,7 @@ const gradientGeometry = (
               geometry: centre,
             }
           : {
-              geometry: `${percent(radiusX / width)} ${percent(radiusY / height)} ${centre}`,
+              geometry: `${radiiOf(radiusX, radiusY, angle, width, height)} ${centre}`,
             },
     };
   }
