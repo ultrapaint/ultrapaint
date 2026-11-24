@@ -425,6 +425,33 @@ describe("the Fill section's layers (ADR 0134)", () => {
     ]);
   });
 
+  it("forgets a drag the browser cancels, a stop then moved by the keys from where it is", async () => {
+    show({ box: GRADIENT });
+    await openSwatch();
+    const bar = document.querySelector("[data-stop-bar]") as HTMLElement;
+    bar.getBoundingClientRect = () =>
+      ({ height: 24, left: 0, top: 0, width: 200 }) as DOMRect;
+    const stop = document.querySelector('[data-stop="0"]') as HTMLElement;
+    for (const [event, clientX] of [
+      ["pointerdown", 0],
+      ["pointermove", 40],
+      ["pointercancel", 40],
+    ] as const) {
+      act(() => {
+        stop.dispatchEvent(new PointerEvent(event, { bubbles: true, clientX }));
+      });
+    }
+    expect(edits()).toBe(0);
+    act(() => {
+      stop.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "ArrowRight" })
+      );
+    });
+    expect(fills()).toEqual([
+      { fill: "linear-gradient(in oklab, $color-primary 1%, transparent)" },
+    ]);
+  });
+
   it("takes a stop off, the others left where they are drawn", async () => {
     show({
       box: "linear-gradient(in oklab, $color-primary, $color-accent, transparent)",
