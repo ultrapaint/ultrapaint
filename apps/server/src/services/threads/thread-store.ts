@@ -472,6 +472,7 @@ export class ThreadStore extends Context.Service<
             ...entry.thread,
             ...patch,
             ...(comesBack(patch) && { settledAt: undefined }),
+            changedAt: now,
             updatedAt: options?.news === false ? entry.thread.updatedAt : now,
           };
           return { thread: entry.thread, type: "thread" };

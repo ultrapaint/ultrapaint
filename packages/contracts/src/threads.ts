@@ -366,6 +366,12 @@ export const Thread = Schema.Struct({
   agentCommands: Schema.optional(Schema.Array(SlashCommand)),
   agentId: Schema.String,
   /**
+   * When anything of the thread last changed, news or not (ADR 0141): what tells an editor which
+   * of two copies of a thread is the later, where `updatedAt` stays put for a change that is no
+   * news (a rename, a settling). Absent on a thread not changed since it was made.
+   */
+  changedAt: Schema.optional(Schema.Number),
+  /**
    * The session's options. Before the session exists these are the agent's options as a
    * previous session reported them, and what is chosen here is applied when it starts.
    */
