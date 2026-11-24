@@ -474,6 +474,19 @@ describe("the Fill section's layers (ADR 0134)", () => {
     ]);
   });
 
+  it("keeps stops placed in a length from linear to radial, which both take", async () => {
+    show({
+      box: "linear-gradient(in oklab, $color-primary 10px, $color-accent 40%, transparent 80%)",
+    });
+    await openSwatch();
+    press("Radial");
+    expect(fills()).toEqual([
+      {
+        fill: "radial-gradient(in oklab, $color-primary 10px, $color-accent 40%, transparent 80%)",
+      },
+    ]);
+  });
+
   it("gives a conic gradient's angles to another shape as their share of the turn", async () => {
     show({ box: CONIC });
     await openSwatch();
