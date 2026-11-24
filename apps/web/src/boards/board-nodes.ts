@@ -59,7 +59,7 @@ export const tokensFound = (
 
 /** The editor's face, which the boards' documentation is set in (the editor loads it). */
 export const UI_FONT =
-  '"Figtree Variable", ui-sans-serif, system-ui, -apple-system, sans-serif';
+  '"Allo Variable", ui-sans-serif, system-ui, -apple-system, sans-serif';
 
 /** A step of the sheet's text colour: what qualifies its neighbour, on any sheet. */
 export const MUTED = "color-mix(in oklab, currentColor 58%, transparent)";
