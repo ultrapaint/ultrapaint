@@ -1,6 +1,6 @@
 /**
- * The inspector's text section: the style a text is set in, its role, and its type, colour and
- * alignment.
+ * The inspector's text section: the style a text is set in, its type, colour and alignment, and
+ * its less frequent settings (its role) in a Formatting popover.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import {
@@ -15,12 +15,27 @@ import {
   matchTextStyle,
 } from "@ultrapaint/design-document/text-styles";
 import {
+  ALargeSmall,
   AlignCenter,
   AlignLeft,
   AlignRight,
+  Bold,
   Link2,
+  SlidersHorizontal,
+  UnfoldHorizontal,
+  UnfoldVertical,
   Unlink2,
+  X,
 } from "lucide-react";
+import { type ReactNode, useContext } from "react";
+import {
+  Popover,
+  PopoverClose,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { Segmented } from "../components/segmented.tsx";
@@ -43,6 +58,7 @@ import {
   ColorField,
   nullIfMixed,
   OverrideMark,
+  ReadOnlyFieldsContext,
   Row,
   Section,
   set,
@@ -153,6 +169,74 @@ const TextStyleRow = ({
   );
 };
 
+/** The fields the Role row sets. */
+const ROLE_FIELDS = ["role", "level"];
+
+/** Every field the Formatting popover's rows set: an override of one marks its button. */
+const FORMATTING_FIELDS = [...ROLE_FIELDS];
+
+/**
+ * A text's less frequent settings, in a popover the Text section's header opens, drawn as the
+ * inspector's own rows: the section holds only what is changed often. Read-only where the inspector is (a variation's part),
+ * though it still opens to be read.
+ */
+const Formatting = ({ children }: { children: ReactNode }) => {
+  const readOnly = useContext(ReadOnlyFieldsContext);
+  return (
+    <Popover>
+      <span className="relative flex">
+        <PopoverTrigger
+          nativeButton={!readOnly}
+          render={
+            <IconButton
+              className="text-muted-foreground"
+              // A read-only inspector's fieldset disables every button and holds back every
+              // press: this one opens the popover all the same, to be read.
+              data-read-only-passes={readOnly ? "" : undefined}
+              nativeButton={!readOnly}
+              render={readOnly ? <span /> : undefined}
+              size="icon-sm"
+              tooltip="Formatting"
+            />
+          }
+        >
+          <SlidersHorizontal />
+        </PopoverTrigger>
+        <span className="absolute -top-1 -right-1 flex">
+          <OverrideMark fields={FORMATTING_FIELDS} label="Formatting" />
+        </span>
+      </span>
+      <PopoverContent
+        align="start"
+        className="gap-2"
+        data-read-only-passes=""
+        side="left"
+        sideOffset={12}
+      >
+        <PopoverHeader className="flex-row items-center justify-between gap-2">
+          <PopoverTitle className="font-heading-xsmall">
+            Formatting
+          </PopoverTitle>
+          <PopoverClose
+            render={
+              <IconButton
+                className="-my-1 -mr-1 text-muted-foreground"
+                size="icon-sm"
+                tooltip="Close"
+              />
+            }
+          >
+            <X />
+          </PopoverClose>
+        </PopoverHeader>
+        <fieldset className="flex min-w-0 flex-col gap-1" disabled={readOnly}>
+          {children}
+        </fieldset>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 export const TextSection = ({ nodes }: { nodes: readonly TextNode[] }) => {
   const ds = useDesignSystem((s) => s.designSystem);
   const styles = ds?.typography.styles ?? [];
@@ -188,23 +272,40 @@ export const TextSection = ({ nodes }: { nodes: readonly TextNode[] }) => {
             : { [key]: value };
         })
       : set(key, value);
+  /** A field of the text's type, named by `name` and, without a label, by its `icon`. */
   const setting = (
     key: TextStyleSetting,
     kind: FieldTokenKind,
-    numeric = true
+    name: string,
+    icon?: ReactNode
   ) => (
     <TokenField
       className={style ? "text-muted-foreground" : undefined}
       kind={kind}
-      numeric={numeric}
+      leading={icon}
+      numeric={key !== "font"}
       onChange={onSetting(key)}
-      title={style ? `From ${style.name}; a change detaches it` : undefined}
+      title={style ? `${name}: from ${style.name}; a change detaches it` : name}
       {...shownAs(settingOf(key))}
     />
   );
   return (
     <Section
-      action={<OverrideMark fields={["text"]} label="Text" />}
+      action={
+        <>
+          <OverrideMark fields={["text"]} label="Text" />
+          <Formatting>
+            <Row fields={ROLE_FIELDS} label="Role">
+              <OptionSelect
+                onChange={onRole}
+                options={ROLE_OPTIONS}
+                placeholder="Mixed"
+                value={role === MIXED ? null : (role ?? "p")}
+              />
+            </Row>
+          </Formatting>
+        </>
+      }
       title="Text"
     >
       <div className="pb-1">
@@ -215,28 +316,16 @@ export const TextSection = ({ nodes }: { nodes: readonly TextNode[] }) => {
         />
       </div>
       <TextStyleRow named={named} nodes={nodes} style={style} styles={styles} />
-      <Row fields={["role", "level"]} label="Role">
-        <OptionSelect
-          onChange={onRole}
-          options={ROLE_OPTIONS}
-          placeholder="Mixed"
-          value={role === MIXED ? null : (role ?? "p")}
-        />
-      </Row>
       <Row fields={["font"]} label="Font">
-        {setting("font", "font", false)}
+        {setting("font", "font", "Font")}
       </Row>
-      <Row fields={["size"]} label="Size">
-        {setting("size", "fontSize")}
+      <Row fields={["size", "weight"]} label="">
+        {setting("size", "fontSize", "Size", <ALargeSmall />)}
+        {setting("weight", "fontWeight", "Weight", <Bold />)}
       </Row>
-      <Row fields={["weight"]} label="Weight">
-        {setting("weight", "fontWeight")}
-      </Row>
-      <Row fields={["lineHeight"]} label="Line height">
-        {setting("lineHeight", "leading")}
-      </Row>
-      <Row fields={["tracking"]} label="Tracking">
-        {setting("tracking", "tracking")}
+      <Row fields={["lineHeight", "tracking"]} label="">
+        {setting("lineHeight", "leading", "Line height", <UnfoldVertical />)}
+        {setting("tracking", "tracking", "Tracking", <UnfoldHorizontal />)}
       </Row>
       <Row fields={["color"]} label="Colour">
         <ColorField
