@@ -318,6 +318,35 @@ describe("a fill in layers", () => {
     ]);
   });
 
+  it("keeps a colour above the bottom one an image, over the bottom one's utility", () => {
+    expect(bg("linear-gradient(#ff000080, #ff000080), #0000ff")).toEqual([
+      "bg-[linear-gradient(#ff000080,_#ff000080)]",
+      "bg-[#0000ff]",
+    ]);
+  });
+
+  it("places a stop below zero with an arbitrary value, which Tailwind's bare position refuses", () => {
+    expect(bg("linear-gradient(in oklab, $color-a -10%, $color-b)")).toEqual([
+      "bg-linear-to-b",
+      "from-a",
+      "from-[-10%]",
+      "to-b",
+    ]);
+  });
+
+  it("writes a token inside a stop's or the bottom's own CSS as its variable", () => {
+    expect(
+      bg(
+        "linear-gradient(in oklab, color-mix(in srgb, $color-primary 50%, transparent), $color-accent), color-mix(in oklab, $color-muted 20%, white)"
+      )
+    ).toEqual([
+      "bg-linear-to-b",
+      "from-[color-mix(in_srgb,_var(--color-primary)_50%,_transparent)]",
+      "to-accent",
+      "bg-[color-mix(in_oklab,_var(--color-muted)_20%,_white)]",
+    ]);
+  });
+
   it("bounds a gradient where a breakpoint fills the box with a colour, and a colour where it takes a gradient", () => {
     expect(
       responsive(

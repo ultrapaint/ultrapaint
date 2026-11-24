@@ -28,6 +28,7 @@ import {
 import {
   fillCss,
   fillLayers,
+  placedInPercent,
   stopPositions,
 } from "@ultrapaint/design-document/fill";
 import { tokensIn } from "@ultrapaint/design-document/tokens";
@@ -183,11 +184,16 @@ const withTailwindVariables = (
 
 /**
  * A fill with each gradient's stops where CSS draws them, so that `red, blue` and Tailwind's
- * `red 0%, blue 100%` compare the same.
+ * `red 0%, blue 100%` compare the same; one with a stop placed in another unit, as written.
  */
 const placedStops = (value: string): string => {
   const layers = fillLayers(value);
-  if (layers.some((l) => l.kind === "css")) {
+  // A position in another unit (`10px`) cannot be placed in percent: compared as written.
+  const unplaceable = layers.some(
+    (l) =>
+      l.kind === "css" || (l.kind === "gradient" && !placedInPercent(l.stops))
+  );
+  if (unplaceable) {
     return value;
   }
   const placed = layers.map((layer) => {
