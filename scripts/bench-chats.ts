@@ -344,6 +344,21 @@ interface EdWindow {
   };
 }
 
+/** Asks each chat's agent to stop; one stopped already is what was wanted. */
+const stopChats = (page: Page, started: string[]) =>
+  page.evaluate(
+    (threads) =>
+      Promise.all(
+        threads.map((threadId) =>
+          (window as unknown as EdWindow).__ed
+            .api()
+            .request("threads.cancel", { threadId })
+            .catch(() => undefined)
+        )
+      ),
+    started
+  );
+
 /** How many of the chats are no longer working. */
 const chatsStopped = async (page: Page, started: string[]) => {
   const threads = (await page.evaluate(() =>
@@ -667,6 +682,8 @@ const main = async () => {
     };
     // With `--mcp`, the edits the agents made and those refused: a run whose edits failed
     // measured no edits, and says so.
+    // The chats stopped first: a cancelled agent begins no edit, so none starts after the count.
+    await stopChats(page, ids);
     const mcpEdits = args.mcp ? await settledEdits(page, ids) : null;
     if (mcpEdits && (mcpEdits.failed > 0 || mcpEdits.done === 0)) {
       console.error(
