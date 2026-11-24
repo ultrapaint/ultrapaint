@@ -1,5 +1,9 @@
 // @vitest-environment happy-dom
-import type { DesignNode, DocumentState } from "@ultrapaint/contracts/document";
+import type {
+  DesignNode,
+  DocumentState,
+  InstanceNode,
+} from "@ultrapaint/contracts/document";
 import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { act, useEffect } from "react";
@@ -10,7 +14,7 @@ import { useComponents } from "../state/components.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { nodeFrameOf, viewFrameOf } from "../state/frame-ref.ts";
-import { useIsolation } from "../state/isolation.ts";
+import { isolate, leaveTo, useIsolation } from "../state/isolation.ts";
 import { useProject } from "../state/project.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useDrag } from "./drag.ts";
@@ -22,14 +26,21 @@ vi.mock(
   async () => (await import("../testing/fake-api.ts")).connectionModule
 );
 
-/** What the page's preview has under every point: the text `t1` unless a test says otherwise. */
-const under = vi.hoisted(() => ({ chain: ["home-root", "t1"] }));
+/**
+ * What the page's preview has under every point: the text `t1` unless a test says otherwise, and
+ * what a slot of a component edited in place holds there (nothing unless a test says so).
+ */
+const under = vi.hoisted(() => ({
+  chain: ["home-root", "t1"],
+  held: [] as string[],
+}));
 
 /** The page's preview: `under` at every point, the text `t1` where it is drawn. */
 vi.mock("./editor-frame.ts", () => ({
   frameOf: () => ({
     hitTest: () => under.chain,
     measure: () => ({ t1: { height: 20, width: 50, x: 10, y: 10 } }),
+    pageAt: () => under.held,
   }),
 }));
 
@@ -142,6 +153,7 @@ afterEach(() => {
   act(() => mounted.unmount());
   handlers = null;
   under.chain = ["home-root", "t1"];
+  under.held = [];
   useIsolation.setState({ isolated: null });
 });
 
@@ -240,6 +252,113 @@ describe("a component edited in place", () => {
     expect(useEditor.getState().selection).toEqual({
       frame: HOME,
       nodeId: "t1",
+    });
+  });
+});
+
+describe("what a slot of a component edited in place holds (ADR 0123)", () => {
+  const click = (fields: Partial<Record<string, unknown>> = {}) =>
+    ({ ...pointerAt(20, 20), detail: 1, ...fields }) as unknown as Parameters<
+      Handlers["onSelectClick"]
+    >[0];
+  const instanceIn = (tree: DesignNode, id: string) =>
+    (tree.type !== "text" && "children" in tree
+      ? (tree.children ?? []).find((n) => n.id === id)
+      : undefined) as InstanceNode;
+  const promo: DesignNode = {
+    children: [{ children: [], id: "d-extra", type: "column" }],
+    id: "d-root",
+    type: "column",
+  } as DesignNode;
+  const shell: DesignNode = {
+    children: [
+      { component: "Switcher", from: "#app", id: "switch", type: "instance" },
+      { id: "label", role: "paragraph", text: "Menu", type: "text" },
+    ],
+    id: "root",
+    type: "row",
+  } as DesignNode;
+  const page: DesignNode = {
+    children: [
+      {
+        children: [{ id: "t2", role: "paragraph", text: "Hi", type: "text" }],
+        component: "Promo",
+        from: "#app",
+        id: "promo",
+        type: "instance",
+      },
+      { component: "Shell", from: "#app", id: "shell", type: "instance" },
+    ],
+    id: "home-root",
+    type: "page",
+  } as DesignNode;
+  const app = (name: string, tree: DesignNode) => ({
+    name,
+    origin: "app" as const,
+    properties: [],
+    slots: [],
+    tree,
+    version: 1,
+  });
+
+  beforeEach(() => {
+    useComponents.setState({
+      components: [
+        app("Promo", promo),
+        app("Shell", shell),
+        app("Switcher", {
+          children: [{ children: [], id: "s-slot", type: "column" }],
+          id: "s-root",
+          type: "column",
+        } as DesignNode),
+      ],
+    });
+    useDocuments.setState({ docs: { [HOME]: { ...homeDoc, root: page } } });
+  });
+
+  afterEach(() => {
+    leaveTo(0);
+  });
+
+  it("is reached past the slot's node, the component left and the page's node selected", () => {
+    isolate(HOME, instanceIn(page, "promo"));
+    under.chain = ["d-root", "d-extra"];
+    under.held = ["t2", "t2-inner"];
+    // The slot's node first: the click stays in the component.
+    act(() => current().onSelectClick(click()));
+    expect(useIsolation.getState().isolated).not.toBeNull();
+    expect(useEditor.getState().selection?.nodeId).toBe("d-extra");
+    // Past it, the page's node the slot holds.
+    act(() => current().onSelectClick(click()));
+    expect(useIsolation.getState().isolated).toBeNull();
+    expect(useEditor.getState().selection).toEqual({
+      frame: HOME,
+      nodeId: "t2",
+    });
+  });
+
+  it("is reached at once, its innermost node, with Ctrl or ⌘", () => {
+    isolate(HOME, instanceIn(page, "promo"));
+    under.chain = ["d-root", "d-extra"];
+    under.held = ["t2", "t2-inner"];
+    act(() => current().onSelectClick(click({ metaKey: true })));
+    expect(useIsolation.getState().isolated).toBeNull();
+    expect(useEditor.getState().selection?.nodeId).toBe("t2-inner");
+  });
+
+  it("is selected at the level around that holds it, by its own id there", () => {
+    isolate(HOME, instanceIn(page, "shell"));
+    const outer = useIsolation.getState().isolated;
+    isolate(HOME, instanceIn(shell, "switch"));
+    expect(useIsolation.getState().isolated?.drawn).toBe("shell/switch");
+    useEditor.setState({ selection: { frame: HOME, nodeId: "s-slot" } });
+    under.chain = ["s-root", "s-slot"];
+    under.held = ["shell/label"];
+    act(() => current().onSelectClick(click()));
+    expect(useIsolation.getState().isolated).toBe(outer);
+    expect(useEditor.getState().selection).toEqual({
+      frame: HOME,
+      nodeId: "label",
     });
   });
 });

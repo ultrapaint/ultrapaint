@@ -580,6 +580,14 @@ export class EditorFrame {
     return this.mount?.runtime.hitTest(x, y) ?? [];
   }
 
+  /**
+   * While an instance is edited in place, the page's own nodes under the point inside the
+   * innermost node `hitTest` gives, outermost first: what its slots hold there (ADR 0123).
+   */
+  pageAt(x: number, y: number): readonly string[] {
+    return this.mount?.runtime.pageAt(x, y) ?? [];
+  }
+
   /** Where these nodes are right now, in the page's own coordinates. */
   measure(nodeIds: readonly string[]): Readonly<Record<string, FrameRect>> {
     return this.mount?.runtime.measure(nodeIds) ?? {};

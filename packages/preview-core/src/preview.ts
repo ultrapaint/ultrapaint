@@ -16,6 +16,13 @@ import type { RenderMode } from "@ultrapaint/contracts/preview";
 /** Attribute the renderer writes on every node it draws: the node's id in the document. */
 export const NODE_ATTRIBUTE = "data-ed-node";
 
+/**
+ * What the page's own nodes are written in instead while an app component's instance is edited
+ * in place (ADR 0041): not selectable there, but still the page's, which a click in the
+ * instance's slots can go back to (`pageAt`, ADR 0123).
+ */
+export const OUTSIDE_ATTRIBUTE = "data-ed-outside";
+
 /** The selector for the elements drawn for a node. */
 export const nodeSelector = (id: string) =>
   `[${NODE_ATTRIBUTE}="${CSS.escape(id)}"]`;
@@ -176,6 +183,12 @@ export interface FrameRuntime {
   readonly measure: (
     nodeIds: readonly string[]
   ) => Readonly<Record<string, FrameRect>>;
+  /**
+   * While an instance is edited in place, the page's own nodes under a point inside the
+   * innermost node `hitTest` answers with, outermost first: what the instance's slots hold
+   * there (ADR 0123). Empty anywhere else.
+   */
+  readonly pageAt: (x: number, y: number) => readonly string[];
   readonly render: (request: RenderRequest) => void;
   /** A PNG of what the frame draws, or of one node of it in place. */
   readonly screenshot: (nodeId?: string) => Promise<string | null>;

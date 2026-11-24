@@ -37,6 +37,7 @@ const fakePreview = () => {
             ids.map((id) => [id, { height: 1, width: 2, x: 3, y: 4 }])
           )
         ),
+        pageAt: vi.fn((x: number, y: number) => [`held at ${x},${y}`]),
         render: vi.fn(),
         screenshot: vi.fn(() => Promise.resolve("data:image/png;base64,")),
         scrollIntoView: vi.fn(),
@@ -89,6 +90,7 @@ describe("a frame opened in the editor's page", () => {
     // Asked before it is open: nothing there, without waiting.
     expect(frame.ready).toBe(false);
     expect(frame.hitTest(1, 2)).toEqual([]);
+    expect(frame.pageAt(1, 2)).toEqual([]);
     expect(frame.measure(["n"])).toEqual({});
     const into = holder();
     const opened = frame.open({ canvas: "c", holder: into, preview });
@@ -96,6 +98,7 @@ describe("a frame opened in the editor's page", () => {
     expect(only(drawn).options).toMatchObject({ canvas: "c", frame: "p1" });
     expect(frame.ready).toBe(true);
     expect(frame.hitTest(1, 2)).toEqual(["at 1,2"]);
+    expect(frame.pageAt(1, 2)).toEqual(["held at 1,2"]);
     expect(frame.measure(["n"])).toEqual({
       n: { height: 1, width: 2, x: 3, y: 4 },
     });

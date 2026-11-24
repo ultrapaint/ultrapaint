@@ -8,6 +8,7 @@ import {
 } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { emptySystemComponent } from "@ultrapaint/contracts/testing/components";
+import { pageChainAt } from "@ultrapaint/preview-core/dom";
 import type { Mounted } from "@ultrapaint/preview-core/preview";
 import { renderSetup } from "@ultrapaint/preview-core/render-setup";
 import { catalogueOf } from "@ultrapaint/system-components/catalogue";
@@ -384,6 +385,22 @@ describe("an app component (ADR 0041)", () => {
     ).not.toBeNull();
     expect(at("mine")).not.toBeNull();
     expect(at("promo/d-none")).toBeNull();
+  });
+
+  it("edited in place, keeps the page's own nodes in its slots the page's, past the component's (ADR 0123)", async () => {
+    const { at, canvas } = await draw(
+      column([placed({ children: [text("mine")] })]),
+      { components: [promo], isolate: { instance: "promo" } }
+    );
+    // Not selectable while the component is edited, but still the page's node, inside its slot.
+    expect(at("mine")).toBeNull();
+    const mine = canvas.querySelector(
+      '[data-ed-node="d-extra"] [data-ed-outside="mine"]'
+    );
+    expect(mine).not.toBeNull();
+    expect(pageChainAt(mine)).toEqual(["mine"]);
+    // The component's own nodes hold none of the page's.
+    expect(pageChainAt(at("d-title"))).toEqual([]);
   });
 
   it("draws its tree at the page's breakpoint, over the choice's overrides", async () => {
