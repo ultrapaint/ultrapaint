@@ -80,6 +80,8 @@ beforeEach(() => {
     spacePan: false,
     view: { x: 0, y: 0, zoom: 1 },
   });
+  // The comments' visibility starts from storage; each test starts with them hidden.
+  useComments.setState({ visible: false });
   document.body.append(field);
   act(() =>
     root.render(
