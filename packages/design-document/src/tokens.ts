@@ -120,6 +120,16 @@ const addToken = (name: string, into: Set<string>) => {
 export const tokensIn = (
   value: unknown,
   into: Set<string> = new Set()
+): Set<string> => walkTokens(value, into, true);
+
+/**
+ * The tokens of a value, however deep; `fields` reads a CSS-valued field's anywhere in it, which
+ * a property an instance sets never is, whatever its name (`props.fill` holding "Save $20").
+ */
+const walkTokens = (
+  value: unknown,
+  into: Set<string>,
+  fields: boolean
 ): Set<string> => {
   if (typeof value === "string") {
     const found: RegExpExecArray | null = TOKEN_REF_RE.exec(value);
@@ -129,27 +139,33 @@ export const tokensIn = (
     }
   } else if (Array.isArray(value)) {
     for (const item of value) {
-      tokensIn(item, into);
+      walkTokens(item, into, fields);
     }
   } else if (typeof value === "object" && value !== null) {
     for (const [key, item] of Object.entries(value)) {
-      fieldTokensIn(key, item, into);
+      fieldTokensIn(key, item, into, fields);
     }
   }
   return into;
 };
 
 /** The tokens of one field of an object: a CSS-valued one's anywhere in it, another's as any value's. */
-const fieldTokensIn = (key: string, value: unknown, into: Set<string>) => {
-  const inside = Object.hasOwn(TOKENS_INSIDE, key)
-    ? TOKENS_INSIDE[key]
-    : undefined;
+const fieldTokensIn = (
+  key: string,
+  value: unknown,
+  into: Set<string>,
+  fields: boolean
+) => {
+  const inside =
+    fields && Object.hasOwn(TOKENS_INSIDE, key)
+      ? TOKENS_INSIDE[key]
+      : undefined;
   if (inside && typeof value === "string") {
     for (const name of inside(value)) {
       addToken(name, into);
     }
   } else {
-    tokensIn(value, into);
+    walkTokens(value, into, fields && key !== "props");
   }
 };
 

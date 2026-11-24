@@ -25,7 +25,8 @@ gradient alone, always at 180 degrees, its stops raw. UP-141 asked for gradients
   (an image among the layers, a colour anywhere but at the bottom, a fill that is one `var()`,
   which may hold an image, CSS it does not know) is one layer, written back as it was.
 - **Tokens inside a value, in a fill only.** A token is read wherever it stands in a fill (after
-  the start, a bracket, a comma or a space), but inside a `url(…)` or a quoted string: the canvas draws each as its variable with its
+  the start, a bracket, a comma or a space), but not inside a comment, a `url(…)` or a quoted
+  string: the canvas draws each as its variable with its
   fallback (`TokenResolver.fill`), and `tokensIn` counts them as the design's (0028). Every other
   value names a token only at its start, so a text saying "Save $20" names none. The shadow's
   layers (UP-142) join `tokensIn`'s list of CSS-valued fields (`TOKENS_INSIDE`) when they come.
@@ -69,7 +70,8 @@ gradient alone, always at 180 degrees, its stops raw. UP-141 asked for gradients
 
 ## Consequences
 
-- No page changes: a plain colour and every gradient already written open as layers, and the
+- No page changes: a plain colour and every gradient the codec reads open as layers, any other
+  fill as one row kept as written (a repeating gradient, an image), and the
   document is written only when a layer is edited.
 - A system component's look and the canvas's page defaults keep their colour fields: a look's
   fields are written as the component's classes, and layers there would be a second writer.

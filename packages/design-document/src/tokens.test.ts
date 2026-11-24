@@ -50,6 +50,15 @@ describe("the tokens a design relies on", () => {
     expect([...tokensUsed(page, emptyDesignSystem())]).toEqual(["color-brand"]);
   });
 
+  it("reads an instance's property named fill as any property, not as a fill", () => {
+    expect([
+      ...tokensIn({
+        fill: "linear-gradient($color-a, transparent)",
+        props: { fill: "Save $20" },
+      }),
+    ]).toEqual(["color-a"]);
+  });
+
   it("reads a field named as an object's own member as any other", () => {
     expect([
       ...tokensIn({

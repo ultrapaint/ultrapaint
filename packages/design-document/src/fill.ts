@@ -125,7 +125,9 @@ const splitTop = (text: string, separator: "," | " "): string[] => {
     }
   }
   parts.push(text.slice(start));
-  return parts.map((p) => p.trim()).filter((p) => p !== "");
+  const trimmed = parts.map((p) => p.trim());
+  // An empty argument is kept, so that the parser refuses it: `red,,blue` is no gradient.
+  return separator === "," ? trimmed : trimmed.filter((p) => p !== "");
 };
 
 /** An angle in degrees: `0.25turn` is 90. */
@@ -149,8 +151,6 @@ const degreesOf = (text: string): number | null => {
       return n === 0 ? 0 : null;
   }
 };
-
-const round = (n: number) => Math.round(n * 100) / 100;
 
 /** Whether one word of CSS is a colour: a token, a hex, a colour's function or a keyword. */
 const isColor = (word: string): boolean => {
@@ -220,7 +220,7 @@ const conicHead = (rest: readonly string[]): Head | null => {
     return null;
   }
   return {
-    angle: degrees === null ? undefined : round(degrees),
+    angle: degrees === null ? undefined : degrees,
     geometry: place.length > 0 ? place.join(" ") : undefined,
   };
 };
@@ -236,7 +236,7 @@ const linearHead = (rest: readonly string[]): Head | null => {
       : null;
   }
   const degrees = rest.length === 1 ? degreesOf(rest[0] ?? "") : null;
-  return degrees === null ? null : { angle: round(degrees) };
+  return degrees === null ? null : { angle: degrees };
 };
 
 /** How a gradient runs, from its first argument; null for what it does not know. */
@@ -288,6 +288,8 @@ const layerOf = (text: string): ColorLayer | GradientLayer | null => {
     a?.position === undefined &&
     b?.position === undefined &&
     a?.color === b?.color &&
+    // A variable may hold a position as well as a colour: kept a gradient.
+    !VAR_RE.test(a?.color ?? "") &&
     a
   ) {
     return { color: a.color, kind: "color" };
@@ -370,7 +372,7 @@ export const gradientHeadCss = (
       return words(
         layer.angle === undefined
           ? (layer.side ?? (spelled ? "to bottom" : undefined))
-          : `${round(layer.angle)}deg`
+          : `${layer.angle}deg`
       );
     case "radial":
       return words(
@@ -381,7 +383,7 @@ export const gradientHeadCss = (
       return words(
         layer.angle === undefined && !spelled
           ? undefined
-          : `from ${round(layer.angle ?? 0)}deg`,
+          : `from ${layer.angle ?? 0}deg`,
         layer.geometry
       );
   }
@@ -447,7 +449,7 @@ export const positionPercent = (
     return percent;
   }
   const degrees = degreesOf(position);
-  return degrees === null ? null : round((degrees / 360) * 100);
+  return degrees === null ? null : (degrees / 360) * 100;
 };
 
 /**
@@ -500,7 +502,7 @@ export const stopPositions = (
     const from = out[i - 1] ?? 0;
     const to = out[j] ?? 100;
     for (let k = i; k < j; k += 1) {
-      out[k] = round(from + ((to - from) * (k - i + 1)) / (j - i + 1));
+      out[k] = from + ((to - from) * (k - i + 1)) / (j - i + 1);
     }
   }
   return out.map((v) => v ?? 0);
@@ -509,8 +511,9 @@ export const stopPositions = (
 /** A token anywhere in a fill: `$name` at its start or after a bracket, a comma or a space. */
 const FILL_TOKEN_RE = /(^|[\s(,])\$([a-z0-9][\w.-]*)/gi;
 
-/** What of a fill names no token whatever it holds: a URL and a quoted string. */
-const LITERAL_RE = /url\(\s*(?:"[^"]*"|'[^']*'|[^)"']*)\s*\)|"[^"]*"|'[^']*'/gi;
+/** What of a fill names no token whatever it holds: a comment, a URL and a quoted string. */
+const LITERAL_RE =
+  /\/\*[\s\S]*?\*\/|url\(\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^)"']*)\s*\)|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/gi;
 
 /** A fill split at its literals: the parts that may name tokens, and the literals between. */
 const tokenParts = (

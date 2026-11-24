@@ -97,6 +97,7 @@ describe("a fill as layers", () => {
       "red, blue",
       "repeating-linear-gradient(red 0 10px, blue 10px 20px)",
       "linear-gradient(red, 30%, blue)",
+      "linear-gradient(red,,blue)",
       "none",
     ]) {
       expect(fillLayers(css)).toEqual([{ css, kind: "css" }]);
@@ -149,6 +150,29 @@ describe("a fill as layers", () => {
     expect(
       fillCss([{ color: "#0003", kind: "color" }], { bottom: false })
     ).toBe("linear-gradient(#0003, #0003)");
+  });
+
+  it("keeps an angle as written, to its last digit", () => {
+    const fill = "conic-gradient(from 12.345deg, red, blue)";
+    expect(fillCss(fillLayers(fill))).toBe(fill);
+  });
+
+  it("reads a gradient of one variable twice as a gradient, which it may be", () => {
+    expect(
+      fillLayers(
+        "linear-gradient(var(--stop, red 20%), var(--stop, red 20%)), $color-bg"
+      )[0]?.kind
+    ).toBe("gradient");
+  });
+
+  it("places a stop without a position exactly between its neighbours", () => {
+    expect(
+      stopPositions([
+        { color: "a", position: "10.001%" },
+        { color: "b" },
+        { color: "c", position: "10.003%" },
+      ])[1]
+    ).toBeCloseTo(10.002, 6);
   });
 
   it("places a conic gradient's stop given as an angle at its share of the turn", () => {
@@ -220,6 +244,15 @@ describe("the tokens of a fill", () => {
     expect(
       resolveFillTokens("url($hero.png), $color-bg", (n) => `var(--${n})`)
     ).toBe("url($hero.png), var(--color-bg)");
+  });
+
+  it("are none in a comment or past an escaped quote", () => {
+    const fill =
+      'linear-gradient(/* $example */ $color-a, $color-b), url("a\\" ) $hero.png")';
+    expect(tokensInFill(fill)).toEqual(["color-a", "color-b"]);
+    expect(resolveFillTokens(fill, (n) => `var(--${n})`)).toBe(
+      'linear-gradient(/* $example */ var(--color-a), var(--color-b)), url("a\\" ) $hero.png")'
+    );
   });
 
   it("are none in a quoted path that holds a bracket", () => {
