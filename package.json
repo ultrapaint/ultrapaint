@@ -9,6 +9,7 @@
   },
   "scripts": {
     "bench:canvas": "node scripts/bench-canvas.ts",
+    "bench:chats": "node scripts/bench-chats.ts",
     "desktop:build": "pnpm -F @ultrapaint/desktop dist",
     "desktop:dev": "pnpm -F @ultrapaint/desktop dev",
     "dev": "node scripts/dev-runner.ts",
