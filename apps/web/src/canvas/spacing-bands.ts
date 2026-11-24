@@ -159,14 +159,31 @@ const gapBands = (stack: DrawnStack, least: number): Band[] => {
 /**
  * A band for each side of the padding, dragged into the box to grow it. The top and the bottom
  * run the box's width; the left and the right run between them, so a corner is one band's. A
- * thin one is grabbed by the least thickness, inside the box.
+ * thin one is grabbed by the least thickness, inside the box. On a stack too short to leave the
+ * sides that much between the top and the bottom, the sides run its height and the top and the
+ * bottom run between them, each at most half of it: no band is under another.
  */
 const paddingBands = (stack: DrawnStack, least: number): Band[] => {
   const { box, padding } = stack;
   const right = box.x + box.width;
   const bottom = box.y + box.height;
+  const left = Math.max(padding.left, least);
+  const after = Math.max(padding.right, least);
+  const short =
+    box.height -
+      Math.max(padding.top, least) -
+      Math.max(padding.bottom, least) <
+    least;
   const top = Math.max(padding.top, least);
   const below = Math.max(padding.bottom, least);
+  const above = short ? Math.min(top, box.height / 2) : top;
+  const under = short ? Math.min(below, box.height / 2) : below;
+  const across = short
+    ? { width: Math.max(0, box.width - left - after), x: box.x + left }
+    : { width: box.width, x: box.x };
+  const middle = short
+    ? { height: box.height, y: box.y }
+    : { height: box.height - top - below, y: box.y + top };
   const side = (
     s: Side,
     rect: Rect,
@@ -183,13 +200,6 @@ const paddingBands = (stack: DrawnStack, least: number): Band[] => {
     side: s,
     sign,
   });
-  // The sides are grabbed between the top's and the bottom's; along the whole box where those
-  // leave them less than the least, so a short stack's sides are still reached.
-  const room = box.height - top - below;
-  const middle =
-    room >= least
-      ? { height: room, y: box.y + top }
-      : { height: box.height, y: box.y };
   const between = {
     height: Math.max(0, box.height - padding.top - padding.bottom),
     y: box.y + padding.top,
@@ -198,32 +208,28 @@ const paddingBands = (stack: DrawnStack, least: number): Band[] => {
     side(
       "top",
       { ...box, height: padding.top },
-      { ...box, height: top },
+      { ...across, height: above, y: box.y },
       "y",
       1
     ),
     side(
       "right",
       { ...between, width: padding.right, x: right - padding.right },
-      {
-        ...middle,
-        width: Math.max(padding.right, least),
-        x: right - Math.max(padding.right, least),
-      },
+      { ...middle, width: after, x: right - after },
       "x",
       -1
     ),
     side(
       "bottom",
       { ...box, height: padding.bottom, y: bottom - padding.bottom },
-      { ...box, height: below, y: bottom - below },
+      { ...across, height: under, y: bottom - under },
       "y",
       -1
     ),
     side(
       "left",
       { ...between, width: padding.left, x: box.x },
-      { ...middle, width: Math.max(padding.left, least), x: box.x },
+      { ...middle, width: left, x: box.x },
       "x",
       1
     ),

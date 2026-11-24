@@ -584,29 +584,30 @@ describe("a stack's spacing dragged on the canvas (ADR 0145)", () => {
     project: useProject.getState(),
   };
   let versions = 0;
+  /** The server's side: the operations applied to the documents the editor has. */
+  const serve = (input: ApplyInput): AppliedChanges => {
+    const changes = input.edits.map(({ doc, ops }) => {
+      const before = useDocuments.getState().docs[doc];
+      if (!before?.root) {
+        throw new Error(`no document ${doc}`);
+      }
+      versions += 1;
+      return {
+        doc,
+        hash: `${doc}@${versions}`,
+        root: applyOps(before.root, ops, {
+          canvas: false,
+          next: () => "n",
+        }).root,
+      };
+    });
+    return { changes, created: [] };
+  };
 
   beforeEach(() => {
     stubWindow();
     fakeApi.reset();
-    // The server's side: the operations applied to the documents the editor has.
-    fakeApi.respond("documents.apply", (input: ApplyInput): AppliedChanges => {
-      const changes = input.edits.map(({ doc, ops }) => {
-        const before = useDocuments.getState().docs[doc];
-        if (!before?.root) {
-          throw new Error(`no document ${doc}`);
-        }
-        versions += 1;
-        return {
-          doc,
-          hash: `${doc}@${versions}`,
-          root: applyOps(before.root, ops, {
-            canvas: false,
-            next: () => "n",
-          }).root,
-        };
-      });
-      return { changes, created: [] };
-    });
+    fakeApi.respond("documents.apply", serve);
     useProject.setState({
       canvases: [{ home: "/", id: "main", name: "Main" }],
       info: { configured: true, storage: { mode: "managed" } },
@@ -755,10 +756,36 @@ describe("a stack's spacing dragged on the canvas (ADR 0145)", () => {
     ]);
   });
 
-  it("builds on a padding still being saved when another side is dragged before it lands", async () => {
-    const pending = { bottom: 8, left: 8, right: 8, top: 16 };
-    useHeldSizes.setState({
-      byFrame: { [PHONE]: { nodeId: "hero", padding: pending } },
+  it("keeps a padding still being saved through another drag put back, and builds the next side on it", async () => {
+    // The first save is answered only once the test lets it land.
+    let land: () => void = () => undefined;
+    let answered = 0;
+    fakeApi.respond("documents.apply", (input: ApplyInput) => {
+      answered += 1;
+      return (
+        answered === 1
+          ? new Promise((resolve) => {
+              land = () => resolve(serve(input));
+            })
+          : serve(input)
+      ) as never;
+    });
+    beginSpacingDrag(press(0, 0), PHONE, hero, TOP);
+    fire("pointermove", 0, 7.6);
+    fire("pointerup", 0, 7.6);
+    await fakeApi.requested("documents.apply");
+    // A gap dragged meanwhile draws the stack with that padding too, and put back keeps it.
+    beginSpacingDrag(press(0, 0), PHONE, hero, GAP);
+    fire("pointermove", 7.6, 0);
+    expect(useHeldSizes.getState().byFrame[PHONE]).toEqual({
+      gap: 16,
+      nodeId: "hero",
+      padding: { bottom: 8, left: 8, right: 8, top: 16 },
+    });
+    cancelGesture();
+    expect(useHeldSizes.getState().byFrame[PHONE]).toEqual({
+      nodeId: "hero",
+      padding: { bottom: 8, left: 8, right: 8, top: 16 },
     });
     const right: Band = {
       ...TOP,
@@ -770,14 +797,24 @@ describe("a stack's spacing dragged on the canvas (ADR 0145)", () => {
     beginSpacingDrag(press(0, 0), PHONE, hero, right);
     fire("pointermove", -7.6, 0);
     fire("pointerup", -7.6, 0);
-    await fakeApi.requested("documents.apply");
-    expect(edits()[0]?.edits[0]?.ops).toEqual([
+    await fakeApi.requested("documents.apply", 2);
+    expect(edits()[1]?.edits[0]?.ops).toEqual([
       {
         id: "hero",
         op: "update",
         set: { padding: { bottom: 8, left: 8, right: 16, top: 16 } },
       },
     ]);
+    // Let go of once both saves have landed.
+    land();
+    await until(useHeldSizes, (s) => s.byFrame[PHONE] === undefined);
+  });
+
+  it("put back with no save pending, draws the stack as its document has it", () => {
+    beginSpacingDrag(press(0, 0), PHONE, hero, GAP);
+    fire("pointermove", 7.6, 0);
+    cancelGesture();
+    expect(useHeldSizes.getState().byFrame[PHONE]).toBeUndefined();
   });
 
   it("changes both sides of the padding's axis with Shift held", async () => {
