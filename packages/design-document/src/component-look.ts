@@ -165,7 +165,7 @@ const partStyleCss = (
     out.opacity = String(style.opacity);
   }
   if (style.shadow !== undefined) {
-    out["box-shadow"] = css(style.shadow);
+    out["box-shadow"] = ctx.resolver.shadow(style.shadow);
   }
   if (style.fontSize !== undefined) {
     out["font-size"] = css(style.fontSize);
