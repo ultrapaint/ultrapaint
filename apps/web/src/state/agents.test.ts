@@ -134,14 +134,16 @@ afterEach(() => {
 describe("summarised", () => {
   const threads = [thread("a"), thread("b")];
 
-  it("gives the same list while the summary stays what it was", () => {
+  it("gives the same list while the thread waits on the person no more than it did", () => {
     const once = summarised(threads, "a", [said("1", "Working on it")]);
     expect(once).not.toBe(threads);
     expect(once[0]?.summary).toEqual({ text: "Working on it", waiting: false });
     expect(once[1]).toBe(threads[1]);
-    // The answer streams on past its first line: the list shows the same.
-    const again = summarised(once, "a", [said("1", "Working on it\nand more")]);
-    expect(again).toBe(once);
+    // The answer streams on, its first line too: the list reads the line itself (`lineOf`).
+    expect(summarised(once, "a", [said("1", "Working on it now")])).toBe(once);
+    expect(summarised(once, "a", [said("1", "Working on it\nand more")])).toBe(
+      once
+    );
   });
 
   it("leaves the list as it is for a thread it does not hold, or no items", () => {
@@ -289,6 +291,34 @@ describe("the agent events", () => {
     });
     expect(useAgents.getState().threads).toBe(before);
     expect(useAgents.getState().items.t).toHaveLength(1);
+  });
+
+  it("keeps the threads as they were while a reply streams its first line", () => {
+    // Everything showing a thread, a frame on the canvas each, would be drawn again per word.
+    useAgents.setState({
+      items: { t: [said("1", "Hello ")] },
+      threads: [thread("t", { summary: { text: "Hello", waiting: false } })],
+    });
+    const before = useAgents.getState().threads;
+    fakeApi.emit("agent", chunk(6, "world"));
+    fakeApi.emit("agent", chunk(11, " and more"));
+    expect(useAgents.getState().threads).toBe(before);
+    expect(reply()).toBe("Hello world and more");
+  });
+
+  it("brings a thread up to date once it waits on the person, and once it no longer does", () => {
+    useAgents.setState({
+      items: { t: [said("1", "Hello")] },
+      threads: [thread("t", { summary: { text: "Hello", waiting: false } })],
+    });
+    fakeApi.emit("agent", { item: asked("q"), threadId: "t", type: "item" });
+    expect(useAgents.getState().threads[0]?.summary?.waiting).toBe(true);
+    fakeApi.emit("agent", {
+      item: { ...asked("q"), answers: { tone: ["calm"] } },
+      threadId: "t",
+      type: "itemUpdate",
+    });
+    expect(useAgents.getState().threads[0]?.summary?.waiting).toBe(false);
   });
 
   it("puts a streamed chunk at the end of its item, the others kept as they were", () => {

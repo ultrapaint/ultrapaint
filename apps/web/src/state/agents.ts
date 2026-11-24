@@ -104,9 +104,10 @@ export const isUnread = (thread: Thread, seen: Record<string, number>) =>
   thread.updatedAt > (seen[thread.id] ?? thread.createdAt);
 
 /**
- * The threads with one's summary brought up to date from the items the editor holds. The same
- * list, and the same thread, while the summary stays what it was: an agent streaming its answer
- * updates an item many times a second, and everything showing the thread would redraw each time.
+ * The threads with one's summary brought up to date from the items the editor holds, once it
+ * waits on the person or no longer does. The same list, and the same thread, otherwise: its line
+ * changes with each word an agent streams, and everything showing the thread (the chat, a frame
+ * on the canvas each) would be drawn again with it. The list reads the line itself (`lineOf`).
  */
 export const summarised = (
   threads: readonly Thread[],
@@ -119,14 +120,23 @@ export const summarised = (
     return threads;
   }
   const summary = summarise(items);
-  if (
-    thread.summary?.text === summary.text &&
-    thread.summary.waiting === summary.waiting
-  ) {
+  if (thread.summary?.waiting === summary.waiting) {
     return threads;
   }
   return threads.with(at, { ...thread, summary });
 };
+
+/**
+ * A thread's last line, for the list of threads: from the transcript the editor holds, as it
+ * streams, else as the list was read.
+ */
+export const lineOf = (
+  thread: Thread,
+  items: readonly ThreadItem[] | undefined
+): string =>
+  items && items.length > 0
+    ? summarise(items).text
+    : (thread.summary?.text ?? "");
 
 /**
  * An agent's work once it says what it is about to change: added to what it is already doing on
