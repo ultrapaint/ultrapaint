@@ -388,6 +388,20 @@ describe("the Fill section's layers (ADR 0134)", () => {
     ]);
   });
 
+  it("adds a stop with its button, in the widest room between two, in one edit", async () => {
+    show({
+      box: "linear-gradient(in oklab, $color-primary, $color-accent 20%, transparent)",
+    });
+    await openSwatch();
+    press("Add stop");
+    expect(edits()).toBe(1);
+    expect(fills()).toEqual([
+      {
+        fill: "linear-gradient(in oklab, $color-primary, $color-accent 20%, $color-accent 60%, transparent)",
+      },
+    ]);
+  });
+
   it("moves a stop where it is let go, in one edit", async () => {
     show({ box: GRADIENT });
     await openSwatch();
@@ -483,9 +497,14 @@ describe("the Fill section's layers (ADR 0134)", () => {
     }
     activate(field);
     await typeAndTake("linear-gradient(red, blue)");
-    expect(fills()).toEqual([
-      { fill: "linear-gradient(red, blue)" },
-      { fill: "linear-gradient(red, blue)" },
+    const ops = applied()?.edits.flatMap((e) => e.ops) ?? [];
+    expect(
+      ops
+        .map((op) => [op.id, op.set])
+        .sort(([x], [y]) => String(x).localeCompare(String(y)))
+    ).toEqual([
+      ["a", { fill: "linear-gradient(red, blue)" }],
+      ["b", { fill: "linear-gradient(red, blue)" }],
     ]);
   });
 
