@@ -25,6 +25,15 @@ export const Color = Schema.String.annotate({
 });
 
 /**
+ * A box's fill: any CSS background, read by the editor as layers (ADR 0134): a colour, or
+ * gradients over one, with tokens in a gradient's stops.
+ */
+export const Fill = Schema.String.annotate({
+  description:
+    'A colour (a token such as "$color-primary", or CSS), or CSS gradients layered over one, top first, with "$color-…" tokens in their stops: "linear-gradient(90deg in oklab, $color-primary, transparent), $color-background".',
+});
+
+/**
  * How a node is sized along one axis. `fill` takes the room its parent leaves, `hug` wraps its
  * content, a number is fixed pixels. Left out, the node sizes as its layout naturally would.
  */
@@ -280,7 +289,7 @@ export type DesignNode =
 
 const boxFields = {
   border: Schema.optional(Border),
-  fill: Schema.optional(Color),
+  fill: Schema.optional(Fill),
   height: Schema.optional(Size),
   hidden: Schema.optional(Schema.Boolean),
   id: Schema.String.check(Schema.isMinLength(1)),

@@ -101,6 +101,15 @@ refactor and the board view left.
   breakpoint, tokens kept by name (design-document's `declarationsOf`). The canvas draws them,
   over what it draws besides (`baseStyle`); a style system's **class writer** writes them as its
   classes, Tailwind's with its `md:` and `max-md:` variants (ADR 0024).
+- **Fill layer**: one of the layers a box's `fill` is read as (ADR 0134; design-document's
+  `fill`), the top one first: a **colour**, a **gradient**, or, for a value the editor cannot
+  read, the whole fill **kept as written** (the `css` kind). A gradient has its **shape**
+  (linear, radial or conic), its **stops** (each a token or a CSS colour, and where it sits), its
+  angle or side, its **geometry** (a radial one's shape, size and centre, a conic one's centre, as
+  written) and its **colour space** (`interpolation`, the space its stops mix in). The document
+  holds the CSS; the layers are the editor's reading of it. A token stands anywhere in a fill, in
+  no other value.
+  _Avoid_: paint, background stack.
 - **Utility vocabulary**: Tailwind's utilities as the class writer and every reader of classes
   in the style adapter speak them (style-tailwind-v4's `utilities`): how a class is written (its
   variants, `!`, sign, utility and value, a colour's opacity, an **arbitrary value** and its

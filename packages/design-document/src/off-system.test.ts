@@ -47,6 +47,43 @@ describe("values off the design system", () => {
     ]);
   });
 
+  it("passes a gradient built from tokens, and flags a fill with a raw stop or a raw colour layer", () => {
+    expect(
+      isOffSystem(
+        "color",
+        "linear-gradient(90deg in oklab, $color-primary, transparent 60%), radial-gradient($color-glow, $color-bg)"
+      )
+    ).toBe(false);
+    expect(
+      isOffSystem("color", "linear-gradient($color-primary, #ff0000)")
+    ).toBe(true);
+    expect(
+      isOffSystem(
+        "color",
+        "linear-gradient($color-primary, transparent), #ffffff"
+      )
+    ).toBe(true);
+    const found = offSystemValues(
+      page([
+        {
+          children: [],
+          fill: "linear-gradient($color-primary, transparent), $color-bg",
+          id: "hero",
+          type: "column",
+        },
+        {
+          children: [],
+          fill: "radial-gradient($color-glow, oklch(0.9 0.1 200))",
+          id: "glow",
+          type: "column",
+        },
+      ])
+    );
+    expect(found.map((f) => [f.node, f.field, f.kind])).toEqual([
+      ["glow", "fill", "color"],
+    ]);
+  });
+
   it("checks a breakpoint's fields as the node's own", () => {
     const found = offSystemValues(
       page([

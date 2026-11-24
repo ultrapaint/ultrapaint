@@ -23,6 +23,7 @@ import {
   tokenKindOf,
   variableOf,
 } from "@ultrapaint/contracts/token-table";
+import { resolveFillTokens, tokensInFill } from "./fill.ts";
 import { childrenOf } from "./tree.ts";
 
 const TOKEN_PREFIX = "$";
@@ -57,6 +58,8 @@ export const tokenValues = (
 export interface TokenResolver {
   /** CSS for a value: a token becomes its variable, a number pixels, anything else stays. */
   readonly css: (value: string | number) => string;
+  /** CSS for a fill: every token in it becomes its variable, a gradient's stops among them. */
+  readonly fill: (value: string | number) => string;
   /** The design system's value for a token name, when it has one. */
   readonly valueOf: (name: string) => string | undefined;
 }
@@ -86,12 +89,34 @@ export const makeTokenResolver = (
     }
     return variable(name);
   };
-  return { css, valueOf: (name) => values.get(name) };
+  const fill = (value: string | number): string =>
+    typeof value === "number" ? css(value) : resolveFillTokens(value, variable);
+  return { css, fill, valueOf: (name) => values.get(name) };
 };
 
 const TOKEN_REF_RE = /^\$([a-z0-9][\w.-]*)/i;
 
-/** Every token a value names, however deep in it: `"$color-primary"` anywhere, by name. */
+/**
+ * The fields whose value is CSS that may name tokens anywhere in it, each with how it is read
+ * (ADR 0134): a fill's gradient stops. Every other value names a token only at its start, so that
+ * a text saying "Save $20" names none.
+ */
+const TOKENS_INSIDE: Record<string, (value: string) => readonly string[]> = {
+  fill: tokensInFill,
+};
+
+const addToken = (name: string, into: Set<string>) => {
+  into.add(name);
+  // A step of the spacing scale is a multiple of `--spacing`, which is the token behind it.
+  if (spacingStepOf(name) !== null) {
+    into.add(SPACING_BASE);
+  }
+};
+
+/**
+ * Every token a value names, however deep in it: `"$color-primary"` anywhere, by name; in a fill,
+ * every token it names wherever in it.
+ */
 export const tokensIn = (
   value: unknown,
   into: Set<string> = new Set()
@@ -100,22 +125,30 @@ export const tokensIn = (
     const found: RegExpExecArray | null = TOKEN_REF_RE.exec(value);
     const name = found ? found[1] : undefined;
     if (name) {
-      into.add(name);
-      // A step of the spacing scale is a multiple of `--spacing`, which is the token behind it.
-      if (spacingStepOf(name) !== null) {
-        into.add(SPACING_BASE);
-      }
+      addToken(name, into);
     }
   } else if (Array.isArray(value)) {
     for (const item of value) {
       tokensIn(item, into);
     }
   } else if (typeof value === "object" && value !== null) {
-    for (const item of Object.values(value)) {
-      tokensIn(item, into);
+    for (const [key, item] of Object.entries(value)) {
+      fieldTokensIn(key, item, into);
     }
   }
   return into;
+};
+
+/** The tokens of one field of an object: a CSS-valued one's anywhere in it, another's as any value's. */
+const fieldTokensIn = (key: string, value: unknown, into: Set<string>) => {
+  const inside = TOKENS_INSIDE[key];
+  if (inside && typeof value === "string") {
+    for (const name of inside(value)) {
+      addToken(name, into);
+    }
+  } else {
+    tokensIn(value, into);
+  }
 };
 
 /**

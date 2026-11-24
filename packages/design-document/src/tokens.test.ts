@@ -26,6 +26,30 @@ describe("the tokens a design relies on", () => {
     ]).toEqual(["color-border", "color-primary", "spacing-4", "spacing"]);
   });
 
+  it("reads a fill's tokens wherever in it, and a text's only where the text starts with one", () => {
+    expect([
+      ...tokensIn({
+        at: { md: { fill: "radial-gradient($color-glow, transparent)" } },
+        fill: "linear-gradient(in oklab, $color-primary 10%, $color-accent), $color-bg",
+        text: "Save $20",
+      }),
+    ]).toEqual(["color-glow", "color-primary", "color-accent", "color-bg"]);
+    const page: PageNode = {
+      children: [
+        {
+          fill: "linear-gradient($color-brand, transparent)",
+          id: "hero",
+          role: "paragraph",
+          text: "Save $20 today",
+          type: "text",
+        },
+      ],
+      id: "root",
+      type: "page",
+    };
+    expect([...tokensUsed(page, emptyDesignSystem())]).toEqual(["color-brand"]);
+  });
+
   it("takes a named spacing for itself, not for a step of the base", () => {
     expect([
       ...tokensIn({ gap: "$spacing-4x", padding: "$spacing-gutter" }),

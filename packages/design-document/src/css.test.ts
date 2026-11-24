@@ -106,6 +106,23 @@ describe("nodeStyle", () => {
   });
 });
 
+describe("a fill in layers", () => {
+  it("draws each token of a gradient as its variable, the declaration keeping it by name", () => {
+    const node: DesignNode = {
+      children: [],
+      fill: "linear-gradient(90deg in oklab, $color-primary, $color-accent 40%), $color-primary",
+      id: "hero",
+      type: "column",
+    };
+    expect(nodeStyle(node, makeStyleContext(ds)).background).toBe(
+      "linear-gradient(90deg in oklab, var(--color-primary, #123456), var(--color-accent) 40%), var(--color-primary, #123456)"
+    );
+    expect(declarationsOf(node, makeStyleContext(ds)).background).toBe(
+      node.fill
+    );
+  });
+});
+
 describe("declarationsOf", () => {
   it("says a node's look as CSS, tokens kept by name and pixels as numbers", () => {
     const node: DesignNode = {
