@@ -15,7 +15,7 @@ const BRAND = "var(--selection)";
  * card over its neighbours), and the line saying where a drop lands inside it must not be
  * drawn underneath it.
  */
-const OVER_FRAMES = { zIndex: 2 };
+export const OVER_FRAMES = { zIndex: 2 };
 
 /**
  * What a drag looks like: the element following the pointer as an outline, and where it would

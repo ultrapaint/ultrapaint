@@ -2,6 +2,10 @@
 
 Status: accepted, 2026-11-24. Amends 0018 (the canvas's colours).
 
+> Amended by [0138](0138-a-frame-snapped-to-an-edge-shows-the-line.md), 2026-11-24: `--measure` is
+> also drawn on the line a page's frame moved by its name snaps to, with the space to the frame on
+> it in a pill.
+
 ## Context
 
 The canvas told a designer one element's size (the selection's size label, ADR 0086) and nothing

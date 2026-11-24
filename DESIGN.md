@@ -162,8 +162,8 @@ The editor has two themes on one set of roles, light (warm paper) and dark (warm
   half strength. Never anywhere else, nor in the release; nothing in it moves.
 - The canvas's own language: {colors.selection} on a plain element, {colors.component} on a
   component instance, {colors.agent} on an agent's work and an agent working (the rail's dot), and
-  {colors.measure} on a distance measured with ⌥, the same in both themes and never an error (ADR
-  0131). These stay off the panels' chrome otherwise; the one bar that says a component is edited
+  {colors.measure} on a distance measured with ⌥ and the line a frame moved by its name snaps to,
+  the same in both themes and never an error (ADR 0131, 0138). These stay off the panels' chrome otherwise; the one bar that says a component is edited
   in place is edged in {colors.component}, the instance's own outline.
 
 ## Typography

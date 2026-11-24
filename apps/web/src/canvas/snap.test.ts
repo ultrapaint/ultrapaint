@@ -52,15 +52,122 @@ describe("a resize on the grid", () => {
 });
 
 describe("a frame against the edges of others", () => {
+  const at = (x: number, y: number) => ({ ...frame, x, y });
+
   it("lines up with an edge within the threshold, and not beyond", () => {
-    const other = { ...frame, x: 0, y: 0 };
-    expect(snapToEdges({ ...frame, x: 104, y: 3 }, [other], 8)).toMatchObject({
+    const other = at(0, 0);
+    expect(snapToEdges(at(104, 3), [other], 8).frame).toMatchObject({
       x: 100,
       y: 0,
     });
-    expect(snapToEdges({ ...frame, x: 120, y: 30 }, [other], 8)).toMatchObject({
-      x: 120,
-      y: 30,
+    expect(snapToEdges(at(120, 30), [other], 8)).toEqual({
+      frame: at(120, 30),
+      guides: [],
     });
+  });
+
+  it("says which edge it lined up with: the line across both frames, and the space between them", () => {
+    // 140 under a frame at the origin, 3 to the right of its left edge.
+    const above = at(0, 0);
+    expect(snapToEdges(at(3, 140), [above], 8)).toEqual({
+      frame: at(0, 140),
+      guides: [
+        {
+          at: 0,
+          axis: "x",
+          from: 0,
+          gap: { from: 100, length: 40, to: 140 },
+          matched: above,
+          to: 240,
+        },
+      ],
+    });
+  });
+
+  it("gives a line for each axis it snaps on, each with its own space", () => {
+    const above = at(0, 0);
+    const left = at(-200, 300);
+    const { frame: placed, guides } = snapToEdges(at(3, 297), [above, left], 8);
+    expect(placed).toEqual(at(0, 300));
+    expect(guides).toEqual([
+      {
+        at: 0,
+        axis: "x",
+        from: 0,
+        gap: { from: 100, length: 200, to: 300 },
+        matched: above,
+        to: 400,
+      },
+      {
+        at: 300,
+        axis: "y",
+        from: -200,
+        gap: { from: -100, length: 100, to: 0 },
+        matched: left,
+        to: 100,
+      },
+    ]);
+  });
+
+  it("gives no space for frames that touch or overlap along the line", () => {
+    // Side by side, their tops lined up: they touch along the top's line and overlap along the
+    // shared side's.
+    const { guides } = snapToEdges(at(104, 3), [at(0, 0)], 8);
+    expect(guides).toMatchObject([
+      { at: 100, axis: "x", from: 0, gap: null, to: 100 },
+      { at: 0, axis: "y", from: 0, gap: null, to: 200 },
+    ]);
+  });
+
+  it("lines up with the nearest edge in reach, whatever the order of the frames", () => {
+    // Right edges at 100 and 106: the frame's left edge at 104 is 2 from the second.
+    const near = at(6, 300);
+    const far = at(0, 0);
+    for (const others of [
+      [near, far],
+      [far, near],
+    ]) {
+      const { frame: placed, guides } = snapToEdges(at(104, 150), others, 8);
+      expect(placed.x).toBe(106);
+      expect(guides).toMatchObject([{ at: 106, axis: "x", matched: near }]);
+    }
+  });
+
+  it("takes the frame nearer along the other axis when two edges are as near", () => {
+    // Right edges at 100 and 108, the frame's left edge at 104 between: the one 50 above it wins
+    // over the one 750 below.
+    const close = at(0, 0);
+    const distant = at(8, 1000);
+    for (const others of [
+      [close, distant],
+      [distant, close],
+    ]) {
+      const { frame: placed, guides } = snapToEdges(at(104, 150), others, 8);
+      expect(placed.x).toBe(100);
+      expect(guides).toMatchObject([{ at: 100, matched: close }]);
+    }
+  });
+
+  it("runs the line across every frame on the edge, the space to the nearest", () => {
+    // A column of frames whose left or right edge is at 0, the frame moved 30 under the first.
+    const first = at(0, 0);
+    const second = at(0, 300);
+    const beside = at(-100, 600);
+    const elsewhere = at(500, 0);
+    const { guides } = snapToEdges(
+      at(3, 130),
+      [second, beside, elsewhere, first],
+      8
+    );
+    expect(guides).toEqual([
+      {
+        at: 0,
+        axis: "x",
+        from: 0,
+        gap: { from: 100, length: 30, to: 130 },
+        matched: first,
+        to: 700,
+      },
+    ]);
   });
 });

@@ -609,6 +609,10 @@ refactor and the board view left.
   (the web's `measure`, `measure-overlay`, and `measure-key` for ⌥ held, ADR 0132): lines
   between facing or matching edges, each with its length in the frame's pixels, in `--measure`,
   the canvas colour kept for it.
+- **Snap guide**: the line a page's frame moved by its name snaps to, drawn while it snaps (the
+  web's `snap`, `snap-guides` and `snap-overlay`, ADR 0138): the matched edge across the frame and
+  every frame with an edge on it, the space to the nearest in a pill, in canvas pixels, in
+  `--measure`.
 - **Field**: one of a node's fields that the inspector edits (align,
   text style, colour, fill, tint, radius, shadow, gap), declared once in the web's `node-fields`:
   how the nodes selected read as one value, what a node without it is drawn with (a text's

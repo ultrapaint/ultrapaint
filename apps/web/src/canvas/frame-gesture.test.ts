@@ -89,24 +89,26 @@ describe("placeFrame", () => {
   });
 
   it("lands on the grid when it snaps", () => {
-    const placed = placeFrame(frameAt(1003, 7), "b", true, plain);
+    const placed = placeFrame(frameAt(1003, 7), "b", true, plain).frame;
     expect(placed.x % 8).toBe(0);
     expect(placed.y % 8).toBe(0);
   });
 
   it("snaps to the edges of the frames near it", () => {
     // Four pixels from where its left edge meets the right edge of "a".
-    expect(placeFrame(frameAt(1444, 3), "b", false, plain)).toMatchObject({
-      x: 1440,
-    });
+    expect(placeFrame(frameAt(1444, 3), "b", false, plain).frame).toMatchObject(
+      { x: 1440 }
+    );
   });
 
   it("goes exactly where it is put with Shift or ⌘/Ctrl held", () => {
     expect(
       placeFrame(frameAt(1444, 3), "b", false, { ...plain, shiftKey: true })
+        .frame
     ).toMatchObject({ x: 1444, y: 3 });
     expect(
       placeFrame(frameAt(1444, 3), "b", false, { ...plain, metaKey: true })
+        .frame
     ).toMatchObject({ x: 1444, y: 3 });
   });
 });
