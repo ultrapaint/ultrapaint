@@ -12,7 +12,13 @@ import {
   type Thread,
 } from "@ultrapaint/contracts/threads";
 import { ArrowUp, ChevronDown, GripVertical, Pencil, X } from "lucide-react";
-import { type DragEvent, type KeyboardEvent, useEffect, useState } from "react";
+import {
+  type DragEvent,
+  type KeyboardEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -204,14 +210,25 @@ export const QueuedPrompts = ({ thread }: { thread: Thread }) => {
   const [all, setAll] = useState(false);
   /** The prompt being dragged, while one is. */
   const [dragging, setDragging] = useState<string | null>(null);
-  // The prompt being edited left the queue some other way: the composer is told.
+  // The prompt being edited left the queue some other way, or its hold was let go once it had
+  // been seen held (another window opened another edit, or cancelled this one): the composer
+  // is told.
   const editedId = edit?.id;
-  const stillQueued = queued.some((q) => q.id === editedId);
+  const edited = queued.find((q) => q.id === editedId);
+  const held = edited?.editing === true;
+  const seenHeld = useRef<string | null>(null);
   useEffect(() => {
-    if (editedId !== undefined && !stillQueued) {
+    if (editedId === undefined) {
+      seenHeld.current = null;
+      return;
+    }
+    if (held) {
+      seenHeld.current = editedId;
+    }
+    if (!edited || (seenHeld.current === editedId && !held)) {
       lostQueuedEdit(thread.id);
     }
-  }, [editedId, stillQueued, thread.id]);
+  }, [edited, editedId, held, thread.id]);
   if (queued.length === 0) {
     return null;
   }
@@ -246,6 +263,8 @@ export const QueuedPrompts = ({ thread }: { thread: Thread }) => {
       return;
     }
     e.preventDefault();
+    // A prompt moved by keys stays in view, past the fold too.
+    setAll(true);
     const id = queued[index]?.id;
     if (id === undefined) {
       return;
