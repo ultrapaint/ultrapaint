@@ -46,6 +46,7 @@ import { reportError, useProject } from "../state/project.ts";
 import { AboutSection } from "./settings-about.tsx";
 import {
   ChatDefaultsGroup,
+  FollowUpRow,
   MachineAgentsGroup,
   McpConnectionGroup,
   SendKeyRow,
@@ -1213,6 +1214,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
         <ChatDefaultsGroup />
         <Group title="Composer">
           <SendKeyRow />
+          <FollowUpRow />
         </Group>
       </>
     ),

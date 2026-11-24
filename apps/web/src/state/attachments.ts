@@ -129,6 +129,15 @@ export const addChip = (threadId: string, chip: Chip) =>
     return { byThread: { ...s.byThread, [threadId]: [...chips, chip] } };
   });
 
+/** Puts a thread's next prompt's chips as they are given: a draft set aside comes back whole. */
+export const setChips = (threadId: string, chips: readonly Chip[]) =>
+  useAttachments.setState((s) => {
+    const { [threadId]: _old, ...rest } = s.byThread;
+    return {
+      byThread: chips.length > 0 ? { ...rest, [threadId]: chips } : rest,
+    };
+  });
+
 export const removeChip = (threadId: string, key: string) =>
   useAttachments.setState((s) => ({
     byThread: {

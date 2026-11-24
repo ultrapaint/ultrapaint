@@ -43,9 +43,11 @@ import {
   Deferred,
   Effect,
   Exit,
+  Option,
   Predicate,
   Queue,
   Result,
+  Schema,
   type Scope,
   Stream,
 } from "effect";
@@ -231,7 +233,42 @@ export interface AcpAgent {
     sessionId: string,
     modeId: string
   ) => Effect.Effect<void, AcpError>;
+  /**
+   * Puts a prompt into the turn the agent works on, through ACP's steering extension
+   * (`_session/steering`), for an agent whose `initialize` says it steers
+   * (`Negotiated.steering`): `injected` once the turn has it, `noTurn` when the agent had none
+   * running to put it in, and the prompt is the host's to send as a turn of its own.
+   */
+  readonly steer: (
+    sessionId: string,
+    blocks: ContentBlock[]
+  ) => Effect.Effect<Steered, AcpError>;
 }
+
+/** Where a prompt put into the agent's turn went (`AcpAgent.steer`). */
+export type Steered = "injected" | "noTurn";
+
+/** ACP's steering extension: a prompt for the turn under way, not a turn of its own. */
+export const STEERING_METHOD = "_session/steering";
+
+const SteeringAnswer = Schema.Struct({ outcome: Schema.String });
+
+/**
+ * What a steer's answer says. The prompt is in the turn when the agent says so, and when the
+ * agent started a turn with it itself (Codex does, having none running, whatever the host
+ * asked): either way the agent has it. Anything else (`promptRequired`, `failed`, an answer it
+ * does not give) leaves it the host's to send.
+ */
+export const steeredOf = (answer: unknown): Steered => {
+  const outcome = Option.map(
+    Schema.decodeUnknownOption(SteeringAnswer)(answer),
+    (a) => a.outcome
+  );
+  return Option.isSome(outcome) &&
+    (outcome.value === "injected" || outcome.value === "startedNewTurn")
+    ? "injected"
+    : "noTurn";
+};
 
 /**
  * What the editor says of itself when an agent starts: who it is, and what it does for the
@@ -587,6 +624,20 @@ export const connectAcpAgent = (options: {
           call("session/set_mode", () =>
             agent.request("session/set_mode", { modeId, sessionId })
           )
+        ),
+      // Asked to say when no turn runs rather than start one: the host's queue decides that.
+      // Answered once the updates the agent sent before it are handled, as a prompt is: what it
+      // was doing meanwhile is known when the steer is.
+      steer: (sessionId, blocks) =>
+        Effect.map(
+          call(STEERING_METHOD, () =>
+            agent.request<unknown>(STEERING_METHOD, {
+              _meta: { steering: { idleBehavior: "promptRequired" } },
+              prompt: blocks,
+              sessionId,
+            })
+          ).pipe(settling(updates)),
+          steeredOf
         ),
     } satisfies AcpAgent;
   });

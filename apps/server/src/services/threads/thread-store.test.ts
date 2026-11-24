@@ -293,6 +293,50 @@ describe("ThreadStore", () => {
   );
 
   it.effect(
+    "reads a queue no longer edited nor waiting to go into a turn (ADR 0137)",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const home = yield* fs.makeTempDirectoryScoped();
+        yield* fs.makeDirectory(path.join(home, "threads"));
+        const queued = (id: string, held: object) => ({
+          at: 0,
+          attachments: [],
+          id,
+          text: id,
+          ...held,
+        });
+        yield* fs.writeFileString(
+          path.join(home, "threads", `${THREAD.id}.json`),
+          JSON.stringify({
+            items: [],
+            thread: {
+              ...THREAD,
+              queued: [
+                queued("q1", { editing: true }),
+                queued("q2", { steering: true }),
+                queued("q3", {}),
+              ],
+            },
+          })
+        );
+        const thread = yield* Effect.gen(function* () {
+          const store = yield* ThreadStore;
+          return yield* store.get(THREAD.id);
+        }).pipe(Effect.provide(storeIn(home)));
+        assert.deepStrictEqual(
+          thread?.queued?.map((q) => [q.id, q.editing, q.steering]),
+          [
+            ["q1", undefined, undefined],
+            ["q2", undefined, undefined],
+            ["q3", undefined, undefined],
+          ]
+        );
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
     "settles the cards left open by the server before: a permission expires, a question waited on stays answerable by the next prompt",
     () =>
       Effect.gen(function* () {

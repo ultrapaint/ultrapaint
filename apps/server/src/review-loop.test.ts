@@ -439,6 +439,62 @@ describe("a design's review", () => {
       );
     }));
 
+  test("is stopped by a queued prompt sent now, which goes to the designer instead (ADR 0137)", () =>
+    Effect.gen(function* () {
+      const store = yield* ThreadStore;
+      const { designer, threadId } = yield* designed();
+      const { reviewer } = yield* nextReviewer;
+      yield* threadWhen(threadId, (t) => t.status === "reviewing");
+      yield* promptThread({
+        attachments: [],
+        text: "Make the title smaller",
+        threadId,
+      });
+      const id = (yield* store.get(threadId))?.queued?.[0]?.id ?? "";
+      yield* onThread(threadId, (session) => session.sendNow(id));
+      yield* reviewer.stopped;
+      const fixing = yield* designer.nextTurn;
+      assert.include(fixing.texts, "Make the title smaller");
+      const { items, thread } = yield* threadWhen(
+        threadId,
+        (t) => t.status === "running"
+      );
+      assert.deepStrictEqual(thread.queued ?? [], []);
+      assert.deepStrictEqual(reviewsOf(items).at(-1)?.end, {
+        reason: "stopped",
+        unmet: [],
+      });
+    }));
+
+  test("stopped by the person, leaves what is queued waiting for them, an edit finished included (ADR 0137)", () =>
+    Effect.gen(function* () {
+      const store = yield* ThreadStore;
+      const { threadId } = yield* designed();
+      const { reviewer } = yield* nextReviewer;
+      yield* threadWhen(threadId, (t) => t.status === "reviewing");
+      yield* promptThread({
+        attachments: [],
+        text: "Then the footer",
+        threadId,
+      });
+      const id = (yield* store.get(threadId))?.queued?.[0]?.id ?? "";
+      yield* onThread(threadId, (session) => session.stop);
+      yield* reviewer.stopped;
+      yield* threadWhen(threadId, reviewEnded);
+      yield* onThread(threadId, (session) =>
+        session.editQueued(id, { action: "start" })
+      );
+      yield* onThread(threadId, (session) =>
+        session.editQueued(id, { action: "cancel" })
+      );
+      const thread = yield* store.get(threadId);
+      assert.strictEqual(thread?.status, "idle");
+      assert.deepStrictEqual(
+        thread?.queued?.map((q) => q.text),
+        ["Then the footer"]
+      );
+    }));
+
   test("keeps the findings log only when it is on", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

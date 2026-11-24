@@ -22,7 +22,9 @@
  *   mcp         reports the MCP server the client gave the session, with its token
  *   fail        answers the prompt with a JSON-RPC error carrying `data.message`
  *   exit        ends the process in the middle of the turn
- *   wait        streams one chunk and then waits for `session/cancel`
+ *   wait        streams one chunk and then waits for `session/cancel`, or for a prompt put into
+ *               the turn (`_session/steering`), which it says as `steered:` and its text before
+ *               it ends the turn
  *
  * A prompt the host expanded from a slash command (`<ultrapaint-task command="…">`) is answered
  * with `task:<command>` and the task's first line of instructions, so a test sees what arrived.
@@ -31,7 +33,9 @@
  *
  * `FAKE_AGENT_LOAD=1` advertises `loadSession`, which replays a line of history; `FAKE_AGENT_RESUME=1`
  * advertises `session/resume`, which replays nothing; `FAKE_AGENT_AUTH=1` refuses `session/new` until
- * `authenticate` was called; `FAKE_AGENT_AUTH_METHOD` names its one way to authenticate. Started with `--slow-start`, it takes two seconds to answer
+ * `authenticate` was called; `FAKE_AGENT_AUTH_METHOD` names its one way to authenticate;
+ * `FAKE_AGENT_STEER=1` says it steers (`_meta.steering.supported`), and answers a steer with no turn
+ * running `promptRequired`. Started with `--slow-start`, it takes two seconds to answer
  * `initialize`, as an agent that boots slowly does; any other argument is left alone, so a test
  * can mark its processes to find them.
  */
@@ -240,7 +244,13 @@ const scenarios = {
   },
   async wait(cx, sessionId) {
     await text(cx, sessionId, "waiting");
-    await new Promise((resolve) => cancels.set(sessionId, resolve));
+    const steered = await new Promise((resolve) =>
+      cancels.set(sessionId, resolve)
+    );
+    if (typeof steered === "string") {
+      await text(cx, sessionId, `steered:${steered}`);
+      return "end_turn";
+    }
     return "cancelled";
   },
   async withdraw(cx, sessionId) {
@@ -290,6 +300,9 @@ agent({ name: "fake-agent" })
   .onRequest("initialize", async () => {
     await new Promise((resolve) => setTimeout(resolve, SLOW_START_MS));
     return {
+      ...(process.env.FAKE_AGENT_STEER === "1" && {
+        _meta: { steering: { supported: true } },
+      }),
       agentCapabilities: {
         loadSession: process.env.FAKE_AGENT_LOAD === "1",
         // What a well-behaved agent takes: the editor's MCP server, pictures, files embedded.
@@ -377,6 +390,20 @@ agent({ name: "fake-agent" })
     );
     return { stopReason: stopReason ?? "end_turn" };
   })
+  .onRequest(
+    "_session/steering",
+    (params) => params,
+    (ctx) => {
+      const { prompt, sessionId } = ctx.params;
+      const turn = cancels.get(sessionId);
+      if (!turn) {
+        return { outcome: "promptRequired", reason: "noRunningTurn" };
+      }
+      cancels.delete(sessionId);
+      turn(prompt.find((block) => block.type === "text")?.text ?? "");
+      return { outcome: "injected" };
+    }
+  )
   .onNotification("session/cancel", (ctx) => {
     cancels.get(ctx.params.sessionId)?.();
     cancels.delete(ctx.params.sessionId);

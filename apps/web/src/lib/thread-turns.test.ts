@@ -56,6 +56,29 @@ describe("a chat as turns", () => {
     ]);
   });
 
+  it("keeps a prompt sent into the turn under way in that turn, under its prompt (ADR 0137)", () => {
+    const steer: ThreadItem = {
+      at: 0,
+      attachments: [],
+      id: "s1",
+      kind: "user",
+      steer: true,
+      text: "and the footer",
+    };
+    const turns = splitTurns([
+      user("u1"),
+      tool("c1", "Edit"),
+      steer,
+      agent("a1"),
+    ]);
+    expect(turns.map((t) => [t.id, t.items.map((i) => i.id)])).toEqual([
+      ["u1", ["c1", "s1", "a1"]],
+    ]);
+    expect(turnParts(onlyTurn([user("u1"), steer]), false).steers).toEqual([
+      steer,
+    ]);
+  });
+
   it("keeps what came before any prompt as a turn of its own", () => {
     const turns = splitTurns([agent("hello"), user("u1")]);
     expect(turns.map((t) => [t.id, t.prompt?.id])).toEqual([

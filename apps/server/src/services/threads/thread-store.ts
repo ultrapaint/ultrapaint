@@ -58,6 +58,23 @@ const atRest = (stored: unknown): unknown => {
 };
 
 /**
+ * A thread's queue as it is read at start (ADR 0137): no prompt of it is being edited, nor waits
+ * to go into a turn, since no session or editor survives a restart. Held by an edit no window
+ * has open, it would wait for good.
+ */
+const queueAtRest = (thread: Thread): Thread =>
+  thread.queued?.some((q) => q.editing || q.steering)
+    ? {
+        ...thread,
+        queued: thread.queued.map((q) => ({
+          ...q,
+          editing: undefined,
+          steering: undefined,
+        })),
+      }
+    : thread;
+
+/**
  * A thread's cards as they are read at start (ADR 0125): no agent waits on any of them, since no
  * session survives a restart. A permission still asked expires, never granted to an agent no
  * longer asking; a question its agent waited on stays answerable, its answers sent as the next
@@ -294,7 +311,7 @@ export class ThreadStore extends Context.Service<
                 recent: [],
                 recentBytes: 0,
                 sequence: stored.sequence ?? 0,
-                thread: stored.thread,
+                thread: queueAtRest(stored.thread),
               });
             })
           ),

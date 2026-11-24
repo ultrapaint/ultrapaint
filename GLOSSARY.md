@@ -204,6 +204,17 @@ refactor and the board view left.
   Reviewing with how long, Stopped or Done until the chat is opened, else its age. What a
   composer holds and has not sent is the thread's **unsent draft** (`state/drafts.ts`, a pen
   before its title in the list), not a page's draft.
+- **Queue**: the prompts sent while the agent works, in the thread's `queued` list in the order
+  the person keeps (ADR 0018, 0137). The turn's end sends the first, unless the turn was stopped
+  or failed, or a queued prompt is **being edited** (`editing`, `threads.editQueued`): then the
+  queue waits. **Send now** (`threads.sendQueued`, `ThreadSession.sendNow`, the web's `sendNow`)
+  sends one at once.
+- **Steer**: a prompt sent into the turn the agent works on rather than starting one (ADR 0137):
+  ACP's `_session/steering`, for an agent whose `initialize` says it steers
+  (`Negotiated.steering`), delivered once the turn's running tool calls end (`Turn.stepEnded`).
+  While it waits it is the queue's first prompt, marked `steering`; once sent it is a user item
+  marked `steer`. A prompt's **follow-up** (`followUp: "steer" | "queue"`) says which one the
+  composer sent.
 - **File from disk**: a picture or a text file pasted, dropped or picked into a prompt (ADR 0064),
   read by the web's `attach-files` (`readFiles`, `admit` for a prompt's limits) into an image chip
   or a **text attachment** (`kind: "text"`, at most `TEXT_ATTACHMENT_LIMIT`), which the agent gets

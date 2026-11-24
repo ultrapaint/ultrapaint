@@ -17,7 +17,8 @@ const PROMPTED_BY_THE_PERSON: Record<string, string> = {
   "lib/start-thread.ts":
     "a button they pressed: Make from code, Ask an agent's Enter with Variations set (opened by them, or by Make variations… or Make more…), a failed variation's Try again (`runTask`, `runTaskIn`)",
   "panels/thread-composer.tsx":
-    "the composer's Send, and Send now on a prompt they queued",
+    "the composer's Send, Send now or Queue, and ⌘⇧↵ on a prompt they queued (ADR 0137)",
+  "panels/thread-queue.tsx": "Send now on a prompt they queued (ADR 0137)",
   "panels/thread-review.tsx": "the run card's Go on",
   "state/comments.ts": "a comment's Send to agent",
 };

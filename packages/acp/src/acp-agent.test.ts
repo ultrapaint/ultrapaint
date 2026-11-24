@@ -124,6 +124,41 @@ describe("AcpAgent", () => {
     })
   );
 
+  agentTest("puts a prompt into the turn the agent works on", () =>
+    Effect.gen(function* () {
+      const { agent, seen, waiting } = yield* open(
+        {},
+        { FAKE_AGENT_STEER: "1" }
+      );
+      const { sessionId } = yield* agent.newSession(process.cwd());
+      const turn = yield* Effect.forkScoped(
+        agent.prompt(sessionId, [{ text: "wait", type: "text" }])
+      );
+      yield* Deferred.await(waiting);
+      assert.strictEqual(
+        yield* agent.steer(sessionId, [
+          { text: "also the footer", type: "text" },
+        ]),
+        "injected"
+      );
+      const response = yield* Fiber.join(turn);
+      // One turn: the prompt put into it was read there, and the turn ended as it would have.
+      assert.strictEqual(response.stopReason, "end_turn");
+      assert.deepStrictEqual(seen, ["waiting", "steered:also the footer"]);
+    })
+  );
+
+  agentTest("says when the agent had no turn to put a prompt into", () =>
+    Effect.gen(function* () {
+      const { agent } = yield* open({}, { FAKE_AGENT_STEER: "1" });
+      const { sessionId } = yield* agent.newSession(process.cwd());
+      assert.strictEqual(
+        yield* agent.steer(sessionId, [{ text: "hello", type: "text" }]),
+        "noTurn"
+      );
+    })
+  );
+
   agentTest("routes a permission request to the handler and back", () =>
     Effect.gen(function* () {
       const { agent, seen } = yield* open({

@@ -107,6 +107,7 @@ import {
   ChatDefaults,
   McpConnection,
   PromptInput,
+  QueuedEdit,
   QueuedPrompt,
   SandboxStatus,
   SlashCommand,
@@ -728,21 +729,55 @@ const requestRpcs = [
     stream: true,
     success: ThreadStreamItem,
   }),
-  /** Sends a prompt; while the agent works, it waits in the thread's queue instead. */
+  /**
+   * Sends a prompt; while the agent works, it waits in the thread's queue, or goes into the turn
+   * with `followUp: "steer"` (ADR 0137).
+   */
   Rpc.make("threads.prompt", {
     error: ThreadError,
     payload: { ...PromptInput.fields, ...Command },
   }),
-  /** Takes a queued prompt back out, to drop it or to edit it in the composer. */
+  /** Takes a queued prompt off the queue: it is never sent. */
   Rpc.make("threads.unqueue", {
     error: ThreadError,
     payload: { id: Schema.String, threadId: FileId, ...Command },
     success: Schema.NullOr(QueuedPrompt),
   }),
-  /** Sends the oldest queued prompt now, after a turn that was stopped or failed. */
+  /**
+   * Sends a queued prompt now (ADR 0137): into the turn the agent works on, in place of a review
+   * round under way, or as a turn of its own. Without an id, the first one.
+   */
   Rpc.make("threads.sendQueued", {
     error: ThreadError,
-    payload: { ...ThreadRef, ...Command },
+    payload: {
+      id: Schema.optional(Schema.String),
+      threadId: FileId,
+      ...Command,
+    },
+  }),
+  /**
+   * A queued prompt edited in the composer (ADR 0137): the queue waits from `start` until it is
+   * saved or let go. The prompt as it is now; null when it is no longer queued.
+   */
+  Rpc.make("threads.editQueued", {
+    error: ThreadError,
+    payload: {
+      edit: QueuedEdit,
+      id: Schema.String,
+      threadId: FileId,
+      ...Command,
+    },
+    success: Schema.NullOr(QueuedPrompt),
+  }),
+  /** Moves a queued prompt before another, or to the end with `before: null` (ADR 0137). */
+  Rpc.make("threads.moveQueued", {
+    error: ThreadError,
+    payload: {
+      before: Schema.NullOr(Schema.String),
+      id: Schema.String,
+      threadId: FileId,
+      ...Command,
+    },
   }),
   Rpc.make("threads.cancel", {
     error: ThreadError,
@@ -1063,6 +1098,8 @@ export const commandRequests = [
   "threads.answer",
   "threads.cancel",
   "threads.decline",
+  "threads.editQueued",
+  "threads.moveQueued",
   "threads.permission",
   "threads.prompt",
   "threads.sendQueued",

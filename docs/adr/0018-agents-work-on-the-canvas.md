@@ -20,6 +20,11 @@ still naming the base page (0019).
 > a chat's row is its title, its state and where it works, without a picture or its last line;
 > the pink is an agent's on the canvas alone, its status in the chat neutral.
 
+> Amended by [0137](0137-a-queued-prompt-is-sent-now-edited-or-reordered.md), 2026-11-24: a queued
+> prompt can be sent now, into the running turn after its step, in place of a review round, or as
+> a turn; Enter does that while the agent works and ⌘Enter queues; a prompt being edited in the
+> composer holds the whole queue; the person reorders the queue.
+
 The editor was redesigned with the tool itself: the pages are in `docs/designs/redesign/`, and
 `ultrapaint.json` at the root opens this repository in the editor.
 

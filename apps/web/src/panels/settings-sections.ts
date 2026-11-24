@@ -218,6 +218,12 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     title: "Send key",
   },
   {
+    id: "follow-up",
+    section: "chats",
+    terms: "steer queue follow-up send now while working running turn",
+    title: "While the agent works",
+  },
+  {
     id: "shortcuts",
     section: "shortcuts",
     terms: "keys keyboard keybindings hotkeys",

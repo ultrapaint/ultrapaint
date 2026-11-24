@@ -1365,7 +1365,7 @@ describe("the queue", () => {
         ["second"]
       );
 
-      yield* onThread(threadId, (s) => s.sendQueued);
+      yield* onThread(threadId, (s) => s.sendNow());
       const next = yield* agent.nextTurn;
       assert.include(next.texts, "second");
       yield* next.end();
@@ -1436,6 +1436,394 @@ describe("a request sent again (ADR 0130)", () => {
         assert.deepStrictEqual((yield* store.get(threadId))?.queued ?? [], []);
       }
       yield* turn.end();
+    }));
+});
+
+/** The prompts the thread's transcript holds, by their text, steered ones marked. */
+const prompts = (items: readonly ThreadItem[]) =>
+  items.flatMap((i) =>
+    i.kind === "user" ? [i.steer ? `${i.text} (steer)` : i.text] : []
+  );
+
+/** A picture a prompt carries: one pixel. */
+const PIXEL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+/** The id of the queued prompt whose text is `text`. */
+const queuedId = Effect.fnUntraced(function* (threadId: string, text: string) {
+  const store = yield* ThreadStore;
+  const queued = (yield* store.get(threadId))?.queued ?? [];
+  return queued.find((q) => q.text === text)?.id ?? "";
+});
+
+/** A tool call of the agent's, running until `done` says it has ended. */
+const toolCall = (status: "in_progress" | "completed"): SessionUpdate =>
+  status === "in_progress"
+    ? {
+        kind: "edit",
+        sessionUpdate: "tool_call",
+        status,
+        title: "Edit home",
+        toolCallId: "call_1",
+      }
+    : { sessionUpdate: "tool_call_update", status, toolCallId: "call_1" };
+
+describe("sending a queued prompt now (ADR 0137)", () => {
+  test("puts it into the turn once the agent's running tool call ends", () =>
+    Effect.gen(function* () {
+      const agents = yield* ScriptedAgents;
+      yield* agents.script({ steering: true });
+      const { agent, threadId, turn } = yield* started("first");
+      yield* turn.update(toolCall("in_progress"));
+      yield* send(threadId, "second");
+      const id = yield* queuedId(threadId, "second");
+      yield* onThread(threadId, (s) => s.sendNow(id));
+      const { thread } = yield* threadWhen(
+        threadId,
+        (t) => t.queued?.[0]?.steering === true
+      );
+      assert.deepStrictEqual(
+        thread.queued?.map((q) => q.text),
+        ["second"]
+      );
+      // The tool call is not cut off: nothing goes until it ends.
+      assert.notInclude(methodsOf(yield* agent.calls), "_session/steering");
+
+      yield* turn.update(toolCall("completed"));
+      const steered = yield* turn.steered;
+      assert.deepInclude(steered, { text: "second", type: "text" });
+      const delivered = yield* threadWhen(
+        threadId,
+        (t, all) =>
+          (t.queued ?? []).length === 0 &&
+          prompts(all).includes("second (steer)")
+      );
+      assert.deepStrictEqual(prompts(delivered.items), [
+        "first",
+        "second (steer)",
+      ]);
+      // One turn: the prompt went into it.
+      yield* turn.end();
+      const { items } = yield* threadWhen(threadId, turnEnded);
+      assert.strictEqual(items.filter((i) => i.kind === "turn_end").length, 1);
+    }));
+
+  test("carries its pictures into the turn (ADR 0064)", () =>
+    Effect.gen(function* () {
+      const agents = yield* ScriptedAgents;
+      yield* agents.script({ steering: true });
+      const { threadId, turn } = yield* started("first");
+      yield* promptThread({
+        attachments: [{ dataUrl: PIXEL, kind: "image", name: "ref.png" }],
+        followUp: "steer",
+        text: "like this",
+        threadId,
+      });
+      const steered = yield* turn.steered;
+      assert.isTrue(steered.some((block) => block.type === "image"));
+    }));
+
+  test("goes into the turn at once from the composer when nothing runs", () =>
+    Effect.gen(function* () {
+      const agents = yield* ScriptedAgents;
+      yield* agents.script({ steering: true });
+      const { threadId, turn } = yield* started("first");
+      yield* promptThread({
+        attachments: [],
+        followUp: "steer",
+        text: "and the footer",
+        threadId,
+      });
+      const steered = yield* turn.steered;
+      assert.deepInclude(steered, { text: "and the footer", type: "text" });
+      const { items, thread } = yield* threadWhen(threadId, (_, all) =>
+        prompts(all).includes("and the footer (steer)")
+      );
+      assert.deepStrictEqual(thread.queued ?? [], []);
+      assert.deepStrictEqual(prompts(items), [
+        "first",
+        "and the footer (steer)",
+      ]);
+    }));
+
+  test("a prompt the composer queues waits for the turn's end, as before", () =>
+    Effect.gen(function* () {
+      const agents = yield* ScriptedAgents;
+      yield* agents.script({ steering: true });
+      const { agent, threadId, turn } = yield* started("first");
+      yield* promptThread({
+        attachments: [],
+        followUp: "queue",
+        text: "later",
+        threadId,
+      });
+      yield* turn.end();
+      const next = yield* agent.nextTurn;
+      assert.include(next.texts, "later");
+      assert.notInclude(methodsOf(yield* agent.calls), "_session/steering");
+    }));
+
+  test("waits its turn, first, when the turn ends before its step does", () =>
+    Effect.gen(function* () {
+      const agents = yield* ScriptedAgents;
+      yield* agents.script({ steering: true });
+      const { agent, threadId, turn } = yield* started("first");
+      yield* turn.update(toolCall("in_progress"));
+      yield* send(threadId, "second");
+      yield* send(threadId, "third");
+      const id = yield* queuedId(threadId, "third");
+      yield* onThread(threadId, (s) => s.sendNow(id));
+      yield* threadWhen(threadId, (t) => t.queued?.[0]?.steering === true);
+      yield* turn.end();
+      // Not lost with the turn: it is the next one, ahead of what was queued before it.
+      const next = yield* agent.nextTurn;
+      assert.include(next.texts, "third");
+      assert.notInclude(methodsOf(yield* agent.calls), "_session/steering");
+      const { thread } = yield* threadWhen(threadId, (t) =>
+        (t.queued ?? []).every((q) => q.text !== "third")
+      );
+      assert.deepStrictEqual(
+        thread.queued?.map((q) => [q.text, q.steering]),
+        [["second", undefined]]
+      );
+    }));
+
+  test("waits for the person, first in the queue, when Stop comes before its step ends", () =>
+    Effect.gen(function* () {
+      const agents = yield* ScriptedAgents;
+      yield* agents.script({ steering: true });
+      const { agent, threadId, turn } = yield* started("first");
+      yield* turn.update(toolCall("in_progress"));
+      yield* send(threadId, "second");
+      const id = yield* queuedId(threadId, "second");
+      yield* onThread(threadId, (s) => s.sendNow(id));
+      yield* threadWhen(threadId, (t) => t.queued?.[0]?.steering === true);
+      yield* onThread(threadId, (s) => s.cancel);
+      yield* turn.update(toolCall("completed"));
+      const { thread } = yield* threadWhen(
+        threadId,
+        (t) => t.queued?.[0]?.steering === undefined
+      );
+      assert.deepStrictEqual(
+        thread.queued?.map((q) => q.text),
+        ["second"]
+      );
+      assert.notInclude(methodsOf(yield* agent.calls), "_session/steering");
+      yield* turn.end("cancelled");
+      yield* threadWhen(threadId, turnEnded);
+    }));
+
+  test("stops the turn of an agent that cannot steer, and starts the next with it", () =>
+    Effect.gen(function* () {
+      const { agent, threadId, turn } = yield* started("first");
+      yield* send(threadId, "second");
+      yield* send(threadId, "third");
+      const id = yield* queuedId(threadId, "third");
+      yield* onThread(threadId, (s) => s.sendNow(id));
+      yield* turn.cancelled;
+      yield* turn.end("cancelled");
+      const next = yield* agent.nextTurn;
+      assert.include(next.texts, "third");
+      const { thread } = yield* threadWhen(
+        threadId,
+        (t) => t.status === "running"
+      );
+      assert.deepStrictEqual(
+        thread.queued?.map((q) => q.text),
+        ["second"]
+      );
+    }));
+
+  test("starts a turn with it after a stopped turn", () =>
+    Effect.gen(function* () {
+      const { agent, threadId, turn } = yield* started("first");
+      yield* send(threadId, "second");
+      yield* send(threadId, "third");
+      yield* onThread(threadId, (s) => s.cancel);
+      yield* turn.cancelled;
+      yield* turn.end("cancelled");
+      yield* threadWhen(threadId, turnEnded);
+      const id = yield* queuedId(threadId, "third");
+      yield* onThread(threadId, (s) => s.sendNow(id));
+      const next = yield* agent.nextTurn;
+      assert.include(next.texts, "third");
+    }));
+
+  test("is refused while the agent is being stopped", () =>
+    Effect.gen(function* () {
+      const { threadId } = yield* started("first");
+      yield* send(threadId, "second");
+      yield* onThread(threadId, (s) => s.cancel);
+      const id = yield* queuedId(threadId, "second");
+      const refused = yield* Effect.result(
+        onThread(threadId, (s) => s.sendNow(id))
+      );
+      assert.isTrue(
+        Result.isFailure(refused) && refused.failure._tag === "Conflict"
+      );
+    }));
+});
+
+describe("editing a queued prompt (ADR 0137)", () => {
+  test("holds the whole queue across the turn's end, and saving sends the new words", () =>
+    Effect.gen(function* () {
+      const store = yield* ThreadStore;
+      const { agent, threadId, turn } = yield* started("first");
+      yield* send(threadId, "second");
+      yield* send(threadId, "third");
+      const id = yield* queuedId(threadId, "second");
+      const taken = yield* onThread(threadId, (s) =>
+        s.editQueued(id, { action: "start" })
+      );
+      assert.strictEqual(taken?.text, "second");
+      yield* turn.end();
+      const ended = yield* threadWhen(threadId, turnEnded);
+      // Nothing goes while it is being edited, not even what waits behind it.
+      assert.strictEqual(ended.thread.status, "idle");
+      assert.deepStrictEqual(
+        ended.thread.queued?.map((q) => [q.text, q.editing]),
+        [
+          ["second", true],
+          ["third", undefined],
+        ]
+      );
+      assert.strictEqual(
+        methodsOf(yield* agent.calls).filter((m) => m === "session/prompt")
+          .length,
+        1
+      );
+
+      yield* onThread(threadId, (s) =>
+        s.editQueued(id, {
+          action: "save",
+          attachments: [],
+          text: "second, with the border",
+        })
+      );
+      const next = yield* agent.nextTurn;
+      assert.include(next.texts, "second, with the border");
+      assert.deepStrictEqual(
+        (yield* store.get(threadId))?.queued?.map((q) => q.text),
+        ["third"]
+      );
+    }));
+
+  test("lets the queue go on when the edit is cancelled", () =>
+    Effect.gen(function* () {
+      const { agent, threadId, turn } = yield* started("first");
+      yield* send(threadId, "second");
+      const id = yield* queuedId(threadId, "second");
+      yield* onThread(threadId, (s) => s.editQueued(id, { action: "start" }));
+      yield* turn.end();
+      yield* threadWhen(threadId, turnEnded);
+      yield* onThread(threadId, (s) => s.editQueued(id, { action: "cancel" }));
+      const next = yield* agent.nextTurn;
+      assert.include(next.texts, "second");
+    }));
+
+  test("keeps a queue held by a stop waiting after the edit", () =>
+    Effect.gen(function* () {
+      const { agent, threadId, turn } = yield* started("first");
+      yield* send(threadId, "second");
+      const id = yield* queuedId(threadId, "second");
+      yield* onThread(threadId, (s) => s.cancel);
+      yield* turn.cancelled;
+      yield* turn.end("cancelled");
+      yield* threadWhen(threadId, turnEnded);
+      yield* onThread(threadId, (s) => s.editQueued(id, { action: "start" }));
+      yield* onThread(threadId, (s) =>
+        s.editQueued(id, { action: "save", attachments: [], text: "second!" })
+      );
+      const { thread } = yield* threadWhen(threadId, (t) =>
+        (t.queued ?? []).some((q) => q.text === "second!")
+      );
+      assert.strictEqual(thread.status, "idle");
+      // Sent by the person, as after any stop.
+      yield* onThread(threadId, (s) => s.sendNow(id));
+      const next = yield* agent.nextTurn;
+      assert.include(next.texts, "second!");
+    }));
+
+  test("keeps a queue held by a failed turn waiting after the edit", () =>
+    Effect.gen(function* () {
+      const store = yield* ThreadStore;
+      const { agent, threadId, turn } = yield* started("first");
+      yield* send(threadId, "second");
+      const id = yield* queuedId(threadId, "second");
+      yield* turn.fail("the model is overloaded");
+      yield* threadWhen(threadId, (t) => t.status === "error");
+      // Another agent chosen: the thread is idle, its queue still the failed turn's.
+      yield* onThread(threadId, (s) => s.switchAgent("other"));
+      yield* onThread(threadId, (s) => s.editQueued(id, { action: "start" }));
+      yield* onThread(threadId, (s) => s.editQueued(id, { action: "cancel" }));
+      const thread = yield* store.get(threadId);
+      assert.strictEqual(thread?.status, "idle");
+      assert.deepStrictEqual(
+        thread?.queued?.map((q) => q.text),
+        ["second"]
+      );
+      assert.strictEqual(
+        methodsOf(yield* agent.calls).filter((m) => m === "session/prompt")
+          .length,
+        1
+      );
+    }));
+
+  test("saves new words and attachments", () =>
+    Effect.gen(function* () {
+      const { agent, threadId, turn } = yield* started("first");
+      yield* send(threadId, "second");
+      const id = yield* queuedId(threadId, "second");
+      yield* onThread(threadId, (s) => s.editQueued(id, { action: "start" }));
+      yield* onThread(threadId, (s) =>
+        s.editQueued(id, {
+          action: "save",
+          attachments: [{ dataUrl: PIXEL, kind: "image", name: "ref.png" }],
+          text: "second, like this",
+        })
+      );
+      yield* turn.end();
+      const next = yield* agent.nextTurn;
+      assert.include(next.texts, "second, like this");
+      assert.isTrue(next.prompt.some((block) => block.type === "image"));
+    }));
+
+  test("answers nothing for a prompt no longer queued", () =>
+    Effect.gen(function* () {
+      const { threadId } = yield* started("first");
+      assert.isNull(
+        yield* onThread(threadId, (s) =>
+          s.editQueued("gone", { action: "start" })
+        )
+      );
+    }));
+});
+
+describe("reordering the queue (ADR 0137)", () => {
+  test("changes which prompt goes next", () =>
+    Effect.gen(function* () {
+      const store = yield* ThreadStore;
+      const { agent, threadId, turn } = yield* started("first");
+      yield* send(threadId, "second");
+      yield* send(threadId, "third");
+      yield* send(threadId, "fourth");
+      const fourth = yield* queuedId(threadId, "fourth");
+      const second = yield* queuedId(threadId, "second");
+      yield* onThread(threadId, (s) => s.moveQueued(fourth, second));
+      assert.deepStrictEqual(
+        (yield* store.get(threadId))?.queued?.map((q) => q.text),
+        ["fourth", "second", "third"]
+      );
+      yield* onThread(threadId, (s) => s.moveQueued(fourth, null));
+      assert.deepStrictEqual(
+        (yield* store.get(threadId))?.queued?.map((q) => q.text),
+        ["second", "third", "fourth"]
+      );
+      const third = yield* queuedId(threadId, "third");
+      yield* onThread(threadId, (s) => s.moveQueued(third, second));
+      yield* turn.end();
+      const next = yield* agent.nextTurn;
+      assert.include(next.texts, "third");
     }));
 });
 

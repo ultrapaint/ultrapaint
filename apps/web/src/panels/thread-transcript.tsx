@@ -509,6 +509,19 @@ export const Item = ({
                 </CutText>
               </span>
             )}
+            {/* Sent into the turn under way rather than starting one (ADR 0137). */}
+            {item.steer ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <span className="self-end font-body-small text-muted-foreground" />
+                  }
+                >
+                  Steer
+                </TooltipTrigger>
+                <TooltipContent>Sent into the running turn</TooltipContent>
+              </Tooltip>
+            ) : null}
           </MessageContent>
         </Message>
       );
