@@ -31,6 +31,7 @@ import {
   type HeldSize,
   holdSize,
   holdSizeUntil,
+  isSaving,
   useHeldSizes,
 } from "../state/node-sizing.ts";
 import {
@@ -420,19 +421,19 @@ export const beginSpacingDrag = (
     return;
   }
   const targets = spacingTargets(useDesignSystem.getState().designSystem);
-  // A padding dragged before the last one's save has landed builds on that one, not on the
-  // document's: saved after it, it would put back the side the last one changed.
-  const pending = useHeldSizes.getState().byFrame[frame];
-  const saving =
-    pending?.nodeId === node.id && pending.padding !== undefined
-      ? (pending.padding as Padding)
-      : undefined;
+  // Dragged before the last drag's save has landed, it builds on what that one holds, not on the
+  // document: saved after it, a padding would put back the side the last one changed. Put back,
+  // what that one holds stays held until its save lands.
+  const before = useHeldSizes.getState().byFrame[frame];
+  const pending =
+    isSaving(before) && before.nodeId === node.id ? before : undefined;
+  const padding = (pending?.padding ?? undefined) as Padding | undefined;
   let to: { held: HeldSize; sides: Side[]; value: JsonValue } | null = null;
   const done = () => useSpacingDrag.setState({ dragged: null });
   followPointer(e, {
     cancel: () => {
       done();
-      holdSize(frame, null);
+      holdSize(frame, isSaving(before) ? before : null);
     },
     move: (ev) => {
       const { dx, dy } = movedBy(e, ev);
@@ -446,10 +447,11 @@ export const beginSpacingDrag = (
       const sides = side ? [side, ...(ev.shiftKey ? [ACROSS[side]] : [])] : [];
       const held: HeldSize =
         band.field === "gap"
-          ? { gap: snapped.value, nodeId: node.id }
+          ? { ...pending, gap: snapped.value, nodeId: node.id }
           : {
+              ...pending,
               nodeId: node.id,
-              padding: withSides(saving ?? node.padding, sides, snapped.value),
+              padding: withSides(padding ?? node.padding, sides, snapped.value),
             };
       to = { held, sides, value: snapped.value };
       holdSize(frame, held);
@@ -476,7 +478,7 @@ export const beginSpacingDrag = (
             updateNodesWith(
               target,
               (n) => ({
-                padding: withSides(saving ?? n.padding, sides, value),
+                padding: withSides(padding ?? n.padding, sides, value),
               }),
               "Change the padding"
             )

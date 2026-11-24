@@ -1,5 +1,6 @@
 import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import type { Rect } from "@ultrapaint/contracts/preview";
 import { addTokens } from "@ultrapaint/contracts/token-table";
 import { describe, expect, it } from "vitest";
 import {
@@ -208,6 +209,26 @@ describe("a short stack's side bands", () => {
     for (const band of spacingBands(flat, 6)) {
       expect(band.hit.height).toBeGreaterThan(0);
       expect(band.rect.height).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("leave no padding band under another, so each side is reached on a stack shorter than the least", () => {
+    const flat = {
+      ...row,
+      box: { height: 5, width: 100, x: 0, y: 0 },
+      children: [],
+      padding: NONE,
+    };
+    const hits = spacingBands(flat, 6).map((b) => b.hit);
+    const overlap = (a: Rect, b: Rect) =>
+      a.x < b.x + b.width &&
+      b.x < a.x + a.width &&
+      a.y < b.y + b.height &&
+      b.y < a.y + a.height;
+    for (const [i, a] of hits.entries()) {
+      for (const b of hits.slice(i + 1)) {
+        expect(overlap(a, b)).toBe(false);
+      }
     }
   });
 });

@@ -43,6 +43,16 @@ export const holdSize = (frame: string, size: HeldSize | null) =>
     return { byFrame };
   });
 
+/** What is held while its save is on its way to the document (`holdSizeUntil`). */
+const saving = new WeakSet<HeldSize>();
+
+/**
+ * Whether `held` is kept for a save still on its way: a drag begun meanwhile builds on it, and put
+ * back, leaves it held (ADR 0145).
+ */
+export const isSaving = (held: HeldSize | undefined): held is HeldSize =>
+  held !== undefined && saving.has(held);
+
 /**
  * Keeps an element at `size` while `commit` takes it to its document, then leaves it to the
  * document; a later hold of the same frame outlives this one.
@@ -53,10 +63,12 @@ export const holdSizeUntil = async <T>(
   commit: () => Promise<T>
 ): Promise<T> => {
   const held = { ...size };
+  saving.add(held);
   holdSize(frame, held);
   try {
     return await commit();
   } finally {
+    saving.delete(held);
     if (useHeldSizes.getState().byFrame[frame] === held) {
       holdSize(frame, null);
     }
