@@ -22,7 +22,9 @@ and agreed the seams (UP-187).
 - Nothing settles a chat on its own: no settling after idle days, nor on a merged pull request.
 - Settling a chat, or renaming it, keeps its `updatedAt` (`ThreadStore.update` with
   `news: false`): a change the designer makes to the chat's place in the list is no news of it,
-  so it neither moves nor reads Done.
+  so it neither moves nor reads Done. Every change moves `changedAt`, news or not: it is what an
+  editor compares to tell the later of two copies of a thread (a list read against the events
+  it heard), where equal `updatedAt`s could not.
 
 **The row's actions.** On hover, or once the keyboard reaches the row, its state gives way to
 **Settle** (Un-settle on a settled chat) and, while its composer holds a draft, **Discard draft**,

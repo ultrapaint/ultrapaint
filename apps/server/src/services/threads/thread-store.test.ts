@@ -209,6 +209,8 @@ describe("ThreadStore", () => {
         }).pipe(Effect.provide(storeIn(home)));
         assert.strictEqual(read?.settledAt, 5);
         assert.strictEqual(read?.updatedAt, THREAD.updatedAt);
+        // Changed all the same: what tells an editor which copy is the later.
+        assert.isAbove(read?.changedAt ?? 0, THREAD.updatedAt);
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
   );
 

@@ -639,28 +639,46 @@ describe("a thread opened", () => {
     expect(useAgents.getState().threads[0]?.status).toBe("idle");
   });
 
-  it("keeps a rename or a settling over a list read at the same time, with the read's line (ADR 0141)", async () => {
+  it("keeps a rename or a settling made after a list read was taken (ADR 0141)", async () => {
+    fakeApi.respond("agents.list", () => []);
+    fakeApi.respond("threads.list", () => [
+      { ...thread("t"), changedAt: 2, title: "Before", updatedAt: 2 },
+    ]);
+    useAgents.setState({
+      threads: [
+        {
+          ...thread("t"),
+          changedAt: 3,
+          settledAt: 3,
+          title: "Renamed",
+          updatedAt: 2,
+        },
+      ],
+    });
+    await useAgents.getState().load();
+    const [kept] = useAgents.getState().threads;
+    expect([kept?.title, kept?.settledAt]).toEqual(["Renamed", 3]);
+  });
+
+  it("takes a rename or a settling made elsewhere from a list read taken after it (ADR 0141)", async () => {
     fakeApi.respond("agents.list", () => []);
     fakeApi.respond("threads.list", () => [
       {
         ...thread("t"),
-        summary: { text: "Read now", waiting: false },
-        title: "Before",
+        changedAt: 4,
+        settledAt: 4,
+        title: "Renamed elsewhere",
         updatedAt: 2,
       },
     ]);
     useAgents.setState({
       threads: [
-        { ...thread("t"), settledAt: 5, title: "Renamed", updatedAt: 2 },
+        { ...thread("t"), changedAt: 2, title: "Before", updatedAt: 2 },
       ],
     });
     await useAgents.getState().load();
-    const [kept] = useAgents.getState().threads;
-    expect([kept?.title, kept?.settledAt, kept?.summary?.text]).toEqual([
-      "Renamed",
-      5,
-      "Read now",
-    ]);
+    const [read] = useAgents.getState().threads;
+    expect([read?.title, read?.settledAt]).toEqual(["Renamed elsewhere", 4]);
   });
 
   it("says its transcript could not be read, until it is", async () => {

@@ -556,6 +556,12 @@ const followOpen = (): Promise<void> => {
  * connection opened is answered after the events that followed it, and must not take a thread
  * back to what it was before them (ADR 0130).
  */
+/**
+ * When a copy of a thread last changed: `changedAt`, which a change that is no news moves too
+ * (ADR 0141), else `updatedAt` for a thread written before it.
+ */
+const changeOf = (thread: Thread) => thread.changedAt ?? thread.updatedAt;
+
 const newerOf = (
   held: readonly Thread[],
   read: readonly Thread[]
@@ -563,14 +569,7 @@ const newerOf = (
   const byId = new Map(held.map((t) => [t.id, t]));
   return read.map((t) => {
     const mine = byId.get(t.id);
-    if (mine === undefined || mine.updatedAt < t.updatedAt) {
-      return t;
-    }
-    // At the same time, a change that is no news (a rename, a settling, ADR 0141) may have come
-    // after the read: the thread as held, with the line the read worked out.
-    return mine.updatedAt === t.updatedAt
-      ? { ...mine, summary: t.summary }
-      : mine;
+    return mine !== undefined && changeOf(mine) > changeOf(t) ? mine : t;
   });
 };
 
