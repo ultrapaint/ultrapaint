@@ -472,7 +472,12 @@ export class ThreadStore extends Context.Service<
             ...entry.thread,
             ...patch,
             ...(comesBack(patch) && { settledAt: undefined }),
-            changedAt: now,
+            // Later than its last change whatever the clock says, even within one millisecond:
+            // the order an editor keeps the later of two copies by (ADR 0141).
+            changedAt: Math.max(
+              now,
+              (entry.thread.changedAt ?? entry.thread.updatedAt) + 1
+            ),
             updatedAt: options?.news === false ? entry.thread.updatedAt : now,
           };
           return { thread: entry.thread, type: "thread" };
