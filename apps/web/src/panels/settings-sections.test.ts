@@ -25,6 +25,10 @@ describe("the settings' search", () => {
     }
   });
 
+  it("finds the outside agents' rows by connect (ADR 0144)", () => {
+    expect(searchSettings("connect")[0]?.id).toBe("mcp");
+  });
+
   it("leaves out the sections not shown", () => {
     expect(
       searchSettings("review", (s) => s !== "review").some(

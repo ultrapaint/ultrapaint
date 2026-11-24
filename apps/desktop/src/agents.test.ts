@@ -516,6 +516,9 @@ describe("Agents on a third descriptor", {
           THIRD_PATH: path.join(release, "third"),
           THIRD_PINNED: "1",
         });
+        // The server reads the app's own copy as no outside agent of the person's (ADR 0144).
+        expect(downloaded.agents.third?.downloaded).toBe(true);
+        expect(onPath.agents.third?.downloaded).toBeUndefined();
 
         yield* Effect.provide(
           AgentSettings.use((s) =>

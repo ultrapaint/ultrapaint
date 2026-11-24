@@ -53,6 +53,7 @@ import {
   ImplementationList,
   ImplementationTarget,
 } from "./implementation.ts";
+import { OutsideAgentConnected, OutsideAgents } from "./outside-agents.ts";
 import {
   Canvas,
   CanvasLayout,
@@ -104,6 +105,7 @@ import {
   AgentOptions,
   AgentTerminalOutput,
   Answers,
+  BuiltInAgentId,
   ChatDefaults,
   McpConnection,
   PromptInput,
@@ -691,6 +693,17 @@ const requestRpcs = [
   Rpc.make("commands.list", { success: Schema.Array(SlashCommand) }),
   /** What an agent outside the editor needs to reach the editor's own MCP server. */
   Rpc.make("mcp.connection", { success: McpConnection }),
+  /**
+   * Whether each outside agent lists Ultrapaint, as the agent itself answers on the server's
+   * machine, and whether the `ultrapaint` command is on its PATH (ADR 0144).
+   */
+  Rpc.make("mcp.outsideAgents", { success: OutsideAgents }),
+  /** Runs an outside agent's own registration line, then asks it again (ADR 0144). */
+  Rpc.make("mcp.connectAgent", {
+    error: CommandFailed,
+    payload: { agentId: BuiltInAgentId },
+    success: OutsideAgentConnected,
+  }),
   /**
    * What is selected in the editor, as it changes: each node by the reference agents' tools take
    * and its name, for an agent outside the editor asked about "what I've selected" (ADR 0083).

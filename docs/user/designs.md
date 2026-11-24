@@ -108,7 +108,7 @@ but it keeps the link between the two:
 - **Design and implement chats.** A chat designs: its agent may write the designs directory
   only, and a request about behaviour becomes a behaviour note. A chat started with
   `/implement` (the **Implement** button) implements, and may write the whole repository.
-- **Agents outside the editor.** Connected through `claude mcp add` (**Settings** › **Agents** ›
-  **Connect over MCP**), an agent is told how to use `handoff`: what is ready or changed, the
+- **Agents outside the editor.** Connected through `claude mcp add` (**Connect** in **Settings** ›
+  **Connections**), an agent is told how to use `handoff`: what is ready or changed, the
   task for one, marking it implemented, writing a behaviour note on a page or a component, and
   exporting the design's token values to the code (or importing the code's).

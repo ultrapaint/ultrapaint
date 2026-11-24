@@ -36,7 +36,11 @@ export class AgentFailure extends Schema.TaggedError<AgentFailure>()(
   { message: Schema.String }
 ) {}
 
-/** A command the server ran on the repository (git) exited with an error. */
+/**
+ * A command the server runs failed: git on the repository, or an outside agent's own
+ * registration (ADR 0144), which exited with an error, did not answer in time, or has no program
+ * to run. The message is the command's own where it gave one.
+ */
 export class CommandFailed extends Schema.TaggedError<CommandFailed>()(
   "CommandFailed",
   { message: Schema.String }

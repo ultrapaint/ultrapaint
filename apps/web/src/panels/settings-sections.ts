@@ -353,7 +353,7 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
   {
     id: "mcp",
     section: "connections",
-    terms: "mcp outside terminal claude code codex command",
+    terms: "mcp outside terminal connect claude code codex command hub",
     title: "Agents outside the editor",
   },
   {
