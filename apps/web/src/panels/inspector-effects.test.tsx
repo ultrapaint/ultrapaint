@@ -1,9 +1,18 @@
 // @vitest-environment happy-dom
 import "../testing/fake-browser.ts";
+import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, DocumentState } from "@ultrapaint/contracts/document";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
 import { useComponents } from "../state/components.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { editFrameAs, useDocuments } from "../state/documents.ts";
@@ -326,5 +335,46 @@ describe("the Effects section's shadows", () => {
         ops: [{ id: "promo/box", op: "update", set: { shadow: RING } }],
       },
     ]);
+  });
+
+  it("takes a list typed in one row, a token among raw shadows", async () => {
+    // happy-dom takes any CSS; a browser refuses `$`.
+    vi.stubGlobal("CSS", {
+      supports: (_property: string, value?: string) => !value?.includes("$"),
+    });
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
+    });
+    show({ box: "$shadow-md" });
+    press("Add shadow");
+    await typeAndTake("0 1px 2px #000, $shadow-lg");
+    expect(sets()).toEqual([
+      { shadow: "$shadow-md, 0 1px 2px #000, $shadow-lg" },
+    ]);
+  });
+
+  it("puts a shadow added to a box whose shadow is none in its place", async () => {
+    show({ box: "none" });
+    press("Add shadow");
+    await typeAndTake(RING);
+    expect(sets()).toEqual([{ shadow: RING }]);
+  });
+
+  it("closes a new token's naming when the shadow it is for leaves its place", () => {
+    const naming = () =>
+      document.querySelector('input[aria-label="The new token\'s name"]');
+    useDesignSystem.setState({ designSystem: emptyDesignSystem() });
+    show({ box: `0 1px 2px #000, ${RING}, inset 0 1px 0 #fff` });
+    openRow(2);
+    const newToken = [...document.querySelectorAll("[role=option]")].find(
+      (o) => o.textContent === "New token from this value…"
+    ) as HTMLElement | undefined;
+    if (!newToken) {
+      throw new Error("no New token");
+    }
+    act(() => newToken.click());
+    expect(naming()).not.toBeNull();
+    show({ box: `${RING}, inset 0 1px 0 #fff` });
+    expect(naming()).toBeNull();
   });
 });

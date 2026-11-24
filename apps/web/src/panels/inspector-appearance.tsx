@@ -6,6 +6,7 @@
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { shadowListCss, shadowsOf } from "@ultrapaint/design-document/shadow";
+import { isToken } from "@ultrapaint/design-document/tokens";
 import { Minus, Plus } from "lucide-react";
 import { Segmented } from "../components/segmented.tsx";
 import type { StyleOption } from "../components/style-combobox.tsx";
@@ -169,8 +170,14 @@ const SHADOW = TOKEN_FIELDS.shadow;
 const writeShadows = (shadows: readonly string[]) =>
   setField(SHADOW, shadowListCss(shadows));
 
-/** Whether CSS takes a shadow typed, a token aside. */
-const acceptsShadow = (q: string) => CSS.supports("box-shadow", q);
+/** Whether CSS takes a shadow typed, or each of a list typed, its tokens taken as they are. */
+const acceptsShadow = (q: string) => {
+  const shadows = shadowsOf(q);
+  return (
+    shadows.length > 0 &&
+    shadows.every((s) => isToken(s) || CSS.supports("box-shadow", s))
+  );
+};
 
 /** One shadow's field, a token or CSS, picked from the shadows of the design system. */
 const ShadowValue = ({
@@ -234,6 +241,9 @@ const ShadowSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
   const [adding, add] = useReveal();
   const shared = sharedField(SHADOW, nodes);
   const shadows = typeof shared === "string" ? shadowsOf(shared) : [];
+  // `none` is no shadow of a list but the whole of one: a shadow added takes its place.
+  const listed =
+    shadows.length === 1 && shadows[0]?.toLowerCase() === "none" ? [] : shadows;
   /** The shadows with the one at `index` as `value`, or without it for null. */
   const replace = (index: number, value: JsonValue) =>
     writeShadows([
@@ -275,8 +285,10 @@ const ShadowSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
           {shadows.map((shadow, i) => (
             <ShadowRow
               first={i === 0}
-              // biome-ignore lint/suspicious/noArrayIndexKey: a shadow is its place in the list
-              key={i}
+              // A row is its place and its shadow: one that moves or changes starts afresh, so
+              // that a new token's naming open on it never names the shadow taking its place.
+              // biome-ignore lint/suspicious/noArrayIndexKey: the place is half of what a row is
+              key={`${i}\0${shadow}`}
               onChange={(value) => replace(i, value)}
               onRemove={() => replace(i, null)}
               value={shadow}
@@ -289,7 +301,7 @@ const ShadowSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
               onChange={(value) => {
                 add(false);
                 if (value !== null) {
-                  writeShadows([...shadows, ...shadowsOf(String(value))]);
+                  writeShadows([...listed, ...shadowsOf(String(value))]);
                 }
               }}
               onRemove={() => add(false)}
