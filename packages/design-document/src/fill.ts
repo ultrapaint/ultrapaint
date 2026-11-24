@@ -422,6 +422,15 @@ export const percentOf = (position: string | undefined): number | null => {
 };
 
 /**
+ * Whether every stop is placed in percent or left for CSS to place, so that each can be placed
+ * in percent without moving: a stop at `10px`, `calc(…)` or a conic's `90deg` cannot be.
+ */
+export const placedInPercent = (stops: readonly FillStop[]): boolean =>
+  stops.every(
+    (s) => s.position === undefined || percentOf(s.position) !== null
+  );
+
+/**
  * Where CSS draws each stop, in percent of the gradient: a stop without a position between its
  * neighbours, the first at 0 and the last at 100, none before the one ahead of it. A position
  * in another unit counts as none.
@@ -464,17 +473,43 @@ export const stopPositions = (stops: readonly FillStop[]): number[] => {
 /** A token anywhere in a fill: `$name` at its start or after a bracket, a comma or a space. */
 const FILL_TOKEN_RE = /(^|[\s(,])\$([a-z0-9][\w.-]*)/gi;
 
-/** The tokens a fill names, wherever in it, each once, in the order it names them. */
+/** What of a fill names no token whatever it holds: a URL and a quoted string. */
+const LITERAL_RE = /url\([^)]*\)|"[^"]*"|'[^']*'/gi;
+
+/** A fill split at its literals: the parts that may name tokens, and the literals between. */
+const tokenParts = (
+  fill: string
+): { readonly text: string; readonly literal: string }[] => {
+  const parts: { text: string; literal: string }[] = [];
+  let start = 0;
+  for (const found of fill.matchAll(LITERAL_RE)) {
+    parts.push({ literal: found[0], text: fill.slice(start, found.index) });
+    start = found.index + found[0].length;
+  }
+  parts.push({ literal: "", text: fill.slice(start) });
+  return parts;
+};
+
+/** The tokens a fill names, wherever in it but a URL or a quoted string, each once, in order. */
 export const tokensInFill = (fill: string): string[] => [
-  ...new Set(Array.from(fill.matchAll(FILL_TOKEN_RE), (m) => m[2] ?? "")),
+  ...new Set(
+    tokenParts(fill).flatMap(({ text }) =>
+      Array.from(text.matchAll(FILL_TOKEN_RE), (m) => m[2] ?? "")
+    )
+  ),
 ];
 
-/** A fill with each token it names as `variable` writes it. */
+/** A fill with each token it names as `variable` writes it, its URLs and strings as they are. */
 export const resolveFillTokens = (
   fill: string,
   variable: (name: string) => string
 ): string =>
-  fill.replace(
+  tokenParts(fill)
+    .map(({ literal, text }) => replaceTokens(text, variable) + literal)
+    .join("");
+
+const replaceTokens = (text: string, variable: (name: string) => string) =>
+  text.replace(
     FILL_TOKEN_RE,
     (_whole, before: string, name: string) => `${before}${variable(name)}`
   );

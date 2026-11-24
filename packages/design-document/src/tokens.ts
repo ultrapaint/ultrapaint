@@ -141,7 +141,9 @@ export const tokensIn = (
 
 /** The tokens of one field of an object: a CSS-valued one's anywhere in it, another's as any value's. */
 const fieldTokensIn = (key: string, value: unknown, into: Set<string>) => {
-  const inside = TOKENS_INSIDE[key];
+  const inside = Object.hasOwn(TOKENS_INSIDE, key)
+    ? TOKENS_INSIDE[key]
+    : undefined;
   if (inside && typeof value === "string") {
     for (const name of inside(value)) {
       addToken(name, into);

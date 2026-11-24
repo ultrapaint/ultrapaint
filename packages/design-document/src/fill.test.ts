@@ -183,10 +183,15 @@ describe("the tokens of a fill", () => {
     ).toEqual(["color-primary", "color-accent", "color-bg"]);
   });
 
-  it("are none in a path that holds a `$`", () => {
-    expect(tokensInFill("url(/img/$hero.png), $color-bg")).toEqual([
-      "color-bg",
-    ]);
+  it("are none in a path or a quoted string that holds a `$`", () => {
+    expect(
+      tokensInFill(
+        'url(/img/$hero.png), url($hero.png), url("$a b.png"), $color-bg'
+      )
+    ).toEqual(["color-bg"]);
+    expect(
+      resolveFillTokens("url($hero.png), $color-bg", (n) => `var(--${n})`)
+    ).toBe("url($hero.png), var(--color-bg)");
   });
 
   it("are drawn as their variables", () => {
