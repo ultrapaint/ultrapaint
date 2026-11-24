@@ -203,6 +203,68 @@ describe("applyOps", () => {
     expect(ids(findNode(root, copy))).not.toContain("a");
   });
 
+  it("pairs every node of a duplicate with its copy's, two copies of one node each", () => {
+    const { copies, created, root } = applyOps(
+      page(),
+      [
+        { id: "row", op: "duplicate" },
+        { id: "row", op: "duplicate" },
+      ],
+      options()
+    );
+    const [first = "", second = ""] = created;
+    expect(copies.map((c) => c.from)).toEqual([
+      ...["row", "a", "b", "c"],
+      ...["row", "a", "b", "c"],
+    ]);
+    expect(copies.map((c) => c.to)).toEqual([
+      first,
+      ...ids(findNode(root, first)),
+      second,
+      ...ids(findNode(root, second)),
+    ]);
+  });
+
+  it("pairs an inserted tree's ids with the ones it was given when one is taken, and none when all are free", () => {
+    const clashing: DesignNode = {
+      children: [text("a"), text("y")],
+      id: "x",
+      type: "column",
+    };
+    const { copies, created, root } = applyOps(
+      page(),
+      [
+        { node: clashing, op: "insert", parent: null },
+        { node: text("free"), op: "insert", parent: null },
+      ],
+      options()
+    );
+    const [column = ""] = created;
+    expect(copies).toEqual([
+      { from: "x", to: column },
+      ...ids(findNode(root, column)).map((to, i) => ({
+        from: ["a", "y"][i],
+        to,
+      })),
+    ]);
+    expect(created[1]).toBe("free");
+  });
+
+  it("pairs no id a replace keeps of what it replaces, and every one of a tree that clashes elsewhere", () => {
+    const kept = applyOps(
+      page(),
+      [{ ids: ["b"], node: text("b", "B"), op: "replace" }],
+      options()
+    );
+    expect(kept.copies).toEqual([]);
+    const clashing = applyOps(
+      page(),
+      [{ ids: ["b"], node: text("d"), op: "replace" }],
+      options()
+    );
+    expect(clashing.copies).toEqual([{ from: "d", to: clashing.created[0] }]);
+  });
+
   it("sets and clears instance props", () => {
     const start: PageNode = {
       children: [

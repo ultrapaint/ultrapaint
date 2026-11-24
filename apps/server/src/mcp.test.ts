@@ -1075,6 +1075,104 @@ describe("the tools for documents", () => {
       })
   );
 
+  /** A group holding one text, put on the home page through the tools. */
+  const cardOnHome = tool("apply_operations", {
+    ops: [
+      inserted({
+        children: [
+          { id: "title", role: "paragraph", text: "Pro", type: "text" },
+        ],
+        gap: 8,
+        id: "card",
+        type: "group",
+      }),
+    ],
+    route: "/home",
+  });
+
+  inAProject(
+    "names a field an inserted node's type lacks, which the page drops",
+    () =>
+      Effect.gen(function* () {
+        const { copies, ignored } = yield* cardOnHome;
+        assert.deepStrictEqual(ignored, [
+          { field: "gap", id: "card", why: "a group has no gap" },
+        ]);
+        assert.isUndefined(copies);
+        const part = yield* tool("read_page", { node: "card", route: "/home" });
+        assert.notProperty(part.document, "gap");
+      })
+  );
+
+  inAProject(
+    "answers the ids of each node of a copy, by the ids of the nodes copied",
+    () =>
+      Effect.gen(function* () {
+        yield* cardOnHome;
+        const { copies, created } = yield* tool("apply_operations", {
+          ops: [{ id: "card", op: "duplicate" }],
+          route: "/home",
+        });
+        const [copy = ""] = created;
+        const part = yield* tool("read_page", { node: copy, route: "/home" });
+        const [copiedTitle] = (part.document as { children: { id: string }[] })
+          .children;
+        assert.deepStrictEqual(copies, [
+          { from: "card", to: copy },
+          { from: "title", to: copiedTitle?.id ?? "" },
+        ]);
+      })
+  );
+
+  inAProject("applies the rest of a call whose fields did nothing", () =>
+    Effect.gen(function* () {
+      const { ignored } = yield* tool("apply_operations", {
+        ops: [
+          { id: "heading", op: "update", set: { gap: 8 } },
+          { id: "heading", op: "update", set: { text: "Plans" } },
+        ],
+        route: "/home",
+      });
+      assert.deepStrictEqual(ignored, [
+        { field: "gap", id: "heading", why: "a text has no gap" },
+      ]);
+      assert.deepStrictEqual((yield* topTexts("/home"))[0], [
+        "heading",
+        "Plans",
+      ]);
+    })
+  );
+
+  inAProject("answers neither copies nor ignored fields for a clean call", () =>
+    Effect.gen(function* () {
+      const clean = yield* tool("apply_operations", {
+        ops: [{ id: "heading", op: "update", set: { text: "Prices" } }],
+        route: "/home",
+      });
+      assert.notProperty(clean, "copies");
+      assert.notProperty(clean, "ignored");
+    })
+  );
+
+  inAProject("names twelve fields that did nothing, and counts the rest", () =>
+    Effect.gen(function* () {
+      const set = Object.fromEntries(
+        Array.from({ length: 14 }, (_, i) => [`nothing${i}`, 1])
+      );
+      const { ignored } = yield* tool("apply_operations", {
+        ops: [{ id: "heading", op: "update", set }],
+        route: "/home",
+      });
+      assert.lengthOf(ignored ?? [], 13);
+      assert.deepStrictEqual(ignored?.[0], {
+        field: "nothing0",
+        id: "heading",
+        why: "a text has no nothing0",
+      });
+      assert.strictEqual(ignored?.at(-1), "and 2 more");
+    })
+  );
+
   inAProject(
     "warns of a fill with no room inside a system component, by the slot it fills",
     () =>

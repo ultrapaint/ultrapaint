@@ -33,8 +33,10 @@ import {
 } from "@ultrapaint/design-document/instance-layers";
 import {
   applyOps,
+  type Copy,
   cloneJson,
   DocumentOpError,
+  type Found,
 } from "@ultrapaint/design-document/ops";
 import { changedNodes } from "@ultrapaint/design-document/patch";
 import {
@@ -119,7 +121,11 @@ type Alongside = readonly DocumentEdit[] | undefined;
  * and as the editors were told it (ADR 0044).
  */
 export interface Applied extends AppliedChanges {
+  /** Each node the request's operations gave a new id, by the id it had, in their order. */
+  readonly copies: readonly Copy[];
   readonly documents: readonly DocumentState[];
+  /** The request's own updates, inserts and replaces with what they found (`inertFields`). */
+  readonly found: readonly Found[];
 }
 
 /**
@@ -563,6 +569,8 @@ export class DocumentService extends Context.Service<
         alongside?: (step: ApplyStep) => Effect.Effect<Alongside, EditFailure>
       ) {
         const created: string[] = [];
+        const copies: Copy[] = [];
+        const found: Found[] = [];
         const touched: string[] = [];
         const label =
           input.label ??
@@ -578,6 +586,7 @@ export class DocumentService extends Context.Service<
           string,
           { readonly doc: string; readonly tree: DesignNode }
         >();
+        const requested = new Set<DocumentEdit>(input.edits);
         const editIn = (tx: EditTransaction) =>
           Effect.fnUntraced(function* (change: DocumentEdit) {
             const loaded = yield* load(change.doc, false);
@@ -627,6 +636,11 @@ export class DocumentService extends Context.Service<
               tree: result.root,
             });
             created.push(...result.created);
+            // What the request's own edits did, not what `alongside` added.
+            if (requested.has(change)) {
+              copies.push(...result.copies);
+              found.push(...result.found);
+            }
             touched.push(change.doc);
           });
         yield* edit.transaction(label, (tx) =>
@@ -651,7 +665,13 @@ export class DocumentService extends Context.Service<
           Effect.map(load(doc), (loaded) => stateOf(doc, loaded))
         );
         const changes = yield* Effect.forEach(documents, publish);
-        return { changes, created, documents } satisfies Applied;
+        return {
+          changes,
+          copies,
+          created,
+          documents,
+          found,
+        } satisfies Applied;
       });
 
       const upload = Effect.fn("DocumentService.upload")(function* (
