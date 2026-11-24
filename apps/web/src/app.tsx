@@ -14,7 +14,7 @@ import {
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Toaster } from "@/components/ui/sonner";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 import { Canvas } from "./canvas/canvas.tsx";
@@ -39,8 +39,9 @@ import { ShortcutSheet } from "./components/shortcut-sheet.tsx";
 import { PanelLoading } from "./components/splash.tsx";
 import {
   EDGE,
-  HideRightPanel,
-  RightPanelBar,
+  RightPanelPutAway,
+  RightPanelToggle,
+  RightTabsList,
   TitleRow,
 } from "./components/title-bar.tsx";
 import { deferred } from "./lib/deferred.ts";
@@ -528,15 +529,8 @@ const RightPanel = ({
         value={rightTab}
       >
         <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b pr-1.5 pl-1.5">
-          <TabsList className="h-8!" variant="default">
-            <TabsTrigger className="px-2.5" value="design">
-              Design
-            </TabsTrigger>
-            <TabsTrigger className="px-2.5" value="code">
-              Code
-            </TabsTrigger>
-          </TabsList>
-          <HideRightPanel />
+          <RightTabsList />
+          <RightPanelToggle />
         </div>
         {/* Only the open tab is mounted: the code is written out only while it is read. */}
         <TabsContent className="min-h-0 overflow-auto" value="design">
@@ -551,27 +545,19 @@ const RightPanel = ({
   );
 };
 
-const RIGHT_TAB_NAMES: Record<RightTab, string> = {
-  code: "Code",
-  design: "Design",
-};
-
-/** The right panel's name while it is put away: its open tab, or a board view's inspector. */
-const useRightPanelName = () => {
-  const rightTab = useEditor((s) => s.rightTab);
+/**
+ * The right panel put away: its tabs' row alone, or the toggle alone on a board view, whose
+ * inspector has no tabs (ADR 0127).
+ */
+const RightPanelAway = () => {
   const surface = useSurface();
   const board = useBoard((s) => s.open);
-  return surface.rightPanel === "inspector" && board
-    ? "Inspector"
-    : RIGHT_TAB_NAMES[rightTab];
+  return (
+    <RightPanelPutAway tabs={!(surface.rightPanel === "inspector" && board)} />
+  );
 };
 
-const RightPanelPutAway = () => <RightPanelBar name={useRightPanelName()} />;
-
-/**
- * The window's right column, floating over the canvas: the top actions, the right panel's row
- * (its layer and its toggle) and the panel when it is out.
- */
+/** The window's right column, floating over the canvas: the right panel, out or put away. */
 const RightColumn = ({
   hasRight,
   onWidthChange,
@@ -580,7 +566,7 @@ const RightColumn = ({
 }: {
   hasRight: boolean;
   onWidthChange: (width: number) => void;
-  /** Put away by the user while there is something to show in it: its bar alone. */
+  /** Put away by the user while there is something to show in it: its top row alone. */
   putAway: boolean;
   width: number;
 }) => (
@@ -588,7 +574,7 @@ const RightColumn = ({
     className="pointer-events-none absolute z-30 flex flex-col items-end gap-2"
     style={{ bottom: EDGE, right: EDGE, top: EDGE }}
   >
-    {putAway ? <RightPanelPutAway /> : null}
+    {putAway ? <RightPanelAway /> : null}
     {hasRight ? (
       <RightPanel onWidthChange={onWidthChange} width={width} />
     ) : null}

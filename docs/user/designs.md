@@ -53,8 +53,8 @@ design system offers for it, a link, and its menu (**More**). On the canvas the 
 only its tag: its name, and the agent's ✦ button.
 
 At the top right, the right card holds **Design** (the inspector) and **Code**. It is there only
-while something is selected; put away, it is a small card with its name and the button that
-brings it back. Each side panel is put away on its own: with the right one away the canvas is the
+while something is selected; put away, it is its row of tabs alone: click **Design** or **Code**
+to bring it back on that tab, or the button at its end. Each side panel is put away on its own: with the right one away the canvas is the
 agent's, with the chat beside it. ⌃1 is the canvas and ⌃2 the prototype on a Mac, Alt+1 and Alt+2
 elsewhere. In the desktop app on a Mac the window's buttons sit in the project's card, and
 dragging the top of the window between the cards moves it.
