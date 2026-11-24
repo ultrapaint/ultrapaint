@@ -24,6 +24,7 @@ import { create } from "zustand";
 import { api } from "./connection.ts";
 import { reportError } from "./project.ts";
 import { follow } from "./server-data.ts";
+import { ensureEditable } from "./setup.ts";
 
 interface DesignSystemStore extends DesignSystemState {
   /** Runs the fixed-rule scan and saves what it finds. */
@@ -180,6 +181,10 @@ let making: DesignSystemEdit | null = null;
  * `designSystem.edit`. A field whose write sends nothing at once leaves the token to be sent alone.
  */
 export const makeTokenFor = (op: DesignSystemEdit, setField: () => void) => {
+  // Nothing is made while the field could not be written (a point of the history looked at).
+  if (!ensureEditable()) {
+    return;
+  }
   making = op;
   try {
     setField();

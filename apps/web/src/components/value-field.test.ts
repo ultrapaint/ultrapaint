@@ -51,6 +51,19 @@ describe("a field that knows its kind of token", () => {
     expect(isOutsideDesignSystem("18", spacing)).toBe(true);
   });
 
+  it("calls on the system what the design's checks leave alone: a round radius, a keyword that is no value", () => {
+    const radius = { kind: "radius", spacingBase: 4 } as const;
+    expect(isOutsideDesignSystem("50%", [], radius)).toBe(false);
+    expect(isOutsideDesignSystem("none", [], radius)).toBe(false);
+    expect(isOutsideDesignSystem("7", [], radius)).toBe(true);
+    expect(
+      isOutsideDesignSystem("transparent", [], {
+        kind: "color",
+        spacingBase: 4,
+      })
+    ).toBe(false);
+  });
+
   it("still calls a raw colour outside the design system", () => {
     expect(
       isOutsideDesignSystem("#2563eb", [], { kind: "color", spacingBase: 4 })

@@ -132,6 +132,24 @@ describe("the nearest token to a value", () => {
     expect(nearestName("borderWidth", 3, ds)).toBe("border-width-thin");
   });
 
+  it("counts a unitless zero as no pixels, and an absolute length in pixels", () => {
+    const radii: DesignSystem = {
+      ...ds,
+      radius: [
+        { name: "radius-none", value: "0" },
+        { name: "radius-large", value: "8px" },
+        { name: "radius-print", value: "12pt" },
+      ],
+    };
+    expect(nearestName("radius", 1, radii)).toBe("radius-none");
+    expect(nearestName("radius", "0px", radii)).toBe("radius-none");
+    // 12pt is 16px.
+    expect(nearestToken("radius", "15px", radii)).toMatchObject({
+      distance: 1,
+      name: "radius-print",
+    });
+  });
+
   it("is the weight and the unitless line height nearest as numbers", () => {
     expect(nearestName("fontWeight", 600, ds)).toBe("font-weight-bold");
     expect(nearestName("fontWeight", "300", ds)).toBe("font-weight-normal");
