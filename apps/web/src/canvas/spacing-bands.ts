@@ -161,19 +161,23 @@ const gapBands = (stack: DrawnStack, least: number): Band[] => {
  * run the box's width; the left and the right run between them, so a corner is one band's. A
  * thin one is grabbed by the least thickness, inside the box. On a stack too short to leave the
  * sides that much between the top and the bottom, the sides run its height and the top and the
- * bottom run between them, each at most half of it: no band is under another.
+ * bottom run between them, each at most half of it; a side is at most a third of such a stack's
+ * width, and half of any other's: no band is under another, however small the stack.
  */
 const paddingBands = (stack: DrawnStack, least: number): Band[] => {
   const { box, padding } = stack;
   const right = box.x + box.width;
   const bottom = box.y + box.height;
-  const left = Math.max(padding.left, least);
-  const after = Math.max(padding.right, least);
   const short =
     box.height -
       Math.max(padding.top, least) -
       Math.max(padding.bottom, least) <
     least;
+  // The sides leave the top and the bottom a third of a short stack's width, and each other half
+  // of a narrow one's.
+  const widest = short ? box.width / 3 : box.width / 2;
+  const left = Math.min(Math.max(padding.left, least), widest);
+  const after = Math.min(Math.max(padding.right, least), widest);
   const top = Math.max(padding.top, least);
   const below = Math.max(padding.bottom, least);
   const above = short ? Math.min(top, box.height / 2) : top;
