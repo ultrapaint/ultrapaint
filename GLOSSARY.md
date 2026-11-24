@@ -571,9 +571,13 @@ refactor and the board view left.
 - **Pointer gesture**: what a press on the canvas begins and its release ends, a marquee, a drag,
   a frame gesture, a group or text drawn, a pan (the web's `pointer-gesture`, ADR 0133): followed
   on the window by the pointer that pressed, whatever it crosses, let go on its release or its
-  first move with no button held; cancelled with the pointer, when the window loses the focus,
-  by Escape or by the next press: what it moved or picked put back, a pan keeping the view it
-  reached. One at a time.
+  first move with no button held; put back with a cancelled pointer, when the window loses the
+  focus, by Escape or by the next press: what it moved or picked as it was, a pan keeping the view
+  it reached. One at a time.
+  _Avoid_: cancelled gesture, drag session.
+- **Select layer**: what a frame lays over its page while the select tool is on and Space is not
+  held (the web's `SelectLayer`): where a press, a hover or a click in the page is heard. It goes
+  while Space is held, so nothing a press begins may depend on it (ADR 0133).
 - **Frame gesture**: moving or sizing a page's frame, or sizing a node on the canvas, from the
   press on its name or corner to the release (the web's `frame-gesture`), a **pointer gesture**:
   drawn as it goes, saved once when let go (a page's frame rounded to the pixel, a node in one

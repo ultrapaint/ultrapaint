@@ -7,8 +7,8 @@
  * it to end. One is followed at a time.
  *
  * It ends let go (`up`) on that pointer's release, or on its first move with the button no longer
- * held, a release the window never heard (outside it). It is cancelled (`cancel`: what it moved
- * or picked put back, a pan keeping its view) when the browser takes the pointer away, when the
+ * held, a release the window never heard (outside it). It is put back (`cancel`: what it moved
+ * or picked as it was, a pan keeping its view) when the browser takes the pointer away, when the
  * window loses the focus, by Escape (`putBackGesture`), and by
  * the next press, before that one begins.
  */

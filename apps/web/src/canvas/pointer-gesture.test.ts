@@ -63,17 +63,21 @@ describe("a pointer gesture", () => {
     ]);
   });
 
-  it("is put back when the browser takes the pointer away, or the window loses the focus", () => {
-    const taken = recorder();
-    followPointer({ pointerId: 1 }, taken.gesture);
+  it("is put back when the browser takes the pointer away", () => {
+    const { gesture, seen } = recorder();
+    followPointer({ pointerId: 1 }, gesture);
     hear("pointercancel");
-    expect(taken.seen).toEqual(["cancel"]);
+    expect(seen).toEqual(["cancel"]);
     expect(isFollowing()).toBe(false);
-    const blurred = recorder();
-    followPointer({ pointerId: 1 }, blurred.gesture);
+  });
+
+  it("is put back when the window loses the focus, and its release then does nothing", () => {
+    const { gesture, seen } = recorder();
+    followPointer({ pointerId: 1 }, gesture);
     window.dispatchEvent(new Event("blur"));
     hear("pointerup", { buttons: 0 });
-    expect([taken.seen, blurred.seen]).toEqual([["cancel"], ["cancel"]]);
+    expect(seen).toEqual(["cancel"]);
+    expect(isFollowing()).toBe(false);
   });
 
   it("is put back by Escape, which says there was one", () => {
