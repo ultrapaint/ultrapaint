@@ -664,8 +664,10 @@ refactor and the board view left.
   `state/theme.ts`); the editor's chrome only, never a design's theme.
 - **Preferences**: how the editor looks and behaves for the person, in every project, drawn on
   the root as data attributes (ADR 0093; `state/preferences.ts`): the **accent**, the **text
-  size**, **increase contrast**, **motion**, the **scroll wheel** and **notifications**. The
-  chrome only, never a design. With the theme, the send key, the grid and comments shown and the
+  size**, **increase contrast**, **motion**, the **scroll wheel**, **notifications** and
+  **agents at work** (Animated, a light passing through what an agent changes, or Calm, a still
+  outline; read by the canvas's overlays, not drawn on the root, ADR 0142). The chrome only,
+  never a design. With the theme, the send key, the grid and comments shown and the
   person's keys, they are kept in the profile (`profile.json`'s `preferences`,
   `state/person-preferences.ts`), which carries them from one project's page to the next, and in
   the browser, which draws them before the server answers.

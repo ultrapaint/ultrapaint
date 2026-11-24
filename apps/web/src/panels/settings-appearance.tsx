@@ -1,7 +1,7 @@
 /**
  * Settings › Appearance: the editor's theme and accent, the canvas's grid, comments and wheel, and
- * the interface's text size, contrast and motion. The person's, in every project, kept in the
- * browser and drawn at once; the designs keep their own look.
+ * the interface's text size, contrast, motion and how an agent's work is marked. The person's, in
+ * every project, kept in the browser and drawn at once; the designs keep their own look.
  */
 import { Check } from "lucide-react";
 import type * as React from "react";
@@ -18,6 +18,7 @@ import { useComments } from "../state/comments.ts";
 import {
   ACCENTS,
   type Accent,
+  type AgentsAtWork,
   DEFAULT_PREFERENCES,
   type Motion,
   type Preferences,
@@ -319,6 +320,22 @@ export const AppearanceSection = () => {
               { label: "Full", value: "full" },
             ]}
             value={preferences.motion}
+          />
+        </Row>
+        <Row
+          description="Calm marks what an agent is changing with a still outline."
+          onReset={resetOf("agentsAtWork", preferences.agentsAtWork)}
+          setting="agents-at-work"
+          title="Agents at work"
+        >
+          <Segmented<AgentsAtWork>
+            aria-label="Agents at work"
+            onChange={(v) => set("agentsAtWork", v)}
+            options={[
+              { label: "Animated", value: "animated" },
+              { label: "Calm", value: "calm" },
+            ]}
+            value={preferences.agentsAtWork}
           />
         </Row>
       </Group>

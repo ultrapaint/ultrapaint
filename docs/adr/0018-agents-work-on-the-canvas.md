@@ -25,6 +25,10 @@ still naming the base page (0019).
 > a turn; Enter does that while the agent works and ⌘Enter queues; a prompt being edited in the
 > composer holds the whole queue; the person reorders the queue.
 
+> Amended by [0142](0142-agents-at-work-are-animated-or-calm.md), 2026-11-24: the light passes
+> through an agent's work only under Agents at work's Animated with motion not reduced; under Calm
+> or reduced motion the pink outline is drawn alone.
+
 The editor was redesigned with the tool itself: the pages are in `docs/designs/redesign/`, and
 `ultrapaint.json` at the root opens this repository in the editor.
 

@@ -17,6 +17,14 @@ describe("the settings' search", () => {
     expect(searchSettings("hotkeys").map((e) => e.id)).toEqual(["shortcuts"]);
   });
 
+  it("finds Agents at work by calm, agent or animation", () => {
+    for (const words of ["calm", "agent", "animation"]) {
+      expect(searchSettings(words).map((e) => e.id)).toContain(
+        "agents-at-work"
+      );
+    }
+  });
+
   it("leaves out the sections not shown", () => {
     expect(
       searchSettings("review", (s) => s !== "review").some(

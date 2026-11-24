@@ -1,6 +1,7 @@
 /**
  * An agent's work, on the elements it changes: pink, whichever agent it is, with a light passing
- * through while it works, and its name and what it is doing on the edge of the first of them.
+ * through while it works (a still outline under Calm or reduced motion, `useAgentSweeps`), and its
+ * name and what it is doing on the edge of the first of them.
  * The text and pictures it announced and has not changed yet are skeletons, drawn by the preview.
  * This is where an agent's work shows; nothing about it sits at the bottom of the canvas.
  */
@@ -21,6 +22,7 @@ import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { documentShown, frameRefOf } from "../state/frame-ref.ts";
 import { showLeftPanel } from "../state/panels.ts";
+import { useAgentSweeps } from "../state/preferences.ts";
 import { screenPx, UNZOOM } from "./camera.ts";
 import { frameOf } from "./editor-frame.ts";
 
@@ -154,6 +156,7 @@ export const AgentWorkOverlay = ({
   pieces: readonly FrameWork[];
 }) => {
   const rects = useEditor((s) => s.rects[frameId]);
+  const sweeps = useAgentSweeps();
   return (
     <>
       {pieces.map(({ nodeIds, threadId, work }) =>
@@ -165,23 +168,26 @@ export const AgentWorkOverlay = ({
           return (
             <div
               className="pointer-events-none absolute"
+              data-agent-work={threadId}
               key={`${threadId}:${id}`}
               style={{
                 height: rect.height,
                 left: rect.x,
-                outline: `${screenPx(2)} solid var(--agent)`,
+                // Longhands, which every DOM keeps: the outline is what the work is, sweep or not.
+                outlineColor: "var(--agent)",
                 outlineOffset: screenPx(-1),
+                outlineStyle: "solid",
+                outlineWidth: screenPx(2),
                 top: rect.y,
                 width: rect.width,
               }}
             >
-              <div
-                className={
-                  work.done
-                    ? "absolute inset-0 bg-agent/10 transition-opacity"
-                    : "absolute inset-0 animate-agent-sweep bg-[linear-gradient(100deg,color-mix(in_srgb,var(--agent)_10%,transparent)_20%,color-mix(in_srgb,var(--agent)_28%,transparent)_45%,color-mix(in_srgb,var(--agent)_10%,transparent)_70%)] bg-size-[250%_100%]"
-                }
-              />
+              {work.done ? (
+                <div className="absolute inset-0 bg-agent/10 transition-opacity" />
+              ) : null}
+              {!work.done && sweeps ? (
+                <div className="absolute inset-0 animate-agent-sweep bg-[linear-gradient(100deg,color-mix(in_srgb,var(--agent)_10%,transparent)_20%,color-mix(in_srgb,var(--agent)_28%,transparent)_45%,color-mix(in_srgb,var(--agent)_10%,transparent)_70%)] bg-size-[250%_100%]" />
+              ) : null}
               {i === 0 ? <Tag threadId={threadId} work={work} /> : null}
             </div>
           );

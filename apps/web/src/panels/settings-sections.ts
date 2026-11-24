@@ -188,6 +188,12 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     title: "Motion",
   },
   {
+    id: "agents-at-work",
+    section: "appearance",
+    terms: "agent calm animation sweep canvas outline motion",
+    title: "Agents at work",
+  },
+  {
     id: "chat-agent",
     section: "chats",
     terms: "new chat default claude codex",

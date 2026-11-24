@@ -42,6 +42,7 @@ import { canvasNodes, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
 import { nodeFrameLayout } from "../state/page-layout.ts";
+import { useAgentSweeps } from "../state/preferences.ts";
 import { useFrameBreakpoint } from "../state/selection.ts";
 import {
   besideBoxes,
@@ -370,9 +371,10 @@ const PartChrome = ({
 };
 
 /**
- * A take an agent has not handed in: a placeholder in the agent's colour while it is made, or a
- * red box once its turn ended without it, which asks again on a click. What it is is said over
- * it, as a variation's name is, so a small thing's box holds nothing it could spill.
+ * A take an agent has not handed in: a placeholder in the agent's colour while it is made (a light
+ * passing through it, or a still outline under Calm or reduced motion, `useAgentSweeps`), or a red
+ * box once its turn ended without it, which asks again on a click. What it is is said over it, as
+ * a variation's name is, so a small thing's box holds nothing it could spill.
  */
 const TakeBox = ({
   box,
@@ -381,51 +383,57 @@ const TakeBox = ({
   box: Box;
   /** The round it failed in; none while it is still coming. */
   round?: VariationRound | undefined;
-}) => (
-  <div
-    className={cn(
-      "absolute",
-      round
-        ? "bg-destructive/5"
-        : "animate-agent-sweep bg-[linear-gradient(100deg,color-mix(in_srgb,var(--agent)_6%,transparent)_20%,color-mix(in_srgb,var(--agent)_18%,transparent)_45%,color-mix(in_srgb,var(--agent)_6%,transparent)_70%)] bg-size-[250%_100%]"
-    )}
-    data-take={round ? "failed" : "coming"}
-    style={{
-      height: box.height,
-      left: box.x,
-      outline: `${screenPx(1.5)} ${round ? "solid var(--destructive)" : "dashed var(--agent)"}`,
-      top: box.y,
-      width: box.width,
-    }}
-  >
-    <FrameHeader width={box.width}>
-      {round ? (
-        <>
-          <button
-            className={cn(HEADER_NAME, "text-destructive hover:underline")}
-            onClick={() => tryAgain(round)}
-            onPointerDown={(e) => e.stopPropagation()}
-            type="button"
-          >
-            Try again
-          </button>
-          <span className="text-muted-foreground">Did not come back</span>
-        </>
-      ) : (
-        <span className={cn(HEADER_NAME, "text-agent")}>Coming…</span>
+}) => {
+  const sweeps = useAgentSweeps();
+  return (
+    <div
+      className={cn(
+        "absolute",
+        round && "bg-destructive/5",
+        !round &&
+          sweeps &&
+          "animate-agent-sweep bg-[linear-gradient(100deg,color-mix(in_srgb,var(--agent)_6%,transparent)_20%,color-mix(in_srgb,var(--agent)_18%,transparent)_45%,color-mix(in_srgb,var(--agent)_6%,transparent)_70%)] bg-size-[250%_100%]"
       )}
-    </FrameHeader>
-    {round ? (
-      <button
-        aria-label="Try again"
-        className="absolute inset-0 h-full w-full cursor-pointer"
-        onClick={() => tryAgain(round)}
-        onPointerDown={(e) => e.stopPropagation()}
-        type="button"
-      />
-    ) : null}
-  </div>
-);
+      data-take={round ? "failed" : "coming"}
+      style={{
+        height: box.height,
+        left: box.x,
+        outlineColor: round ? "var(--destructive)" : "var(--agent)",
+        outlineStyle: round ? "solid" : "dashed",
+        outlineWidth: screenPx(1.5),
+        top: box.y,
+        width: box.width,
+      }}
+    >
+      <FrameHeader width={box.width}>
+        {round ? (
+          <>
+            <button
+              className={cn(HEADER_NAME, "text-destructive hover:underline")}
+              onClick={() => tryAgain(round)}
+              onPointerDown={(e) => e.stopPropagation()}
+              type="button"
+            >
+              Try again
+            </button>
+            <span className="text-muted-foreground">Did not come back</span>
+          </>
+        ) : (
+          <span className={cn(HEADER_NAME, "text-agent")}>Coming…</span>
+        )}
+      </FrameHeader>
+      {round ? (
+        <button
+          aria-label="Try again"
+          className="absolute inset-0 h-full w-full cursor-pointer"
+          onClick={() => tryAgain(round)}
+          onPointerDown={(e) => e.stopPropagation()}
+          type="button"
+        />
+      ) : null}
+    </div>
+  );
+};
 
 /** How far the scrim reaches each way from the canvas's origin: past any canvas, at any zoom. */
 const SCRIM_REACH = 1_000_000;

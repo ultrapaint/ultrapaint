@@ -333,12 +333,6 @@ body,
   user-select: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .animate-agent-sweep {
-    animation: none;
-  }
-}
-
 input[type="number"]::-webkit-inner-spin-button {
   appearance: none;
 }
