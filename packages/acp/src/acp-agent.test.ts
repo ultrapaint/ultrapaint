@@ -8,6 +8,7 @@ import {
   type AcpHandlers,
   type SessionNotification,
   spawnAcpAgent,
+  type Written,
 } from "./acp-agent.ts";
 import { AcpHostError, ResourceNotFound } from "./errors.ts";
 import { makeTerminalManager } from "./terminal-manager.ts";
@@ -168,20 +169,18 @@ describe("AcpAgent", () => {
 
   agentTest("tells the handler its answer was written to the agent", () =>
     Effect.gen(function* () {
-      const heard = yield* Deferred.make<boolean>();
+      const given = yield* Deferred.make<Written>();
       const { agent, seen } = yield* open({
         onElicitation: (_, written) =>
-          Effect.as(
-            Effect.forkDetach(
-              Effect.flatMap(written, (w) => Deferred.succeed(heard, w))
-            ),
-            { action: "accept", content: { plan: "pro", seats: 3 } }
-          ),
+          Effect.as(Deferred.succeed(given, written), {
+            action: "accept",
+            content: { plan: "pro", seats: 3 },
+          }),
       });
       const { sessionId } = yield* agent.newSession(process.cwd());
       yield* agent.prompt(sessionId, [{ text: "elicit", type: "text" }]);
       assert.deepStrictEqual(seen, ['elicit:accept:{"plan":"pro","seats":3}']);
-      assert.isTrue(yield* Deferred.await(heard));
+      assert.isTrue(yield* Effect.flatten(Deferred.await(given)));
     })
   );
 
@@ -190,15 +189,10 @@ describe("AcpAgent", () => {
     () =>
       Effect.gen(function* () {
         // The agent is gone while the person thinks: whatever they answer never reaches it.
-        const heard = yield* Deferred.make<boolean>();
+        const given = yield* Deferred.make<Written>();
         const { agent } = yield* open({
           onElicitation: (_, written) =>
-            Effect.andThen(
-              Effect.forkDetach(
-                Effect.flatMap(written, (w) => Deferred.succeed(heard, w))
-              ),
-              Effect.never
-            ),
+            Effect.andThen(Deferred.succeed(given, written), Effect.never),
         });
         const { sessionId } = yield* agent.newSession(process.cwd());
         yield* Effect.forkScoped(
@@ -206,7 +200,7 @@ describe("AcpAgent", () => {
             agent.prompt(sessionId, [{ text: "abandon", type: "text" }])
           )
         );
-        assert.isFalse(yield* Deferred.await(heard));
+        assert.isFalse(yield* Effect.flatten(Deferred.await(given)));
       })
   );
 

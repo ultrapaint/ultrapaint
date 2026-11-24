@@ -104,11 +104,11 @@ interface Pending<A> {
 interface PendingForm extends Pending<CreateElicitationResponse> {
   readonly questions: readonly Question[];
   /** What makes two forms the same questions: their ids, texts and options. */
-  readonly same: string;
+  readonly questionsKey: string;
 }
 
 /** Questions asked again are the same ids, texts and options in the same order. */
-const sameQuestions = (questions: readonly Question[]) =>
+const questionsKeyOf = (questions: readonly Question[]) =>
   JSON.stringify(
     questions.map((q) => [
       q.id,
@@ -241,19 +241,19 @@ export const makePendingCards = (
     }
     const itemId = yield* newItemId;
     const reply = yield* Deferred.make<CreateElicitationResponse>();
-    const same = sameQuestions(questions);
+    const questionsKey = questionsKeyOf(questions);
     return yield* Effect.gen(function* () {
       // Asked again while a copy is open: the agent waits on the newest, and the older copy is
       // no longer asked, so an answer never goes to a request nobody waits on.
       for (const [olderId, older] of forms) {
         if (
-          older.same === same &&
+          older.questionsKey === questionsKey &&
           (yield* Deferred.succeed(older.reply, CANCEL))
         ) {
           yield* cancelled(olderId, "repeated");
         }
       }
-      forms.set(itemId, { questions, reply, same, written });
+      forms.set(itemId, { questions, questionsKey, reply, written });
       shown += 1;
       yield* store.push(threadId, {
         answers: null,

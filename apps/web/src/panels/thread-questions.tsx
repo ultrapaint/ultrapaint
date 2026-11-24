@@ -148,12 +148,12 @@ export const Permission = ({
 }) => {
   const open = !item.decision;
   const { ordered, primary } = orderedOptions(item.options);
+  let title = open ? "Permission needed" : "Permission";
+  if (item.settled?.how === "undelivered") {
+    title = "Delivery not confirmed";
+  }
   return (
-    <AskCard
-      icon={open ? ShieldQuestion : Check}
-      open={open}
-      title={open ? "Permission needed" : "Permission"}
-    >
+    <AskCard icon={open ? ShieldQuestion : Check} open={open} title={title}>
       <span
         className={cn(
           "wrap-break-word",

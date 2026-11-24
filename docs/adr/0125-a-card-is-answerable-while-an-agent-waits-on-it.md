@@ -63,7 +63,8 @@ the editor keeps honouring `$/cancel_request`.
 A replay agent (`@ultrapaint/acp/replay-agent`) plays a transcript of a real agent's messages
 against the editor's own ACP client, the SDK included, at the agent launcher's seam beside the
 scripted agent, as the reference product's recorded fixtures do. The first transcript is Claude
-Code asking with `ask_user` through claude-agent-acp 0.95.
+Code asking with `ask_user` through claude-agent-acp 0.95, written by hand from that version's own
+messages where no session could be recorded; a recorded one replaces it as is.
 
 ## Consequences
 
@@ -72,7 +73,8 @@ question: its answers arrive as a message. A permission open at a restart has to
 the agent, which is the safe way round.
 
 The answer request waits for the write, which is a write to the agent's input and takes no time
-while the agent runs.
+while the agent runs. Written means handed to the agent's input: an agent that dies before its
+exit is seen may never read an answer that reads Answered.
 
 Considered and rejected: one answer delivered to every identical open copy (the agent could act on
 it twice), and keeping thread events in a SQLite store as the reference product does (the person
