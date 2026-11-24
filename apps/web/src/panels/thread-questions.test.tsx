@@ -6,6 +6,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { QuestionItem } from "../lib/answers.ts";
 import { chordLabel } from "../lib/keys.ts";
+import { useAnswers } from "../state/answers.ts";
 import { useSendKey } from "../state/send-key.ts";
 import {
   OpenQuestion,
@@ -34,6 +35,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => mounted.unmount());
   useSendKey.getState().setSendKey("enter");
+  useAnswers.setState({ drafts: {} });
 });
 
 describe("the key a Send tooltip names", () => {
@@ -229,5 +231,51 @@ describe("a card no agent waits on any more (ADR 0125)", () => {
       )
     );
     expect(buttons()).not.toContain("Decline");
+  });
+});
+
+describe("a question card with an answer typed in the composer (ADR 0140)", () => {
+  /** A question with options only, as an agent's own question tool asks it. */
+  const navbarGap: QuestionItem = {
+    answers: null,
+    at: 1,
+    elicitation: { message: "A spacing check" },
+    id: "ask1",
+    kind: "question",
+    questions: [
+      {
+        id: "gap",
+        options: [
+          { id: "rule", label: "Add a rule" },
+          { id: "leave", label: "Leave as is" },
+        ],
+        question: "Navbar gap",
+      },
+    ],
+  };
+
+  it("shows no option picked while the typed answer stands instead", () => {
+    const draft = {
+      busy: false,
+      other: { gap: "8px of space" },
+      picked: { gap: "rule" },
+      step: 0,
+    };
+    useAnswers.setState({ drafts: { ask1: draft } });
+    act(() =>
+      mounted.render(
+        <OpenQuestion
+          answering={{
+            asking: navbarGap,
+            draft,
+            question: navbarGap
+              .questions[0] as QuestionItem["questions"][number],
+          }}
+          threadId="t1"
+        />
+      )
+    );
+    expect(container.textContent).toContain("Navbar gap");
+    expect(container.querySelectorAll("[aria-pressed='true']")).toHaveLength(0);
   });
 });

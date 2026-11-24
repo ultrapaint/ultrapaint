@@ -29,7 +29,7 @@ import {
 import { Clock, Deferred, Effect } from "effect";
 import type { AppLog } from "../../app-log.ts";
 import { makeId } from "../../ids.ts";
-import { answersText, contentOf, questionsOf } from "./elicitation.ts";
+import { answersText, type FormQuestions, questionsOf } from "./elicitation.ts";
 import type { ThreadStore } from "./thread-store.ts";
 
 const DECLINE: CreateElicitationResponse = { action: "decline" };
@@ -102,7 +102,8 @@ interface Pending<A> {
 
 /** A form the agent is waiting on, by its card's item id. */
 interface PendingForm extends Pending<CreateElicitationResponse> {
-  readonly questions: readonly Question[];
+  /** The answers as the content the form takes, each in the field it goes in. */
+  readonly contentOf: FormQuestions["contentOf"];
   /** What makes two forms the same questions: their ids, texts and options. */
   readonly questionsKey: string;
 }
@@ -234,11 +235,11 @@ export const makePendingCards = (
     request: CreateElicitationRequest,
     written: Written
   ) {
-    const questions =
+    const form =
       request.mode === "form" && "requestedSchema" in request
         ? questionsOf(request.requestedSchema)
         : null;
-    if (questions === null || questions.length === 0) {
+    if (form === null || form.questions.length === 0) {
       yield* log.log(
         "agent",
         "info",
@@ -246,6 +247,7 @@ export const makePendingCards = (
       );
       return DECLINE;
     }
+    const { contentOf, questions } = form;
     const itemId = yield* newItemId;
     const reply = yield* Deferred.make<CreateElicitationResponse>();
     const questionsKey = questionsKeyOf(questions);
@@ -260,7 +262,7 @@ export const makePendingCards = (
           yield* cancelled(olderId, "repeated");
         }
       }
-      forms.set(itemId, { questions, questionsKey, reply, written });
+      forms.set(itemId, { contentOf, questionsKey, reply, written });
       shown += 1;
       yield* store.push(threadId, {
         answers: null,
@@ -328,7 +330,7 @@ export const makePendingCards = (
     if (waiting !== undefined) {
       const taken = yield* Deferred.succeed(waiting.reply, {
         action: "accept",
-        content: contentOf(waiting.questions, answers),
+        content: waiting.contentOf(answers),
       });
       if (!taken) {
         return yield* new Conflict({
