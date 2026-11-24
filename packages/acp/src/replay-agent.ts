@@ -14,8 +14,9 @@
  *
  * A FRAME is `{"kind":"request"|"notification","method":…,"params":…}` or
  * `{"kind":"response","method":…,"result":…}`: a response names the method of the request it
- * answers, and its id is that request's. In an expected frame, `"<any>"` matches any value, and a
- * string with `<any>` in it matches any text in its place.
+ * answers, and its id is that request's. Two requests of one method open at once each take a
+ * `ref` of the transcript's own, which their responses name too. In an expected frame, `"<any>"`
+ * matches any value, and a string with `<any>` in it matches any text in its place.
  *
  * Its scope closing stops it, as a process is stopped. It never exits on its own.
  */
@@ -32,9 +33,14 @@ const Frame = Schema.Struct({
   kind: Schema.Literals(["request", "notification", "response"]),
   method: Schema.String,
   params: Schema.optional(Schema.Unknown),
+  /** Which of several requests of one method open at once, for the transcript. */
+  ref: Schema.optional(Schema.String),
   result: Schema.optional(Schema.Unknown),
 });
 type Frame = typeof Frame.Type;
+
+/** How a request in flight is known: its `ref`, or its method when only one is open. */
+const keyOf = (frame: Frame) => frame.ref ?? frame.method;
 
 const Line = Schema.Union([
   Schema.Struct({ type: Schema.Literal("start") }),
@@ -148,10 +154,13 @@ export const makeReplayAgent = Effect.fnUntraced(function* (options: {
   const received = Effect.promise(() => reader.read());
   const send = (message: unknown) =>
     Effect.promise(() => writer.write(message as AnyMessage));
-  // The ids of the requests in flight, by method: the editor's, which the agent answers, and
+  // The ids of the requests in flight, by `keyOf`: the editor's, which the agent answers, and
   // the agent's, which the editor answers.
   const editorRequests = new Map<string, string | number>();
-  const agentRequests = new Map<string, number>();
+  const agentRequests = new Map<
+    string,
+    { readonly id: number; readonly method: string }
+  >();
   let nextId = 0;
 
   const mismatch = (label: string, expected: Frame, actual: unknown) =>
@@ -159,21 +168,32 @@ export const makeReplayAgent = Effect.fnUntraced(function* (options: {
       message: `${label}: expected ${JSON.stringify(expected)}, the editor sent ${JSON.stringify(actual)}`,
     });
 
-  /** The editor's next message, as the frame a transcript writes. */
-  const frameOf = (message: Record<string, unknown>): Frame => {
+  /**
+   * The editor's next message, as the frame a transcript writes, and for a response the key of
+   * the agent's request it answers.
+   */
+  const frameOf = (
+    message: Record<string, unknown>
+  ): { readonly frame: Frame; readonly key?: string } => {
     if (typeof message.method === "string") {
       return {
-        kind: "id" in message ? "request" : "notification",
-        method: message.method,
-        params: message.params,
+        frame: {
+          kind: "id" in message ? "request" : "notification",
+          method: message.method,
+          params: message.params,
+        },
       };
     }
-    const method =
-      [...agentRequests].find(([, id]) => id === message.id)?.[0] ?? "?";
+    const answered = [...agentRequests].find(
+      ([, request]) => request.id === message.id
+    );
     return {
-      kind: "response",
-      method,
-      result: "result" in message ? message.result : { error: message.error },
+      frame: {
+        kind: "response",
+        method: answered?.[1].method ?? "?",
+        result: "result" in message ? message.result : { error: message.error },
+      },
+      ...(answered ? { key: answered[0] } : {}),
     };
   };
 
@@ -185,21 +205,22 @@ export const makeReplayAgent = Effect.fnUntraced(function* (options: {
       });
     }
     const message = next.value as unknown as Record<string, unknown>;
-    const actual = frameOf(message);
-    const { kind, method, ...rest } = frame;
+    const { frame: actual, key } = frameOf(message);
+    const { kind, method, ref: _ref, ...rest } = frame;
     const { kind: actualKind, method: actualMethod, ...actualRest } = actual;
     if (
       kind !== actualKind ||
       method !== actualMethod ||
+      (kind === "response" && key !== keyOf(frame)) ||
       !matches(rest, actualRest)
     ) {
       return yield* mismatch(label, frame, actual);
     }
     if (kind === "request") {
-      editorRequests.set(method, message.id as string | number);
+      editorRequests.set(keyOf(frame), message.id as string | number);
     }
-    if (kind === "response") {
-      agentRequests.delete(method);
+    if (key !== undefined) {
+      agentRequests.delete(key);
     }
   });
 
@@ -207,7 +228,7 @@ export const makeReplayAgent = Effect.fnUntraced(function* (options: {
     switch (frame.kind) {
       case "request": {
         nextId += 1;
-        agentRequests.set(frame.method, nextId);
+        agentRequests.set(keyOf(frame), { id: nextId, method: frame.method });
         return yield* send({
           id: nextId,
           jsonrpc: "2.0",
@@ -222,13 +243,13 @@ export const makeReplayAgent = Effect.fnUntraced(function* (options: {
           params: frame.params,
         });
       default: {
-        const id = editorRequests.get(frame.method);
+        const id = editorRequests.get(keyOf(frame));
         if (id === undefined) {
           return yield* new ReplayMismatch({
-            message: `${label}: the editor sent no ${frame.method} to answer`,
+            message: `${label}: the editor sent no ${keyOf(frame)} to answer`,
           });
         }
-        editorRequests.delete(frame.method);
+        editorRequests.delete(keyOf(frame));
         return yield* send({ id, jsonrpc: "2.0", result: frame.result });
       }
     }

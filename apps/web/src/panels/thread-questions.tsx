@@ -129,6 +129,14 @@ const PermissionOption = ({
 
 /** What a permission card says came of it: the option picked, or why there was none. */
 const decisionLabel = (item: PermissionItem) => {
+  // How it was settled comes first: an option may be named `expired` or `cancelled` too.
+  const how = item.settled?.how;
+  if (how === "expired") {
+    return "Expired";
+  }
+  if (how === "withdrawn" || how === "released" || how === "repeated") {
+    return "No longer asked";
+  }
   const picked = item.options.find((o) => o.optionId === item.decision);
   if (picked) {
     return picked.name;
