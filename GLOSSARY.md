@@ -526,6 +526,10 @@ refactor and the board view left.
   once when let go (a page's frame rounded to the pixel, a node in one "Resize" edit). A cancelled
   pointer or Escape puts back whatever the pointer is doing, a drag or a group being drawn too, and
   saves nothing.
+- **Space pan**: the hand Space held over a canvas gives, whatever the tool (`spacePan`, ADR
+  0128): the key is the pan's alone while it pans, never a focused control's, and the pan ends on
+  its release, when the window loses the focus or when the page is hidden. The Pan tool (H) is the
+  same hand, kept until another tool is picked.
 - **Selection**: the nodes of a page the user picked, which every view of the page shows, by one
   rule and changed by one module (the web's `selection`: `select`, `selectMany`,
   `toggleSelected`, `selectPage`, `selectForMenu`): a Shift-click in another view adds to it. It is in the view it was

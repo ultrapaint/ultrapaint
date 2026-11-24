@@ -13,7 +13,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { isTyping } from "../lib/keys.ts";
+import { isTyping, overlayOpen } from "../lib/keys.ts";
 import {
   clampZoom,
   measureViewportWith,
@@ -26,6 +26,7 @@ import {
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { usePreferences } from "../state/preferences.ts";
+import { useProject } from "../state/project.ts";
 import { allFrames } from "../state/surface.ts";
 import { useDrag } from "./drag.ts";
 import { isWarm, LOADING_MAX, onPoolChange } from "./editor-frame.ts";
@@ -263,32 +264,59 @@ export const wheelView = (
   }
 };
 
-/** Space held pans whatever the tool, while a canvas is on screen. */
+/**
+ * Space held pans whatever the tool, while a canvas is on screen: unless it is typed into a field,
+ * or a dialog, a menu or the settings are open, whose key it is then (as `windowScopes` has it).
+ */
+const spacePans = (e: KeyboardEvent) =>
+  !(isTyping(e) || overlayOpen() || useProject.getState().settingsOpen);
+
+/**
+ * Space held pans for as long as it is held. While it pans the key is the pan's alone: the window
+ * takes it before what has the focus, so a focused button (a tool of the toolbar, a toggle) is
+ * never pressed by it, on the press, its repeats or the release. The pan ends when Space is
+ * released, wherever the focus went meanwhile, and when the window or the page is left, where
+ * that release never arrives.
+ */
 export const useSpacePan = () => {
   useEffect(() => {
     const store = useEditor.getState;
     const down = (e: KeyboardEvent) => {
-      if (e.code === "Space" && !isTyping(e)) {
-        e.preventDefault();
-        if (!store().spacePan) {
-          store().setSpacePan(true);
-        }
+      if (e.code !== "Space") {
+        return;
+      }
+      // A held key's repeats are the pan's that its first press began.
+      if (!((e.repeat && store().spacePan) || spacePans(e))) {
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      if (!store().spacePan) {
+        store().setSpacePan(true);
       }
     };
     const up = (e: KeyboardEvent) => {
       if (e.code === "Space" && store().spacePan) {
+        e.preventDefault();
+        e.stopPropagation();
         store().setSpacePan(false);
       }
     };
-    // A key released while the window is in the background never reaches keyup.
-    const blur = () => store().setSpacePan(false);
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
-    window.addEventListener("blur", blur);
+    const end = () => store().setSpacePan(false);
+    const hidden = () => {
+      if (document.hidden) {
+        end();
+      }
+    };
+    window.addEventListener("keydown", down, true);
+    window.addEventListener("keyup", up, true);
+    window.addEventListener("blur", end);
+    document.addEventListener("visibilitychange", hidden);
     return () => {
-      window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
-      window.removeEventListener("blur", blur);
+      window.removeEventListener("keydown", down, true);
+      window.removeEventListener("keyup", up, true);
+      window.removeEventListener("blur", end);
+      document.removeEventListener("visibilitychange", hidden);
     };
   }, []);
 };
