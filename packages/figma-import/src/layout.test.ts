@@ -121,6 +121,17 @@ describe("a node's box", () => {
     );
   });
 
+  it("runs a skewed linear gradient across the lines its colours stay the same along", () => {
+    // Its handles at (50, 25) and (150, 75); its colour lines at a slant of their own.
+    expect(
+      gradientBox({
+        transform: { m00: 1, m01: 1, m02: -0.5, m10: -1, m11: 1, m12: 0.5 },
+      })
+    ).toBe(
+      "linear-gradient(153.43deg, rgba(255, 255, 255, 1) 25%, rgba(0, 0, 0, 1) 75%)"
+    );
+  });
+
   it("is a radial gradient turned a quarter as the ellipse its axes swap to", () => {
     // Still half the box each way.
     expect(
