@@ -26,8 +26,10 @@ registration stays the agent's own `mcp remove`, run by the person.
 
 **The agent's answer is the only record.** A row reads **Connected** when the agent itself lists
 Ultrapaint: `claude mcp get ultrapaint` and `codex mcp get ultrapaint`, which exit 0 for a server
-they list and 1 for one they do not; any other exit is the agent failing to say, and the row
-says so in its words. `claude mcp list` is not used, since it starts every server it lists to
+they list and 1, saying "No MCP server named …", for one they do not. Both also exit 1 when they
+can't read their own configuration (a corrupted `~/.claude.json`, a `config.toml` that does not
+parse), so an exit 1 without that message, like any other exit, is the agent failing to say, and
+the row says so in its words. `claude mcp list` is not used, since it starts every server it lists to
 check it. `claude mcp get` (2.1.331) still health-checks the one server it names: each opening
 starts `ultrapaint mcp` once in the home folder, which finds no project there and starts no
 server (ADR 0083). `codex mcp get` starts nothing. The question is asked each time the section opens, so a registration
@@ -44,9 +46,9 @@ the project by its folder (ADR 0083).
 
 **An outside agent is one the person runs themselves.** The program is the one the desktop app
 found for the agent (the runtime's executable) or else the one on the server's PATH. The copy the
-app downloads for its own threads where the person has none is not theirs to run and not on their
-PATH: the runtime marks it (`downloaded`), and its row reads not installed, with the descriptor's
-install link, as a missing program's does. Only Claude Code and Codex have rows. A custom agent
+app downloads for its own threads where the person has none is not theirs to run: the runtime
+marks it (`downloaded`), the server looks on its own PATH instead, and with none there the row
+reads not installed, with the descriptor's install link, as a missing program's does. Only Claude Code and Codex have rows. A custom agent
 has no known command.
 
 **The `ultrapaint` command is looked for, not required.** Connecting goes ahead when `ultrapaint`

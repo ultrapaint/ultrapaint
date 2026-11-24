@@ -52,6 +52,12 @@ interface Machine {
 const GET_TIMEOUT = "30 seconds";
 const ADD_TIMEOUT = "30 seconds";
 
+/**
+ * What both agents' `mcp get` say of a server they do not list: Claude Code's `No MCP server named
+ * "ultrapaint".`, Codex's `Error: No MCP server named 'ultrapaint' found.`
+ */
+const ABSENT_RE = /No MCP server named/;
+
 /** What a command that did not end in time is answered with. */
 const noAnswer = (command: string, timeout: Duration.Input) =>
   new CommandFailed({
@@ -80,14 +86,14 @@ const make = (machine: Machine, ran: Effect.Effect<readonly Ran[]>) =>
 
     /**
      * The person's own program for the agent: the one the desktop app found, else the one on the
-     * server's PATH. The copy the app downloaded for its threads is not theirs to run.
+     * server's PATH. The copy the app downloaded for its threads is not theirs to run, so it is
+     * passed over for the PATH, where it is not.
      */
     const programOf = (line: OutsideAgentLine) => {
       const found = runtime?.agents[line.id];
-      if (found?.downloaded) {
-        return Effect.succeed(Option.none<string>());
-      }
-      const executable = found?.env[BUILT_IN_AGENTS[line.id].executable.env];
+      const executable = found?.downloaded
+        ? undefined
+        : found?.env[BUILT_IN_AGENTS[line.id].executable.env];
       return executable === undefined
         ? machine.find(line.program)
         : Effect.succeed(Option.some(executable));
@@ -112,12 +118,17 @@ const make = (machine: Machine, ran: Effect.Effect<readonly Ran[]>) =>
         .run({ args: line.get, command: program.value, cwd: home }, GET_TIMEOUT)
         .pipe(
           Effect.map((result): OutsideAgent => {
-            // 0 lists it and 1 does not; anything else is the agent failing to say.
-            if (result.exitCode === 0 || result.exitCode === 1) {
-              return {
-                id: line.id,
-                status: result.exitCode === 0 ? "connected" : "not-connected",
-              };
+            // 0 lists it, and 1 saying there is no such server does not. Both agents also exit 1
+            // when they can't read their configuration: that, like any other exit, is the agent
+            // failing to say, in its own words.
+            if (result.exitCode === 0) {
+              return { id: line.id, status: "connected" };
+            }
+            if (
+              result.exitCode === 1 &&
+              ABSENT_RE.test(`${result.stderr}\n${result.stdout}`)
+            ) {
+              return { id: line.id, status: "not-connected" };
             }
             return {
               id: line.id,
