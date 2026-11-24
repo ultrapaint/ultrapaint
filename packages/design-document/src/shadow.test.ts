@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { shadowListCss, shadowsOf, tokensInShadow } from "./shadow.ts";
+import {
+  mapShadows,
+  shadowListCss,
+  shadowsOf,
+  tokensInShadow,
+} from "./shadow.ts";
 
 describe("a box's shadows", () => {
   it("reads a list as its shadows, the one drawn on top first", () => {
@@ -35,5 +40,17 @@ describe("a box's shadows", () => {
         "0 1px 2px #0002, $shadow-md, inset 0 1px 0 #fff, $shadow-lg"
       )
     ).toEqual(["shadow-md", "shadow-lg"]);
+  });
+
+  it("takes no bracket in a comment for the shadow's own", () => {
+    expect(shadowsOf("0 1px 2px #000 /* ( */, $shadow-md")).toEqual([
+      "0 1px 2px #000 /* ( */",
+      "$shadow-md",
+    ]);
+  });
+
+  it("says one shadow without the comma typed after it", () => {
+    expect(mapShadows("$shadow-md,", (s) => `[${s}]`)).toBe("[$shadow-md]");
+    expect(mapShadows("$shadow-md", (s) => `[${s}]`)).toBe("[$shadow-md]");
   });
 });

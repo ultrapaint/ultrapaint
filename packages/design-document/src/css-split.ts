@@ -27,13 +27,21 @@ const outside = (scan: Scan, c: string): boolean => {
   return scan.depth === 0;
 };
 
-/** `text` split where `separator` stands outside brackets and quotes, each part trimmed. */
+/**
+ * `text` split where `separator` stands outside brackets, quotes and comments, each part trimmed.
+ */
 export const splitTop = (text: string, separator: "," | " "): string[] => {
   const parts: string[] = [];
   const scan: Scan = { depth: 0, quote: null };
   const splits = (c: string) => (separator === "," ? c === "," : SPACES.has(c));
   let start = 0;
   for (let i = 0; i < text.length; i += 1) {
+    // A comment holds no bracket, quote or separator of the value's own: `/* ( */`.
+    if (scan.quote === null && text.startsWith("/*", i)) {
+      const end = text.indexOf("*/", i + 2);
+      i = end < 0 ? text.length : end + 1;
+      continue;
+    }
     const c = text[i] ?? "";
     if (outside(scan, c) && splits(c)) {
       parts.push(text.slice(start, i));
