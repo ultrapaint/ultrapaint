@@ -97,6 +97,15 @@ describe("lookCss", () => {
     );
   });
 
+  it("draws each token of a shadow list as its variable, a raw shadow as written", () => {
+    expect(rootCss({ shadow: "$shadow-sm, inset 0 1px 0 #fff" })).toBe(
+      `${ROOT} {
+  box-shadow: var(--shadow-sm, 0 1px 2px #0002), inset 0 1px 0 #fff;
+}
+`
+    );
+  });
+
   it("recolours a border without drawing one, and works without a design system", () => {
     expect(
       rootCss(
