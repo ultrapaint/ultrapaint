@@ -34,23 +34,23 @@ const runtimeWith = (agents: AgentRuntime["agents"]): AgentRuntime => ({
   wrapper: "/app/run.mjs",
 });
 
-/**
- * The desktop app's runtime on a machine with both agents on its PATH: Claude Code found
- * elsewhere, Codex the app's own download.
- */
+/** The desktop app's runtime: Claude Code found off the PATH, Codex the app's own download. */
+const desktopRuntime = runtimeWith({
+  "claude-code": {
+    adapter: "/app/claude-agent-acp.mjs",
+    env: { CLAUDE_CODE_EXECUTABLE: "/opt/claude/bin/claude" },
+  },
+  codex: {
+    adapter: "/app/codex-acp.mjs",
+    downloaded: true,
+    env: { CODEX_PATH: "/app-data/agents/codex/0.171.0/codex" },
+  },
+});
+
+/** That runtime on a machine with no Codex of the person's own on the server's PATH. */
 const desktop = on(
-  { answer: () => ok, programs: both },
-  runtimeWith({
-    "claude-code": {
-      adapter: "/app/claude-agent-acp.mjs",
-      env: { CLAUDE_CODE_EXECUTABLE: "/opt/claude/bin/claude" },
-    },
-    codex: {
-      adapter: "/app/codex-acp.mjs",
-      downloaded: true,
-      env: { CODEX_PATH: "/app-data/agents/codex/0.171.0/codex" },
-    },
-  })
+  { answer: () => ok, programs: { claude: both.claude } },
+  desktopRuntime
 );
 
 /** A machine on which `add` makes `get` answer that the agent lists Ultrapaint. */
@@ -132,6 +132,30 @@ describe("the outside agents' connection (ADR 0144)", () => {
       assert.strictEqual(state.agents[0]?.status, "unanswered");
       assert.include(state.agents[0]?.message ?? "", "didn’t answer");
     }).pipe(Effect.provide(on({ answer: () => undefined, programs: both })))
+  );
+
+  it.effect(
+    "says an agent that can't read its configuration didn't answer, in its own words, though it exits 1",
+    () =>
+      Effect.gen(function* () {
+        const state = yield* (yield* OutsideAgents).state;
+        assert.deepStrictEqual(state.agents[1], {
+          id: "codex",
+          message: "Error: failed to load bootstrap configuration",
+          status: "unanswered",
+        });
+      }).pipe(
+        Effect.provide(
+          on({
+            answer: () => ({
+              exitCode: 1,
+              stderr: "Error: failed to load bootstrap configuration\n",
+              stdout: "",
+            }),
+            programs: both,
+          })
+        )
+      )
   );
 
   it.effect(
@@ -266,5 +290,19 @@ describe("the outside agents' connection (ADR 0144)", () => {
         const ran = (yield* agents.ran).map((r) => r.command);
         assert.notInclude(ran.join(" "), "codex");
       }).pipe(Effect.provide(desktop))
+  );
+
+  it.effect(
+    "runs the person's own copy on the server's PATH where the desktop app runs its download",
+    () =>
+      Effect.gen(function* () {
+        const agents = yield* OutsideAgents;
+        const state = yield* agents.state;
+        assert.strictEqual(state.agents[1]?.status, "connected");
+        const commands = (yield* agents.ran).map((r) => r.command);
+        assert.include(commands, "/usr/bin/codex");
+      }).pipe(
+        Effect.provide(on({ answer: () => ok, programs: both }, desktopRuntime))
+      )
   );
 });
