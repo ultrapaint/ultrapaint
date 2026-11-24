@@ -377,4 +377,28 @@ describe("the Effects section's shadows", () => {
     show({ box: `${RING}, inset 0 1px 0 #fff` });
     expect(naming()).toBeNull();
   });
+
+  it("offers no whole-value keyword as one shadow of a list typed", () => {
+    show({ box: "$shadow-md" });
+    press("Add shadow");
+    const input = document.activeElement as HTMLInputElement;
+    act(() => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value"
+      )?.set?.call(input, "inherit, 0 1px 2px #000");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const offered = [...document.querySelectorAll("[role=option]")].some((o) =>
+      o.textContent?.includes("inherit, 0 1px 2px #000")
+    );
+    expect(offered).toBe(false);
+  });
+
+  it("writes no whole-value keyword picked in a row beside other shadows", async () => {
+    show({ box: "$shadow-md" });
+    press("Add shadow");
+    await typeAndTake("none");
+    expect(sets()).toEqual([{ shadow: "$shadow-md" }]);
+  });
 });
