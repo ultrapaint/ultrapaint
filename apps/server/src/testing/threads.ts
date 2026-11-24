@@ -49,6 +49,7 @@ import { ThreadStore } from "../services/threads/thread-store.ts";
 import { WorkingTree } from "../services/working-tree.ts";
 import { makeFixture } from "./harness.ts";
 import { TEST_PORT } from "./project.ts";
+import { ReplayAgents } from "./replay-agents.ts";
 import { ScriptedAgents } from "./scripted-agents.ts";
 
 /** Where the test's threads work: the fixture folder, and the home their state is kept in. */
@@ -237,11 +238,19 @@ export const SCRIPTED_SANDBOX_META = { scripted: { sandbox: false } };
  * the address of a server that says it listens on `TEST_PORT`, where nothing does. `settings`
  * are the project's, over the fixture's. `fullProject` opens the project with every service, as
  * the composition root does, for a test whose threads reach past what they use themselves.
+ * `stored` are threads a server before this one left in the state directory, as their files say
+ * them, read at start as after a restart. `replay` is a transcript every agent started replays
+ * (`testing/replay-agents.ts`), in place of the scripted agents.
  */
 export const threadTest = (
   options: {
     readonly fullProject?: boolean;
+    readonly stored?: readonly {
+      readonly items: readonly ThreadItem[];
+      readonly thread: Thread;
+    }[];
     readonly mcp?: boolean;
+    readonly replay?: string;
     readonly sandboxed?: boolean;
     readonly settings?: Partial<Settings>;
   } = {}
@@ -253,6 +262,13 @@ export const threadTest = (
       const home = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
       const repo = yield* makeFixture({ git: false });
       yield* fs.makeDirectory(path.join(home, "agents"));
+      yield* fs.makeDirectory(path.join(home, "threads"));
+      for (const stored of options.stored ?? []) {
+        yield* fs.writeFileString(
+          path.join(home, "threads", `${stored.thread.id}.json`),
+          JSON.stringify(stored)
+        );
+      }
       for (const [id, name] of [
         ["scripted", "Scripted"],
         ["other", "Other"],
@@ -278,7 +294,10 @@ export const threadTest = (
           Layer.mergeAll(
             briefing,
             Layer.provideMerge(commands, held),
-            ScriptedAgents.layer,
+            Layer.provideMerge(
+              ReplayAgents.layer(options.replay ?? null),
+              ScriptedAgents.layer
+            ),
             options.sandboxed
               ? AgentSandbox.layerTestConfined
               : AgentSandbox.layerTest

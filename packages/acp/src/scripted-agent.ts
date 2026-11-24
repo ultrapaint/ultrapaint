@@ -30,6 +30,7 @@ import {
   type StopReason,
   settling,
   withMeta,
+  writtenAtOnce,
 } from "./acp-agent.ts";
 import { type AcpError, AcpProcessExited, AcpRequestError } from "./errors.ts";
 import { BASELINE, negotiated } from "./negotiated.ts";
@@ -227,7 +228,7 @@ export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
   ): ScriptedTurn => ({
     answer: (response) => Effect.asVoid(Deferred.succeed(answer, response)),
     cancelled: Deferred.await(cancelled),
-    elicit: (request) => handlers.onElicitation(request),
+    elicit: (request) => handlers.onElicitation(request, writtenAtOnce),
     end: (stopReason = "end_turn") =>
       Effect.asVoid(Deferred.succeed(answer, { stopReason })),
     fail: (message) =>
@@ -243,7 +244,7 @@ export const makeScriptedAgent = Effect.fnUntraced(function* (options: {
       ),
     prompt,
     requestPermission: (request) =>
-      handlers.onPermission({ ...request, sessionId }),
+      handlers.onPermission({ ...request, sessionId }, writtenAtOnce),
     say: (text) => chunk(sessionId, text, "agent_message_chunk"),
     sessionId,
     texts: prompt.flatMap((block) =>

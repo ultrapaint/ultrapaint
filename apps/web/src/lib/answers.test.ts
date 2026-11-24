@@ -46,6 +46,25 @@ describe("the card the composer answers", () => {
     expect(openQuestionOf(items)?.id).toBe("first");
   });
 
+  it("is the copy the agent asked last, once the older one reads no longer asked (ADR 0125)", () => {
+    const items: ThreadItem[] = [
+      card("older", {
+        elicitation: { message: "The agent asks" },
+        outcome: "cancelled",
+        settled: { at: 2, how: "repeated" },
+      }),
+      card("live", { elicitation: { message: "The agent asks" } }),
+    ];
+    expect(openQuestionOf(items)?.id).toBe("live");
+  });
+
+  it("is never one whose answers could not be delivered", () => {
+    const items: ThreadItem[] = [
+      card("lost", { answers: { q: "a" }, outcome: "undelivered" }),
+    ];
+    expect(openQuestionOf(items)).toBeNull();
+  });
+
   it("is none once every card is answered", () => {
     expect(openQuestionOf([card("done", { answers: {} })])).toBeNull();
   });

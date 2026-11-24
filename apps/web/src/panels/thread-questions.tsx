@@ -4,6 +4,7 @@
  */
 import {
   type Answer,
+  answeredInTurn,
   isBusy,
   type ThreadItem,
 } from "@ultrapaint/contracts/threads";
@@ -126,6 +127,18 @@ const PermissionOption = ({
   );
 };
 
+/** What a permission card says came of it: the option picked, or why there was none. */
+const decisionLabel = (item: PermissionItem) => {
+  const picked = item.options.find((o) => o.optionId === item.decision);
+  if (picked) {
+    return picked.name;
+  }
+  if (item.decision === "expired") {
+    return "Expired";
+  }
+  return item.decision === "cancelled" ? "No longer asked" : item.decision;
+};
+
 export const Permission = ({
   item,
   threadId,
@@ -168,8 +181,7 @@ export const Permission = ({
         </div>
       ) : (
         <span className="font-body-medium text-foreground">
-          {item.options.find((o) => o.optionId === item.decision)?.name ??
-            item.decision}
+          {decisionLabel(item)}
         </span>
       )}
     </AskCard>
@@ -246,6 +258,9 @@ const QuestionChoices = ({
 
 /** What the card says it is, from asked to answered. */
 const cardTitle = (item: QuestionItem) => {
+  if (item.outcome === "undelivered") {
+    return "Delivery not confirmed";
+  }
   if (item.answers !== null) {
     return "Answered";
   }
@@ -292,6 +307,11 @@ export const QuestionRecord = ({ item }: { item: QuestionItem }) => {
           </span>
         </div>
       ))}
+      {item.outcome === "undelivered" ? (
+        <span className="font-body-small text-muted-foreground">
+          The agent may not have these answers. Say them again in the chat.
+        </span>
+      ) : null}
     </AskCard>
   );
 };
@@ -319,7 +339,7 @@ const QuestionCard = ({
     return null;
   }
   const count = item.questions.length;
-  const waiting = item.elicitation !== undefined;
+  const waiting = answeredInTurn(item);
   const hint = questionHint(question);
   return (
     <div className="flex flex-col gap-2 border-b px-3 pt-2.5 pb-3 font-body">
@@ -421,7 +441,7 @@ const canSendAnswers = ({ asking, draft }: Answering, running: boolean) =>
   !(
     draft.busy ||
     // Answers that go as a prompt wait for the agent's turn to end.
-    (running && asking.elicitation === undefined)
+    (running && !answeredInTurn(asking))
   ) && asking.questions.every((q) => answeredWell(draft, q));
 
 /** On to the next question, or, on the last one, the answers go. */

@@ -1877,6 +1877,89 @@ describe("a question the agent waits on", () => {
     }));
 });
 
+describe("cards left open when the server stopped (ADR 0125)", () => {
+  const LEFT = {
+    agentId: "scripted",
+    createdAt: 0,
+    id: "thread_left_0001",
+    status: "running",
+    title: "Left open",
+    updatedAt: 0,
+  } as const;
+  const QUESTION = {
+    answers: null,
+    at: 1,
+    elicitation: { message: "The agent asks" },
+    id: "item_waited",
+    kind: "question",
+    questions: [
+      {
+        id: "plan",
+        options: [
+          { id: "free", label: "Free" },
+          { id: "pro", label: "Pro" },
+        ],
+        question: "Which plan?",
+      },
+    ],
+  } as const;
+  const PERMISSION = {
+    at: 1,
+    decision: null,
+    id: "perm_left",
+    kind: "permission",
+    options: EDIT_HOME.options,
+    requestId: "perm_left",
+    title: "Edit home",
+  } as const;
+  const afterRestart = <A, E>(
+    name: string,
+    body: () => Effect.Effect<A, E, ThreadTestServices>
+  ) =>
+    perTest(
+      threadTest({
+        stored: [{ items: [QUESTION, PERMISSION], thread: LEFT }],
+      })
+    ).effect(name, body);
+
+  afterRestart(
+    "a question its agent waited on is answered by the thread's next prompt",
+    () =>
+      Effect.gen(function* () {
+        const agents = yield* ScriptedAgents;
+        yield* onThread(LEFT.id, (s) => s.answer(QUESTION.id, { plan: "pro" }));
+        const turn = yield* (yield* agents.next).nextTurn;
+        assert.isTrue(
+          turn.texts.some((t) =>
+            t.includes("Answers to your questions:\n1. Which plan? — Pro [pro]")
+          )
+        );
+        const card = (yield* (yield* ThreadStore).items(LEFT.id)).find(
+          (i) => i.id === QUESTION.id
+        );
+        assert.deepStrictEqual(card?.kind === "question" && card.answers, {
+          plan: "pro",
+        });
+      })
+  );
+
+  afterRestart("a permission reads expired, and refuses a pick", () =>
+    Effect.gen(function* () {
+      const card = (yield* (yield* ThreadStore).items(LEFT.id)).find(
+        (i) => i.id === PERMISSION.id
+      );
+      assert.strictEqual(
+        card?.kind === "permission" && card.decision,
+        "expired"
+      );
+      const picked = yield* Effect.flip(
+        onThread(LEFT.id, (s) => s.cards.choose(PERMISSION.id, "allow"))
+      );
+      assert.strictEqual(picked._tag, "NotFound");
+    })
+  );
+});
+
 describe("switching a thread's agent", () => {
   test("stops the session, and tells the next agent what was said", () =>
     Effect.gen(function* () {
