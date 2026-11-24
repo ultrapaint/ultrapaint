@@ -1164,6 +1164,32 @@ describe("the tools for documents", () => {
       })
   );
 
+  inAProject(
+    "refuses a breakpoint the design system lacks in a replacing tree",
+    () =>
+      Effect.gen(function* () {
+        assert.include(
+          yield* refusal("apply_operations", {
+            ops: [
+              {
+                ids: ["heading"],
+                node: {
+                  at: { tv: { size: 40 } },
+                  id: "heading",
+                  role: "heading",
+                  text: "Hello",
+                  type: "text",
+                },
+                op: "replace",
+              },
+            ],
+            route: "/home",
+          }),
+          "tv is not a breakpoint"
+        );
+      })
+  );
+
   inAProject("answers neither copies nor ignored fields for a clean call", () =>
     Effect.gen(function* () {
       const clean = yield* tool("apply_operations", {

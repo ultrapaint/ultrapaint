@@ -202,7 +202,7 @@ export const DocumentTools = Toolkit.make(
   Focus
 );
 
-/** The breakpoints one operation writes at: its `at`, and the `at` of every node it inserts. */
+/** The breakpoints one operation writes at: its `at`, and the `at` of every node it puts in. */
 const breakpointsOf1 = (op: DocOp): string[] => {
   switch (op.op) {
     case "setProps":
@@ -213,6 +213,7 @@ const breakpointsOf1 = (op: DocOp): string[] => {
       return op.at === undefined ? whole : [op.at, ...whole];
     }
     case "insert":
+    case "replace":
       return Array.from(walk(op.node)).flatMap((n) => Object.keys(n.at ?? {}));
     default:
       return [];
