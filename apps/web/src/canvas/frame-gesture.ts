@@ -38,7 +38,14 @@ import { beginDrag, cancelDrag, endDrag, moveDrag, useDrag } from "./drag.ts";
 import type { Corner } from "./frame.tsx";
 import { isFrameLocked } from "./hit-test.ts";
 import { followPointer, putBackGesture } from "./pointer-gesture.ts";
-import { holdsFree, snapBox, snapPoint, snapToEdges } from "./snap.ts";
+import {
+  holdsFree,
+  type Snapped,
+  snapBox,
+  snapPoint,
+  snapToEdges,
+} from "./snap.ts";
+import { clearSnapGuides, showSnapGuides } from "./snap-guides.ts";
 
 /** Where the pointer is and the keys held with it, as a pointer event says. */
 interface PointerAt {
@@ -112,7 +119,10 @@ const roundBox = (b: Box): Box => ({
   y: Math.round(b.y),
 });
 
-/** Moves or sizes a page's frame (or a view's): drawn as it goes, saved once when let go. */
+/**
+ * Moves or sizes a page's frame (or a view's): drawn as it goes, saved once when let go. Moved, the
+ * lines it snaps to are shown as it goes, and taken away when it is let go or put back.
+ */
 const followFrame = (
   pageId: string,
   kind: "move" | "resize",
@@ -124,6 +134,7 @@ const followFrame = (
   followPointer(from, {
     // Shown where it was, as saved, or as a layout pushed meanwhile has it; nothing is sent.
     cancel: () => {
+      clearSnapGuides();
       const pushed = doneDrawingFrame();
       if (pushed) {
         showFrame(pushed.page, pushed.frame);
@@ -138,7 +149,9 @@ const followFrame = (
       moved = true;
       if (kind === "move") {
         const to = { ...start, x: start.x + dx, y: start.y + dy };
-        showFrame(pageId, placeFrame(to, pageId, onGrid, e));
+        const placed = placeFrame(to, pageId, onGrid, e);
+        showFrame(pageId, placed.frame);
+        showSnapGuides(placed.guides);
         return;
       }
       const resized = resizeFrom(start, corner, dx, dy, 120, e.shiftKey);
@@ -153,6 +166,7 @@ const followFrame = (
     // Saved as drawn, the save winning over a layout pushed meanwhile; not moved, shown as
     // that layout has it.
     up: () => {
+      clearSnapGuides();
       const pushed = doneDrawingFrame();
       const s = useEditor.getState();
       const f = s.frames[pageId];
@@ -460,19 +474,20 @@ export const resizeFrom = (
 
 /**
  * Where a page frame being moved goes: on the grid when it snaps, otherwise against the edges of
- * the frames around it, unless Shift or ⌘/Ctrl is held.
+ * the frames around it, unless Shift or ⌘/Ctrl is held; with the lines it snapped to, which only
+ * the edges give.
  */
 export const placeFrame = (
   f: FrameLayout,
   pageId: string,
   onGrid: boolean,
   e: Pick<PointerAt, "ctrlKey" | "metaKey" | "shiftKey">
-): FrameLayout => {
+): Snapped => {
   if (onGrid) {
-    return { ...f, ...snapPoint(f) };
+    return { frame: { ...f, ...snapPoint(f) }, guides: [] };
   }
   if (e.shiftKey || holdsFree(e)) {
-    return f;
+    return { frame: f, guides: [] };
   }
   const s = useEditor.getState();
   const others = Object.entries(s.frames)

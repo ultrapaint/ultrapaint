@@ -6,7 +6,7 @@
  */
 import type { Rect } from "@ultrapaint/contracts/preview";
 import { layerPath } from "@ultrapaint/design-document/instance-layers";
-import { type CSSProperties, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { appFileOf, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
@@ -21,9 +21,14 @@ import { CANVAS_TAG } from "./selection-chrome.tsx";
 
 /**
  * Where a straight piece between two points on one axis is drawn, a pixel thick on screen: a
- * filled box centred on them, or a dashed one's single border.
+ * filled box centred on them, or a dashed one's single border. Snapping's lines are drawn so too
+ * (`snap-overlay`).
  */
-const pieceStyle = (from: Point, to: Point, dashed: boolean): CSSProperties => {
+export const pieceStyle = (
+  from: Point,
+  to: Point,
+  dashed: boolean
+): CSSProperties => {
   const left = Math.min(from.x, to.x);
   const top = Math.min(from.y, to.y);
   const across = screenPx(1);
@@ -38,6 +43,28 @@ const pieceStyle = (from: Point, to: Point, dashed: boolean): CSSProperties => {
     ? { borderLeftWidth: across, height, left, top }
     : { height, left, top, transform: "translateX(-50%)", width: across };
 };
+
+/** A length in a pill centred on `at`, set as the size label at its size on screen. */
+export const MeasurePill = ({
+  at,
+  children,
+}: {
+  at: Point;
+  children: ReactNode;
+}) => (
+  <div
+    className="absolute flex h-0 w-0 items-center justify-center"
+    style={{ left: at.x, top: at.y }}
+  >
+    <span
+      className={cn(CANVAS_TAG, "bg-measure")}
+      data-measure-length
+      style={{ transform: UNZOOM }}
+    >
+      {children}
+    </span>
+  </div>
+);
 
 /** One distance: its line, the dashed way to a box it passes beside, and its length in a pill. */
 const Distance = ({ line }: { line: MeasureLine }) => {
@@ -58,18 +85,7 @@ const Distance = ({ line }: { line: MeasureLine }) => {
           style={pieceStyle(line.guide.from, line.guide.to, true)}
         />
       ) : null}
-      <div
-        className="absolute flex h-0 w-0 items-center justify-center"
-        style={{ left: mid.x, top: mid.y }}
-      >
-        <span
-          className={cn(CANVAS_TAG, "bg-measure")}
-          data-measure-length
-          style={{ transform: UNZOOM }}
-        >
-          {line.length}
-        </span>
-      </div>
+      <MeasurePill at={mid}>{line.length}</MeasurePill>
     </>
   );
 };

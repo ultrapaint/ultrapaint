@@ -56,6 +56,7 @@ import {
   putBackGesture,
 } from "./pointer-gesture.ts";
 import { holdsFree } from "./snap.ts";
+import { SnapOverlay } from "./snap-overlay.tsx";
 import { VariationsBeside } from "./variations-beside.tsx";
 
 /**
@@ -306,6 +307,7 @@ export const Canvas = () => {
       <VariationsBeside />
       <CanvasComments />
       <DragOverlay />
+      <SnapOverlay />
       <CreateOverlay />
       <CanvasMarquee />
     </CanvasGround>
