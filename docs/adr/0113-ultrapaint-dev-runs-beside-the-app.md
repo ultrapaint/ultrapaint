@@ -58,7 +58,7 @@ left running, but it had to be started by hand in each project's folder first.
   grid lies under the whole tab strip, behind Home and the tabs, fading out towards the right, with
   a line of its blue along the window's top edge; a construction line, a dimension and a
   registration mark are drawn in the room past the +, never behind a tab, and give way to tabs.
-  The light paper is as light as the canvas, so the tabs' muted names keep their contrast. Its icon is the mark on a blueprint tile (`resources/icon-dev.svg`). The release looks
+  The light paper is as light as the canvas, so the tabs' muted names keep their contrast. Its icon is the release's mark, at the release's size, on a blueprint tile: a white grid, a border and drafting marks drawn thick enough to read in the Dock (`resources/icon-dev.svg`). The release looks
   as it did. Its colours are tokens (`--blueprint`, `--blueprint-ink`, `--blueprint-line`).
 - **About names it**: Ultrapaint Dev, and the branch and commit it runs (`main · 3f2a1c9`).
 - **It leaves the `ultrapaint` command to the release**: Settings offers no install, and the
