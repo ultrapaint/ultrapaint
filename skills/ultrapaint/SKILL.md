@@ -404,9 +404,9 @@ is changed by this job, not by the screen.
 
 1. **Settle the character** (`references/character.md`).
 2. **Read what exists before deciding anything**: a product, its code or pictures,
-   `references/system/extract.md`; a Figma file, `references/system/figma.md`. What the product
-   already decides is taken as it is, even where a rule here would choose otherwise; say where it
-   breaks one.
+   `references/system/extract.md`; the Figma file the user gives, `references/system/figma.md`.
+   What the product already decides is taken as it is, even where a rule here would choose
+   otherwise; say where it breaks one.
 3. **Set the foundations** (`references/system/foundations.md`): the face, colour by role, the
    type scale and text styles, spacing, radius, elevation, motion, icons, widths. Every role a
    screen needs has a token, named by its role.
