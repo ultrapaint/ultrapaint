@@ -132,17 +132,21 @@ describe("the nearest token to a value", () => {
     expect(nearestName("borderWidth", 3, ds)).toBe("border-width-thin");
   });
 
-  it("counts a unitless zero as no pixels, and an absolute length in pixels", () => {
-    const radii: DesignSystem = {
-      ...ds,
-      radius: [
-        { name: "radius-none", value: "0" },
-        { name: "radius-large", value: "8px" },
-        { name: "radius-print", value: "12pt" },
-      ],
-    };
+  const radii: DesignSystem = {
+    ...ds,
+    radius: [
+      { name: "radius-none", value: "0" },
+      { name: "radius-large", value: "8px" },
+      { name: "radius-print", value: "12pt" },
+    ],
+  };
+
+  it("counts a unitless zero as no pixels", () => {
     expect(nearestName("radius", 1, radii)).toBe("radius-none");
     expect(nearestName("radius", "0px", radii)).toBe("radius-none");
+  });
+
+  it("counts an absolute length in pixels", () => {
     // 12pt is 16px.
     expect(nearestToken("radius", "15px", radii)).toMatchObject({
       distance: 1,
