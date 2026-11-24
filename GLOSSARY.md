@@ -560,6 +560,11 @@ refactor and the board view left.
   while the pointer is over it, which opens **Ask an agent** (`ask-agent`): a prompt sent in a
   new chat with the selection attached. Only a page is named on the canvas, by its frame's
   header; its fields are the inspector's alone.
+- **Measurement**: the distances ⌥ held draws from the selection to the element the pointer is
+  over in the same frame, or to the selection's parent while it points at the selection itself
+  (the web's `measure`, `measure-overlay`, and `measure-key` for ⌥ held, ADR 0131): lines
+  between facing or matching edges, each with its length in the frame's pixels, in `--measure`,
+  the canvas colour kept for it.
 - **Field**: one of a node's fields that the inspector edits (align,
   text style, colour, fill, tint, radius, shadow, gap), declared once in the web's `node-fields`:
   how the nodes selected read as one value, what a node without it is drawn with (a text's

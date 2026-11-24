@@ -10,6 +10,8 @@ import { childrenOf, isContainer } from "@ultrapaint/design-document/tree";
 import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useEffectEvent,
   useRef,
   useState,
 } from "react";
@@ -50,7 +52,14 @@ import {
 import { frameOf } from "./editor-frame.ts";
 import { drawingMarquee } from "./frame-gesture.ts";
 import { hitUnlocked } from "./hit-test.ts";
+import { useMeasureKey } from "./measure-key.ts";
 import { holdsFree } from "./snap.ts";
+
+/** Where a pointer event was, on the element it was heard on. */
+type PointerAt = Pick<
+  ReactPointerEvent,
+  "clientX" | "clientY" | "currentTarget"
+>;
 
 /** How far the pointer travels before a press becomes a drag, in screen pixels. */
 const DRAG_THRESHOLD = 4;
@@ -118,12 +127,17 @@ export const useFramePointer = ({
   const kind = ref.kind === "view" ? "page" : ref.kind;
   // Pointer interaction in select mode.
   const lastHit = useRef(0);
+  /** Where the pointer rests over the select layer, which ⌥ pressed hit-tests again. */
+  const resting = useRef<PointerAt | null>(null);
   /**
    * The select layer taken away under a resting pointer (Space held, another mode) sends no
    * pointerleave, and the hover would stay drawn: the layer calls this as it goes.
    */
-  const onSelectLayerGone = () => leaveHover(frameId);
-  const toFrame = (e: ReactPointerEvent | ReactMouseEvent) => {
+  const onSelectLayerGone = () => {
+    resting.current = null;
+    leaveHover(frameId);
+  };
+  const toFrame = (e: PointerAt) => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
     // The zoom the frame is drawn at: read when the pointer acts, so a zoom redraws no frame.
     const { zoom } = useEditor.getState().view;
@@ -135,13 +149,21 @@ export const useFramePointer = ({
       useEditor.getState().canvas,
       frameId
     );
-  /** The node a pointer event at this position means, given what is selected. */
-  const nodeAt = (e: ReactPointerEvent | ReactMouseEvent) => {
-    const { x, y } = toFrame(e);
+  /**
+   * The node a point of the frame means, given what is selected: the innermost there when
+   * `innermost`.
+   */
+  const nodeUnder = (
+    { x, y }: { x: number; y: number },
+    innermost: boolean
+  ) => {
     const chain = hitUnlocked(frameId, x, y);
     const [selected = null] = selectedIn(frameId);
-    return stepInto(chain, currentRoot(), selected, deep(e), appFileOf);
+    return stepInto(chain, currentRoot(), selected, innermost, appFileOf);
   };
+  /** The node a pointer event at this position means, given what is selected. */
+  const nodeAt = (e: ReactPointerEvent | ReactMouseEvent) =>
+    nodeUnder(toFrame(e), deep(e));
   /**
    * In a component edited in place, what a click goes on to past the component's innermost node
    * under it: what that node's slot holds there, the page's own or a level around's (ADR 0123).
@@ -174,13 +196,7 @@ export const useFramePointer = ({
     const held = heldAt(e);
     return held !== null && leaveForHeld(held, deep(e));
   };
-  const onMove = (e: ReactPointerEvent) => {
-    const now = performance.now();
-    if (now - lastHit.current < 40) {
-      return;
-    }
-    lastHit.current = now;
-    const id = nodeAt(e);
+  const hoverOn = (id: string | null) => {
     const store = useEditor.getState();
     if (id) {
       store.setHover({ frame: frameId, nodeId: id });
@@ -188,6 +204,36 @@ export const useFramePointer = ({
       store.setHover(null);
     }
   };
+  const onMove = (e: ReactPointerEvent) => {
+    resting.current = {
+      clientX: e.clientX,
+      clientY: e.clientY,
+      currentTarget: e.currentTarget,
+    };
+    const now = performance.now();
+    if (now - lastHit.current < 40) {
+      return;
+    }
+    lastHit.current = now;
+    hoverOn(nodeAt(e));
+  };
+  // ⌥ pressed or let go with the pointer at rest: what it is over is the innermost node there
+  // at once, to measure to (ADR 0131), and the one a click would select again once let go.
+  const hitAgain = useEffectEvent((held: boolean) => {
+    const at = resting.current;
+    if (at !== null && !press.current) {
+      hoverOn(nodeUnder(toFrame(at), held));
+    }
+  });
+  useEffect(
+    () =>
+      useMeasureKey.subscribe((now, before) => {
+        if (now.held !== before.held) {
+          hitAgain(now.held);
+        }
+      }),
+    []
+  );
   const selectId = (id: string) => select({ frame: frameId, nodeId: id });
   const selectFrame = () => {
     if (kind === "page") {
@@ -540,7 +586,10 @@ export const useFramePointer = ({
     onContextMenu(e);
   };
 
-  const onPointerLeave = () => leaveHover(frameId);
+  const onPointerLeave = () => {
+    resting.current = null;
+    leaveHover(frameId);
+  };
 
   return {
     marquee,

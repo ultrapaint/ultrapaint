@@ -32,6 +32,7 @@ colors:
   selection: "#3d7bff"
   component: "#8b5cf6"
   agent: "#ec4899"
+  measure: oklch(0.58 0.18 40)
 typography:
   heading-xxlarge:
     fontFamily: Cal Sans
@@ -163,9 +164,10 @@ The editor has two themes on one set of roles, light (warm paper) and dark (warm
   readable as the plain strip (4.6:1 in light, 5.8:1 in dark), its grid is faint and its drawing at
   half strength. Never anywhere else, nor in the release; nothing in it moves.
 - The canvas's own language: {colors.selection} on a plain element, {colors.component} on a
-  component instance, {colors.agent} on an agent's work and an agent working (the rail's dot). These
-  stay off the panels' chrome otherwise; the one bar that says a component is edited in place is
-  edged in {colors.component}, the instance's own outline.
+  component instance, {colors.agent} on an agent's work and an agent working (the rail's dot), and
+  {colors.measure} on a distance measured with ⌥, the same in both themes and never an error (ADR
+  0131). These stay off the panels' chrome otherwise; the one bar that says a component is edited
+  in place is edged in {colors.component}, the instance's own outline.
 
 ## Typography
 

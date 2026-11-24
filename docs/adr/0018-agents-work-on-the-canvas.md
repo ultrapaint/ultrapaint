@@ -12,6 +12,10 @@ still naming the base page (0019).
 > Amended by [0098](0098-anything-has-variations-and-page-variants-fold-into-them.md), 2026-11-16: a link's `variant=` and a node reference to a
 > variant's file open the page with its variations laid out, that variation in the preview.
 
+> Amended by [0131](0131-alt-measures-distances-in-a-colour-of-its-own.md), 2026-11-24: the canvas
+> has a fourth colour, `--measure`, an orange-red kept for measuring distances, never for errors,
+> selections or agents.
+
 The editor was redesigned with the tool itself: the pages are in `docs/designs/redesign/`, and
 `ultrapaint.json` at the root opens this repository in the editor.
 
