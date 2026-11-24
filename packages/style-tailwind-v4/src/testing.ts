@@ -8,7 +8,9 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { compile } from "tailwindcss";
 
-const RULE_RE = /\.((?:\\.|[^\s{,])+)\s*\{([^{}]*)\}/g;
+const RULE_RE = /\.((?:\\.|[^\s{,])+)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/g;
+/** A block inside a rule, `@supports (…) { … }`, whose declarations win where it applies. */
+const NESTED_RE = /@[^{}]*\{([^{}]*)\}/g;
 const DECLARATION_RE = /([\w-]+)\s*:\s*([^;]+);/g;
 const ESCAPE_RE = /\\(.)/g;
 
@@ -19,20 +21,28 @@ export const tailwindTheme = (): string =>
     "utf8"
   );
 
-/** What each rule of compiled CSS sets, by its class: `gap-[100%]` → `gap: 100%`. */
+/**
+ * What each rule of compiled CSS sets, by its class: `gap-[100%]` → `gap: 100%`. A declaration
+ * of a block inside the rule (`@supports`) wins over the rule's own, as it does in a browser
+ * that supports it: `bg-linear-45` mixes in oklab.
+ */
 export const rulesOf = (
   css: string
 ): Map<string, ReadonlyMap<string, string>> => {
   const rules = new Map<string, ReadonlyMap<string, string>>();
+  const declarations = (body: string) =>
+    Array.from(
+      body.matchAll(DECLARATION_RE),
+      ([, p = "", v = ""]) => [p, v.trim()] as const
+    );
   for (const [, selector = "", body = ""] of css.matchAll(RULE_RE)) {
+    const nested = Array.from(body.matchAll(NESTED_RE), (m) => m[1] ?? "");
     rules.set(
       selector.replace(ESCAPE_RE, "$1"),
-      new Map(
-        Array.from(body.matchAll(DECLARATION_RE), ([, p = "", v = ""]) => [
-          p,
-          v.trim(),
-        ])
-      )
+      new Map([
+        ...declarations(body.replace(NESTED_RE, "")),
+        ...nested.flatMap(declarations),
+      ])
     );
   }
   return rules;

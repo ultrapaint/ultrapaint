@@ -25,6 +25,11 @@ import {
   nodeStyle,
   type ParentLayout,
 } from "@ultrapaint/design-document/css";
+import {
+  fillCss,
+  fillLayers,
+  stopPositions,
+} from "@ultrapaint/design-document/fill";
 import { tokensIn } from "@ultrapaint/design-document/tokens";
 import { childrenOf, walk } from "@ultrapaint/design-document/tree";
 import { compile } from "tailwindcss";
@@ -152,16 +157,51 @@ const withoutFallbacks = (
   }
 };
 
-/** Tailwind's own variables as the classes set them, else as they start (`@property`). */
+/**
+ * Tailwind's own variables as the classes set them, else as they start (`@property`); `levels`
+ * deep, for a gradient's stops, which are variables of variables.
+ */
 const withTailwindVariables = (
   value: string,
   custom: ReadonlyMap<string, string>,
-  initial: ReadonlyMap<string, string>
-) =>
-  withoutFallbacks(value, custom).replace(
-    TW_VAR_RE,
-    (whole, name: string) => custom.get(name) ?? initial.get(name) ?? whole
-  );
+  initial: ReadonlyMap<string, string>,
+  levels = 1
+) => {
+  let out = value;
+  for (let depth = 0; depth < levels; depth += 1) {
+    const next = withoutFallbacks(out, custom).replace(
+      TW_VAR_RE,
+      (whole, name: string) => custom.get(name) ?? initial.get(name) ?? whole
+    );
+    if (next === out) {
+      return out;
+    }
+    out = next;
+  }
+  return out;
+};
+
+/**
+ * A fill with each gradient's stops where CSS draws them, so that `red, blue` and Tailwind's
+ * `red 0%, blue 100%` compare the same.
+ */
+const placedStops = (value: string): string => {
+  const layers = fillLayers(value);
+  if (layers.some((l) => l.kind === "css")) {
+    return value;
+  }
+  const placed = layers.map((layer) => {
+    if (layer.kind !== "gradient") {
+      return layer;
+    }
+    const at = stopPositions(layer.stops);
+    return {
+      ...layer,
+      stops: layer.stops.map((s, i) => ({ ...s, position: `${at[i]}%` })),
+    };
+  });
+  return fillCss(placed) ?? value;
+};
 
 /** A value both sides can be compared by; null when it cannot be worked out here. */
 const normal = (
@@ -173,10 +213,14 @@ const normal = (
   },
   custom: ReadonlyMap<string, string> = new Map()
 ): string | null => {
-  let v = withTailwindVariables(value.trim(), custom, tailwind.initial).replace(
-    SPACES_RE,
-    " "
-  );
+  const background =
+    property === "background" || property === "background-image";
+  let v = withTailwindVariables(
+    value.trim(),
+    custom,
+    tailwind.initial,
+    background ? 8 : 1
+  ).replace(SPACES_RE, " ");
   const [named] = groups(VARIABLE_RE, v);
   // A weight of Tailwind's theme is its number: `font-bold` is 700.
   if (named?.startsWith("--font-weight-")) {
@@ -201,6 +245,9 @@ const normal = (
   }
   if (v.includes("--tw-") || v.includes("calc(") || v.includes("infinity")) {
     return null;
+  }
+  if (background) {
+    v = placedStops(v);
   }
   return v.replace(COMMA_RE, ",").toLowerCase();
 };
@@ -270,8 +317,17 @@ const withOverrides = (root: DesignNode): DesignNode => {
         }
         break;
       case 5:
-        at.md = { height: node.height === "fill" ? 40 : "fill", order: -1 };
-        at.xl = { height: "hug" };
+        // A gradient Tailwind names, of tokens, then another of another shape over a colour
+        // (ADR 0134).
+        at.md = {
+          fill: "linear-gradient(45deg in oklab, $color-primary, $color-muted-foreground 40%, transparent)",
+          height: node.height === "fill" ? 40 : "fill",
+          order: -1,
+        };
+        at.xl = {
+          fill: "conic-gradient(from 90deg in oklch, $color-primary, transparent), $color-muted-foreground",
+          height: "hug",
+        };
         break;
       default:
         if (node.type === "text") {
@@ -466,6 +522,43 @@ const longhands = (
   return out;
 };
 
+interface Setter {
+  readonly cls: string;
+  readonly from: number;
+  readonly value: string;
+}
+
+/** The class of the widest variant setting a property; none where two tie. */
+const winnerOf = (setters: readonly Setter[]): Setter | undefined => {
+  const top = Math.max(...setters.map((s) => s.from));
+  const winners = setters.filter((s) => s.from === top);
+  return winners.length === 1 ? winners[0] : undefined;
+};
+
+/**
+ * What Tailwind's classes draw for the canvas's `background`: the image a class sets over the
+ * colour another sets, as one fill says a gradient over a colour.
+ */
+const backgroundWinner = (
+  setBy: ReadonlyMap<string, readonly Setter[]>
+): Setter | undefined => {
+  const [image, color] = ["background-image", "background-color"].map((p) => {
+    const setters = setBy.get(p) ?? [];
+    return setters.length === 0 ? null : (winnerOf(setters) ?? undefined);
+  });
+  if (image === undefined || color === undefined) {
+    return undefined;
+  }
+  if (image && color) {
+    return {
+      cls: `${image.cls} ${color.cls}`,
+      from: Math.max(image.from, color.from),
+      value: `${image.value}, ${color.value}`,
+    };
+  }
+  return image ?? color ?? undefined;
+};
+
 describe("the canvas and the Code tab", () => {
   const roots = pages().flatMap(({ file, root }) => [
     { file, root },
@@ -532,14 +625,11 @@ describe("the canvas and the Code tab", () => {
             );
             return;
           }
-          const top = Math.max(...setters.map((s) => s.from));
-          const winners = setters.filter((s) => s.from === top);
-          const [winner] = winners;
-          if (
-            winner === undefined ||
-            winners.length > 1 ||
-            winner.value === ""
-          ) {
+          const winner =
+            property === "background"
+              ? backgroundWinner(setBy)
+              : winnerOf(setters);
+          if (winner === undefined || winner.value === "") {
             return;
           }
           // The page's frame stands for the screen.
