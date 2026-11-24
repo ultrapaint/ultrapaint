@@ -146,6 +146,21 @@ describe("summarised", () => {
     );
   });
 
+  it("keeps when a turn began when it holds a transcript only from its news", () => {
+    const read = [
+      thread("a", { summary: { since: 5, text: "", waiting: false } }),
+    ];
+    // An agent's line alone: the prompt that began the turn came before the list was read.
+    expect(summarised(read, "a", [said("1", "Working on it")])).toBe(read);
+    expect(
+      summarised(read, "a", [said("1", "x"), asked("2")])[0]?.summary
+    ).toEqual({
+      since: 5,
+      text: "Which tone?",
+      waiting: true,
+    });
+  });
+
   it("leaves the list as it is for a thread it does not hold, or no items", () => {
     expect(summarised(threads, "zz", [said("1", "x")])).toBe(threads);
     expect(summarised(threads, "a", [])).toBe(threads);
