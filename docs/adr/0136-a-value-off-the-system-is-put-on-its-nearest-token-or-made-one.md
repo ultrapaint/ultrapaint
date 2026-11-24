@@ -19,25 +19,25 @@ field's dot while the check called it on the system.
 
 ## Decision
 
-- **The nearest token** (contracts' `nearest-token`, beside the token table, which the themes
-  read, so it cannot live in it): the token of a kind nearest a value, each token read in a theme
-  with the tokens it names followed (`valueInTheme`). A colour is measured in OKLab, the Euclidean
-  distance between L (0 to 1), a and b, and offered only within 0.1: past that a "nearest" can
-  plainly be another colour. A length is measured in pixels (a unitless zero as none, an absolute unit such as `pt`
-  converted, an `em` only against an `em`), a
-  weight and a unitless line height as numbers, with no limit: the value shown beside the name
-  says how far it is. A spacing in pixels is nearest a whole or half step of the scale on the
-  spacing base unless a named spacing is nearer. A font family and a shadow have no measure. Of
-  two as near, the smaller value; of two colours as near, the first listed.
+- **The nearest token** (contracts' `nearest-token`, beside the token table, which the themes read,
+  so it cannot live in it): the token of a kind nearest a value, each token read in a theme with the
+  tokens it names followed (`valueInTheme`). A colour is measured in OKLab, the Euclidean distance
+  between L (0 to 1), a and b, and offered only within 0.1: past that a "nearest" can plainly be
+  another colour. A length is measured in pixels (a unitless zero as none, an absolute unit such as
+  `pt` converted, an `em` only against an `em`), a weight and a unitless line height as numbers,
+  with no limit: the value shown beside the name says how far it is. A spacing in pixels is nearest
+  a whole or half step of the scale on the spacing base unless a named spacing is nearer. A font
+  family and a shadow have no measure. Of two as near, the smaller value; of two colours as near,
+  the first listed.
 - **A field that knows its kind** offers two ways onto the system at the top of its list while
   its value is outside it and nothing is typed: **Use nearest**, with the token's name and what it
   comes to in the theme the view is drawn in (the boards' while a board view is open, else the
   canvas's), picked as an option is, and **New token from this value…**. Every field that takes a
   token has them, a system component's look's and a text style's included. A spacing step is
-  written in pixels (`18`), as the list's steps are, never `$spacing-4.5`. A field that knows its
-  kind asks `isOffSystem`, so the field and the check agree on every value: a half step of the
-  spacing scale, a round radius (`50%`) and a keyword that is no value (`none`, `transparent`) are
-  on the system.
+  written in pixels (`18`), as the list's steps are, never `$spacing-4.5`. A field that knows
+  its kind asks `isOffSystem`, so the field and the check agree on every value: a half step of
+  the spacing scale, a round radius (`50%`) and a keyword that is no value (`none`,
+  `transparent`) are on the system.
 - **New token** is a popover on the field: one name, started with the kind's prefix, or in a
   detailed system the namespace of what a colour field colours (a fill and a tint
   `background-color-`, a text `text-color-`, a border `border-color-`). The name is refused, in

@@ -26,6 +26,7 @@ import {
 } from "../lib/new-token.ts";
 import type { FieldTokenKind } from "../lib/token-options.tsx";
 import { makeTokenFor } from "../state/design-system.ts";
+import { ensureEditable } from "../state/setup.ts";
 import { NewTokenPopover } from "./new-token-popover.tsx";
 import { StyleCombobox, type StyleOption } from "./style-combobox.tsx";
 
@@ -111,12 +112,13 @@ export const isOutsideDesignSystem = (
   field?: WaysOnto["field"]
 ): boolean => {
   const parsed = parseValue(option);
-  if (field?.kind === "spacing" && typeof parsed === "number") {
-    return isOffSystem("spacing", parsed, field.spacingBase);
-  }
-  const checked = field && OFF_SYSTEM_KINDS[field.kind];
-  if (checked && !isOffSystem(checked, parsed, field.spacingBase)) {
-    return false;
+  const checkedAs = field && OFF_SYSTEM_KINDS[field.kind];
+  if (checkedAs) {
+    const off = isOffSystem(checkedAs, parsed, field.spacingBase);
+    // A spacing in pixels is on the system exactly when it is a step of the scale.
+    if (!off || (checkedAs === "spacing" && typeof parsed === "number")) {
+      return off;
+    }
   }
   const value = optionOf(parsed);
   return (
@@ -212,7 +214,16 @@ export const ValueField = ({
         hint={hint}
         leading={leading}
         nearest={ways ? () => ways.nearest(value) : undefined}
-        onNewToken={ways ? setNaming : undefined}
+        onNewToken={
+          ways
+            ? (at) => {
+                // Not opened while the field could not be written, so nothing typed is lost.
+                if (ensureEditable()) {
+                  setNaming(at);
+                }
+              }
+            : undefined
+        }
         onPick={(picked) => onChange(parseValue(picked))}
         onPreview={
           onPreview &&
