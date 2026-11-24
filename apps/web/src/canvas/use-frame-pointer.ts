@@ -39,6 +39,7 @@ import {
   selectPage,
   toggleSelected,
 } from "../state/selection.ts";
+import { allFrames } from "../state/surface.ts";
 import { stepInto } from "../state/tree.ts";
 import { placeComment } from "./comments.tsx";
 import {
@@ -371,50 +372,50 @@ export const useFramePointer = ({
       return;
     }
     const layer = e.currentTarget as HTMLElement;
-    /** Where the frame's corner is on the canvas, as its layer was last seen. */
-    let origin = { x: 0, y: 0 };
+    /** Where the frame's corner is on the canvas, as last seen. */
+    let corner = { x: 0, y: 0 };
     /**
-     * Where a point of the window is in the frame: by its layer, or while the layer is gone (Space
-     * held) by where the frame was on the canvas, through the view as it is now.
+     * A point of the canvas in the frame, where the frame is now: by its layer, or while the layer
+     * is gone (Space held) by the frame's box, which a layout pushed meanwhile may have moved.
      */
-    const inFrame = (clientX: number, clientY: number) => {
-      const { zoom } = useEditor.getState().view;
+    const inFrame = (p: { x: number; y: number }) => {
       if (layer.isConnected) {
         const box = layer.getBoundingClientRect();
-        origin = canvasPoint(box.left, box.top);
-        return {
-          x: (clientX - box.left) / zoom,
-          y: (clientY - box.top) / zoom,
-        };
+        corner = canvasPoint(box.left, box.top);
+      } else {
+        corner = allFrames()[frameId] ?? corner;
       }
-      const at = canvasPoint(clientX, clientY);
-      return { x: at.x - origin.x, y: at.y - origin.y };
+      return { x: p.x - corner.x, y: p.y - corner.y };
     };
     const press = { alt: e.altKey, x: e.clientX, y: e.clientY };
-    const at = inFrame(e.clientX, e.clientY);
+    /** Where the press began on the canvas: the marquee's fixed corner, wherever the frame goes. */
+    const pressedAt = canvasPoint(e.clientX, e.clientY);
+    /** Where it began in the frame, which what it picks up is found at. */
+    const at = inFrame(pressedAt);
     /** What the press has become: still a click, a drag, a marquee in a node, or nothing. */
     let doing: "click" | "drag" | "marquee" | "nothing" = "click";
-    let within: DesignNode | null = null;
+    /** The node a marquee is drawn in, by its id: read from its document when it is let go. */
+    let within: string | null = null;
     /** The marquee as the pointer last drew it, and the frame that will show it. */
     let rect: Rect | null = null;
     let request: number | null = null;
     /** Where the pointer last was in the window, which the marquee reaches to. */
     let pointer: { x: number; y: number } | null = null;
-    /** The marquee to `pointer` through the view as it is now. */
+    /** The marquee to `pointer`, through the view as it is now and the frame where it is now. */
     const reach = (): Rect | null => {
       if (!pointer) {
         return null;
       }
-      const to = inFrame(pointer.x, pointer.y);
+      const from = inFrame(pressedAt);
+      const to = inFrame(canvasPoint(pointer.x, pointer.y));
       return {
-        height: Math.abs(to.y - at.y),
-        width: Math.abs(to.x - at.x),
-        x: Math.min(at.x, to.x),
-        y: Math.min(at.y, to.y),
+        height: Math.abs(to.y - from.y),
+        width: Math.abs(to.x - from.x),
+        x: Math.min(from.x, to.x),
+        y: Math.min(from.y, to.y),
       };
     };
-    const draw = (clientX: number, clientY: number) => {
-      pointer = { x: clientX, y: clientY };
+    const redraw = () => {
       rect = reach();
       // Drawn once a frame, however often the pointer reports.
       request ??= requestAnimationFrame(() => {
@@ -422,7 +423,22 @@ export const useFramePointer = ({
         setMarquee(rect);
       });
     };
+    const draw = (clientX: number, clientY: number) => {
+      pointer = { x: clientX, y: clientY };
+      redraw();
+    };
+    /** The view moved or the frame was laid out again under a still pointer: drawn again. */
+    let following: (() => void) | null = null;
+    const followView = () => {
+      following = useEditor.subscribe((now, before) => {
+        if (now.view !== before.view || now.frames !== before.frames) {
+          redraw();
+        }
+      });
+    };
     const putAway = () => {
+      following?.();
+      following = null;
       if (request !== null) {
         cancelAnimationFrame(request);
         request = null;
@@ -435,14 +451,14 @@ export const useFramePointer = ({
       const target = dragTarget(at.x, at.y, press.alt);
       if (!target) {
         doing = kind === "page" ? "marquee" : "nothing";
-        within = currentRoot();
+        within = currentRoot()?.id ?? null;
       } else if (
         target.kind === "node" &&
         isContainer(target.node) &&
         !isSelected(frameId, target.node.id)
       ) {
         doing = "marquee";
-        within = target.node;
+        within = target.node.id;
       } else {
         doing = "drag";
         // What is dragged is what is selected, as it would be after a click on it.
@@ -456,6 +472,7 @@ export const useFramePointer = ({
       // hovered, or measured with ⌥, while one is drawn.
       if (doing === "marquee") {
         leaveHover(frameId);
+        followView();
       }
       move(ev);
     };
@@ -488,8 +505,18 @@ export const useFramePointer = ({
           putAway();
           // Measured again: the view may have moved under a pointer that has not since.
           const area = reach();
-          if (area) {
-            selectInMarquee(area, within);
+          // Read as its document has it now: a node locked or taken away meanwhile is not picked.
+          const container =
+            within === null
+              ? null
+              : nodeIn(
+                  useDocuments.getState().docs,
+                  useEditor.getState().canvas,
+                  frameId,
+                  within
+                );
+          if (area && container) {
+            selectInMarquee(area, container);
           }
         } else if (doing === "drag" && useDrag.getState().dragged) {
           endDrag();
@@ -518,12 +545,8 @@ export const useFramePointer = ({
    * only one and does not cover it whole, that one's children instead: the way a designer means
    * the nodes the rectangle is drawn across.
    */
-  const selectInMarquee = (area: Rect, within: DesignNode | null) => {
-    const container = within ?? currentRoot();
-    if (!container) {
-      return;
-    }
-    let level = childrenOf(container);
+  const selectInMarquee = (area: Rect, within: DesignNode) => {
+    let level = childrenOf(within);
     for (;;) {
       const measured = frameOf(frameId).measure(level.map((n) => n.id));
       const hits = level.filter((n) => {

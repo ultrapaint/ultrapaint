@@ -26,9 +26,10 @@ press to the release:
   page under it change nothing.
 - It is let go on that pointer's release, or at its first move with the button no longer held,
   the release the window never heard.
-- It is put back when the browser cancels the pointer, when the window loses the focus, by Escape
-  (`putBackGesture`, through `stepBack`), and by the next press, before that one begins. One is
-  followed at a time.
+- It is cancelled when the browser cancels the pointer, when the window loses the focus, by
+  Escape (`putBackGesture`, through `stepBack`), and by the next press, before that one begins:
+  what it moved or picked is put back (a frame where it was, the selection as it was), and a pan
+  keeps the view it reached. One is followed at a time.
 
 An element still takes the pointer's capture at a press, only so the frames under the pointer show
 no hover while it lasts; nothing ends on the capture or the element's own handlers. A marquee
