@@ -88,6 +88,21 @@ describe("the person's preferences in their profile (ADR 0093)", () => {
     expect(saves()).toHaveLength(2);
   });
 
+  it("saves how the chat list is grouped to the profile, and takes it from there (ADR 0141)", async () => {
+    fakeApi.respond("profile.get", () => ({
+      preferences: { appearance: { chatGrouping: "page" } },
+    }));
+    start();
+    await vi.waitFor(() =>
+      expect(usePreferences.getState().chatGrouping).toBe("page")
+    );
+    usePreferences.getState().set("chatGrouping", "none");
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(saves().at(-1)).toMatchObject({
+      appearance: { chatGrouping: "none" },
+    });
+  });
+
   it("drops what it can't read", async () => {
     fakeApi.respond("profile.get", () => ({
       preferences: { appearance: { accent: "plaid" }, theme: 3 },

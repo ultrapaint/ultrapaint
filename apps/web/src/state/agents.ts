@@ -99,6 +99,21 @@ const writeSeen = (seen: Record<string, number>) => {
   writeProjectItem(SEEN_KEY, JSON.stringify(seen));
 };
 
+/**
+ * Marks a chat unread from the list (ADR 0141): looked at last just before its last change, so
+ * it reads Done again until it is opened.
+ */
+export const markUnread = (threadId: string) =>
+  useAgents.setState((s) => {
+    const thread = s.threads.find((t) => t.id === threadId);
+    if (!thread) {
+      return s;
+    }
+    const seen = { ...s.seen, [threadId]: thread.updatedAt - 1 };
+    writeSeen(seen);
+    return { seen };
+  });
+
 /** Whether a thread changed since it was last looked at. */
 export const isUnread = (thread: Thread, seen: Record<string, number>) =>
   thread.updatedAt > (seen[thread.id] ?? thread.createdAt);

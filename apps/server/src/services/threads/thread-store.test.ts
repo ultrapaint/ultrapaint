@@ -135,6 +135,83 @@ const shape = (told: readonly ThreadStreamItem[]) =>
   });
 
 describe("ThreadStore", () => {
+  it.effect(
+    "keeps a settled thread where it is as its agent streams and its title changes (ADR 0141)",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const home = yield* fs.makeTempDirectoryScoped();
+        yield* Effect.gen(function* () {
+          const store = yield* ThreadStore;
+          yield* store.add(THREAD);
+          yield* store.update(THREAD.id, { settledAt: 5 }, { news: false });
+          yield* pushed(store, "item_1");
+          yield* store.update(THREAD.id, { title: "Renamed" });
+          assert.strictEqual((yield* store.get(THREAD.id))?.settledAt, 5);
+        }).pipe(Effect.provide(storeIn(home)));
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect.each([
+    ["a prompt starts a turn", { status: "running" }],
+    ["its turn fails", { status: "error" }],
+  ] as const)("brings a settled thread back when %s (ADR 0141)", ([, patch]) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const home = yield* fs.makeTempDirectoryScoped();
+      yield* Effect.gen(function* () {
+        const store = yield* ThreadStore;
+        yield* store.add(THREAD);
+        yield* store.update(THREAD.id, { settledAt: 5 }, { news: false });
+        yield* store.update(THREAD.id, patch);
+        assert.isUndefined((yield* store.get(THREAD.id))?.settledAt);
+      }).pipe(Effect.provide(storeIn(home)));
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
+    "brings a settled thread back when its agent asks something (ADR 0141)",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const home = yield* fs.makeTempDirectoryScoped();
+        yield* Effect.gen(function* () {
+          const store = yield* ThreadStore;
+          yield* store.add(THREAD);
+          yield* store.update(THREAD.id, { settledAt: 5 }, { news: false });
+          yield* store.push(THREAD.id, {
+            answers: null,
+            at: 0,
+            id: "item_2",
+            kind: "question",
+            questions: [{ id: "q", options: [], question: "Which one?" }],
+          });
+          assert.isUndefined((yield* store.get(THREAD.id))?.settledAt);
+        }).pipe(Effect.provide(storeIn(home)));
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
+    "keeps a thread settled across a restart, without moving its time (ADR 0141)",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const home = yield* fs.makeTempDirectoryScoped();
+        yield* Effect.gen(function* () {
+          const store = yield* ThreadStore;
+          yield* store.add(THREAD);
+          yield* TestClock.adjust("1 minute");
+          yield* store.update(THREAD.id, { settledAt: 5 }, { news: false });
+        }).pipe(Effect.provide(storeIn(home)), Effect.scoped);
+        const read = yield* Effect.gen(function* () {
+          const store = yield* ThreadStore;
+          return yield* store.get(THREAD.id);
+        }).pipe(Effect.provide(storeIn(home)));
+        assert.strictEqual(read?.settledAt, 5);
+        assert.strictEqual(read?.updatedAt, THREAD.updatedAt);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
   it.effect("removes a thread's file and nothing beside it", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

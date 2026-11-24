@@ -17,10 +17,11 @@ import { frameOf } from "../canvas/editor-frame.ts";
 import { sendComment } from "../canvas/send-to-agent.tsx";
 import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
 import { askLinkUrl } from "../components/link-field.tsx";
-import { useAgents } from "../state/agents.ts";
+import { markUnread, useAgents } from "../state/agents.ts";
 import { openBoard } from "../state/board.ts";
 import { viewportSize } from "../state/camera.ts";
 import { placeOnCanvas, useCanvasGrid } from "../state/canvas-grid.ts";
+import { useChatRename } from "../state/chat-rename.ts";
 import {
   commentFrame,
   commentLayoutNow,
@@ -301,12 +302,13 @@ const commentMenu = (commentId: string) => {
   });
 };
 
-const threadMenu = (threadId: string) => {
+const threadMenu = (threadId: string, inList?: boolean) => {
   const { following, threads } = useAgents.getState();
   const thread = threads.find((t) => t.id === threadId);
   return thread
     ? threadEntries({
         following: following === thread.id,
+        inList: inList === true,
         running: isBusy(thread.status),
         title: thread.title,
       })
@@ -359,7 +361,7 @@ export const menuFor = (target: MenuTarget): MenuEntry[] | null => {
         })
       );
     case "thread": {
-      const entries = threadMenu(target.threadId);
+      const entries = threadMenu(target.threadId, target.inList);
       return entries && bind("thread", target, entries);
     }
     default:
@@ -786,6 +788,10 @@ const runThread = (target: TargetOf<"thread">, act: ThreadAction): unknown => {
         .setFollowing(act.follow ? target.threadId : null);
     case "stop":
       return stopThread(target.threadId);
+    case "rename":
+      return useChatRename.getState().start(target.threadId);
+    case "markUnread":
+      return markUnread(target.threadId);
     case "delete":
       return deleteThread(target.threadId);
     default:

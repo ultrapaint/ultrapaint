@@ -943,6 +943,11 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       if (!thread) {
         return yield* new NotFound({ message: `unknown thread ${threadId}` });
       }
+      // A prompt brings a settled chat back to the list, whether it starts a turn or waits in the
+      // queue behind one (ADR 0141).
+      if (thread.settledAt !== undefined) {
+        yield* store.update(threadId, { settledAt: undefined });
+      }
       if (isBusy(thread.status)) {
         // Sent into the turn from the composer, as a queued prompt sent now is, unless the turn
         // is being stopped: then it waits its turn as any other.

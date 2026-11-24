@@ -40,6 +40,7 @@ import { IconButton } from "../components/icon-button.tsx";
 import { Markdown } from "../components/markdown.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { Segmented } from "../components/segmented.tsx";
+import { CHAT_GROUPINGS, type ChatGrouping } from "../lib/chat-groups.ts";
 import { chordLabel, isMac } from "../lib/keys.ts";
 import { devCheckout } from "../lib/ultrapaint-dev.ts";
 import {
@@ -51,6 +52,7 @@ import {
 import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
 import { readiness, useMachineAgents } from "../state/machine-agents.ts";
+import { DEFAULT_PREFERENCES, usePreferences } from "../state/preferences.ts";
 import { reportError } from "../state/project.ts";
 import { alternateChord, type SendKey, useSendKey } from "../state/send-key.ts";
 import { useSkills } from "../state/skills.ts";
@@ -566,6 +568,46 @@ const InstallSkillGroup = () => {
       </Group>
     </section>
   );
+};
+
+/**
+ * How the chat list groups its chats (ADR 0141): the person's, in every project, kept in their
+ * profile with the theme.
+ */
+export const ChatGroupingRow = () => {
+  const value = usePreferences((s) => s.chatGrouping);
+  const pick = (next: string) =>
+    usePreferences.getState().set("chatGrouping", next as ChatGrouping);
+  return (
+    <Row
+      description={GROUPING_NOTES[value]}
+      htmlFor="settings-chat-grouping"
+      onReset={
+        value === DEFAULT_PREFERENCES.chatGrouping
+          ? undefined
+          : () => pick(DEFAULT_PREFERENCES.chatGrouping)
+      }
+      setting="chat-grouping"
+      title="Group chats"
+    >
+      <OptionSelect
+        className={rowField}
+        id="settings-chat-grouping"
+        onChange={pick}
+        options={CHAT_GROUPINGS}
+        value={value}
+      />
+    </Row>
+  );
+};
+
+/** What each grouping does to the list, under its row. Settled chats are last in each. */
+const GROUPING_NOTES: Record<ChatGrouping, string> = {
+  day: "Today, then earlier chats. Settled chats last.",
+  none: "One list, newest first. Settled chats last.",
+  page: "Under the page each chat works on. Settled chats last.",
+  state:
+    "What needs you or finished first, then working chats, then settled ones.",
 };
 
 /** Kept in this browser rather than the settings file, so it applies at once and to every project. */

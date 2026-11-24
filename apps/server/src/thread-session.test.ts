@@ -1312,6 +1312,32 @@ describe("the files a turn changed", () => {
     }));
 });
 
+describe("a settled chat (ADR 0141)", () => {
+  test("comes back when a prompt is sent to it while its turn runs", () =>
+    Effect.gen(function* () {
+      const store = yield* ThreadStore;
+      const { threadId } = yield* started("first");
+      yield* store.update(threadId, { settledAt: 1 }, { news: false });
+      // Queued behind the turn: no new turn starts, and the chat still comes back.
+      yield* send(threadId, "second");
+      assert.isUndefined((yield* store.get(threadId))?.settledAt);
+    }));
+
+  test("keeps the designer's title when its agent suggests another", () =>
+    Effect.gen(function* () {
+      const store = yield* ThreadStore;
+      const { threadId, turn } = yield* started();
+      yield* store.update(threadId, { named: true, title: "Pricing hero" });
+      yield* turn.update({
+        sessionUpdate: "session_info_update",
+        title: "Hello there",
+      });
+      yield* turn.end();
+      const { thread } = yield* threadWhen(threadId, turnEnded);
+      assert.strictEqual(thread.title, "Pricing hero");
+    }));
+});
+
 describe("the queue", () => {
   test("holds a prompt sent while a turn runs, and the turn's end sends it", () =>
     Effect.gen(function* () {

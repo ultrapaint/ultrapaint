@@ -24,6 +24,16 @@ describe("the person's preferences", () => {
     ).toEqual({ ...DEFAULT_PREFERENCES, accent: "teal", textSize: "large" });
   });
 
+  it("keep how the chat list is grouped, By state when nothing or an unknown grouping was kept", () => {
+    expect(DEFAULT_PREFERENCES.chatGrouping).toBe("state");
+    expect(
+      readPreferences(JSON.stringify({ chatGrouping: "page" })).chatGrouping
+    ).toBe("page");
+    expect(
+      readPreferences(JSON.stringify({ chatGrouping: "colour" })).chatGrouping
+    ).toBe("state");
+  });
+
   it("are drawn on the root, where the stylesheet reads them", () => {
     const root = document.createElement("html");
     applyPreferences(

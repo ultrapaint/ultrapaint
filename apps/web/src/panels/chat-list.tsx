@@ -1,9 +1,13 @@
 /**
  * The chat's list of threads (ADR 0132): each a row of its title, where it stands and where it
- * works. Opening one gives the thread; the list is where the chat opens.
+ * works, grouped as the person chose and with Settle and Discard draft on hover (ADR 0141).
+ * Opening one gives the thread; the list is where the chat opens.
  */
 import type { Thread } from "@ultrapaint/contracts/threads";
 import {
+  Check,
+  ChevronDown,
+  ChevronRight,
   CircleAlert,
   CircleCheck,
   Hourglass,
@@ -14,8 +18,11 @@ import {
   Search,
   SquareDashedMousePointer,
   SquarePen,
+  Undo2,
+  X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,13 +42,18 @@ import { cn } from "@/lib/cn";
 import { CutText } from "../components/cut-text.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
+import { type ChatGroup, groupChats } from "../lib/chat-groups.ts";
 import { createThread, startTask } from "../lib/start-thread.ts";
 import { rowState, threadView } from "../lib/thread-view.ts";
 import { isUnread, lineOf, useAgents } from "../state/agents.ts";
+import { useChatListFolds } from "../state/chat-list-folds.ts";
+import { useChatRename } from "../state/chat-rename.ts";
+import { api } from "../state/connection.ts";
 import { openMenuAt } from "../state/context-menu.ts";
-import { useDraft } from "../state/drafts.ts";
+import { setDraft, useDraft } from "../state/drafts.ts";
 import { useEditor } from "../state/editor.ts";
-import { useProject } from "../state/project.ts";
+import { usePreferences } from "../state/preferences.ts";
+import { reportError, useProject } from "../state/project.ts";
 
 type Filter = "all" | "running" | "page";
 
@@ -69,9 +81,6 @@ const ago = (at: number, now: number): string => {
   }
   return `${Math.floor(d / (30 * DAY))}mo`;
 };
-
-const isToday = (at: number, now: number) =>
-  new Date(at).toDateString() === new Date(now).toDateString();
 
 /** Where a thread's scope is: its page's URL, or its name when it has none, or the canvas. */
 const useScopeLabel = (thread: Thread) =>
@@ -167,6 +176,104 @@ const DraftMark = ({ threadId }: { threadId: string }) => {
   );
 };
 
+/** Settles a chat from the list, or brings it back (ADR 0141). */
+const settle = (threadId: string, settled: boolean) =>
+  api().request("threads.settle", { settled, threadId }).catch(reportError);
+
+/** Throws a chat's draft away, with Undo in a toast that puts it back. */
+const discardDraft = (threadId: string, draft: string) => {
+  setDraft(threadId, "");
+  toast("Draft discarded", {
+    action: { label: "Undo", onClick: () => setDraft(threadId, draft) },
+  });
+};
+
+const ACTION =
+  "flex h-6 shrink-0 items-center gap-1 rounded-sm px-1.5 font-body-small text-muted-foreground outline-none transition-colors duration-100 hover:bg-foreground/8 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring";
+
+/**
+ * What a row offers on hover, or once the keyboard reaches it, in its state's place: Discard
+ * draft while its composer holds one, then Settle, or Un-settle on a settled chat.
+ */
+const RowActions = ({ thread }: { thread: Thread }) => {
+  const draft = useDraft(thread.id);
+  const settled = thread.settledAt !== undefined;
+  return (
+    <span className="absolute top-1 right-1 hidden items-center gap-0.5 group-focus-within/row:flex group-hover/row:flex">
+      {draft ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                aria-label="Discard draft"
+                className={cn(ACTION, "w-6 justify-center px-0")}
+                onClick={() => discardDraft(thread.id, draft)}
+                type="button"
+              />
+            }
+          >
+            <X className={ICON} />
+          </TooltipTrigger>
+          <TooltipContent>Discard draft</TooltipContent>
+        </Tooltip>
+      ) : null}
+      <button
+        className={ACTION}
+        onClick={() => settle(thread.id, !settled)}
+        type="button"
+      >
+        {settled ? <Undo2 className={ICON} /> : <Check className={ICON} />}
+        {settled ? "Un-settle" : "Settle"}
+      </button>
+    </span>
+  );
+};
+
+/** The title edited in place, from Rename… in the row's menu: Enter sends it, Escape keeps it. */
+const TitleField = ({ thread }: { thread: Thread }) => {
+  const done = useChatRename((s) => s.done);
+  const [title, setTitle] = useState(thread.title);
+  // Ended by Enter or Escape: the blur as the field goes is not a second ending.
+  const ended = useRef<boolean>(false);
+  const end = () => {
+    ended.current = true;
+    done();
+  };
+  const send = () => {
+    if (ended.current) {
+      return;
+    }
+    const given = title.trim();
+    end();
+    if (given && given !== thread.title) {
+      api()
+        .request("threads.rename", { threadId: thread.id, title: given })
+        .catch(reportError);
+    }
+  };
+  return (
+    <input
+      aria-label="Chat title"
+      autoFocus
+      className="min-w-0 flex-1 rounded-sm bg-background px-1 font-body-medium text-foreground outline-none ring-2 ring-ring"
+      onBlur={send}
+      onChange={(e) => setTitle(e.target.value)}
+      onFocus={(e) => e.target.select()}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          send();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          end();
+        }
+      }}
+      value={title}
+    />
+  );
+};
+
 const ThreadRow = ({
   now,
   thread,
@@ -177,27 +284,47 @@ const ThreadRow = ({
   unread: boolean;
 }) => {
   const scopeLabel = useScopeLabel(thread);
+  const renaming = useChatRename((s) => s.threadId === thread.id);
   const open = () => useAgents.getState().open(thread.id);
+  const where = (
+    <span className="truncate font-body-small text-muted-foreground">
+      {scopeLabel ?? "Nothing attached"}
+    </span>
+  );
+  if (renaming) {
+    return (
+      <div className="flex w-full min-w-0 flex-col rounded-md px-2 py-1.5">
+        <span className="flex min-w-0 items-center gap-2">
+          <TitleField thread={thread} />
+        </span>
+        {where}
+      </div>
+    );
+  }
   return (
-    <button
-      className="flex w-full min-w-0 flex-col rounded-md px-2 py-1.5 text-left outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
-      onClick={open}
-      onContextMenu={(e) =>
-        openMenuAt(e, { kind: "thread", threadId: thread.id })
-      }
-      type="button"
-    >
-      <span className="flex min-w-0 items-center gap-2">
-        <DraftMark threadId={thread.id} />
-        <CutText className="min-w-0 flex-1 truncate font-body-medium text-foreground">
-          {thread.title}
-        </CutText>
-        <RowStatus now={now} thread={thread} unread={unread} />
-      </span>
-      <span className="truncate font-body-small text-muted-foreground">
-        {scopeLabel ?? "Nothing attached"}
-      </span>
-    </button>
+    <div className="group/row relative">
+      <button
+        className="flex w-full min-w-0 flex-col rounded-md px-2 py-1.5 text-left outline-none transition-colors duration-100 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring group-hover/row:bg-accent"
+        onClick={open}
+        onContextMenu={(e) =>
+          openMenuAt(e, { inList: true, kind: "thread", threadId: thread.id })
+        }
+        type="button"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <DraftMark threadId={thread.id} />
+          <CutText className="min-w-0 flex-1 truncate font-body-medium text-foreground">
+            {thread.title}
+          </CutText>
+          {/* Kept in place under the actions, so the title does not move on hover. */}
+          <span className="flex shrink-0 group-focus-within/row:invisible group-hover/row:invisible">
+            <RowStatus now={now} thread={thread} unread={unread} />
+          </span>
+        </span>
+        {where}
+      </button>
+      <RowActions thread={thread} />
+    </div>
   );
 };
 
@@ -257,27 +384,81 @@ const FilterMenu = ({
   </DropdownMenu>
 );
 
-const Section = ({
-  label,
-  now,
-  seen,
-  threads,
+/** A group's heading: none for the chats on top, a button with its count for one that folds. */
+const SectionHeading = ({
+  group,
+  onToggle,
+  open,
 }: {
-  label: string;
-  now: number;
-  seen: Record<string, number>;
-  threads: readonly Thread[];
-}) =>
-  threads.length > 0 ? (
-    <section className="flex flex-col gap-1">
+  group: ChatGroup;
+  onToggle: () => void;
+  open: boolean;
+}) => {
+  if (group.label === null) {
+    return null;
+  }
+  if (!group.folds) {
+    return (
       <h3 className="px-2 pt-3 pb-1 font-body-small text-muted-foreground">
-        {label}
+        {group.label}
       </h3>
-      {threads.map((t) => (
-        <ThreadRow key={t.id} now={now} thread={t} unread={isUnread(t, seen)} />
-      ))}
+    );
+  }
+  const Chevron = open ? ChevronDown : ChevronRight;
+  return (
+    <h3>
+      <button
+        aria-expanded={open}
+        className="flex w-full items-center gap-1 rounded-sm px-2 pt-3 pb-1 font-body-small text-muted-foreground outline-none transition-colors duration-100 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        onClick={onToggle}
+        type="button"
+      >
+        <span className="flex-1 text-left">{group.label}</span>
+        <span className="tabular-nums">{group.threads.length}</span>
+        <Chevron className={ICON} />
+      </button>
+    </h3>
+  );
+};
+
+/**
+ * One group of the list: its heading over its rows. Working and Settled fold, as the person left
+ * them; a search shows every chat it found, the settled too.
+ */
+const Section = ({
+  group,
+  now,
+  searching,
+  seen,
+}: {
+  group: ChatGroup;
+  now: number;
+  searching: boolean;
+  seen: Record<string, number>;
+}) => {
+  const closed = useChatListFolds((s) => s.closed[group.key] ?? false);
+  const toggle = useChatListFolds((s) => s.toggle);
+  const open = !(group.folds && closed) || searching;
+  return (
+    <section className="flex flex-col gap-1">
+      <SectionHeading
+        group={group}
+        onToggle={() => toggle(group.key)}
+        open={open}
+      />
+      {open
+        ? group.threads.map((t) => (
+            <ThreadRow
+              key={t.id}
+              now={now}
+              thread={t}
+              unread={isUnread(t, seen)}
+            />
+          ))
+        : null}
     </section>
-  ) : null;
+  );
+};
 
 /**
  * The list with no chats. A folder whose settings were detected and not saved yet is ready to
@@ -369,8 +550,17 @@ export const ThreadList = () => {
       );
     });
   }, [threads, lines, query, filter, pageFile]);
-  const today = shown.filter((t) => isToday(t.updatedAt, now));
-  const earlier = shown.filter((t) => !isToday(t.updatedAt, now));
+  const grouping = usePreferences((s) => s.chatGrouping);
+  const pages = useProject((s) => s.pages);
+  const groups = groupChats(shown, {
+    grouping,
+    now,
+    pageOf: (t) => {
+      const page = pages.find((p) => p.file === t.scope?.file);
+      return page ? (page.route ?? page.name) : null;
+    },
+    unread: (t) => isUnread(t, seen),
+  });
 
   const clear = () => {
     setQuery("");
@@ -428,8 +618,15 @@ export const ThreadList = () => {
                 {emptyNote(filter, query.trim())}
               </PanelEmpty>
             ) : null}
-            <Section label="Today" now={now} seen={seen} threads={today} />
-            <Section label="Earlier" now={now} seen={seen} threads={earlier} />
+            {groups.map((g) => (
+              <Section
+                group={g}
+                key={g.key}
+                now={now}
+                searching={!!query.trim()}
+                seen={seen}
+              />
+            ))}
           </div>
         </>
       )}

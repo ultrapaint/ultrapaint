@@ -764,10 +764,15 @@ export type ThreadAction =
   /** Follows it on the canvas, or stops. */
   | { follow: boolean; kind: "follow" }
   | { kind: "stop" }
+  /** On a row of the list (ADR 0141): its title edited in place, or read as unread again. */
+  | { kind: "rename" }
+  | { kind: "markUnread" }
   | { kind: "delete" };
 
 interface ThreadFacts {
   following: boolean;
+  /** Opened on a row of the chat list, where Rename… and Mark unread apply. */
+  inList: boolean;
   running: boolean;
   title: string;
 }
@@ -781,6 +786,9 @@ export const threadEntries = (f: ThreadFacts): Entry<ThreadAction>[] =>
       f.following ? "Stop following" : "Follow on the canvas"
     ),
     f.running && item({ kind: "stop" }, "Stop the turn"),
+    f.inList && separator,
+    f.inList && item({ kind: "rename" }, "Rename…"),
+    f.inList && item({ kind: "markUnread" }, "Mark unread"),
     separator,
     item({ kind: "delete" }, "Delete thread…", { destructive: true }),
   ]);

@@ -1,11 +1,11 @@
-import { NotFound } from "@ultrapaint/contracts/errors";
+import { BadRequest, NotFound } from "@ultrapaint/contracts/errors";
 import {
   type EventName,
   type EventPayload,
   eventNames,
   UltrapaintRpcs,
 } from "@ultrapaint/contracts/rpc";
-import { Effect, FileSystem, type Stream } from "effect";
+import { Clock, Effect, FileSystem, type Stream } from "effect";
 import { AppLog } from "./app-log.ts";
 import { EventBus } from "./events.ts";
 import { lineOfKey } from "./line-of-key.ts";
@@ -326,6 +326,23 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
           (s) => Effect.andThen(project.changed, s.prompt(input)),
           commandId
         ),
+      // The designer's own title for a chat (ADR 0141): `named` keeps it from the agent's.
+      "threads.rename": Effect.fnUntraced(function* ({ threadId, title }) {
+        if (!(yield* store.get(threadId))) {
+          return yield* new NotFound({ message: `unknown thread ${threadId}` });
+        }
+        const given = title.trim();
+        if (!given) {
+          return yield* new BadRequest({
+            message: "a chat's title is not empty",
+          });
+        }
+        yield* store.update(
+          threadId,
+          { named: true, title: given },
+          { news: false }
+        );
+      }),
       "threads.sendQueued": ({ commandId, id, threadId }) =>
         thread(threadId, (s) => s.sendNow(id), commandId),
       "threads.setAgent": ({ threadId, agentId }) =>
@@ -350,6 +367,14 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
           return yield* new NotFound({ message: `unknown thread ${threadId}` });
         }
         yield* store.update(threadId, { skills: chosen ?? undefined });
+      }),
+      // A chat put aside from the list, or brought back (ADR 0141).
+      "threads.settle": Effect.fnUntraced(function* ({ settled, threadId }) {
+        if (!(yield* store.get(threadId))) {
+          return yield* new NotFound({ message: `unknown thread ${threadId}` });
+        }
+        const settledAt = settled ? yield* Clock.currentTimeMillis : undefined;
+        yield* store.update(threadId, { settledAt }, { news: false });
       }),
       "threads.unqueue": ({ commandId, id, threadId }) =>
         thread(threadId, (s) => s.unqueue(id), commandId),
