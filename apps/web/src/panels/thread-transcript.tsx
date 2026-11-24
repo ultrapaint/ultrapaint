@@ -383,7 +383,7 @@ const ToolStatus = ({ status }: { status: ToolItem["status"] }) => {
     case "failed":
       return <X aria-label="Failed" className="text-destructive" />;
     case "in_progress":
-      return <Spinner aria-label="Running" className="text-agent" />;
+      return <Spinner aria-label="Running" className="text-muted-foreground" />;
     default:
       return <CircleDashed aria-label="Waiting" />;
   }
@@ -446,7 +446,7 @@ const PlanMark = ({
   }
   return status === "in_progress" ? (
     <span className="flex size-3.5 items-center justify-center">
-      <span className="size-1.5 rounded-full bg-agent" />
+      <span className="size-1.5 rounded-full bg-foreground" />
     </span>
   ) : (
     <Circle className="size-3.5 text-muted-foreground/60" />

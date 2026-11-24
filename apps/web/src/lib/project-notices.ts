@@ -20,7 +20,7 @@ const NOTICE_MS = 10_000;
 
 const DOT: Record<ProjectNotice["news"], string> = {
   asks: "bg-warning",
-  done: "bg-agent",
+  done: "bg-foreground",
   stopped: "bg-destructive",
 };
 

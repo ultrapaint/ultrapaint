@@ -377,11 +377,16 @@ export const Thread = Schema.Struct({
   skills: Schema.optional(Schema.Array(Schema.String)),
   status: ThreadStatus,
   /**
-   * The thread's last line and whether it waits on the user, for the list of threads. Derived
-   * from the transcript when the list is read; not stored.
+   * The thread's last line, whether it waits on the user and when its last turn began (the
+   * person's last prompt), for the list of threads: a working row says for how long (ADR 0132).
+   * Derived from the transcript when the list is read; not stored.
    */
   summary: Schema.optional(
-    Schema.Struct({ text: Schema.String, waiting: Schema.Boolean })
+    Schema.Struct({
+      since: Schema.optional(Schema.Number),
+      text: Schema.String,
+      waiting: Schema.Boolean,
+    })
   ),
   title: Schema.String,
   /**
@@ -988,12 +993,14 @@ export const answeredInTurn = (
 ) => item.elicitation !== undefined && item.restartedAt === undefined;
 
 /**
- * A thread's last line, and whether it waits on the user: a question neither answered, declined
- * nor withdrawn, or a permission undecided. What the list of threads shows under each title.
+ * A thread's last line, whether it waits on the user (a question neither answered, declined nor
+ * withdrawn, or a permission undecided) and when its last turn began: the person's last prompt,
+ * a review round's findings sent on staying in its turn (ADR 0095). What the list of threads
+ * reads of each.
  */
 export const summarise = (
   items: readonly ThreadItem[]
-): { text: string; waiting: boolean } => {
+): { since?: number; text: string; waiting: boolean } => {
   const pending = items.findLast(
     (i) =>
       (i.kind === "question" &&
@@ -1008,5 +1015,12 @@ export const summarise = (
       .split("\n")
       .map((l) => l.replace(MARKDOWN_RE, "").replace(SPACES_RE, " ").trim())
       .find(Boolean) ?? "";
-  return { text: line, waiting: pending !== undefined };
+  const prompt = items.findLast(
+    (i) => i.kind === "user" && i.review === undefined
+  );
+  return {
+    ...(prompt && { since: prompt.at }),
+    text: line,
+    waiting: pending !== undefined,
+  };
 };

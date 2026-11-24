@@ -1,7 +1,7 @@
 /**
- * How a thread shows its agent at work: a mark in the agents' pink that turns while the turn runs,
- * and at the bottom of the chat that it is working and for how long. What it is doing is in the
- * folded work above, for whoever opens it.
+ * How a thread shows its agent at work: a muted mark that turns while the turn runs (the agents'
+ * pink is the canvas's alone, ADR 0132), and at the bottom of the chat that it is working and for
+ * how long. What it is doing is in the folded work above, for whoever opens it.
  */
 
 import { useEffect, useState } from "react";
@@ -15,7 +15,7 @@ const WorkingMark = ({ className }: { className?: string }) => (
   <svg
     aria-hidden="true"
     className={cn(
-      "size-4 text-agent motion-safe:animate-[spin_8s_linear_infinite]",
+      "size-4 text-muted-foreground motion-safe:animate-[spin_8s_linear_infinite]",
       className
     )}
     viewBox="0 0 24 24"

@@ -105,7 +105,8 @@ export const isUnread = (thread: Thread, seen: Record<string, number>) =>
 
 /**
  * The threads with one's summary brought up to date from the items the editor holds, once it
- * waits on the person or no longer does. The same list, and the same thread, otherwise: its line
+ * waits on the person or no longer does, or a prompt begins a turn (its `since`, which a working
+ * row times, ADR 0132). The same list, and the same thread, otherwise: its line
  * changes with each word an agent streams, and everything showing the thread (the chat, a frame
  * on the canvas each) would be drawn again with it. The list reads the line itself (`lineOf`).
  */
@@ -120,7 +121,10 @@ export const summarised = (
     return threads;
   }
   const summary = summarise(items);
-  if (thread.summary?.waiting === summary.waiting) {
+  if (
+    thread.summary?.waiting === summary.waiting &&
+    thread.summary.since === summary.since
+  ) {
     return threads;
   }
   return threads.with(at, { ...thread, summary });

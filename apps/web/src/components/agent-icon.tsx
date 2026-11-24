@@ -4,13 +4,14 @@ import { Bot } from "lucide-react";
 import type { SVGProps } from "react";
 import { cn } from "@/lib/cn";
 
-// The marks are the ones t3code draws for its providers.
+// The marks are the ones t3code draws for its providers, in the colour of the text beside them
+// rather than the agents' own (ADR 0018, ADR 0132).
 
 const ClaudeMark = ({ className, ...props }: SVGProps<SVGSVGElement>) => (
   <svg
     {...props}
     aria-hidden
-    className={cn("fill-[#d97757]", className)}
+    className={cn("fill-current", className)}
     preserveAspectRatio="xMidYMid"
     viewBox="0 0 256 257"
   >
@@ -22,7 +23,7 @@ const OpenAIMark = ({ className, ...props }: SVGProps<SVGSVGElement>) => (
   <svg
     {...props}
     aria-hidden
-    className={cn("fill-foreground", className)}
+    className={cn("fill-current", className)}
     preserveAspectRatio="xMidYMid"
     viewBox="100 100 411 411"
   >
