@@ -28,24 +28,43 @@ const page = vi.hoisted(() => ({
   boxes: {
     card: { height: 200, width: 400, x: 40, y: 40 },
     "home-root": { height: 900, width: 1440, x: 0, y: 0 },
+    shell: { height: 100, width: 1440, x: 0, y: 400 },
     "shell/nav": { height: 40, width: 200, x: 0, y: 400 },
     "shell/nav/text": { height: 20, width: 60, x: 12, y: 410 },
     t1: { height: 20, width: 100, x: 64, y: 64 },
     t2: { height: 30, width: 400, x: 40, y: 300 },
   } as Record<string, Rect>,
   chain: ["home-root", "card", "t1"],
+  /** What listens to the frame's events: told when it draws. */
+  listeners: new Set<{ rendered?: (renderId: number) => void }>(),
 }));
 
-vi.mock("./editor-frame.ts", () => ({
-  frameOf: () => ({
-    hitTest: () => page.chain,
-    measure: (ids: readonly string[]) =>
-      Object.fromEntries(
-        ids.flatMap((id) => (page.boxes[id] ? [[id, page.boxes[id]]] : []))
-      ),
-    pageAt: () => [],
-  }),
-}));
+vi.mock("./editor-frame.ts", async () => {
+  const react = await import("react");
+  return {
+    frameOf: () => ({
+      hitTest: () => page.chain,
+      measure: (ids: readonly string[]) =>
+        Object.fromEntries(
+          ids.flatMap((id) => (page.boxes[id] ? [[id, page.boxes[id]]] : []))
+        ),
+      pageAt: () => [],
+    }),
+    useFrameEvents: (
+      id: string | null,
+      listeners: { rendered?: (renderId: number) => void }
+    ) =>
+      react.useEffect(() => {
+        if (id === null) {
+          return;
+        }
+        page.listeners.add(listeners);
+        return () => {
+          page.listeners.delete(listeners);
+        };
+      }),
+  };
+});
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -207,6 +226,7 @@ afterEach(() => {
   host.remove();
   handlers = null;
   page.chain = ["home-root", "card", "t1"];
+  page.boxes.card = { height: 200, width: 400, x: 40, y: 40 };
   useMeasureKey.setState({ held: false });
   useEditor.setState({ also: [], hover: null, rects: {}, selection: null });
   useDrag.setState({ dragged: null, drop: null });
@@ -300,6 +320,17 @@ describe("⌥ held over another element in the selection's frame", () => {
     expect(lengthsIn()).toEqual([]);
   });
 
+  it("draws nothing while a marquee is drawn", () => {
+    hover("t2");
+    holdAlt();
+    expect(lengthsIn()).toEqual(["216"]);
+    // A press on the page itself, where nothing is hit, travels: a marquee.
+    page.chain = ["home-root"];
+    act(() => pointer().onPointerDown(pointerAt()));
+    act(() => pointer().onPointerMove(pointerAt({ clientX: 200 })));
+    expect(lengthsIn()).toEqual([]);
+  });
+
   it("draws nothing in another view of the page", () => {
     hover("t2", TABLET);
     holdAlt();
@@ -329,6 +360,33 @@ describe("⌥ held over the selection's parent, or the selection itself", () => 
     hover("t1");
     holdAlt();
     expect(lengthsIn()).toEqual(["24", "276", "24", "156"]);
+  });
+
+  it("reads the parent again as the frame draws, a change to it alone moving nothing watched", () => {
+    hover("t1");
+    holdAlt();
+    page.boxes.card = { height: 300, width: 400, x: 40, y: 40 };
+    act(() => {
+      for (const listener of page.listeners) {
+        listener.rendered?.(2);
+      }
+    });
+    expect(lengthsIn()).toEqual(["24", "276", "24", "256"]);
+  });
+
+  it("draws the insets of several selected in the parent they share", () => {
+    select("t2", "shell");
+    hover("t2");
+    holdAlt();
+    // The box around them, 300 to 500 down the page, as wide as it.
+    expect(lengthsIn()).toEqual(["300", "400"]);
+  });
+
+  it("draws nothing over several selected in different parents", () => {
+    select("t1", "t2");
+    hover("t1");
+    holdAlt();
+    expect(lengthsIn()).toEqual([]);
   });
 
   it("measures a layer of an instance in the layer around it", () => {
