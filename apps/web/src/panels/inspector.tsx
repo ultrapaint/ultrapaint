@@ -88,6 +88,7 @@ import {
   InspectedKey,
   nullIfMixed,
   oneComponent,
+  ReadOnlyFieldsContext,
   Row,
   Section,
   set,
@@ -228,22 +229,30 @@ const PartInspector = ({ part }: { part: PartOf }) => {
         }}
         onPointerDownCapture={holdBack}
       >
-        {node.type === "text" && <TextSection nodes={[node]} />}
-        {node.type === "image" && <ImageSection nodes={[node]} />}
-        {allStacks(nodes) && <LayoutSection nodes={nodes} />}
-        <SizeSection
-          frame={variationFrameOf(open, part.variation)}
-          nodes={nodes}
-        />
-        <SpacingSection nodes={nodes} write={writeSides} />
-        <AppearanceSection nodes={nodes} />
+        <ReadOnlyFieldsContext.Provider value={true}>
+          {node.type === "text" && <TextSection nodes={[node]} />}
+          {node.type === "image" && <ImageSection nodes={[node]} />}
+          {allStacks(nodes) && <LayoutSection nodes={nodes} />}
+          <SizeSection
+            frame={variationFrameOf(open, part.variation)}
+            nodes={nodes}
+          />
+          <SpacingSection nodes={nodes} write={writeSides} />
+          <AppearanceSection nodes={nodes} />
+        </ReadOnlyFieldsContext.Provider>
       </fieldset>
     </div>
   );
 };
 
-/** A press or a key on a read-only field goes no further. */
+/**
+ * A press or a key on a read-only field goes no further, but for what opens a popover to read
+ * and the popover itself (`data-read-only-passes`), whose fields are read-only of their own.
+ */
 const holdBack = (e: React.SyntheticEvent) => {
+  if ((e.target as Element).closest?.("[data-read-only-passes]")) {
+    return;
+  }
   e.preventDefault();
   e.stopPropagation();
 };

@@ -727,6 +727,33 @@ describe("one part of a variation (ADR 0098)", () => {
     expect(pressed.defaultPrevented).toBe(true);
   });
 
+  it("opens a text part's Formatting to read its role, its fields read-only", async () => {
+    openHero();
+    doubleClickIn("Editorial", ["hero", "kicker"]);
+    const container = document.createElement("div");
+    document.body.append(container);
+    panel = createRoot(container);
+    const r = panel;
+    act(() => r.render(<Inspector />));
+    const formatting = container.querySelector<HTMLElement>(
+      '[data-part-inspector] [aria-label="Formatting"]'
+    );
+    expect(formatting?.getAttribute("role")).toBe("button");
+    act(() => formatting?.click());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const popover = document.querySelector('[data-slot="popover-content"]');
+    expect(popover?.textContent).toContain("Role");
+    // Disabled by the fieldset around it, as every field of the part is (happy-dom reads no
+    // fieldset's disabled into `:disabled`).
+    expect(
+      popover
+        ?.querySelector('[data-slot="select-trigger"]')
+        ?.closest("fieldset[disabled]")
+    ).not.toBeNull();
+  });
+
   it("adds a part the preview lacks in its place in its parent, writing nothing", () => {
     openHero();
     doubleClickIn("Editorial", ["hero", "kicker"]);

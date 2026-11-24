@@ -104,6 +104,12 @@ export const InstanceOverrideMarksContext =
   createContext<InstanceOverrideMarks | null>(null);
 
 /**
+ * Whether the fields drawn are read-only: a variation's part (ADR 0098), whose fieldset holds back
+ * every press. What a field opens elsewhere, a popover, reads it to stay read-only too.
+ */
+export const ReadOnlyFieldsContext = createContext(false);
+
+/**
  * A mark in the component colour on what this instance overrides of `fields`, which gives them
  * back to the main component when pressed; nothing where it overrides none of them.
  */
@@ -357,6 +363,7 @@ export const TokenField = ({
   numeric = true,
   onChange,
   className,
+  leading,
   title,
 }: {
   kind: FieldTokenKind;
@@ -365,6 +372,9 @@ export const TokenField = ({
   numeric?: boolean;
   onChange: (value: JsonValue) => void;
   className?: string;
+  /** What leads the field inside it: the icon that names a field drawn without a label. */
+  leading?: ReactNode;
+  /** The field's name, its tooltip and what a screen reader calls it. */
   title?: string;
 }) => {
   const options = useTokenOptions(kind);
@@ -373,6 +383,7 @@ export const TokenField = ({
       accept={(q) => !numeric || CSS.supports("width", q)}
       className={className}
       kind={kind}
+      leading={leading}
       onChange={onChange}
       options={options}
       placeholder={placeholder ?? "Default"}

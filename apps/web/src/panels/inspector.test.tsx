@@ -4,8 +4,10 @@ import type { DesignNode, DocumentState } from "@ultrapaint/contracts/document";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useKeymap } from "../lib/keymap.ts";
 import { openBoard, useBoard } from "../state/board.ts";
 import { useComponents } from "../state/components.ts";
+import { useDesignSystem } from "../state/design-system.ts";
 import { editFrameAs, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useIsolation } from "../state/isolation.ts";
@@ -14,6 +16,12 @@ import { useProject } from "../state/project.ts";
 import { select, toggleSelected } from "../state/selection.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { Inspector } from "./inspector.tsx";
+
+/** The inspector, with the editor's keys listening on the window as they do in the editor. */
+const WithKeys = () => {
+  useKeymap();
+  return <Inspector />;
+};
 
 vi.mock(
   "../state/connection.ts",
@@ -94,12 +102,14 @@ beforeEach(() => {
   useIsolation.setState({ isolated: null });
   useDocuments.setState({ canvas: "main", docs: { [HOME]: home } });
   container = document.createElement("div");
+  document.body.append(container);
   mounted = createRoot(container);
-  act(() => mounted.render(<Inspector />));
+  act(() => mounted.render(<WithKeys />));
 });
 
 afterEach(() => {
   act(() => mounted.unmount());
+  container.remove();
 });
 
 describe("the inspector's sections", () => {
@@ -397,6 +407,225 @@ describe("an app component's instance and its layers (ADR 0114)", () => {
         },
       ],
       label: "Apply to Promo",
+    });
+  });
+});
+
+describe("the Text section", () => {
+  const initialDesignSystem = useDesignSystem.getState();
+  afterEach(() => useDesignSystem.setState(initialDesignSystem, true));
+  /** What the last edit asked the server for. */
+  const applied = () =>
+    fakeApi.calls.findLast((c) => c.method === "documents.apply")?.input;
+  const field = (name: string) =>
+    container.querySelector(`[aria-label="${name}"]`);
+  /** The words the Text section shows: its title, its labels and its fields' values. */
+  const sectionText = () =>
+    [...container.querySelectorAll("section")].find(
+      (s) => s.querySelector("h3")?.textContent === "Text"
+    )?.textContent ?? "";
+  /** Lets the popover's and the select's opening settle. */
+  const settle = () =>
+    act(async () => {
+      await Promise.resolve();
+    });
+  const formatting = () =>
+    container.querySelector<HTMLElement>('[aria-label="Formatting"]');
+  const popover = () =>
+    document.querySelector<HTMLElement>('[data-slot="popover-content"]');
+  const openFormatting = async () => {
+    act(() => formatting()?.click());
+    await settle();
+  };
+  /** Picks an option of the popover's Role. */
+  const pickRole = async (label: string) => {
+    const trigger = popover()?.querySelector<HTMLElement>(
+      '[data-slot="select-trigger"]'
+    );
+    act(() => trigger?.click());
+    await settle();
+    const option = [...document.querySelectorAll('[role="option"]')].find(
+      (o) => o.textContent === label
+    ) as HTMLElement | undefined;
+    act(() => option?.click());
+    await settle();
+  };
+
+  it("labels only the rows that keep a field each, size, weight, line height and tracking paired", () => {
+    act(() => select({ frame: HOME, nodeId: "title" }));
+    const words = sectionText();
+    for (const label of ["Style", "Font", "Colour", "Align"]) {
+      expect(words).toContain(label);
+    }
+    for (const gone of ["Size", "Weight", "Line height", "Tracking", "Role"]) {
+      expect(words).not.toContain(gone);
+    }
+  });
+
+  it("names each paired field and leads it with its icon", () => {
+    act(() => select({ frame: HOME, nodeId: "title" }));
+    for (const name of ["Size", "Weight", "Line height", "Tracking"]) {
+      expect(field(name)?.querySelector("svg")).not.toBeNull();
+    }
+  });
+
+  it("names a field a text style gives by what it is, then by the style it comes from", () => {
+    useDesignSystem.setState({
+      designSystem: {
+        colors: [],
+        radius: [],
+        shadows: [],
+        spacing: { base: "0.25rem" },
+        typography: {
+          fonts: [],
+          sizes: [],
+          styles: [{ name: "Body", role: "paragraph", size: 16 }],
+          weights: [],
+        },
+      } as never,
+    });
+    useDocuments.setState({
+      docs: {
+        [HOME]: {
+          ...home,
+          root: {
+            children: [{ ...text("title"), textStyle: "Body" } as DesignNode],
+            id: "home",
+            type: "page",
+          } as DesignNode,
+        },
+      },
+    });
+    act(() => select({ frame: HOME, nodeId: "title" }));
+    expect(
+      field("Size: from Body; a change detaches it")?.querySelector("svg")
+    ).not.toBeNull();
+  });
+
+  it("holds the role in a popover titled Formatting", async () => {
+    act(() => select({ frame: HOME, nodeId: "title" }));
+    await openFormatting();
+    expect(
+      popover()?.querySelector('[data-slot="popover-title"]')?.textContent
+    ).toBe("Formatting");
+    expect(popover()?.textContent).toContain("Role");
+  });
+
+  it("sets the role picked in Formatting at once, the popover staying open", async () => {
+    act(() => select({ frame: HOME, nodeId: "title" }));
+    await openFormatting();
+    fakeApi.respond("documents.apply", () => ({ changes: [], created: [] }));
+    await pickRole("Heading 2");
+    await act(() => fakeApi.requested("documents.apply"));
+    expect(applied()).toMatchObject({
+      edits: [
+        {
+          doc: HOME,
+          ops: [
+            {
+              id: "title",
+              op: "update",
+              set: { level: 2, role: "heading" },
+            },
+          ],
+        },
+      ],
+    });
+    expect(
+      fakeApi.calls.filter((c) => c.method === "documents.apply")
+    ).toHaveLength(1);
+    expect(popover()?.hasAttribute("data-closed")).toBe(false);
+  });
+
+  it("closes Formatting on Escape, the selection kept", async () => {
+    act(() => select({ frame: HOME, nodeId: "caption" }));
+    await openFormatting();
+    expect(popover()).not.toBeNull();
+    const focused = (document.activeElement ?? document.body) as HTMLElement;
+    act(() => {
+      focused.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "Escape",
+        })
+      );
+    });
+    await settle();
+    expect(popover()?.hasAttribute("data-closed") ?? true).toBe(true);
+    expect(useEditor.getState().selection?.nodeId).toBe("caption");
+  });
+
+  it("reads Mixed for texts whose roles differ", async () => {
+    useDocuments.setState({
+      docs: {
+        [HOME]: {
+          ...home,
+          root: {
+            children: [
+              text("title"),
+              { ...text("lede"), level: 2, role: "heading" } as DesignNode,
+            ],
+            id: "home",
+            type: "page",
+          } as DesignNode,
+        },
+      },
+    });
+    act(() => select({ frame: HOME, nodeId: "title" }));
+    act(() => toggleSelected({ frame: HOME, nodeId: "lede" }));
+    await openFormatting();
+    expect(
+      popover()?.querySelector('[data-slot="select-trigger"]')?.textContent
+    ).toContain("Mixed");
+  });
+
+  it("marks the Formatting button where the instance overrides the role, and gives it back from the row's mark inside", async () => {
+    useDocuments.setState({
+      docs: {
+        [HOME]: {
+          ...home,
+          root: {
+            children: [
+              {
+                component: "Promo",
+                from: "#app",
+                id: "promo",
+                overrides: { sale: { level: 2, role: "heading" } },
+                type: "instance",
+              },
+            ],
+            id: "home",
+            type: "page",
+          } as DesignNode,
+        },
+      },
+    });
+    act(() => select({ frame: HOME, nodeId: "promo/sale" }));
+    const mark = container.querySelector('[data-overridden="role level"]');
+    expect(mark?.getAttribute("aria-label")).toContain("Formatting");
+    await openFormatting();
+    fakeApi.respond("documents.apply", () => ({ changes: [], created: [] }));
+    act(() =>
+      popover()
+        ?.querySelector<HTMLElement>('[data-overridden="role level"]')
+        ?.click()
+    );
+    await act(() => fakeApi.requested("documents.apply"));
+    expect(applied()).toEqual({
+      edits: [
+        {
+          doc: HOME,
+          ops: [
+            {
+              id: "promo/sale",
+              op: "update",
+              set: { level: null, role: null },
+            },
+          ],
+        },
+      ],
+      label: "Reset instance overrides",
     });
   });
 });

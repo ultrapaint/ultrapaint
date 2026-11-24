@@ -633,6 +633,9 @@ refactor and the board view left.
   align is `start`), what setting a value writes (`null` takes it off), its undo label and the
   kind of token it offers. An edit lands at the view's breakpoint, where
   unset is the value a node is drawn with.
+- **Formatting**: the popover the inspector's Text section opens from its header (the web's
+  `inspector-text`): a text's settings changed less often than its type, its role first, as the
+  inspector's own rows. The section's override mark for them is on its button (ADR 0114).
 - **Layers' tree**: the Layers panel's rows as data (the web's `layer-tree`): what a filter leaves
   of them, their **folds** (the rows flipped from pages open and layers folded, or folded among
   what a filter finds), the way down to the selection a reveal opens, and where a dragged row
