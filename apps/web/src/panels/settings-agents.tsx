@@ -3,6 +3,14 @@
  * given, the key that sends a prompt, and what a new chat starts with.
  */
 import {
+  OUTSIDE_AGENTS,
+  type OutsideAgent,
+  type OutsideAgentConnected,
+  type OutsideAgentLine,
+  type OutsideAgents,
+  outsideLine,
+} from "@ultrapaint/contracts/outside-agents";
+import {
   SKILL_INSTALL_COMMAND,
   type Skill,
   type SkillInstallFolder,
@@ -133,24 +141,14 @@ const sendKeys = [
   { label: isMac ? "⌘ Enter" : "Ctrl+Enter", value: "modEnter" },
 ];
 
-/**
- * How an agent outside the editor reaches the projects (ADR 0083): one line, registered once, the
- * same for every project and every restart. The agent starts `ultrapaint mcp` in the folder it
- * works in, which says which project.
- */
-export const OUTSIDE_COMMANDS = [
-  {
-    agent: "Claude Code",
-    command: "claude mcp add ultrapaint -s user -- ultrapaint mcp",
-  },
-  { agent: "Codex", command: "codex mcp add ultrapaint -- ultrapaint mcp" },
-] as const;
-
 /** A command to copy, on one line that scrolls. */
 export const CopyLine = ({
+  action,
   command,
   label,
 }: {
+  /** What the row does with the line itself, after it: Connect. */
+  action?: ReactNode;
   command: string;
   label: string;
 }) => {
@@ -178,6 +176,7 @@ export const CopyLine = ({
           {copied ? <Check /> : <Copy />}
         </IconButton>
       </div>
+      {action}
     </div>
   );
 };
@@ -302,7 +301,172 @@ export const CommandRow = () => {
   );
 };
 
-/** The lines that connect an agent outside the editor, unless the server offers no MCP. */
+/** What a failed request said. */
+const messageOf = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
+
+/**
+ * One outside agent's row (ADR 0144): its own line to copy, and Connect beside it, which runs
+ * that line on the machine the server runs on; Connected once the agent itself lists Ultrapaint.
+ * Nothing asks to confirm: the click is the consent, and there is no Disconnect.
+ */
+const OutsideAgentRow = ({
+  agent,
+  commandOnPath,
+  line,
+  onConnected,
+}: {
+  agent: OutsideAgent;
+  commandOnPath: boolean;
+  line: OutsideAgentLine;
+  onConnected: (connected: OutsideAgentConnected) => void;
+}) => {
+  const [connecting, setConnecting] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const connect = () => {
+    setConnecting(true);
+    setProblem(null);
+    api()
+      .request("mcp.connectAgent", { agentId: line.id })
+      .then(onConnected, (error: unknown) => setProblem(messageOf(error)))
+      .finally(() => setConnecting(false));
+  };
+  let action: ReactNode = null;
+  if (agent.status === "connected") {
+    action = (
+      <span className="inline-flex shrink-0 items-center gap-1.5 font-body-small">
+        <Check className="size-3.5 text-success" />
+        Connected
+      </span>
+    );
+  } else if (agent.status !== "not-installed") {
+    action = (
+      <Button
+        className="shrink-0"
+        disabled={connecting}
+        onClick={connect}
+        variant="outline"
+      >
+        {connecting ? (
+          <>
+            <Spinner />
+            Connecting…
+          </>
+        ) : (
+          "Connect"
+        )}
+      </Button>
+    );
+  }
+  let message: ReactNode = null;
+  if (problem) {
+    message = (
+      <RowMessage kind="error">
+        <p>
+          Couldn’t connect {line.name}: {problem}
+        </p>
+      </RowMessage>
+    );
+  } else if (agent.status === "not-installed") {
+    message = (
+      <RowMessage kind="notice">
+        {line.name} isn’t installed.{" "}
+        <a
+          className="underline underline-offset-3 hover:text-foreground"
+          href={agent.install}
+          rel="noreferrer"
+          target="_blank"
+        >
+          Install {line.name}
+        </a>
+        , then open Connections again.
+      </RowMessage>
+    );
+  } else if (agent.status === "unanswered") {
+    message = (
+      <RowMessage kind="notice">
+        {line.name} didn’t say whether it lists Ultrapaint: {agent.message}
+      </RowMessage>
+    );
+  } else if (agent.status === "connected" && !commandOnPath) {
+    message = (
+      <RowMessage kind="notice">
+        {line.name} can’t start Ultrapaint until the{" "}
+        <code className="font-code">ultrapaint</code> command is on your PATH.
+        {platform().command ? " Command line, below, installs it." : null}
+      </RowMessage>
+    );
+  }
+  return (
+    <div data-outside-agent={line.name}>
+      <Row layout="field" message={message} title={line.name}>
+        <CopyLine
+          action={action}
+          command={outsideLine(line)}
+          label={line.name}
+        />
+      </Row>
+    </div>
+  );
+};
+
+/**
+ * The outside agents' rows: where each stands, asked of the agent itself each time the section
+ * opens, and kept as each Connect answers.
+ */
+const OutsideAgentsGroup = () => {
+  const [state, setState] = useState<OutsideAgents | null>(null);
+  useEffect(() => {
+    api()
+      .request("mcp.outsideAgents", undefined)
+      .then(setState)
+      .catch(reportError);
+  }, []);
+  const connected = ({ agent, commandOnPath }: OutsideAgentConnected) =>
+    setState((current) =>
+      current
+        ? {
+            agents: current.agents.map((a) => (a.id === agent.id ? agent : a)),
+            commandOnPath,
+          }
+        : current
+    );
+  return (
+    <section data-setting="mcp">
+      <Group
+        message={
+          <p className="max-w-md text-pretty px-4 font-body-small text-muted-foreground">
+            If an agent reaches Ultrapaint through a hub, leave its row as it
+            is: the hub connects it already.
+          </p>
+        }
+        note="Connect an agent once, or run its line yourself. An agent in a terminal or another app then designs in the project of the folder it works in."
+        title="Agents outside the editor"
+      >
+        {OUTSIDE_AGENTS.map((line) => {
+          const agent = state?.agents.find((a) => a.id === line.id);
+          return agent ? (
+            <OutsideAgentRow
+              agent={agent}
+              commandOnPath={state?.commandOnPath ?? true}
+              key={line.id}
+              line={line}
+              onConnected={connected}
+            />
+          ) : (
+            <div data-outside-agent={line.name} key={line.id}>
+              <Row layout="field" title={line.name}>
+                <CopyLine command={outsideLine(line)} label={line.name} />
+              </Row>
+            </div>
+          );
+        })}
+      </Group>
+    </section>
+  );
+};
+
+/** The agents outside the editor and the command they start, unless the server offers no MCP. */
 export const McpConnectionGroup = () => {
   const [connection, setConnection] = useState<McpConnection | null>(null);
   useEffect(() => {
@@ -316,18 +480,7 @@ export const McpConnectionGroup = () => {
   }
   return (
     <>
-      <section data-setting="mcp">
-        <Group
-          note="Run one of these once. An agent in a terminal or another app then designs in the project of the folder it works in."
-          title="Agents outside the editor"
-        >
-          {OUTSIDE_COMMANDS.map(({ agent, command }) => (
-            <Row key={agent} layout="field" title={agent}>
-              <CopyLine command={command} label={agent} />
-            </Row>
-          ))}
-        </Group>
-      </section>
+      <OutsideAgentsGroup />
       {platform().command ? (
         <Group>
           <CommandRow />

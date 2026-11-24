@@ -48,7 +48,8 @@ The agent's own slash commands are listed after these.
 | **Settings** › **Repository** | Where the repository, the designs and your code are; **Write a PNG of every page** |
 | **Settings** › **Design system** | The design system and `DESIGN.md`, with an agent to set them up or update them; the stylesheets Sync reads and writes |
 | **Settings** › **Preferences** | The editor's **Theme**, your **Display name** (for comments when git has none), the **Send key**, and **Keep findings** |
-| **Settings** › **Agents** | In the desktop app, **On this computer**; **New chats** (the agent, model, effort and permissions a chat starts with), **Review**, **Design skills**, and **Connect over MCP** for an agent outside the editor |
+| **Settings** › **Agents** | In the desktop app, **On this computer**; **New chats** (the agent, model, effort and permissions a chat starts with), **Review**, and **Design skills** |
+| **Settings** › **Connections** | **Connect** for Claude Code and Codex outside the editor, each with its line to copy; in the desktop app, the **Command line** |
 | **Settings**'s footer → **Rename to ultrapaint.config.json** | Shown for a configuration still called `ultrapaint.json` |
 
 **Preferences** apply at once, in every project.

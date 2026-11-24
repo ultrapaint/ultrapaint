@@ -16,6 +16,11 @@ export const RuntimeAgent = Schema.Struct({
   /** The adapter, bundled into one file. */
   adapter: Schema.String,
   /**
+   * Whether the agent the adapter is told of is the copy the app downloaded for its own threads,
+   * where the person has none: not theirs to run, so not an outside agent (ADR 0144).
+   */
+  downloaded: Schema.optional(Schema.Boolean),
+  /**
    * What the adapter is told: the agent's executable (`CLAUDE_CODE_EXECUTABLE`, `CODEX_PATH`)
    * and the key it signs in with, when the user gave one.
    */

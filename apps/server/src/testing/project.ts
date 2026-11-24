@@ -23,6 +23,7 @@ import { DesignFiles } from "../services/design-files.ts";
 import { CallingThread } from "../services/mcp/access.ts";
 import { rawTools } from "../services/mcp/raw-tools.ts";
 import { ToolkitHandlers } from "../services/mcp/route.ts";
+import { OutsideAgents } from "../services/outside-agents.ts";
 import { AgentSandbox } from "../services/threads/agent-sandbox.ts";
 import { countFollows, makeFixture, TestEnv } from "./harness.ts";
 import { ScriptedAgents } from "./scripted-agents.ts";
@@ -38,6 +39,8 @@ export const TestAdapters = {
   agents: Layer.mergeAll(ScriptedAgents.layer, AgentSandbox.layerTest),
   codeEditor: CodeEditor.layerTest,
   designFiles: DesignFiles.layerTest,
+  // A machine with no agent on it: nothing a test does runs a person's agent.
+  outsideAgents: OutsideAgents.layerTest({}),
 } satisfies Adapters<ScriptedAgents | AgentSandbox>;
 
 /** The project the test opened: its folder, its home, and the settings it was opened with. */

@@ -25,6 +25,7 @@ import { GitService } from "./services/git.ts";
 import { History } from "./services/history.ts";
 import { ImplementationService } from "./services/implementation.ts";
 import { McpAccess } from "./services/mcp/access.ts";
+import { OutsideAgents } from "./services/outside-agents.ts";
 import { PagesService } from "./services/pages.ts";
 import { ProfileService } from "./services/profile.ts";
 import { ProjectImages } from "./services/project-images.ts";
@@ -73,6 +74,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       commandId?: string
     ) => threads.command(commandId, Effect.flatMap(threads.of(threadId), act));
     const access = yield* McpAccess;
+    const outsideAgents = yield* OutsideAgents;
     const selection = yield* EditorSelection;
     const commands = yield* SlashCommands;
     const screenshots = yield* Screenshots;
@@ -254,7 +256,9 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "implementation.unbind": ({ target }) =>
         implementation((s) => s.unbind(target)),
       "logs.recent": () => log.recent(RECENT_LOG_LINES),
+      "mcp.connectAgent": ({ agentId }) => outsideAgents.connect(agentId),
       "mcp.connection": () => access.connection,
+      "mcp.outsideAgents": () => outsideAgents.state,
       "pages.copyTo": ({ ids, move, target }) =>
         pages((s) => s.copyTo(ids, target, move)),
       "pages.create": ({ canvas, name, route, template }) =>

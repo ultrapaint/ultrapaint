@@ -43,13 +43,19 @@ of the four the three arms do not overlap at all; on the hardest one they still 
 ([the measurements](../feature/benchmarks/), which say what they cannot yet tell apart).
 
 An agent outside the editor can use the same tools: a terminal's Claude Code or Codex, or a chat
-in another app such as T3 Code. Add Ultrapaint to it once, for every project
-(**Settings** › **Agents** › **Connect over MCP** shows the same lines):
+in another app such as T3 Code. Add Ultrapaint to it once, for every project: **Settings** ›
+**Connections** has **Connect** beside Claude Code and Codex, which runs the agent's own line on
+the computer the project is on and then says **Connected**, as the agent itself answers each time
+you open the section. Or run the line yourself:
 
 ```bash
 claude mcp add ultrapaint -s user -- ultrapaint mcp
 codex mcp add ultrapaint -- ultrapaint mcp
 ```
+
+Ultrapaint has no Disconnect: `claude mcp remove ultrapaint -s user` or `codex mcp remove
+ultrapaint` takes the registration away. An agent that reaches Ultrapaint through a hub needs
+neither, and its row reads Not connected.
 
 Every tool asks the agent for the folder it works in (`cwd`), and that folder says which project:
 the nearest `ultrapaint.config.json` from there upwards. So a hub that shares one `ultrapaint mcp`
@@ -68,7 +74,7 @@ on your own machine can register the command over SSH instead
 `PATH`); it then works on that machine's projects through their links, since its own folder is
 not one there. What you have selected in the editor is there for it too: "redesign what I've selected" works
 while the editor is open on the project. The `ultrapaint` command has to be
-on the agent's `PATH`: in the desktop app, the same Settings row offers **Install the command**
+on the agent's `PATH`: in the desktop app, **Settings** › **Connections** › **Command line** offers **Install**
 when this computer has none; from a checkout, `pnpm install:cli` ([Install and start](install.md)).
 
 ## Chats

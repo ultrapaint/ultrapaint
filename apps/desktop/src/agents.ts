@@ -70,6 +70,8 @@ export const electronReads = (node: string) => {
 
 /** How the app found an agent: its executable, and what else its adapter is told. */
 interface FoundAgent {
+  /** Whether it is the copy the app downloaded, where the user has none of their own. */
+  readonly downloaded?: boolean;
   /** Further variables: the key it signs in with, when the user gave one. */
   readonly env?: Readonly<Record<string, string>>;
   readonly executable: string;
@@ -92,6 +94,7 @@ export const makeRuntime = (
     const hint = hints[agent.id];
     adapters[agent.id] = {
       adapter: path.join(layout.adaptersDir, `${agent.adapter.bundle}.mjs`),
+      ...(at?.downloaded ? { downloaded: true } : {}),
       env: at ? { ...at.env, [agent.executable.env]: at.executable } : {},
       ...(hint === undefined ? {} : { hint }),
     };
@@ -395,6 +398,7 @@ export class Agents extends Context.Service<
             const located = yield* locate(agent.id);
             if (located._tag === "Found") {
               found[agent.id] = {
+                ...(located.source === "download" ? { downloaded: true } : {}),
                 env: yield* envOf(agent, located.source),
                 executable: located.executable,
               };

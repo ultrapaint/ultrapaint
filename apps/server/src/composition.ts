@@ -9,7 +9,9 @@
  */
 import type { Settings } from "@ultrapaint/contracts/settings";
 import { Layer } from "effect";
+import type { ChildProcessSpawner } from "effect/process";
 import { AppLog } from "./app-log.ts";
+import type { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
 import { ListenPort } from "./listen-port.ts";
 import {
@@ -37,6 +39,7 @@ import { GitService } from "./services/git.ts";
 import { History } from "./services/history.ts";
 import { ImplementationService } from "./services/implementation.ts";
 import { McpAccess } from "./services/mcp/access.ts";
+import { OutsideAgents } from "./services/outside-agents.ts";
 import { PagePngs } from "./services/page-pngs.ts";
 import { PageVariants } from "./services/page-variants.ts";
 import { PagesService } from "./services/pages.ts";
@@ -87,6 +90,12 @@ export interface Adapters<Agents> {
   /** The person's code editor, which a file of the repository is opened in (ADR 0106). */
   readonly codeEditor: Layer.Layer<CodeEditor>;
   readonly designFiles: DesignFilesLayer;
+  /** The agents outside the editor, asked and connected by their own commands (ADR 0144). */
+  readonly outsideAgents: Layer.Layer<
+    OutsideAgents,
+    never,
+    ServerConfig | ChildProcessSpawner.ChildProcessSpawner
+  >;
 }
 
 /** The server's adapters: the sandboxed agent process, and a watch of the designs. */
@@ -94,6 +103,7 @@ export const ServerAdapters = {
   agents: AgentLauncher.layer.pipe(Layer.provideMerge(AgentSandbox.layer)),
   codeEditor: CodeEditor.layer,
   designFiles: DesignFiles.layer,
+  outsideAgents: OutsideAgents.layer,
 } satisfies Adapters<AgentLauncher | AgentSandbox>;
 
 /** The services of the project the settings describe. */
@@ -206,6 +216,7 @@ export const ApplicationLayer = <Agents>(adapters: Adapters<Agents>) =>
     Layer.provideMerge(DesignSystemSetupService.layer),
     Layer.provideMerge(adapters.agents),
     Layer.provideMerge(adapters.codeEditor),
+    Layer.provideMerge(adapters.outsideAgents),
     Layer.provideMerge(
       ProjectManager.layer((settings) =>
         projectLayer(settings, adapters.designFiles)
