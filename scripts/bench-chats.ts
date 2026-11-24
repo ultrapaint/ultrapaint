@@ -372,6 +372,12 @@ const stopChats = async (page: Page, started: string[]) => {
   return false;
 };
 
+/**
+ * The statuses of a turn under way or being stopped: contracts' `isBusy`, which the root's scripts
+ * cannot import. `unresponsive` is a stop the agent has not confirmed: its turn has not ended.
+ */
+const BUSY = ["running", "reviewing", "cancelling", "unresponsive"];
+
 /** How many of the chats still have a turn under way, or being stopped. */
 const chatsBusy = async (page: Page, started: string[]) => {
   const threads = (await page.evaluate(() =>
@@ -380,9 +386,7 @@ const chatsBusy = async (page: Page, started: string[]) => {
       .request("threads.list", undefined)
   )) as { id: string; status: string }[];
   return started.filter((id) =>
-    ["running", "reviewing", "cancelling"].includes(
-      threads.find((t) => t.id === id)?.status ?? ""
-    )
+    BUSY.includes(threads.find((t) => t.id === id)?.status ?? "")
   ).length;
 };
 
