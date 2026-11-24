@@ -22,6 +22,7 @@ import {
   variableOf,
 } from "@ultrapaint/contracts/token-table";
 import {
+  type FillLayer,
   type FillStop,
   fillCss,
   fillLayers,
@@ -267,8 +268,21 @@ const gradientPosition = (layer: GradientLayer): string =>
     : namedPosition(layer, layer.interpolation)) ??
   `bg-${layer.shape}-${printArbitrary(gradientHeadCss(layer, true))}`;
 
+/** A fill's tokens as the variables Tailwind declares them as, for an arbitrary value. */
+const withVariables = (css: string) =>
+  resolveFillTokens(css, (name) => `var(${variableOf(name)})`);
+
+/**
+ * A colour of a fill as its utility reads it: a token by its name, anything else as CSS whose
+ * tokens are their variables, as the canvas draws a fill (`color-mix(in srgb, $color-primary
+ * 50%, …)`).
+ */
+const inFill = (value: string) =>
+  isToken(value) ? value : withVariables(value);
+
 /** A stop's colour as its utility: `from-primary`, `via-transparent`, `to-[#ff0000]`. */
-const stopColor = (prefix: string, value: string) => {
+const stopColor = (prefix: string, raw: string) => {
+  const value = inFill(raw);
   const keyword = COLOR_KEYWORDS.keyword(value);
   if (keyword !== undefined) {
     return `${prefix}-${keyword}`;
@@ -308,9 +322,11 @@ const namedGradient = (layer: GradientLayer): Utility[] | null => {
     if (position === DEFAULT_AT[part]) {
       return hue;
     }
-    const cls = Number.isInteger(position)
-      ? `${part}-${position}%`
-      : arbitrary(part, `${position}%`);
+    // Tailwind's bare position takes no number below zero.
+    const cls =
+      Number.isInteger(position) && position >= 0
+        ? `${part}-${position}%`
+        : arbitrary(part, `${position}%`);
     return [...hue, ...one(cls, `gradient-${part}-position`)];
   };
   return [
@@ -321,11 +337,7 @@ const namedGradient = (layer: GradientLayer): Utility[] | null => {
 
 /** A fill's colour, under its gradients or alone, as its `bg` utility. */
 const bgColor = (value: string) =>
-  color("bg", BG_COLOR)(value, new Map(), { step: 0 });
-
-/** A fill's tokens as the variables Tailwind declares them as, for an arbitrary value. */
-const withVariables = (css: string) =>
-  resolveFillTokens(css, (name) => `var(${variableOf(name)})`);
+  color("bg", BG_COLOR)(inFill(value), new Map(), { step: 0 });
 
 /**
  * A fill (ADR 0134): a colour as its `bg` utility; a gradient, over a colour or not, as Tailwind's
@@ -357,7 +369,20 @@ const background: Rule = (value) => {
   if (named) {
     return [...named, ...under];
   }
-  const css = fillCss(images) ?? "";
+  // A colour above the bottom one is an image, a gradient of that colour alone.
+  const css =
+    fillCss(
+      images.map(
+        (layer): FillLayer =>
+          layer.kind === "color"
+            ? {
+                kind: "gradient",
+                shape: "linear",
+                stops: [{ color: layer.color }, { color: layer.color }],
+              }
+            : layer
+      )
+    ) ?? "";
   return [...one(arbitrary("bg", withVariables(css)), BG_IMAGE), ...under];
 };
 
