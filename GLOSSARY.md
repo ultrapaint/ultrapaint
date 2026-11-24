@@ -225,7 +225,9 @@ refactor and the board view left.
   list says its **row state** (`rowState`, ADR 0132): Your turn, Not responding, Working or
   Reviewing with how long, Stopped or Done until the chat is opened, else its age. What a
   composer holds and has not sent is the thread's **unsent draft** (`state/drafts.ts`, a pen
-  before its title in the list), not a page's draft.
+  before its title in the list), not a page's draft. A **settled** chat is one the designer put
+  aside (`settledAt`, ADR 0141), in the list's Settled group until it is un-settled or needs them
+  again; how the list groups the rest is their **Group chats** preference (`chatGrouping`).
 - **Queue**: the prompts sent while the agent works, in the thread's `queued` list in the order
   the person keeps (ADR 0018, 0137). The turn's end sends the first, unless the turn was stopped
   or failed, or a queued prompt is **being edited** (`editing`, `threads.editQueued`): then the

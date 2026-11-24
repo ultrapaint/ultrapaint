@@ -58,6 +58,19 @@ const atRest = (stored: unknown): unknown => {
 };
 
 /**
+ * A change that brings a settled thread back to the list (ADR 0141): a prompt starting a turn,
+ * or the turn failing. Whatever else changes it (its title, its status as the turn ends) leaves
+ * it where the designer put it.
+ */
+const comesBack = (patch: Partial<Thread>) =>
+  patch.status === "running" || patch.status === "error";
+
+/** An item that asks the designer something: a question or a permission, not yet answered. */
+const asks = (item: ThreadItem) =>
+  (item.kind === "question" && item.answers === null) ||
+  (item.kind === "permission" && item.decision === null);
+
+/**
  * A thread's queue as it is read at start (ADR 0137): no prompt of it is being edited, nor waits
  * to go into a turn, since no session or editor survives a restart. Held by an edit no window
  * has open, it would wait for good.
@@ -257,9 +270,15 @@ export class ThreadStore extends Context.Service<
      * which tells the person of a turn that finished or failed in a project not on screen.
      */
     readonly turnsEnded: Effect.Effect<TurnsEnded>;
+    /**
+     * Changes a thread and stamps it `updatedAt` now, unless `news` is false: a change of the
+     * designer's to the chat's place in the list (settling it, renaming it) is no news of it, and
+     * leaves its place and its unread state as they were (ADR 0141).
+     */
     readonly update: (
       id: string,
-      patch: Partial<Thread>
+      patch: Partial<Thread>,
+      options?: { readonly news?: boolean }
     ) => Effect.Effect<void>;
   }
 >()("ultrapaint/server/ThreadStore") {
@@ -437,7 +456,8 @@ export class ThreadStore extends Context.Service<
 
       const update = Effect.fnUntraced(function* (
         id: string,
-        patch: Partial<Thread>
+        patch: Partial<Thread>,
+        options?: { readonly news?: boolean }
       ) {
         const now = yield* Clock.currentTimeMillis;
         yield* change(id, (entry) => {
@@ -448,16 +468,29 @@ export class ThreadStore extends Context.Service<
           if (ended) {
             turnsEnded = { ...turnsEnded, [ended]: turnsEnded[ended] + 1 };
           }
-          entry.thread = { ...entry.thread, ...patch, updatedAt: now };
+          entry.thread = {
+            ...entry.thread,
+            ...patch,
+            ...(comesBack(patch) && { settledAt: undefined }),
+            updatedAt: options?.news === false ? entry.thread.updatedAt : now,
+          };
           return { thread: entry.thread, type: "thread" };
         });
       });
 
       const push = (id: string, item: ThreadItem) =>
-        change(id, (entry) => {
-          entry.items.push(item);
-          return { item, threadId: id, type: "item" };
-        });
+        Effect.andThen(
+          change(id, (entry) => {
+            entry.items.push(item);
+            return { item, threadId: id, type: "item" };
+          }),
+          // A card the agent opens needs the designer: a settled chat comes back for it.
+          Effect.suspend(() =>
+            asks(item) && threads.get(id)?.thread.settledAt !== undefined
+              ? update(id, { settledAt: undefined })
+              : Effect.void
+          )
+        );
 
       const patchItem = (
         id: string,

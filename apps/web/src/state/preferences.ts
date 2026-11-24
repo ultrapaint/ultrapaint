@@ -6,6 +6,7 @@
  */
 import { Notifications as NotificationsChoice } from "@ultrapaint/contracts/settings";
 import { create } from "zustand";
+import { CHAT_GROUPINGS, type ChatGrouping } from "../lib/chat-groups.ts";
 
 /** The editor's accent: what is acted on, a checked control, the focus ring (DESIGN.md). */
 export type Accent = "ultramarine" | "teal" | "green" | "orange" | "graphite";
@@ -18,6 +19,8 @@ export type Notifications = typeof NotificationsChoice.Type;
 
 export interface Preferences {
   accent: Accent;
+  /** How the chat list groups its chats (ADR 0141): by state, as T3 Code does, by default. */
+  chatGrouping: ChatGrouping;
   contrast: boolean;
   /**
    * A chat shows every step its agent takes, as the agent reports them, rather than each turn's
@@ -40,6 +43,7 @@ export const ACCENTS: readonly { label: string; value: Accent }[] = [
 
 export const DEFAULT_PREFERENCES: Preferences = {
   accent: "ultramarine",
+  chatGrouping: "state",
   contrast: false,
   everyStep: false,
   motion: "system",
@@ -52,6 +56,7 @@ const KEY = "ultrapaint:preferences";
 
 const CHOICES: { [K in keyof Preferences]: readonly Preferences[K][] } = {
   accent: ACCENTS.map((a) => a.value),
+  chatGrouping: CHAT_GROUPINGS.map((g) => g.value),
   contrast: [false, true],
   everyStep: [false, true],
   motion: ["system", "reduced", "full"],
@@ -121,6 +126,7 @@ interface PreferencesStore extends Preferences {
 
 const valuesOf = (s: PreferencesStore): Preferences => ({
   accent: s.accent,
+  chatGrouping: s.chatGrouping,
   contrast: s.contrast,
   everyStep: s.everyStep,
   motion: s.motion,

@@ -212,6 +212,12 @@ export const SETTINGS_INDEX: readonly SettingEntry[] = [
     title: "Permissions",
   },
   {
+    id: "chat-grouping",
+    section: "chats",
+    terms: "group chats list sort by state day page settled working",
+    title: "Group chats",
+  },
+  {
     id: "send-key",
     section: "chats",
     terms: "enter composer newline submit",

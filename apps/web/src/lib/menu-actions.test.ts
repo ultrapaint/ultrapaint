@@ -853,7 +853,14 @@ const EVERY_ACTION = {
     variations: true,
     zoomTo: true,
   },
-  thread: { delete: true, follow: true, open: true, stop: true },
+  thread: {
+    delete: true,
+    follow: true,
+    markUnread: true,
+    open: true,
+    rename: true,
+    stop: true,
+  },
 } satisfies {
   [A in MenuAction as A["on"]]: Record<A["act"]["kind"], true>;
 };
@@ -877,7 +884,7 @@ const everyTarget = (): MenuTarget[] => [
   // An app component, deleted; a system component whose look is the project's, reset.
   { kind: "component", make: () => text("made"), name: "Promo" },
   { kind: "component", make: () => text("made"), name: "Button" },
-  { kind: "thread", threadId: "t1" },
+  { inList: true, kind: "thread", threadId: "t1" },
 ];
 
 const CONTACT = "contact.page.json";

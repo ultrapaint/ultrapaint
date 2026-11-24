@@ -3,6 +3,10 @@
 Status: accepted, 2026-11-24. Amends 0018 (chats are a list first; pink is an agent's status in
 the chat too) and 0095 (the model picker's mark).
 
+> Amended by [0141](0141-a-chat-is-settled-renamed-and-grouped-from-the-list.md), 2026-11-24:
+> a chat is settled from its row on hover, renamed in place from its menu, and the list is grouped
+> as the designer chooses (By state by default) rather than by day.
+
 ## Context
 
 A row of the chat list held a picture of what the chat works on, its title and age, the agent's

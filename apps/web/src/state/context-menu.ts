@@ -29,7 +29,8 @@ export type MenuTarget =
       name: string;
       make: () => DesignNode;
     }
-  | { kind: "thread"; threadId: string };
+  /** A chat; `inList` on a row of the chat list, where it can be renamed in place (ADR 0141). */
+  | { kind: "thread"; threadId: string; inList?: boolean };
 
 /** Where the menu opens: a point of the window, or against an element (a ⋮ button). */
 export type MenuAnchor = Point | Element;

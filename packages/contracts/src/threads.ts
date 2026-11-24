@@ -400,6 +400,12 @@ export const Thread = Schema.Struct({
   scope: Schema.optional(ThreadScope),
   sessionId: Schema.optional(Schema.String),
   /**
+   * When the designer settled the chat (ADR 0141): put aside, in the list's closed Settled group.
+   * Cleared by them, and by the thread itself when a prompt starts a turn, its agent asks
+   * something or its turn fails, so what needs them never stays hidden.
+   */
+  settledAt: Schema.optional(Schema.Number),
+  /**
    * The design skills this chat is told, from the composer's Skill picker (ADR 0095): `ultrapaint`
    * for the design skill, a project's own skill by its file's repo-relative path. Empty, the chat
    * is told no design skill and works as a plain agent. Absent, the project's defaults hold.

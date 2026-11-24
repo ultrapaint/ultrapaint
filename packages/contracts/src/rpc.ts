@@ -828,6 +828,19 @@ const requestRpcs = [
     error: ThreadError,
     payload: { ...ThreadRef, review: Schema.NullOr(ReviewSettings) },
   }),
+  /** The designer settles a chat from the list, or brings it back (ADR 0141). */
+  Rpc.make("threads.settle", {
+    error: ThreadError,
+    payload: { ...ThreadRef, settled: Schema.Boolean },
+  }),
+  /**
+   * The designer's own title for a chat (ADR 0141), kept from the titles its agent's session
+   * suggests; an empty one is refused.
+   */
+  Rpc.make("threads.rename", {
+    error: Schema.Union([NotFound, BadRequest]),
+    payload: { ...ThreadRef, title: Schema.String },
+  }),
   /** The chat's own design skills from the composer's Skill picker; null goes back to the project's. */
   Rpc.make("threads.setSkills", {
     error: ThreadError,
