@@ -97,6 +97,27 @@ describe("a card no agent waits on any more (ADR 0125)", () => {
     expect(buttons()).toEqual([]);
   });
 
+  it("reads Expired even when one of the agent's options is named expired", () => {
+    act(() =>
+      mounted.render(
+        <Permission
+          item={{
+            ...EDIT_HOME,
+            decision: "expired",
+            options: [
+              { kind: "allow_once", name: "Allow", optionId: "expired" },
+              { kind: "reject_once", name: "Reject", optionId: "reject" },
+            ],
+            settled: { at: 2, how: "expired" },
+          }}
+          threadId="t1"
+        />
+      )
+    );
+    expect(container.textContent).toContain("Expired");
+    expect(container.textContent).not.toContain("Allow");
+  });
+
   it("a permission the agent stopped asking reads No longer asked", () => {
     act(() =>
       mounted.render(

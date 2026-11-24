@@ -87,3 +87,46 @@ describe("Claude Code asking with ask_user (claude-agent-acp 0.95)", () => {
       );
     }));
 });
+
+describe("Claude Code asking the same questions again (claude-agent-acp 0.95)", () => {
+  const test = replaying("claude-code-ask-user-again.ndjson");
+
+  test("the older card is no longer asked, and the answer reaches the newer one", () =>
+    Effect.gen(function* () {
+      const threads = yield* ThreadSessions;
+      const replays = yield* ReplayAgents;
+      const { id: threadId } = yield* threads.create({ agentId: "scripted" });
+      yield* promptThread({
+        attachments: [],
+        text: "Ask me which plan to design for, then say what you will do.",
+        threadId,
+      });
+      const replay = yield* replays.next;
+      const { items } = yield* unlessStrayed(
+        replay,
+        threadWhen(threadId, (_, all) =>
+          questionsOf(all).some(
+            (q) => q.kind === "question" && q.settled?.how === "repeated"
+          )
+        )
+      );
+      const [first, again] = questionsOf(items);
+      assert.strictEqual(
+        first?.kind === "question" && first.outcome,
+        "cancelled"
+      );
+      yield* onThread(threadId, (s) =>
+        s.answer(again?.id ?? "", { plan: "pro" })
+      );
+      yield* replay.done;
+      const ended = yield* threadWhen(
+        threadId,
+        (thread, all) =>
+          thread.status === "idle" && all.some((i) => i.kind === "turn_end")
+      );
+      const settled = questionsOf(ended.items).map(
+        (q) => q.kind === "question" && q.settled?.how
+      );
+      assert.deepStrictEqual(settled, ["repeated", "answered"]);
+    }));
+});

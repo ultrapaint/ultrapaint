@@ -107,12 +107,19 @@ interface PendingForm extends Pending<CreateElicitationResponse> {
   readonly questionsKey: string;
 }
 
-/** Questions asked again are the same ids, texts and options in the same order. */
+/**
+ * Questions asked again are the same ids, texts, options and answers taken (one or several, a
+ * value, an answer of one's own, optional) in the same order.
+ */
 const questionsKeyOf = (questions: readonly Question[]) =>
   JSON.stringify(
     questions.map((q) => [
       q.id,
       q.question,
+      q.multiple ?? false,
+      q.value ?? null,
+      q.allowOther ?? false,
+      q.optional ?? false,
       q.options.map((o) => [o.id, o.label]),
     ])
   );
@@ -211,7 +218,7 @@ export const makePendingCards = (
       optionId,
       (yield* pending.written) ? "answered" : "undelivered"
     );
-  });
+  }, Effect.uninterruptible);
 
   /** A question card whose agent stopped waiting, for `how`: no longer asked. */
   const cancelled = (itemId: string, how: CardEnd) =>
@@ -346,7 +353,7 @@ export const makePendingCards = (
         : item
     );
     return inTurn ? null : answersText(card.questions, answers);
-  });
+  }, Effect.uninterruptible);
 
   const decline = Effect.fnUntraced(function* (itemId: string) {
     const waiting = forms.get(itemId);

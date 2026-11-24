@@ -350,6 +350,37 @@ describe("a card's life (ADR 0125)", () => {
       assert.strictEqual(late._tag, "Conflict");
     }));
 
+  test("the same questions taking other answers are not asked again: both stay open", () =>
+    Effect.gen(function* () {
+      const { cards, threadId } = yield* cardsOfNewThread;
+      // The same plan question, its answer several plans rather than one.
+      const several = {
+        ...PLAN_FORM,
+        requestedSchema: {
+          properties: {
+            plan: {
+              items: {
+                anyOf: [
+                  { const: "free", title: "Free" },
+                  { const: "pro", title: "Pro" },
+                ],
+              },
+              title: "Which plan?",
+              type: "array",
+            },
+          },
+          required: ["plan"],
+          type: "object",
+        },
+      } as CreateElicitationRequest;
+      yield* Effect.forkChild(cards.elicitation(PLAN_FORM, writtenAtOnce));
+      yield* cardsWhen(threadId, "question");
+      yield* Effect.forkChild(cards.elicitation(several, writtenAtOnce));
+      const [first, second] = yield* cardsWhen(threadId, "question", 2);
+      assert.isUndefined(outcomeOf(first));
+      assert.isUndefined(outcomeOf(second));
+    }));
+
   test("two different forms both stay open, the oldest first", () =>
     Effect.gen(function* () {
       const { cards, threadId } = yield* cardsOfNewThread;
