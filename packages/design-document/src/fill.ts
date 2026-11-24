@@ -453,14 +453,18 @@ export const positionPercent = (
   return degrees === null ? null : (degrees / 360) * 100;
 };
 
-/** Whether a stop's colour is a `var()` whose fallback is more than a colour: `red 20% 40%`. */
+/**
+ * Whether a stop's colour is a `var()` whose fallback is more than a colour (`red 20% 40%`),
+ * however deep in other variables' fallbacks.
+ */
 const mayHoldPosition = (color: string): boolean => {
   const fn: RegExpExecArray | null = FUNCTION_RE.exec(color);
   if (!fn || (fn[1] ?? "").toLowerCase() !== "var") {
     return false;
   }
   const [, fallback = ""] = splitTop(fn[2] ?? "", ",");
-  return splitTop(fallback, " ").length > 1;
+  const words = splitTop(fallback, " ");
+  return words.length > 1 || mayHoldPosition(words[0] ?? "");
 };
 
 /**

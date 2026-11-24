@@ -193,6 +193,21 @@ describe("a fill as layers", () => {
         "linear"
       )
     ).toBe(false);
+    expect(
+      placedInPercent(
+        [
+          { color: "var(--stop, var(--inner, red 20% 40%))" },
+          { color: "blue" },
+        ],
+        "linear"
+      )
+    ).toBe(false);
+    expect(
+      placedInPercent(
+        [{ color: "var(--stop, var(--inner, red))" }, { color: "blue" }],
+        "linear"
+      )
+    ).toBe(true);
   });
 
   it("cannot place a stop in percent that is given in a length", () => {
