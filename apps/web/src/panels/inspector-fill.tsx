@@ -175,6 +175,35 @@ const placed = (
     .map(({ at: p, stop }) => ({ color: stop.color, position: `${p}%` }));
 };
 
+/** A gradient's stops with one more at `to` percent, of the colour of the stop before it. */
+const withStopAt = (layer: GradientLayer, to: number): FillStop[] => {
+  const drawn = stopPositions(layer.stops, layer.shape);
+  const before = drawn.findLastIndex((p) => p <= to);
+  const color = layer.stops[Math.max(0, before)]?.color ?? "transparent";
+  const stops = placed(layer);
+  const after = drawn.findIndex((p) => p > to);
+  stops.splice(after < 0 ? stops.length : after, 0, {
+    color,
+    position: `${to}%`,
+  });
+  return stops;
+};
+
+/** The middle of the widest room between two stops, where a stop added without a place goes. */
+const widestGap = (layer: GradientLayer): number => {
+  const drawn = stopPositions(layer.stops, layer.shape);
+  let at = 50;
+  let widest = -1;
+  for (let i = 1; i < drawn.length; i += 1) {
+    const [a, b] = [drawn[i - 1] ?? 0, drawn[i] ?? 100];
+    if (b - a > widest) {
+      widest = b - a;
+      at = Math.round((a + b) / 2);
+    }
+  }
+  return at;
+};
+
 /** Which way an arrow key moves a stop along its bar. */
 const ARROWS: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1 };
 
@@ -271,17 +300,7 @@ const StopBar = ({
   ]);
   const move = (index: number, to: number) =>
     onChange(placed(layer, (i, p) => (i === index ? to : p)));
-  const add = (to: number) => {
-    const before = drawn.findLastIndex((p) => p <= to);
-    const color = layer.stops[Math.max(0, before)]?.color ?? "transparent";
-    const stops = placed(layer);
-    const after = drawn.findIndex((p) => p > to);
-    stops.splice(after < 0 ? stops.length : after, 0, {
-      color,
-      position: `${to}%`,
-    });
-    onChange(stops);
-  };
+  const add = (to: number) => onChange(withStopAt(layer, to));
   return (
     <div
       className={cn(
@@ -364,7 +383,20 @@ const GradientFields = ({
           value={layer.shape}
         />
       </Row>
-      <StopBar layer={layer} movable={movable} onChange={stops} />
+      <div className="flex items-center gap-1">
+        <div className="min-w-0 flex-1">
+          <StopBar layer={layer} movable={movable} onChange={stops} />
+        </div>
+        <IconButton
+          className="shrink-0 text-muted-foreground"
+          disabled={!movable}
+          onClick={() => stops(withStopAt(layer, widestGap(layer)))}
+          size="icon-sm"
+          tooltip="Add stop"
+        >
+          <Plus />
+        </IconButton>
+      </div>
       {movable ? null : (
         <p className="font-body-small text-muted-foreground">
           Stops placed in a length stay where they are written.
