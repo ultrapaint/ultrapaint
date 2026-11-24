@@ -25,7 +25,8 @@ answer as the person's reply with lapsed cards as one line) and the person chose
 
 - with answers: "You answered" muted, then the answers in the foreground, in the order asked,
   joined by " · " and cut to the row; "N not answered" at its end when some were not;
-- with none: how the cards ended, each once ("No longer asked", "Declined"), and "N questions";
+- with none: how the cards ended, each once ("No longer asked", "Declined", "Skipped" for a
+  card sent with every question skipped), and "N questions";
 - opened: each question, muted, and under it its answer, when there is one; never a dash;
 - answers that may not have reached the agent (`undelivered`) read "Delivery not confirmed"
   in place of "You answered", and keep "The agent may not have these answers. Say them again in

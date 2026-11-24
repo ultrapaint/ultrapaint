@@ -128,6 +128,14 @@ describe("what a turn's questions come to, once they no longer wait (ADR 0129)",
     expect(summary.unanswered).toBe(3);
   });
 
+  it("says a card sent with every question skipped was skipped", () => {
+    const summary = askedSummary([
+      card("c1", { answers: {}, questions: [{ ...choice, optional: true }] }),
+    ]);
+    expect(summary.answers).toEqual([]);
+    expect(summary.ends).toEqual(["Skipped"]);
+  });
+
   it("knows when answers may not have reached the agent", () => {
     expect(
       askedSummary([

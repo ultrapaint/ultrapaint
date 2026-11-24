@@ -78,9 +78,20 @@ export const answerText = (
     : answer.map(label).join(", ");
 };
 
-/** How a card no longer waiting ended, when it has no answers: it was declined, or let go. */
-const endOf = (item: QuestionItem) =>
-  item.outcome === "declined" ? "Declined" : "No longer asked";
+/**
+ * How a card no longer waiting ended, when none of its questions has an answer: sent with every
+ * question skipped (each optional), declined, or let go.
+ */
+const endOf = (item: QuestionItem) => {
+  if (item.answers !== null) {
+    return "Skipped";
+  }
+  return item.outcome === "declined" ? "Declined" : "No longer asked";
+};
+
+/** Whether a card holds an answer to any of its questions. */
+const hasAnswer = (item: QuestionItem) =>
+  item.questions.some((q) => answerText(q, item.answers?.[q.id]) !== undefined);
 
 /**
  * What a turn's questions no longer waiting come to, as the one row that folds them reads
@@ -97,9 +108,7 @@ export const askedSummary = (asked: readonly QuestionItem[]) => {
   const questions = asked.reduce((n, card) => n + card.questions.length, 0);
   return {
     answers,
-    ends: [
-      ...new Set(asked.filter((card) => card.answers === null).map(endOf)),
-    ],
+    ends: [...new Set(asked.filter((card) => !hasAnswer(card)).map(endOf))],
     lost: asked.some((card) => card.outcome === "undelivered"),
     unanswered: questions - answers.length,
   };
