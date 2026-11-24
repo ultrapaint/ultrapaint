@@ -7,11 +7,12 @@ import {
   type TokenGroup,
 } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import { isRamp } from "@ultrapaint/design-document/ramp";
 import { catalogueOf } from "@ultrapaint/system-components/catalogue";
 import { DEFAULT_LOOK } from "@ultrapaint/system-components/default-look";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
 import { describe, expect, it } from "vitest";
-import { contrastPairs, gradeOf, isRamp } from "./color-boards.ts";
+import { contrastPairs, gradeOf } from "./color-boards.ts";
 import {
   appComponentBoards,
   drawnWidths,
