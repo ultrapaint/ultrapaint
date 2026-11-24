@@ -5,6 +5,7 @@
  * the canvas keep their own look.
  */
 import { Notifications as NotificationsChoice } from "@ultrapaint/contracts/settings";
+import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 import { CHAT_GROUPINGS, type ChatGrouping } from "../lib/chat-groups.ts";
 
@@ -12,6 +13,8 @@ import { CHAT_GROUPINGS, type ChatGrouping } from "../lib/chat-groups.ts";
 export type Accent = "ultramarine" | "teal" | "green" | "orange" | "graphite";
 export type TextSize = "small" | "default" | "large";
 export type Motion = "system" | "reduced" | "full";
+/** How an agent's work is marked on the canvas: a light passing through it, or a still outline. */
+export type AgentsAtWork = "animated" | "calm";
 /** What a plain mouse wheel does over the canvas; pinch and ⌘/Ctrl+wheel always zoom. */
 export type ScrollWheel = "pan" | "zoom";
 /** How the editor tells of an agent that finished or asks, while the window is away. */
@@ -19,6 +22,7 @@ export type Notifications = typeof NotificationsChoice.Type;
 
 export interface Preferences {
   accent: Accent;
+  agentsAtWork: AgentsAtWork;
   /** How the chat list groups its chats (ADR 0141): by state, as T3 Code does, by default. */
   chatGrouping: ChatGrouping;
   contrast: boolean;
@@ -43,6 +47,7 @@ export const ACCENTS: readonly { label: string; value: Accent }[] = [
 
 export const DEFAULT_PREFERENCES: Preferences = {
   accent: "ultramarine",
+  agentsAtWork: "animated",
   chatGrouping: "state",
   contrast: false,
   everyStep: false,
@@ -56,6 +61,7 @@ const KEY = "ultrapaint:preferences";
 
 const CHOICES: { [K in keyof Preferences]: readonly Preferences[K][] } = {
   accent: ACCENTS.map((a) => a.value),
+  agentsAtWork: ["animated", "calm"],
   chatGrouping: CHAT_GROUPINGS.map((g) => g.value),
   contrast: [false, true],
   everyStep: [false, true],
@@ -100,7 +106,10 @@ const stored = (): Preferences => {
   }
 };
 
-/** Draws the preferences on the root, where the stylesheet reads them. */
+/**
+ * Draws the preferences on the root, where the stylesheet reads them. Agents at work is not drawn:
+ * the canvas's overlays read it (`useAgentSweeps`).
+ */
 export const applyPreferences = (
   p: Preferences,
   root: HTMLElement = document.documentElement
@@ -126,6 +135,7 @@ interface PreferencesStore extends Preferences {
 
 const valuesOf = (s: PreferencesStore): Preferences => ({
   accent: s.accent,
+  agentsAtWork: s.agentsAtWork,
   chatGrouping: s.chatGrouping,
   contrast: s.contrast,
   everyStep: s.everyStep,
@@ -161,11 +171,42 @@ export const preferencesNow = () => valuesOf(usePreferences.getState());
 export const followPreferences = () =>
   applyPreferences(valuesOf(usePreferences.getState()));
 
-/** Whether motion is reduced now: by the person's choice, or by the system's under System. */
-export const motionReduced = () => {
-  const { motion } = usePreferences.getState();
-  if (motion !== "system") {
-    return motion === "reduced";
+const REDUCE = "(prefers-reduced-motion: reduce)";
+
+/** Whether the computer asks for reduced motion; no answer where there is no media query. */
+const systemReduces = () =>
+  typeof matchMedia !== "undefined" && matchMedia(REDUCE).matches;
+
+/** Hears the computer's setting change. */
+const followSystemMotion = (listener: () => void) => {
+  if (typeof matchMedia === "undefined") {
+    return () => undefined;
   }
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const query = matchMedia(REDUCE);
+  query.addEventListener("change", listener);
+  return () => query.removeEventListener("change", listener);
+};
+
+/** Whether motion is reduced under this choice: by the person's, or by the computer's under System. */
+const reducedUnder = (motion: Motion, systemReducesMotion: boolean) =>
+  motion === "system" ? systemReducesMotion : motion === "reduced";
+
+/** Whether motion is reduced now: by the person's choice, or by the system's under System. */
+export const motionReduced = () =>
+  reducedUnder(usePreferences.getState().motion, systemReduces());
+
+/**
+ * Whether an agent's work is drawn with a light passing through it: under Animated, with motion
+ * not reduced. Otherwise it is a still outline, never a gradient stopped in place.
+ */
+export const agentSweeps = (
+  p: Pick<Preferences, "agentsAtWork" | "motion">,
+  systemReducesMotion: boolean
+) =>
+  p.agentsAtWork === "animated" && !reducedUnder(p.motion, systemReducesMotion);
+
+/** `agentSweeps` now, redrawn when the person's choices or the computer's setting change. */
+export const useAgentSweeps = () => {
+  const system = useSyncExternalStore(followSystemMotion, systemReduces);
+  return usePreferences((s) => agentSweeps(s, system));
 };

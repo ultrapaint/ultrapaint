@@ -48,7 +48,7 @@ describe("the person's preferences in their profile (ADR 0093)", () => {
   it("takes what the profile holds as the editor starts, in a page that kept nothing", async () => {
     fakeApi.respond("profile.get", () => ({
       preferences: {
-        appearance: { accent: "teal", textSize: "large" },
+        appearance: { accent: "teal", agentsAtWork: "calm", textSize: "large" },
         sendKey: "modEnter",
         theme: "dark",
       },
@@ -57,6 +57,7 @@ describe("the person's preferences in their profile (ADR 0093)", () => {
     await vi.waitFor(() => expect(useTheme.getState().preference).toBe("dark"));
     expect(usePreferences.getState().accent).toBe("teal");
     expect(usePreferences.getState().textSize).toBe("large");
+    expect(usePreferences.getState().agentsAtWork).toBe("calm");
     expect(useSendKey.getState().sendKey).toBe("modEnter");
     // Taking them in is no change to save back.
     await vi.advanceTimersByTimeAsync(1000);

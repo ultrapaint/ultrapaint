@@ -7,6 +7,10 @@ and New chats leave Settings › Agents) and 0066 (Keep findings moves to Genera
 > Amended by [0119](0119-the-person-may-turn-the-sandbox-off.md), 2026-11-23: Agents also holds
 > *Run agents in a sandbox*, the person's, on by default.
 
+> Amended by [0142](0142-agents-at-work-are-animated-or-calm.md), 2026-11-24: Appearance's
+> Interface group holds *Agents at work* under Motion, Animated or Calm, and Full motion now wins
+> over the computer's setting for an agent's work on the canvas.
+
 ## Context
 
 The Settings dialog had four sections: Repository, Design system, Preferences and Agents. Nothing

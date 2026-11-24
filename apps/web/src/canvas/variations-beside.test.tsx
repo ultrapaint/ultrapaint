@@ -19,6 +19,11 @@ import { Inspector } from "../panels/inspector.tsx";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { rightHasSubject } from "../state/panels.ts";
+import {
+  DEFAULT_PREFERENCES,
+  type Preferences,
+  usePreferences,
+} from "../state/preferences.ts";
 import { select } from "../state/selection.ts";
 import { followServer } from "../state/server-data.ts";
 import {
@@ -235,6 +240,7 @@ afterEach(() => {
   act(() => r?.unmount());
   document.body.innerHTML = "";
   stop();
+  usePreferences.getState().setAll(DEFAULT_PREFERENCES);
 });
 
 describe("a thing's variations laid out beside its page", () => {
@@ -521,6 +527,37 @@ describe("an agent's takes on the thing (ADR 0098)", () => {
     );
     expect(drawn("coming")).toBe(0);
     expect(controls()).toBe("Done");
+  });
+
+  const coming = () =>
+    document.querySelector<HTMLElement>('[data-take="coming"]');
+  const drawComing = (preferences: Partial<Preferences>) => {
+    act(() =>
+      usePreferences
+        .getState()
+        .setAll({ ...DEFAULT_PREFERENCES, ...preferences })
+    );
+    show();
+    act(() => fakeApi.emit("variationRounds", [round([{ state: "working" }])]));
+  };
+
+  it.each([
+    ["Calm", { agentsAtWork: "calm" }],
+    ["Reduced motion", { motion: "reduced" }],
+  ] as const)(
+    "draws one still coming as a still dashed outline under %s",
+    (_, preferences) => {
+      drawComing(preferences);
+      expect(coming()?.style.outlineStyle).toBe("dashed");
+      expect(coming()?.style.outlineColor).toBe("var(--agent)");
+      expect(coming()?.className).not.toContain("animate-agent-sweep");
+      expect(coming()?.className).not.toContain("gradient");
+    }
+  );
+
+  it("passes a light through one still coming under Animated with Full motion", () => {
+    drawComing({ agentsAtWork: "animated", motion: "full" });
+    expect(coming()?.className).toContain("animate-agent-sweep");
   });
 
   it("draws those that failed as red boxes, whose Try again asks the round's chat for as many again", async () => {
