@@ -344,6 +344,60 @@ interface EdWindow {
   };
 }
 
+/** How many of the chats are no longer working. */
+const chatsStopped = async (page: Page, started: string[]) => {
+  const threads = (await page.evaluate(() =>
+    (window as unknown as EdWindow).__ed
+      .api()
+      .request("threads.list", undefined)
+  )) as { id: string; status: string }[];
+  return started.filter(
+    (id) => threads.find((t) => t.id === id)?.status !== "running"
+  ).length;
+};
+
+/** The agents' page edits in the chats, by how each ended so far. */
+const editsOf = (page: Page, started: string[]) =>
+  page.evaluate(async (threads) => {
+    const { api } = (window as unknown as EdWindow).__ed;
+    const calls = (
+      await Promise.all(
+        threads.map(
+          (threadId) =>
+            api().request("threads.items", { threadId }) as Promise<
+              { kind: string; status?: string; title?: string }[]
+            >
+        )
+      )
+    )
+      .flat()
+      .filter(
+        (i) => i.kind === "tool" && i.title?.endsWith("apply_operations")
+      );
+    return {
+      done: calls.filter((c) => c.status === "completed").length,
+      failed: calls.filter((c) => c.status === "failed").length,
+      unfinished: calls.filter(
+        (c) => c.status !== "completed" && c.status !== "failed"
+      ).length,
+    };
+  }, started);
+
+/**
+ * The edits made and failed, counted once every edit begun has ended (thirty seconds at most):
+ * one still under way then is counted as failed, so a run never passes on an edit whose end it
+ * did not see.
+ */
+const settledEdits = async (page: Page, started: string[]) => {
+  let edits = await editsOf(page, started);
+  for (let tries = 0; edits.unfinished > 0 && tries < 60; tries += 1) {
+    // biome-ignore lint/performance/noAwaitInLoops: polling, one look at a time.
+    await page.waitForTimeout(500);
+    edits = await editsOf(page, started);
+  }
+  return { done: edits.done, failed: edits.failed + edits.unfinished };
+};
+
 const main = async () => {
   const profileDir = await mkdtemp(path.join(tmpdir(), "bench-chats-"));
   const browser = await chromium.launchPersistentContext(profileDir, {
@@ -488,8 +542,9 @@ const main = async () => {
       (threadId, i) =>
         [
           threadId,
-          // Streaming well past the busy window, whatever the warm-up took: stopped at the end.
-          `load ${SECONDS + 60} ${targets[i % targets.length] ?? "-"} ${HISTORY}`,
+          // Streaming far past the busy window, however long the others' history took: the bench
+          // stops them at its end, and fails if one stopped before (below).
+          `load ${SECONDS + 600} ${targets[i % targets.length] ?? "-"} ${HISTORY}`,
         ] as const
     );
     await page.evaluate(
@@ -546,6 +601,14 @@ const main = async () => {
       });
     }
     await measure("busy", SECONDS);
+    // A chat that stopped working before the window ended measured an idle chat.
+    const stopped = await chatsStopped(page, ids);
+    if (stopped > 0) {
+      console.error(
+        `Incomplete: ${stopped} of the chats stopped working before the busy window ended.`
+      );
+      process.exitCode = 1;
+    }
     if (args.trace) {
       await cdp.send("Tracing.end");
       await traceDone;
@@ -604,43 +667,7 @@ const main = async () => {
     };
     // With `--mcp`, the edits the agents made and those refused: a run whose edits failed
     // measured no edits, and says so.
-    const editsOf = (started: string[]) =>
-      page.evaluate(async (threads) => {
-        const { api } = (window as unknown as EdWindow).__ed;
-        const calls = (
-          await Promise.all(
-            threads.map(
-              (threadId) =>
-                api().request("threads.items", { threadId }) as Promise<
-                  { kind: string; status?: string; title?: string }[]
-                >
-            )
-          )
-        )
-          .flat()
-          .filter(
-            (i) => i.kind === "tool" && i.title?.endsWith("apply_operations")
-          );
-        return {
-          done: calls.filter((c) => c.status === "completed").length,
-          failed: calls.filter((c) => c.status === "failed").length,
-          unfinished: calls.filter(
-            (c) => c.status !== "completed" && c.status !== "failed"
-          ).length,
-        };
-      }, started);
-    // Counted once every edit begun has ended (thirty seconds at most): one still under way
-    // then is counted as failed, so a run never passes on an edit whose end it did not see.
-    let mcpEdits: { done: number; failed: number } | null = null;
-    if (args.mcp) {
-      let edits = await editsOf(ids);
-      for (let tries = 0; edits.unfinished > 0 && tries < 60; tries += 1) {
-        // biome-ignore lint/performance/noAwaitInLoops: polling, one look at a time.
-        await page.waitForTimeout(500);
-        edits = await editsOf(ids);
-      }
-      mcpEdits = { done: edits.done, failed: edits.failed + edits.unfinished };
-    }
+    const mcpEdits = args.mcp ? await settledEdits(page, ids) : null;
     if (mcpEdits && (mcpEdits.failed > 0 || mcpEdits.done === 0)) {
       console.error(
         `Incomplete: ${mcpEdits.failed} of the agents' page edits failed, ${mcpEdits.done} made.`
