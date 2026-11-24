@@ -187,6 +187,9 @@ const color =
  */
 const BG_COLOR = "backgroundColor";
 const BG_IMAGE = "backgroundImage";
+/** What the `background` shorthand sets besides, which no gradient's utilities do. */
+const BG_REST = ["backgroundPosition", "backgroundSize", "backgroundRepeat"];
+const VAR_RE = /^var\(/i;
 
 /**
  * A side or corner as Tailwind's `bg-linear-to-*` names it, by the angle the codec gives it:
@@ -345,15 +348,19 @@ const background: Rule = (value) => {
   if (layers.length === 1 && only?.kind === "color") {
     return bgColor(only.color);
   }
-  if (layers.length === 0 || layers.some((l) => l.kind === "css")) {
+  const bottom = layers.at(-1);
+  // A variable under images may hold another image as well as a colour.
+  const varUnder =
+    layers.length > 1 && bottom?.kind === "color" && VAR_RE.test(bottom.color);
+  if (layers.length === 0 || layers.some((l) => l.kind === "css") || varUnder) {
     // Tailwind reads `bg-[…]` as a colour or as images, never as images over a colour.
     return one(
       printArbitrary(withVariables(String(value)), "background"),
       BG_COLOR,
-      BG_IMAGE
+      BG_IMAGE,
+      ...BG_REST
     );
   }
-  const bottom = layers.at(-1);
   const under = bottom?.kind === "color" ? bgColor(bottom.color) : [];
   const images = bottom?.kind === "color" ? layers.slice(0, -1) : layers;
   const [gradient] = images;
