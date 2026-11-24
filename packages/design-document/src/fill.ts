@@ -511,9 +511,12 @@ export const stopPositions = (
 /** A token anywhere in a fill: `$name` at its start or after a bracket, a comma or a space. */
 const FILL_TOKEN_RE = /(^|[\s(,])\$([a-z0-9][\w.-]*)/gi;
 
-/** What of a fill names no token whatever it holds: a comment, a URL and a quoted string. */
+/**
+ * What of a fill names no token whatever it holds: a comment, a URL and a quoted string, whose
+ * escapes take any character, a line break included.
+ */
 const LITERAL_RE =
-  /\/\*[\s\S]*?\*\/|url\(\s*(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^)"']*)\s*\)|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/gi;
+  /\/\*[\s\S]*?\*\/|url\(\s*(?:"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|[^)"']*)\s*\)|"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'/gi;
 
 /** A fill split at its literals: the parts that may name tokens, and the literals between. */
 const tokenParts = (

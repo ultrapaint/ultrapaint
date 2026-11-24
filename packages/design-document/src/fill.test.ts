@@ -255,6 +255,18 @@ describe("the tokens of a fill", () => {
     );
   });
 
+  it("are none in a quoted path continued on the next line", () => {
+    for (const fill of [
+      'url("a\\\n $hero.png"), $color-bg',
+      'url("a\\\r\n $hero.png"), $color-bg',
+    ]) {
+      expect(tokensInFill(fill)).toEqual(["color-bg"]);
+      expect(resolveFillTokens(fill, (n) => `var(--${n})`)).toBe(
+        fill.replace("$color-bg", "var(--color-bg)")
+      );
+    }
+  });
+
   it("are none in a quoted path that holds a bracket", () => {
     const fill = 'url("a) $hero.png"), $color-bg';
     expect(tokensInFill(fill)).toEqual(["color-bg"]);
