@@ -71,18 +71,21 @@ const unchanged = (
   return sameJson(held, value) ? "already set to that" : null;
 };
 
-/** Why a breakpoint's value changes nothing on the node as the call leaves it: it is its own. */
+/**
+ * Why a breakpoint's value changes nothing on the node (or a layer's instance override) as the
+ * call leaves it: it is its own.
+ */
 const sameAsOwn = (
-  node: DesignNode | null,
+  fields: Readonly<Record<string, unknown>> | null | undefined,
   key: string,
   at: string | undefined
 ): string | null => {
-  if (node === null || at === undefined) {
+  if (!fields || at === undefined) {
     return null;
   }
-  const own = (node as unknown as Record<string, unknown>)[key];
+  const own = fields[key];
   const over = (
-    node.at as Record<string, Record<string, unknown>> | undefined
+    fields.at as Record<string, Record<string, unknown>> | undefined
   )?.[at]?.[key];
   return own !== undefined && over !== undefined && sameJson(own, over)
     ? `the same as its own ${key}`
@@ -115,7 +118,7 @@ const settingsOf = (
   at: string | undefined
 ): Setting[] =>
   Object.entries(set).flatMap(([key, value]): Setting[] => {
-    if (key === "children" || value === undefined) {
+    if (value === undefined) {
       return [];
     }
     const own = { at, inner: false, key, value };
@@ -151,24 +154,31 @@ const updateWhy = (
   return (
     lacks(node?.type, `a ${node?.type}`, key, at) ??
     before ??
-    sameAsOwn(node, key, at) ??
+    sameAsOwn(asFields(node), key, at) ??
     unspaced(node, key)
   );
 };
 
-/** The kind a layer of an instance is drawn as: its instance override's, or its main component's. */
-const layerKind = (
+const asFields = (node: DesignNode | null) =>
+  node as unknown as Readonly<Record<string, unknown>> | null;
+
+/**
+ * A layer of an instance as the call leaves it: its instance override, and the kind it is drawn
+ * as, the override's or its main component's.
+ */
+const layerAfter = (
   after: DesignNode,
   id: string,
   main: string | undefined
-): string | undefined => {
+) => {
   const way = instanceLayerOf(id);
   const instance = way === null ? null : findNode(after, way.instance);
-  const own =
+  const override =
     instance?.type === "instance" && way !== null
-      ? instance.overrides?.[way.layer]?.type
+      ? instance.overrides?.[way.layer]
       : undefined;
-  return typeof own === "string" ? own : main;
+  const own = override?.type;
+  return { kind: typeof own === "string" ? own : main, override };
 };
 
 /** What one operation set that did nothing, each field with why, or `null` where it did. */
@@ -192,6 +202,7 @@ const judged = (
               id: node.id,
               why:
                 lacks(node.type, `a ${node.type}`, s.key, s.at) ??
+                sameAsOwn(asFields(node), s.key, s.at) ??
                 unspaced(node, s.key),
             }));
       }
@@ -202,7 +213,7 @@ const judged = (
   }
   const settings = settingsOf(op.set, op.at);
   if (entry.layer) {
-    const kind = layerKind(after, op.id, entry.layer.kind);
+    const { kind, override } = layerAfter(after, op.id, entry.layer.kind);
     return settings.map((s) => ({
       field: fieldName(s),
       id: op.id,
@@ -210,7 +221,8 @@ const judged = (
         (s.value === null
           ? null
           : lacks(kind, `a ${kind} layer`, s.key, s.at)) ??
-        (s.inner ? null : unchanged(entry.fields, s.key, s.value, s.at)),
+        (s.inner ? null : unchanged(entry.fields, s.key, s.value, s.at)) ??
+        (s.value === null ? null : sameAsOwn(override, s.key, s.at)),
     }));
   }
   const node = findNode(after, op.id);
