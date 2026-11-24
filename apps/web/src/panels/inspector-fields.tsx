@@ -148,7 +148,7 @@ export const Row = ({
         {label}
       </CutText>
       {fields ? (
-        <OverrideMark fields={fields} label={label ?? fields.join(", ")} />
+        <OverrideMark fields={fields} label={label || fields.join(", ")} />
       ) : null}
     </div>
     <div className="flex min-w-0 items-center gap-2">{children}</div>
