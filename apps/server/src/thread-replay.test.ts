@@ -104,11 +104,21 @@ describe("Claude Code asking the same questions again (claude-agent-acp 0.95)", 
       const replay = yield* replays.next;
       const { items } = yield* unlessStrayed(
         replay,
-        threadWhen(threadId, (_, all) =>
-          questionsOf(all).some(
-            (q) => q.kind === "question" && q.settled?.how === "repeated"
-          )
-        )
+        // The older card let go and the newer one open, in the same look.
+        threadWhen(threadId, (_, all) => {
+          const questions = questionsOf(all);
+          return (
+            questions.some(
+              (q) => q.kind === "question" && q.settled?.how === "repeated"
+            ) &&
+            questions.some(
+              (q) =>
+                q.kind === "question" &&
+                q.answers === null &&
+                q.settled === undefined
+            )
+          );
+        })
       );
       const [first, again] = questionsOf(items);
       assert.strictEqual(
