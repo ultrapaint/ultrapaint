@@ -5,7 +5,7 @@
  */
 import { appendFileSync } from "node:fs";
 import { join } from "node:path";
-import { monitorEventLoopDelay } from "node:perf_hooks";
+import { monitorEventLoopDelay, performance } from "node:perf_hooks";
 
 const dir = process.env.BENCH_PROBE_DIR;
 if (dir && process.argv[1]?.endsWith("apps/server/src/bin.ts")) {
@@ -13,9 +13,14 @@ if (dir && process.argv[1]?.endsWith("apps/server/src/bin.ts")) {
   const delay = monitorEventLoopDelay({ resolution: 10 });
   delay.enable();
   let cpu = process.cpuUsage();
+  let at = performance.now();
   setInterval(() => {
     const used = process.cpuUsage(cpu);
     cpu = process.cpuUsage();
+    const now = performance.now();
+    // A late tick covers more than a second: the bench divides by what it did cover.
+    const elapsedMs = now - at;
+    at = now;
     appendFileSync(
       file,
       `${JSON.stringify({
@@ -23,6 +28,7 @@ if (dir && process.argv[1]?.endsWith("apps/server/src/bin.ts")) {
         delayMaxMs: delay.max / 1e6,
         delayMeanMs: delay.mean / 1e6,
         delayP99Ms: delay.percentile(99) / 1e6,
+        elapsedMs,
         t: Date.now(),
       })}\n`
     );
