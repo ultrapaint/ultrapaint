@@ -58,13 +58,17 @@ stopped or its session ended), repeated, expired or undelivered. All of it is op
 stored before read unchanged.
 
 **A withdrawal still reads No longer asked** (0109), which the reference product does not do;
-the editor keeps honouring `$/cancel_request`.
+the editor keeps honouring `$/cancel_request`. A permission stored before with the decision
+`cancelled`, which showed that word, reads No longer asked too: the person chose one reading for
+old and new withdrawn cards over showing stored threads exactly as before.
 
 A replay agent (`@ultrapaint/acp/replay-agent`) plays a transcript of a real agent's messages
 against the editor's own ACP client, the SDK included, at the agent launcher's seam beside the
 scripted agent, as the reference product's recorded fixtures do. The first transcript is Claude
 Code asking with `ask_user` through claude-agent-acp 0.95, written by hand from that version's own
-messages where no session could be recorded; a recorded one replaces it as is.
+messages where no session could be recorded, and so is the second, the same questions asked
+again without a withdrawal (`ref` tells two open requests of one method apart). A recorded
+transcript replaces either as is.
 
 ## Consequences
 
