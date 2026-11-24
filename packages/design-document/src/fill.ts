@@ -410,10 +410,16 @@ const layerCss = (layer: FillLayer, bottom: boolean): string => {
 };
 
 /** Layers as the one CSS background a fill holds, the first on top; null for none. */
-export const fillCss = (layers: readonly FillLayer[]): string | null =>
+export const fillCss = (
+  layers: readonly FillLayer[],
+  /** Whether the last layer is the fill's bottom; not where a colour under them is written apart. */
+  { bottom = true }: { readonly bottom?: boolean } = {}
+): string | null =>
   layers.length === 0
     ? null
-    : layers.map((l, i) => layerCss(l, i === layers.length - 1)).join(", ");
+    : layers
+        .map((l, i) => layerCss(l, bottom && i === layers.length - 1))
+        .join(", ");
 
 /** A stop's position in percent, `40%` as 40; null for none, or one in another unit. */
 export const percentOf = (position: string | undefined): number | null => {
@@ -422,21 +428,45 @@ export const percentOf = (position: string | undefined): number | null => {
 };
 
 /**
- * Whether every stop is placed in percent or left for CSS to place, so that each can be placed
- * in percent without moving: a stop at `10px`, `calc(…)` or a conic's `90deg` cannot be.
+ * A stop's position as a share of its gradient in percent: `40%` as 40, and a conic gradient's
+ * angle as its share of the turn, `90deg` as 25; null for none, or a length (`10px`, `calc(…)`),
+ * which only the box's size could place.
  */
-export const placedInPercent = (stops: readonly FillStop[]): boolean =>
+export const positionPercent = (
+  position: string | undefined,
+  shape: GradientShape
+): number | null => {
+  const percent = percentOf(position);
+  if (percent !== null || shape !== "conic" || position === undefined) {
+    return percent;
+  }
+  const degrees = degreesOf(position);
+  return degrees === null ? null : round((degrees / 360) * 100);
+};
+
+/**
+ * Whether every stop can be placed in percent without moving: given in percent, as a conic
+ * gradient's angle, or left for CSS to place. A stop at `10px` or `calc(…)` cannot be.
+ */
+export const placedInPercent = (
+  stops: readonly FillStop[],
+  shape: GradientShape
+): boolean =>
   stops.every(
-    (s) => s.position === undefined || percentOf(s.position) !== null
+    (s) =>
+      s.position === undefined || positionPercent(s.position, shape) !== null
   );
 
 /**
  * Where CSS draws each stop, in percent of the gradient: a stop without a position between its
- * neighbours, the first at 0 and the last at 100, none before the one ahead of it. A position
- * in another unit counts as none.
+ * neighbours, the first at 0 and the last at 100, none before the one ahead of it. A conic
+ * gradient's angle is its share of the turn; a length counts as no position.
  */
-export const stopPositions = (stops: readonly FillStop[]): number[] => {
-  const given = stops.map((s) => percentOf(s.position));
+export const stopPositions = (
+  stops: readonly FillStop[],
+  shape: GradientShape = "linear"
+): number[] => {
+  const given = stops.map((s) => positionPercent(s.position, shape));
   const last = given.length - 1;
   if (given[0] === null) {
     given[0] = 0;

@@ -3,6 +3,7 @@ import {
   type FillLayer,
   fillCss,
   fillLayers,
+  placedInPercent,
   resolveFillTokens,
   stopPositions,
   tokensInFill,
@@ -142,6 +143,28 @@ describe("a fill as layers", () => {
       layers[3],
     ]);
     expect(fillCss([])).toBeNull();
+    // Over a colour written apart, a colour is an image too.
+    expect(
+      fillCss([{ color: "#0003", kind: "color" }], { bottom: false })
+    ).toBe("linear-gradient(#0003, #0003)");
+  });
+
+  it("places a conic gradient's stop given as an angle at its share of the turn", () => {
+    const stops = [
+      { color: "a", position: "0deg" },
+      { color: "b", position: "90deg" },
+      { color: "c", position: "0.5turn" },
+    ];
+    expect(stopPositions(stops, "conic")).toEqual([0, 25, 50]);
+    expect(placedInPercent(stops, "conic")).toBe(true);
+  });
+
+  it("cannot place a stop in percent that is given in a length", () => {
+    const stops = [{ color: "a", position: "10px" }, { color: "b" }];
+    expect(placedInPercent(stops, "linear")).toBe(false);
+    expect(placedInPercent([{ color: "a", position: "90deg" }], "linear")).toBe(
+      false
+    );
   });
 
   it("places each stop where CSS draws it, one without a position between its neighbours", () => {
@@ -189,6 +212,9 @@ describe("the tokens of a fill", () => {
         'url(/img/$hero.png), url($hero.png), url("$a b.png"), $color-bg'
       )
     ).toEqual(["color-bg"]);
+  });
+
+  it("are drawn as their variables, a path's `$` left as it is", () => {
     expect(
       resolveFillTokens("url($hero.png), $color-bg", (n) => `var(--${n})`)
     ).toBe("url($hero.png), var(--color-bg)");

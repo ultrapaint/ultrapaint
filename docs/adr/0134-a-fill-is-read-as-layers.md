@@ -25,7 +25,7 @@ gradient alone, always at 180 degrees, its stops raw. UP-141 asked for gradients
   (an image among the layers, a colour anywhere but at the bottom, CSS it does not know) is one
   layer, written back as it was.
 - **Tokens inside a value, in a fill only.** A token is read wherever it stands in a fill (after
-  the start, a bracket, a comma or a space): the canvas draws each as its variable with its
+  the start, a bracket, a comma or a space), but inside a `url(…)` or a quoted string: the canvas draws each as its variable with its
   fallback (`TokenResolver.fill`), and `tokensIn` counts them as the design's (0028). Every other
   value names a token only at its start, so a text saying "Save $20" names none. The shadow's
   layers (UP-142) join `tokensIn`'s list of CSS-valued fields (`TOKENS_INSIDE`) when they come.
@@ -38,8 +38,8 @@ gradient alone, always at 180 degrees, its stops raw. UP-141 asked for gradients
   Tailwind's default; a colour under it is its `bg-` utility. Tailwind's named utilities mix in
   oklab, so a gradient that names its colour space takes them, with a modifier for one other than
   oklab (`/oklch`); one that names none is mixed as CSS mixes it, which only an arbitrary
-  position says (`bg-linear-[90deg]`). What they cannot say (more stops, positions in other
-  units, several gradients) is one arbitrary `bg-[…]`, its tokens as their variables. A gradient's
+  position says (`bg-linear-[90deg]`). What they cannot say (more stops, a stop placed in a
+  length, several gradients) is one arbitrary `bg-[…]`, its tokens as their variables. A gradient's
   parts count separately across breakpoints, so a breakpoint's colour bounds the base's gradient.
 - **The editor writes gradients in oklab.** A colour turned into a gradient in the inspector is a
   linear gradient from it to transparent, `in oklab`: it mixes without the grey a mix in sRGB
@@ -54,6 +54,11 @@ gradient alone, always at 180 degrees, its stops raw. UP-141 asked for gradients
   one the fill. Every change writes the whole fill through the fill's field, one edit, at the
   view's breakpoint (0036) and on an instance's layer as its override (0114). Nodes whose fills
   differ show one field reading Mixed. Layers are not reordered; one is taken off and added again.
+- **Where a stop sits.** A stop's place is a share of its gradient: a percentage, or a conic
+  gradient's angle as its share of the turn (`90deg` is 25%), which is how it is written once a
+  stop of it is moved or taken off. A stop placed in a length (`10px`, `calc(…)`) cannot be said
+  in percent without the box: such a gradient is drawn on its bar with no stop to move, a note
+  saying so, its stops' colours edited and a stop taken off leaving the others as written.
 - **The Figma import** (0016) reads linear, radial and angular gradients, each at the angle its
   paint's transform gives: a linear one's stops placed where its handles' ends fall on CSS's
   gradient line, a radial one as an ellipse at its centre, an angular one as a conic gradient from

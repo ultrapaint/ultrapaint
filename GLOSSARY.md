@@ -107,8 +107,8 @@ refactor and the board view left.
   (linear, radial or conic), its **stops** (each a token or a CSS colour, and where it sits), its
   angle or side, its **geometry** (a radial one's shape, size and centre, a conic one's centre, as
   written) and its **colour space** (`interpolation`, the space its stops mix in). The document
-  holds the CSS; the layers are the editor's reading of it. A token stands anywhere in a fill, in
-  no other value.
+  holds the CSS; the layers are the editor's reading of it. A token stands anywhere in a fill but a
+  URL or a quoted string, in no other value.
   _Avoid_: paint, background stack.
 - **Utility vocabulary**: Tailwind's utilities as the class writer and every reader of classes
   in the style adapter speak them (style-tailwind-v4's `utilities`): how a class is written (its
