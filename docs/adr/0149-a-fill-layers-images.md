@@ -53,8 +53,8 @@ off-system check flagged a picture as a raw colour, and the Figma import dropped
   No warning, but for an image paint Figma draws see-through, which a fill cannot say: it is drawn
   opaque, with a warning. A free-layout frame, whose one child the page holds, draws its picture
   once, on that child, the page taking only the colour under it. A frame without children with an
-  image paint is still an image node, and one whose
-  children are all shapes, drawn as one picture, still drops its image paint with a warning.
+  image paint is still an image node, and one whose children are all shapes is kept a box with
+  its picture, never drawn as one icon.
 - **The document format's** description of `fill` says it may layer images, by their
   `assets/…` path.
 

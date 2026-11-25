@@ -516,6 +516,48 @@ describe("converting a frame", () => {
     ]);
   });
 
+  it("keeps the picture behind a frame of shapes as its fill rather than drawing the frame as one icon (ADR 0149)", () => {
+    const f = makeFixture();
+    const page = f.add(f.page, {
+      name: "Landing",
+      size: { x: 400, y: 300 },
+      stackMode: "VERTICAL",
+      type: "FRAME",
+    });
+    const card = f.add(page, {
+      fillPaints: [
+        {
+          image: { hash: new Uint8Array(20).fill(0xab) },
+          imageScaleMode: "FILL",
+          type: "IMAGE",
+          visible: true,
+        },
+      ],
+      name: "Card",
+      size: { x: 200, y: 100 },
+      stackMode: "VERTICAL",
+      type: "FRAME",
+    });
+    f.add(card, {
+      fillPaints: [solid(1, 1, 1)],
+      name: "Badge",
+      size: { x: 40, y: 20 },
+      type: "RECTANGLE",
+    });
+    f.addImage("ab".repeat(20), PNG_BYTES);
+    const file = readFig(f.build());
+    const [frame] = file.pages[0]?.frames ?? [];
+    if (!frame) {
+      throw new Error("no frame");
+    }
+    const { root, warnings } = convertFrame(file, frame, options());
+    expect(childrenOf(root)[0]).toMatchObject({
+      fill: "url(assets/figma-abababababab.png) center / cover no-repeat",
+      type: "column",
+    });
+    expect(warnings).toEqual([]);
+  });
+
   it("brings a background blur as the blur token that holds its length", () => {
     const { file, frame } = frostedBar();
     const tokens = makeTokenMatcher({
