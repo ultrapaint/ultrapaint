@@ -36,8 +36,9 @@ editor's paste reaches them comes in the story's third stage.
     child is positioned absolutely, it becomes a group, its children stacked in reading order
     (top, then left) and warned, as the Figma import stacks a frame laid out freely. The page
     format places nothing inside a page (`place` in `ops`), so their `left` and `top` are read
-    for the order only. Whether a group should place its children at their positions is asked
-    on UP-144. A child positioned absolutely among others goes in the flow, warned.
+    for the order only. Chosen with the person on 2026-11-25. A group placing its children at
+    their positions is UP-202, which the paste takes up once the format holds it. A child
+    positioned absolutely among others goes in the flow, warned.
   - An element holding only words (text, and inline elements holding only words) becomes a text,
     `br` a new line. An inline element whose display is a block, a flex or a grid, or that is
     positioned absolutely, is not a word. Its inline formatting (a bold, an italic, a link, a span
