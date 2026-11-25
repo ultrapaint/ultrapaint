@@ -21,10 +21,12 @@ editor's paste reaches them comes in the story's third stage.
 - **An element's style is its inline style over its classes, field by field.** The classes are
   read by the style system's class reader (`ClassReader`, ADR 0024), which `convertHtml` takes as
   an argument, as `toCode` takes a `ClassWriter`. The inline style is the longhands the DOM
-  expands it into. Both are CSS declarations, folded into one form (`element-style`): a shorthand into
-  sides, a border's and a corner's sides into one value where they agree (warned where they do
-  not), a gap into both axes, a fill's image over its colour into `background`. Only inline
-  styles and classes are read. A `<style>` block and a linked stylesheet would need a cascade the
+  expands it into. Both are CSS declarations, taken apart into the same components (a shorthand
+  into its sides, a gap into its axes, a whole border and radius into each side's and corner's, a
+  fill into its image and its colour), met with the inline style winning and its resets
+  (`initial`) taking a class's value back, then folded into one form (`element-style`): a
+  border's and a corner's sides into one value where they agree (warned where they do not), a
+  fill's image over its colour into `background`. Only inline styles and classes are read. A `<style>` block and a linked stylesheet would need a cascade the
   rules do not run.
 - **The rules:**
   - `display: flex` or `inline-flex` becomes a row, or a column for a vertical direction, with
@@ -55,11 +57,13 @@ editor's paste reaches them comes in the story's third stage.
   - `script`, `style`, `head`, `template`, `noscript`, comments, `display: none`,
     `visibility: hidden`, `hidden` and `sr-only` are dropped without a warning: they show
     nothing.
-  - **Fields** come from the look: size (pixels, `100%` as fill, `fit-content` as hug, growing in
-    a flex as fill on its axis, stretching as fill across it; a percentage, `vw` or `calc` warned),
-    its bounds, padding, margin, fill (a background image warned), border, radius, shadow,
-    opacity, and the text settings. A text takes the text settings it does not set from the
-    elements around it, as CSS inherits them.
+  - **Fields** come from the element style: size (pixels, `100%` as fill, `fit-content` as hug,
+    growing in a flex as fill on its axis, stretching as fill across it where that size is `auto`
+    and neither margin across is; a percentage, `vw` or `calc` warned), its bounds (a maximum of 0
+    kept), padding, margin, fill (a background image warned), border, radius, shadow, opacity, and
+    the text settings, a line height in pixels keeping its unit. A text takes the text settings it
+    does not set from the elements around it, the body's included, as CSS inherits them. A hidden
+    body shows nothing.
   - **Values** are written as the design system's token where it has one for the value: the first
     token of the field's kind that holds it, in any unit or colour space (`tokensByValue`), and a
     spacing as its step of the scale first (`16px` on a 4px base is `$spacing-4`), then a named

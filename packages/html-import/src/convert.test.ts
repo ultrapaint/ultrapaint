@@ -342,3 +342,72 @@ describe("saying what was not carried", () => {
     ]);
   });
 });
+
+describe("markup a review found the rules misread", () => {
+  it("reads a tag named after a property of every object as any unknown element", () => {
+    expect(paste("<constructor>x</constructor>").nodes).toMatchObject([
+      { text: "x" },
+    ]);
+  });
+
+  it("drops a hidden SVG or control without a word, even as a flex's item", () => {
+    expect(
+      warned(
+        `<div class="flex"><svg hidden></svg><input class="hidden"><p>x</p></div>`
+      )
+    ).toEqual({});
+  });
+
+  it("pastes nothing from a hidden body, and gives a shown one's text settings to its children", () => {
+    expect(paste("<body hidden><p>x</p></body>").nodes).toEqual([]);
+    expect(
+      paste(`<body style="color: #abcdef"><p>x</p></body>`).nodes
+    ).toMatchObject([{ color: "#abcdef" }]);
+  });
+
+  it("keeps a line height in pixels as pixels, and a multiple as a number", () => {
+    expect(
+      paste(
+        `<p style="line-height: 24px">a</p><p style="line-height: 1.5">b</p>`
+      ).nodes
+    ).toMatchObject([{ lineHeight: "24px" }, { lineHeight: 1.5 }]);
+  });
+
+  it("lets an inline reset take back what a class set", () => {
+    expect(
+      paste(`<p class="p-4" style="padding-left: initial">x</p>`).nodes
+    ).toMatchObject([
+      {
+        padding: {
+          bottom: "$spacing-4",
+          right: "$spacing-4",
+          top: "$spacing-4",
+        },
+      },
+    ]);
+  });
+
+  it("keeps a class's gradient under an inline colour, as the cascade meets them field by field", () => {
+    expect(
+      paste(
+        `<p class="bg-[linear-gradient(90deg,red,blue)]" style="background-color: #abcdef">x</p>`
+      ).nodes
+    ).toMatchObject([{ fill: "linear-gradient(90deg,red,blue), #abcdef" }]);
+  });
+
+  it("keeps an explicit size across a flex row when the child stretches", () => {
+    expect(
+      paste(
+        `<div class="flex"><p class="self-stretch h-[40px]">a</p><p class="self-stretch">b</p></div>`
+      ).nodes
+    ).toMatchObject([{ children: [{ height: 40 }, { height: "fill" }] }]);
+  });
+
+  it("keeps a maximum of 0", () => {
+    expect(
+      paste(`<p style="max-width: 0px; min-width: 0px">x</p>`).nodes
+    ).toEqual([
+      { id: "t_1", maxWidth: 0, role: "paragraph", text: "x", type: "text" },
+    ]);
+  });
+});
