@@ -35,7 +35,13 @@ import {
 } from "@ultrapaint/design-document/tokens";
 import { assetUrlOf } from "@ultrapaint/preview-core/render-setup";
 import { Minus, Plus, Upload, X } from "lucide-react";
-import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   Popover,
   PopoverContent,
@@ -548,12 +554,25 @@ const ImageFields = ({
   useLayoutEffect(() => {
     latest.current = { layer, onChange };
   });
+  // Which upload may still set the file: the last one started, while the layer is an image.
+  const uploads = useRef(0);
+  useEffect(
+    () => () => {
+      uploads.current += 1;
+    },
+    []
+  );
   const upload = async (file: File | undefined) => {
     if (!file) {
       return;
     }
+    uploads.current += 1;
+    const mine = uploads.current;
     try {
       const src = await uploadImage(file);
+      if (uploads.current !== mine) {
+        return;
+      }
       latest.current.onChange({ ...latest.current.layer, src });
     } catch (error) {
       reportError(error);

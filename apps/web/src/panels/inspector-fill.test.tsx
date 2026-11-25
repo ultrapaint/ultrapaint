@@ -726,15 +726,16 @@ describe("an image layer of the Fill section (ADR 0149)", () => {
       fakeApi.calls.find((c) => c.method === "assets.upload")?.input
     ).toMatchObject({ name: "photo.png" });
     expect(edits()).toBe(1);
-    expect(fills()).toEqual([
-      {
-        fill: "url(assets/photo.png) center / cover no-repeat, $color-card",
-      },
-    ]);
+    const uploaded =
+      "url(assets/photo.png) center / cover no-repeat, $color-card";
+    expect(fills()).toEqual([{ fill: uploaded }]);
+    act(() =>
+      useDocuments.setState({ docs: { [HOME]: pageOf({ box: uploaded }) } })
+    );
     press("Contain");
     expect(edits()).toBe(2);
     expect(fills()).toEqual([
-      { fill: "url(assets/hero.png) center / contain no-repeat, $color-card" },
+      { fill: "url(assets/photo.png) center / contain no-repeat, $color-card" },
     ]);
   });
 
@@ -769,6 +770,65 @@ describe("an image layer of the Fill section (ADR 0149)", () => {
     expect(fills()).toEqual([
       { fill: "url(assets/photo.png) center / contain no-repeat" },
     ]);
+  });
+
+  /** Uploads answered as the test settles them, the first asked first in the list. */
+  const pendingUploads = () => {
+    const finishes: ((out: { src: string }) => void)[] = [];
+    fakeApi.respond(
+      "assets.upload",
+      () =>
+        new Promise((resolve) => {
+          finishes.push(resolve);
+        })
+    );
+    return finishes;
+  };
+
+  /** Chooses `name` in the open popover's file input, its upload left pending. */
+  const startUpload = async (name: string, count: number) => {
+    const input = document.querySelector(
+      "[data-fill-file] input[type=file]"
+    ) as HTMLInputElement;
+    Object.defineProperty(input, "files", {
+      configurable: true,
+      value: [new File(["png"], name, { type: "image/png" })],
+    });
+    act(() => {
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await act(() => fakeApi.requested("assets.upload", count));
+  };
+
+  it("drops a file that arrives after the layer was made another kind", async () => {
+    const finishes = pendingUploads();
+    show({ box: HERO });
+    await openSwatch();
+    await startUpload("photo.png", 1);
+    press("Gradient");
+    const gradient = "linear-gradient(in oklab, transparent, transparent)";
+    expect(fills()).toEqual([{ fill: gradient }]);
+    act(() =>
+      useDocuments.setState({ docs: { [HOME]: pageOf({ box: gradient }) } })
+    );
+    await act(async () => finishes[0]?.({ src: "assets/photo.png" }));
+    expect(edits()).toBe(1);
+  });
+
+  it("sets the file chosen last, whichever upload ends first", async () => {
+    const finishes = pendingUploads();
+    show({ box: HERO });
+    await openSwatch();
+    await startUpload("first.png", 1);
+    await startUpload("second.png", 2);
+    await act(async () => finishes[1]?.({ src: "assets/second.png" }));
+    const second = "url(assets/second.png) center / cover no-repeat";
+    expect(fills()).toEqual([{ fill: second }]);
+    act(() =>
+      useDocuments.setState({ docs: { [HOME]: pageOf({ box: second }) } })
+    );
+    await act(async () => finishes[0]?.({ src: "assets/first.png" }));
+    expect(edits()).toBe(1);
   });
 
   it("writes its fit on a layer of an app component's instance as the instance's override (ADR 0114)", async () => {
