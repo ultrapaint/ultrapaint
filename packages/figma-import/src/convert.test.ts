@@ -602,6 +602,70 @@ describe("converting a frame", () => {
   });
 });
 
+describe("a text's case and lines", () => {
+  /** A page of one text, set as `fields` say. */
+  const textPage = (fields: Record<string, unknown>) => {
+    const f = makeFixture();
+    const frame = f.add(f.page, {
+      name: "Card",
+      size: { x: 320, y: 200 },
+      stackMode: "VERTICAL",
+      type: "FRAME",
+    });
+    f.add(frame, {
+      fontName: { family: "Inter", postscript: "Inter", style: "Regular" },
+      fontSize: 16,
+      lineHeight: { units: "PIXELS", value: 20 },
+      name: "Description",
+      size: { x: 320, y: 64 },
+      textAutoResize: "NONE",
+      textData: { characters: "A description long enough to wrap" },
+      type: "TEXT",
+      ...fields,
+    });
+    const file = readFig(f.build());
+    const [only] = file.pages[0]?.frames ?? [];
+    if (!only) {
+      throw new Error("no frame");
+    }
+    const { root, warnings } = convertFrame(file, only, options());
+    const text = root.type === "page" ? root.children[0] : undefined;
+    return { ...text, warnings };
+  };
+
+  it("brings upper or lower case, and leaves title case and small caps out", () => {
+    expect(textPage({ textCase: "UPPER" })).toMatchObject({ case: "upper" });
+    expect(textPage({ textCase: "LOWER" })).toMatchObject({ case: "lower" });
+    const title = textPage({ textCase: "TITLE" });
+    expect(title).not.toHaveProperty("case");
+    expect(title.warnings).toEqual([
+      '"Description" is set in title case, which was left out',
+    ]);
+    expect(textPage({})).not.toHaveProperty("case");
+  });
+
+  it("brings a text truncated to a maximum of lines with those lines", () => {
+    expect(textPage({ maxLines: 2, textTruncation: "ENDING" })).toMatchObject({
+      lines: 2,
+    });
+    expect(textPage({ maxLines: 2 })).not.toHaveProperty("lines");
+  });
+
+  it("brings a text cut at its end with no maximum with the lines its height holds", () => {
+    // 64px tall at a 20px line height: three lines, said.
+    expect(textPage({ textTruncation: "ENDING" })).toMatchObject({
+      lines: 3,
+      warnings: [
+        '"Description" is cut at its end with no maximum of lines: it takes the 3 its height holds',
+      ],
+    });
+    // A box shorter than a line still holds one.
+    expect(
+      textPage({ size: { x: 320, y: 12 }, textTruncation: "ENDING" })
+    ).toMatchObject({ lines: 1 });
+  });
+});
+
 describe("the outline", () => {
   it("names the layers, the text and the instances with their variant", () => {
     const file = loginFile();

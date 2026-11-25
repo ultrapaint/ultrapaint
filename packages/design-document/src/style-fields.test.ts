@@ -49,14 +49,17 @@ const text: DesignNode = {
   ...box,
   ...look,
   align: "center",
+  case: "upper",
   color: "$color-text",
   font: "$font-sans",
   level: 2,
   lineHeight: "$leading-tight",
+  lines: 2,
   role: "heading",
   size: "$text-xl",
   text: "Welcome",
   textStyle: "Heading xl",
+  textWrap: "balance",
   tracking: "-0.01em",
   type: "text",
   weight: 600,
@@ -103,15 +106,18 @@ describe("the style of a node", () => {
     );
   });
 
-  it("of a text, its text style and its own settings over it too", () => {
+  it("of a text, its text style and its own settings over it too, its case, text wrap and lines", () => {
     expect(styleOf(text).fields).toEqual({
       ...look,
       align: "center",
+      case: "upper",
       color: "$color-text",
       font: "$font-sans",
       lineHeight: "$leading-tight",
+      lines: 2,
       size: "$text-xl",
       textStyle: "Heading xl",
+      textWrap: "balance",
       tracking: "-0.01em",
       weight: 600,
     });

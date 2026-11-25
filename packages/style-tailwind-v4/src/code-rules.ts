@@ -33,6 +33,9 @@ export const codeRules = `How the design maps to code (Tailwind v4):
   tracking, color and align are the matching utilities; textStyle names a text style of the
   design system — write all of the classes that style stands for (its size, weight and line
   height, and its font and tracking when it sets them), then the node's own fields over them.
+  case: uppercase, lowercase. textWrap: text-balance, text-nowrap. lines 1: truncate; 2 or
+  more: line-clamp-2 and so on. Their defaults at a breakpoint: normal-case, text-wrap, and for
+  lines "all" line-clamp-none with whitespace-normal and text-clip.
 - instance: the component \`component\` imported from \`from\`, with \`props\` as its props and
   \`text\` or \`children\` as its children. Its size, padding, fill, border, radius and shadow
   are classes in the component's own className, as the canvas draws them; a component that

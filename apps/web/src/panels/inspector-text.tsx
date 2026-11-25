@@ -1,6 +1,6 @@
 /**
  * The inspector's text section: the style a text is set in, its type, colour and alignment, and
- * its less frequent settings (its role) in a Formatting popover.
+ * its less frequent settings (its role, case, text wrap and lines) in a Formatting popover.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import {
@@ -42,8 +42,11 @@ import { Segmented } from "../components/segmented.tsx";
 import { setField, updateSelection } from "../lib/node-actions.ts";
 import {
   ALIGN,
+  CASE,
+  LINES,
   sharedField,
   TEXT_STYLE,
+  TEXT_WRAP,
   TOKEN_FIELDS,
 } from "../lib/node-fields.ts";
 import {
@@ -173,7 +176,60 @@ const TextStyleRow = ({
 const ROLE_FIELDS = ["role", "level"];
 
 /** Every field the Formatting popover's rows set: an override of one marks its button. */
-const FORMATTING_FIELDS = [...ROLE_FIELDS];
+const FORMATTING_FIELDS = [...ROLE_FIELDS, CASE.key, TEXT_WRAP.key, LINES.key];
+
+/** The lines the Lines row offers; a text an agent set to another has none picked. */
+const LINE_OPTIONS = ["all", "1", "2", "3"] as const;
+type LineOption = (typeof LINE_OPTIONS)[number];
+
+/** A text's lines as the Lines row picks them: one of its options, or none. */
+const lineOption = (lines: Shared<JsonValue>): LineOption | null => {
+  const option = String(lines);
+  return (LINE_OPTIONS as readonly string[]).includes(option)
+    ? (option as LineOption)
+    : null;
+};
+
+/** How a text is cased, how its lines break and how many it takes, a segmented row each. */
+const CaseTextWrapLines = ({ nodes }: { nodes: readonly TextNode[] }) => (
+  <>
+    <Row fields={[CASE.key]} label="Case">
+      <Segmented
+        aria-label="Case"
+        onChange={(v) => setField(CASE, v)}
+        options={[
+          { label: "As typed", value: "none" },
+          { label: "AA", title: "Uppercase", value: "upper" },
+          { label: "aa", title: "Lowercase", value: "lower" },
+        ]}
+        value={nullIfMixed(sharedField(CASE, nodes))}
+      />
+    </Row>
+    <Row fields={[TEXT_WRAP.key]} label="Wrap">
+      <Segmented
+        aria-label="Wrap"
+        onChange={(v) => setField(TEXT_WRAP, v)}
+        options={[
+          { label: "Wrap", value: "wrap" },
+          { label: "Balance", value: "balance" },
+          { label: "None", value: "none" },
+        ]}
+        value={nullIfMixed(sharedField(TEXT_WRAP, nodes))}
+      />
+    </Row>
+    <Row fields={[LINES.key]} label="Lines">
+      <Segmented
+        aria-label="Lines"
+        onChange={(v) => setField(LINES, v === "all" ? v : Number(v))}
+        options={LINE_OPTIONS.map((value) => ({
+          label: value === "all" ? "All" : value,
+          value,
+        }))}
+        value={lineOption(sharedField(LINES, nodes))}
+      />
+    </Row>
+  </>
+);
 
 /**
  * A text's less frequent settings, in a popover the Text section's header opens, drawn as the
@@ -303,6 +359,7 @@ export const TextSection = ({ nodes }: { nodes: readonly TextNode[] }) => {
                 value={role === MIXED ? null : (role ?? "p")}
               />
             </Row>
+            <CaseTextWrapLines nodes={nodes} />
           </Formatting>
         </>
       }

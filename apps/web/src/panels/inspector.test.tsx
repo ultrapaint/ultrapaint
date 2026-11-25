@@ -581,6 +581,89 @@ describe("the Text section", () => {
     ).toContain("Mixed");
   });
 
+  /** The segment of a Formatting row (`Case`, `Wrap`, `Lines`) named or labelled `name`. */
+  const segment = (row: string, name: string) =>
+    [
+      ...(popover()?.querySelectorAll<HTMLElement>(
+        `[aria-label="${row}"] button`
+      ) ?? []),
+    ].find(
+      (b) => b.getAttribute("aria-label") === name || b.textContent === name
+    );
+  /** The segments of a Formatting row pressed, by their text or name. */
+  const pressed = (row: string) =>
+    [
+      ...(popover()?.querySelectorAll<HTMLElement>(
+        `[aria-label="${row}"] button[aria-pressed="true"]`
+      ) ?? []),
+    ].map((b) => b.getAttribute("aria-label") ?? b.textContent);
+  const withTexts = (...children: DesignNode[]) =>
+    useDocuments.setState({
+      docs: {
+        [HOME]: {
+          ...home,
+          root: { children, id: "home", type: "page" } as DesignNode,
+        },
+      },
+    });
+
+  it.each([
+    ["Case", "Uppercase", { case: "upper" }, "Change the text's case"],
+    ["Case", "As typed", { case: null }, "Change the text's case"],
+    ["Wrap", "Balance", { textWrap: "balance" }, "Change how the text wraps"],
+    ["Lines", "2", { lines: 2 }, "Change the text's lines"],
+  ] as const)(
+    "sets %s to %s from Formatting",
+    async (row, name, set, label) => {
+      withTexts({ ...text("title"), case: "lower" } as DesignNode);
+      act(() => select({ frame: HOME, nodeId: "title" }));
+      await openFormatting();
+      fakeApi.respond("documents.apply", () => ({ changes: [], created: [] }));
+      act(() => segment(row, name)?.click());
+      await act(() => fakeApi.requested("documents.apply"));
+      expect(applied()).toEqual({
+        edits: [{ doc: HOME, ops: [{ id: "title", op: "update", set }] }],
+        label,
+      });
+    }
+  );
+
+  it("picks what the texts share, and no segment where they differ", async () => {
+    withTexts(
+      { ...text("title"), lines: 1, textWrap: "none" } as DesignNode,
+      { ...text("lede"), lines: 2, textWrap: "none" } as DesignNode
+    );
+    act(() => select({ frame: HOME, nodeId: "title" }));
+    act(() => toggleSelected({ frame: HOME, nodeId: "lede" }));
+    await openFormatting();
+    expect(pressed("Case")).toEqual(["As typed"]);
+    expect(pressed("Wrap")).toEqual(["None"]);
+    expect(pressed("Lines")).toEqual([]);
+  });
+
+  it("picks no Lines segment for lines the row does not offer", async () => {
+    withTexts({ ...text("title"), lines: 5 } as DesignNode);
+    act(() => select({ frame: HOME, nodeId: "title" }));
+    await openFormatting();
+    expect(pressed("Lines")).toEqual([]);
+  });
+
+  it("marks the Formatting button where the instance overrides a text's lines", () => {
+    withTexts({
+      component: "Promo",
+      from: "#app",
+      id: "promo",
+      overrides: { sale: { lines: 2 } },
+      type: "instance",
+    } as DesignNode);
+    act(() => select({ frame: HOME, nodeId: "promo/sale" }));
+    expect(
+      container
+        .querySelector('[data-overridden="lines"]')
+        ?.getAttribute("aria-label")
+    ).toContain("Formatting");
+  });
+
   it("marks the Formatting button where the instance overrides the role, and gives it back from the row's mark inside", async () => {
     useDocuments.setState({
       docs: {

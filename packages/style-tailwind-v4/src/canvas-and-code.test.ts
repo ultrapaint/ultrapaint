@@ -413,6 +413,31 @@ const withOverrides = (root: DesignNode): DesignNode => {
           };
         }
     }
+    if (node.type === "text") {
+      // A text's case, text wrap and lines, and each default at a breakpoint over a base that sets
+      // another: what takes the base's away.
+      switch (k % 4) {
+        case 0:
+          out.case = "upper";
+          out.lines = 1;
+          at.md = { ...at.md, case: "none" };
+          at.lg = { ...at.lg, lines: "all" };
+          break;
+        case 1:
+          out.textWrap = "balance";
+          out.lines = 2;
+          at.md = { ...at.md, lines: "all", textWrap: "wrap" };
+          break;
+        case 2:
+          out.textWrap = "none";
+          at.md = { ...at.md, lines: 3 };
+          at.xl = { ...at.xl, lines: "all" };
+          break;
+        default:
+          out.case = "lower";
+          at.lg = { ...at.lg, lines: 1, textWrap: "balance" };
+      }
+    }
     if (Object.keys(at).length > 0) {
       out.at = at;
     }

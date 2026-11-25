@@ -37,6 +37,8 @@ const ds = {
   },
 };
 
+const CLASS_NAME_RE = /className="([^"]*)"/;
+
 /** A node as code with Tailwind's classes. */
 const toCode = (
   node: DesignNode,
@@ -818,6 +820,63 @@ describe("breakpoints", () => {
     expect(write(node)).toBe(
       `<p className="md:-order-1">First on a wide screen</p>`
     );
+  });
+});
+
+describe("a text's case, text wrap and lines", () => {
+  const breakpoints = [
+    { min: 768, name: "md" },
+    { min: 1024, name: "lg" },
+  ];
+  /** A text's classes, as its code writes them. */
+  const text = (fields: Partial<Extract<DesignNode, { type: "text" }>>) => {
+    const code = writeCode(
+      { id: "t", role: "paragraph", text: "A name", type: "text", ...fields },
+      tailwindClasses(ds),
+      { breakpoints, designSystem: ds }
+    );
+    const match: RegExpExecArray | null = CLASS_NAME_RE.exec(code);
+    return match?.[1];
+  };
+
+  it("writes Tailwind's named classes", () => {
+    expect(text({ case: "upper" })).toBe("uppercase");
+    expect(text({ case: "lower" })).toBe("lowercase");
+    expect(text({ textWrap: "balance" })).toBe("text-balance");
+    expect(text({ textWrap: "none" })).toBe("text-nowrap");
+    expect(text({ lines: 1 })).toBe("truncate");
+    expect(text({ lines: 2 })).toBe("line-clamp-2");
+    expect(text({ lines: 12 })).toBe("line-clamp-12");
+  });
+
+  it("writes them at a breakpoint with its prefix", () => {
+    expect(text({ at: { md: { case: "upper", lines: 1 } } })).toBe(
+      "md:uppercase md:truncate"
+    );
+  });
+
+  it("writes each default at a breakpoint as what takes the base's away", () => {
+    expect(text({ at: { md: { case: "none" } }, case: "upper" })).toBe(
+      "uppercase md:normal-case"
+    );
+    expect(
+      text({ at: { md: { textWrap: "wrap" } }, textWrap: "balance" })
+    ).toBe("text-balance md:text-wrap");
+    expect(text({ at: { md: { lines: "all" } }, lines: 1 })).toBe(
+      "truncate md:line-clamp-none md:whitespace-normal md:text-clip"
+    );
+    expect(text({ at: { md: { lines: "all" } }, lines: 2 })).toBe(
+      "line-clamp-2 md:line-clamp-none md:whitespace-normal md:text-clip"
+    );
+  });
+
+  it("keeps a hidden text hidden over its clamp", () => {
+    expect(text({ at: { md: { hidden: true } }, lines: 2 })).toBe(
+      "max-md:line-clamp-2 md:hidden"
+    );
+    expect(
+      text({ at: { md: { hidden: false } }, hidden: true, lines: 2 })
+    ).toBe("hidden md:line-clamp-2");
   });
 });
 

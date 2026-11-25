@@ -3,8 +3,11 @@ import type { DesignNode } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
 import {
   ALIGN,
+  CASE,
+  LINES,
   sharedField,
   TEXT_STYLE,
+  TEXT_WRAP,
   TOKEN_FIELDS,
   unsetValueOf,
 } from "./node-fields.ts";
@@ -54,6 +57,39 @@ describe("a text's align", () => {
     expect(unsetValueOf(text(), "align")).toBe("start");
     expect(unsetValueOf(row(), "align")).toBeUndefined();
     expect(unsetValueOf(text(), "color")).toBeUndefined();
+  });
+});
+
+describe("a text's case, text wrap and lines", () => {
+  it("read a text's value, its default where it has none, and nothing of another node", () => {
+    expect(CASE.read(text({ case: "upper" }))).toBe("upper");
+    expect(CASE.read(text())).toBe("none");
+    expect(TEXT_WRAP.read(text())).toBe("wrap");
+    expect(LINES.read(text({ lines: 5 }))).toBe(5);
+    expect(LINES.read(text())).toBe("all");
+    expect(LINES.read(row())).toBeUndefined();
+    expect(sharedField(LINES, [text({ lines: 1 }), text()])).toBe(MIXED);
+  });
+
+  it("write each default as unset, and the others as they are", () => {
+    expect(CASE.write("none")).toEqual({ case: null });
+    expect(CASE.write("upper")).toEqual({ case: "upper" });
+    expect(TEXT_WRAP.write("wrap")).toEqual({ textWrap: null });
+    expect(TEXT_WRAP.write("balance")).toEqual({ textWrap: "balance" });
+    expect(LINES.write("all")).toEqual({ lines: null });
+    expect(LINES.write(2)).toEqual({ lines: 2 });
+  });
+
+  it("name their undo steps", () => {
+    expect(CASE.label("upper")).toBe("Change the text's case");
+    expect(TEXT_WRAP.label("none")).toBe("Change how the text wraps");
+    expect(LINES.label(1)).toBe("Change the text's lines");
+  });
+
+  it("are their default at a breakpoint where they are unset", () => {
+    expect(unsetValueOf(text(), "case")).toBe("none");
+    expect(unsetValueOf(text(), "textWrap")).toBe("wrap");
+    expect(unsetValueOf(text(), "lines")).toBe("all");
   });
 });
 

@@ -375,3 +375,91 @@ describe("a tinted image", () => {
     expect(tagOf({ id: "i", src: "x.png", type: "image" })).toBe("img");
   });
 });
+
+describe("a text's case, text wrap and lines", () => {
+  const ctx = makeStyleContext(null);
+  const text = (fields: Partial<Extract<DesignNode, { type: "text" }>>) =>
+    declarationsOf(
+      { id: "t", role: "paragraph", text: "A name", type: "text", ...fields },
+      ctx
+    );
+
+  it("lays capitals or lower case over the words as typed", () => {
+    expect(text({ case: "upper" })).toEqual({ textTransform: "uppercase" });
+    expect(text({ case: "lower" })).toEqual({ textTransform: "lowercase" });
+  });
+
+  it("balances its lines, or keeps them from breaking", () => {
+    expect(text({ textWrap: "balance" })).toEqual({ textWrap: "balance" });
+    expect(text({ textWrap: "none" })).toEqual({ textWrap: "nowrap" });
+    // Its line breaks kept without wrapping: `pre`, which agrees with `nowrap`.
+    expect(text({ text: "Two\nlines", textWrap: "none" })).toEqual({
+      textWrap: "nowrap",
+      whiteSpace: "pre",
+    });
+    // The spaces the canvas keeps of every text, kept without wrapping too.
+    const drawn = nodeStyle(
+      { id: "t", role: "paragraph", text: "A", textWrap: "none", type: "text" },
+      ctx
+    );
+    expect(drawn.whiteSpace).toBe("pre");
+  });
+
+  it("cuts to one line with an ellipsis, a line break of its words included", () => {
+    const oneLine = {
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap",
+    };
+    expect(text({ lines: 1 })).toEqual(oneLine);
+    expect(text({ lines: 1, text: "Two\nlines" })).toEqual(oneLine);
+    // One line wins over a text wrap, which would say otherwise.
+    expect(text({ lines: 1, textWrap: "balance" })).toEqual(oneLine);
+    // And over the spaces the canvas keeps.
+    const drawn = nodeStyle(
+      { id: "t", lines: 1, role: "paragraph", text: "A", type: "text" },
+      ctx
+    );
+    expect(drawn.whiteSpace).toBe("nowrap");
+  });
+
+  it("clamps to two lines or more", () => {
+    expect(text({ lines: 3 })).toEqual({
+      display: "-webkit-box",
+      overflow: "hidden",
+      WebkitBoxOrient: "vertical",
+      WebkitLineClamp: "3",
+    });
+  });
+
+  it("stays hidden when clamped: nothing is clamped of a text not shown", () => {
+    expect(text({ hidden: true, lines: 2 })).toEqual({ display: "none" });
+    expect(text({ hidden: true, lines: 1 }).display).toBe("none");
+  });
+
+  it("takes away at a breakpoint what a base sets, each default by what undoes it", () => {
+    expect(text({ case: "none" })).toEqual({ textTransform: "none" });
+    expect(text({ textWrap: "wrap" })).toEqual({ textWrap: "wrap" });
+    const allLines = {
+      display: "block",
+      overflow: "visible",
+      textOverflow: "clip",
+      WebkitBoxOrient: "horizontal",
+      WebkitLineClamp: "unset",
+    };
+    expect(text({ lines: "all" })).toEqual({
+      ...allLines,
+      whiteSpace: "normal",
+    });
+    // White space back to the text's own: its line breaks kept.
+    expect(text({ lines: "all", text: "Two\nlines" })).toEqual({
+      ...allLines,
+      whiteSpace: "pre-wrap",
+    });
+    expect(text({ lines: "all", textWrap: "none" })).toEqual({
+      ...allLines,
+      textWrap: "nowrap",
+      whiteSpace: "nowrap",
+    });
+  });
+});

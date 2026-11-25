@@ -72,7 +72,7 @@ describe("detachTextStyle", () => {
 });
 
 describe("attachTextStyle", () => {
-  it("names the style, clears the text's own settings and takes the style's role", () => {
+  it("names the style, clears the text's own settings and takes the style's role, its case, text wrap and lines left as they are", () => {
     expect(attachTextStyle(title)).toEqual({
       font: null,
       level: 2,

@@ -1,6 +1,6 @@
 /**
- * A text layer as a text node: its characters, the font it is set in, and whether it reads as
- * a heading.
+ * A text layer as a text node: its characters, the font it is set in, whether it reads as a
+ * heading, its case and the lines it is cut to.
  */
 import type { DesignNode, Length } from "@ultrapaint/contracts/document";
 import { type IdGenerator, idPrefix } from "@ultrapaint/design-document/ids";
@@ -84,6 +84,72 @@ const lineHeightOf = (measure: Measure | undefined): Length | undefined => {
     : round(measure.value);
 };
 
+/** Figma's cases the format has no value for, by what a warning calls them. */
+const CASES_LEFT_OUT: Readonly<Record<string, string>> = {
+  SMALL_CAPS: "small caps",
+  SMALL_CAPS_FORCED: "small caps",
+  TITLE: "title case",
+};
+
+/** Upper or lower case; title case and small caps have no value, and are said (ADR 0016). */
+const caseOf = (node: FigNode, warn: (text: string) => void) => {
+  switch (node.textCase) {
+    case "UPPER":
+      return "upper" as const;
+    case "LOWER":
+      return "lower" as const;
+    default: {
+      const left = CASES_LEFT_OUT[String(node.textCase)];
+      if (left !== undefined) {
+        warn(`"${node.name}" is set in ${left}, which was left out`);
+      }
+      return;
+    }
+  }
+};
+
+/**
+ * How tall one line is, in pixels: a multiple of the size (`RAW`), a percent of it, or pixels;
+ * Figma's "auto" as CSS's `normal`, about 1.2 of the size.
+ */
+const linePixels = (measure: Measure | undefined, size: number): number => {
+  const value = measure?.value;
+  if (value === undefined || value <= 0) {
+    return size * 1.2;
+  }
+  if (measure?.units === "RAW") {
+    return value * size;
+  }
+  return measure?.units === "PERCENT" ? (value / 100) * size : value;
+};
+
+/**
+ * The lines a text truncated at its end is cut to: its maximum, or with none the lines its box's
+ * height holds, at least one, which is said: a text cut with no maximum is cut at its box's
+ * height (ADR 0016). A text not truncated takes every line.
+ */
+const linesOf = (
+  node: FigNode,
+  warn: (text: string) => void
+): number | undefined => {
+  if (node.textTruncation !== "ENDING") {
+    return;
+  }
+  const max = Number(node.maxLines);
+  if (Number.isInteger(max) && max >= 1) {
+    return max;
+  }
+  const line = linePixels(
+    node.lineHeight as Measure | undefined,
+    node.fontSize ?? 16
+  );
+  const held = Math.max(1, Math.floor((node.size?.y ?? 0) / line));
+  warn(
+    `"${node.name}" is cut at its end with no maximum of lines: it takes the ${held} its height holds`
+  );
+  return held;
+};
+
 const trackingOf = (measure: Measure | undefined): Length | undefined => {
   if (measure?.value === undefined || measure.value === 0) {
     return undefined;
@@ -134,12 +200,14 @@ export const textNode = (
   const fields = {
     ...boxOf(node, placement, ownSize(node), tokens),
     align: textAlign(node.textAlignHorizontal),
+    case: caseOf(node, warn),
     color: color === undefined ? undefined : tokens(color),
     fill: undefined,
     font: node.fontName?.family,
     id: next(idPrefix("text")),
     level: level ?? undefined,
     lineHeight: lineHeightOf(node.lineHeight as Measure | undefined),
+    lines: linesOf(node, warn),
     role: level === null ? ("paragraph" as const) : ("heading" as const),
     size,
     text: characters,

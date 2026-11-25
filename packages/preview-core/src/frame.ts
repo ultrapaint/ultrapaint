@@ -66,6 +66,14 @@ const HOST_MARKS = [
 ];
 const INERT = "inert";
 
+/** A text's cut to its lines taken away: every line (`lines: "all"`). */
+const UNCUT: Readonly<Record<string, string>> = {
+  "-webkit-line-clamp": "unset",
+  overflow: "visible",
+  "text-overflow": "clip",
+};
+const WHOLE_RE = /^\d+$/;
+
 /** Wider than this, a crop is drawn at the page's own resolution rather than doubled. */
 const SHARP_CROP_WIDTH = 800;
 
@@ -514,6 +522,39 @@ const mountFrame = (
   };
 
   // ---- Inline text editing ----
+  /**
+   * A text cut to its lines (one line with an ellipsis, or clamped) shows every word while it is
+   * edited: its cut is lifted off the element, and what lifting it changed given back by the
+   * function returned.
+   */
+  const liftCut = (el: HTMLElement): (() => void) => {
+    const clamp = el.style.getPropertyValue("-webkit-line-clamp");
+    if (el.style.textOverflow !== "ellipsis" && !WHOLE_RE.test(clamp)) {
+      return () => undefined;
+    }
+    // One line's `nowrap` back to the spaces as typed, wrapping; a clamp's own wrap is its own.
+    const lifted: Record<string, string> = {
+      ...UNCUT,
+      ...(el.style.display === "-webkit-box" && { display: "block" }),
+      ...(el.style.whiteSpace === "nowrap" && { "white-space": "pre-wrap" }),
+    };
+    const own = Object.keys(lifted).map(
+      (p) => [p, el.style.getPropertyValue(p)] as const
+    );
+    for (const [p, v] of Object.entries(lifted)) {
+      el.style.setProperty(p, v);
+    }
+    return () => {
+      for (const [p, v] of own) {
+        if (v === "") {
+          el.style.removeProperty(p);
+        } else {
+          el.style.setProperty(p, v);
+        }
+      }
+    };
+  };
+
   let editing: {
     el: HTMLElement;
     nodeId: string;
@@ -521,13 +562,15 @@ const mountFrame = (
     original: string;
     /** The element's own inline outline, given back when the edit ends. */
     outline: string;
+    /** Gives the text back the cut to its lines the edit lifted. */
+    recut: () => void;
   } | null = null;
 
   const finishTextEdit = (commit: boolean) => {
     if (!editing) {
       return;
     }
-    const { el, nodeId, onBlur, original, outline } = editing;
+    const { el, nodeId, onBlur, original, outline, recut } = editing;
     el.removeEventListener("blur", onBlur);
     editing = null;
     setInert();
@@ -535,6 +578,7 @@ const mountFrame = (
     el.contentEditable = "false";
     el.removeAttribute("contenteditable");
     el.style.outline = outline;
+    recut();
     const text = el.textContent ?? "";
     if (commit && text !== original) {
       events.textCommit?.(nodeId, text);
@@ -569,6 +613,7 @@ const mountFrame = (
       onBlur,
       original: el.textContent ?? "",
       outline: el.style.outline,
+      recut: liftCut(el),
     };
     setInert();
     showShown();

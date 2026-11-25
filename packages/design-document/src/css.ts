@@ -324,11 +324,68 @@ const textDeclared = (node: TextNode, ctx: StyleContext): Declared => {
   if (node.align) {
     out.textAlign = TEXT_ALIGN[node.align] ?? "left";
   }
-  // The canvas keeps every space typed (`baseStyle`); the code asks for the line breaks.
-  if (node.text.includes("\n")) {
-    out.whiteSpace = "pre-wrap";
+  if (node.case !== undefined) {
+    out.textTransform = TEXT_TRANSFORM[node.case] ?? "none";
   }
-  return out;
+  return { ...out, ...linesDeclared(node) };
+};
+
+const TEXT_TRANSFORM: Record<string, string> = {
+  lower: "lowercase",
+  none: "none",
+  upper: "uppercase",
+};
+
+/** A clamp to two lines or more, and what takes one away. */
+const CLAMP = (lines: number) => ({
+  display: "-webkit-box",
+  overflow: "hidden",
+  WebkitBoxOrient: "vertical",
+  WebkitLineClamp: String(lines),
+});
+const UNCLAMPED = {
+  display: "block",
+  overflow: "visible",
+  WebkitBoxOrient: "horizontal",
+  WebkitLineClamp: "unset",
+};
+
+/**
+ * How a text's lines break and how many it takes. One line (`lines: 1`) wins over its text wrap and
+ * over the line breaks its words hold; a hidden text is clamped to nothing, its `display: none`
+ * left alone. White space agrees with the text wrap (`text-wrap` and `white-space` both set whether
+ * lines wrap): the line breaks typed are kept as `pre-wrap`, or as `pre` for a text that never
+ * wraps. Every line (`all`, written only at a breakpoint over a base that cuts) takes either cut
+ * away: the clamp, and one line's white space and ellipsis.
+ */
+const linesDeclared = (node: TextNode): Declared => {
+  if (node.lines === 1) {
+    return {
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap",
+    };
+  }
+  const out: Declared = {};
+  const nowrap = node.textWrap === "none";
+  if (node.textWrap !== undefined) {
+    out.textWrap = nowrap ? "nowrap" : node.textWrap;
+  }
+  if (node.text.includes("\n")) {
+    // The canvas keeps every space typed (`baseStyle`); the code asks for the line breaks.
+    out.whiteSpace = nowrap ? "pre" : "pre-wrap";
+  } else if (node.lines === "all") {
+    out.whiteSpace = nowrap ? "nowrap" : "normal";
+  }
+  if (node.hidden) {
+    return out;
+  }
+  if (typeof node.lines === "number") {
+    return { ...CLAMP(node.lines), ...out };
+  }
+  return node.lines === "all"
+    ? { ...UNCLAMPED, ...out, textOverflow: "clip" }
+    : out;
 };
 
 /** How a tinted image's file covers its box, as `fit` says of an image's pixels. */
@@ -424,7 +481,12 @@ export const baseStyle = (node: DesignNode): Style => {
     case "group":
       return { ...style, display: "block" };
     case "text":
-      return { ...style, margin: "0", whiteSpace: "pre-wrap" };
+      // Its spaces as typed, wrapping as the text does.
+      return {
+        ...style,
+        margin: "0",
+        whiteSpace: node.textWrap === "none" ? "pre" : "pre-wrap",
+      };
     case "image":
       return node.tint === undefined
         ? { ...style, display: "block", maxWidth: "100%" }
