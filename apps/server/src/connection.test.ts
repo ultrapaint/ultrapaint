@@ -1,4 +1,4 @@
-import { NodeServices } from "@effect/platform-node";
+import { NodeServices, NodeSocketServer } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import {
   Connection,
@@ -7,7 +7,18 @@ import {
 } from "@ultrapaint/client-runtime/connection";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import type { ThreadStreamItem } from "@ultrapaint/contracts/threads";
-import { Context, Effect, Exit, FileSystem, Layer, Path, Scope } from "effect";
+import {
+  Context,
+  Effect,
+  Exit,
+  FileSystem,
+  Layer,
+  Option,
+  Path,
+  Predicate,
+  Scope,
+} from "effect";
+import { Socket } from "effect/socket";
 import { ServerConfig } from "./config.ts";
 import { ListenPort } from "./listen-port.ts";
 import { ServerLive } from "./server.ts";
@@ -57,6 +68,75 @@ const open = (port: number) => {
   });
   return { connection, states };
 };
+
+/** What a request's failure must never say to a person: the socket's or the fibers' words. */
+const wireWords = /Socket|fiber|failed:/;
+
+/**
+ * A server that takes the editor's socket and answers nothing on it, but the requests named in
+ * `dies` with a defect, as a server whose handler died does; `drop` cuts every socket it took
+ * at once: what a request in flight meets when its server goes away under it.
+ */
+const fakeServer = (dies: readonly string[] = []) =>
+  Effect.gen(function* () {
+    const server = yield* NodeSocketServer.makeWebSocket({
+      host: "127.0.0.1",
+      port: 0,
+    });
+    const taken = new Set<Socket.WebSocketLike>();
+    yield* server
+      .run((socket) =>
+        Effect.gen(function* () {
+          // Given to each connection by `run`, which its type does not say.
+          const conn = yield* Effect.serviceOption(Socket.WebSocket);
+          if (Option.isSome(conn)) {
+            taken.add(conn.value);
+          }
+          const { write } = yield* socket.writer;
+          const { pull } = yield* socket.reader;
+          for (;;) {
+            for (const frame of yield* pull) {
+              const sent: unknown = JSON.parse(
+                typeof frame === "string"
+                  ? frame
+                  : new TextDecoder().decode(frame)
+              );
+              for (const message of Array.isArray(sent) ? sent : [sent]) {
+                if (message._tag === "Request" && dies.includes(message.tag)) {
+                  yield* write(
+                    JSON.stringify({
+                      _tag: "Exit",
+                      exit: {
+                        _tag: "Failure",
+                        cause: [{ _tag: "Die", defect: "the disk is full" }],
+                      },
+                      requestId: message.id,
+                    })
+                  );
+                }
+              }
+            }
+          }
+          // A socket's handler ends when `drop` cuts it: the end of the test's server, no failure.
+        }).pipe(Effect.scoped, Effect.ignore)
+      )
+      .pipe(Effect.forkScoped);
+    return {
+      // Cut, not closed: no close frame, as a server that went away sends none.
+      drop: () => {
+        for (const conn of taken) {
+          // The `ws` socket's own, which a browser's has not: the one way to cut it.
+          if (
+            Predicate.hasProperty(conn, "terminate") &&
+            Predicate.isFunction(conn.terminate)
+          ) {
+            conn.terminate();
+          }
+        }
+      },
+      port: server.address._tag === "UnixPathAddress" ? 0 : server.address.port,
+    };
+  });
 
 describe("Connection", () => {
   // real clock: the editor's client over a real socket to a real server.
@@ -121,7 +201,8 @@ describe("Connection", () => {
           connection.request("project.info", undefined).catch((e: unknown) => e)
         );
         assert.instanceOf(offline, RequestError);
-        assert.strictEqual((offline as RequestError).message, "not connected");
+        // The connection's, not the person's: what the editor follows is read again at the open.
+        assert.strictEqual((offline as RequestError).code, "dropped");
 
         const logs: string[] = [];
         connection.on("log", (line) => logs.push(line.text));
@@ -217,6 +298,73 @@ describe("Connection", () => {
           [`snapshot@${before}`, `synchronized@${before}`]
         );
       }).pipe(Effect.provide(NodeServices.layer)),
+    30_000
+  );
+
+  // real clock: a socket that a server cuts under a request, over a real socket.
+  it.live(
+    "a request the server's socket goes away under fails as dropped, never in the socket's words",
+    () =>
+      Effect.gen(function* () {
+        const { drop, port } = yield* fakeServer();
+        const { connection } = open(port);
+        yield* Effect.addFinalizer(() => Effect.sync(() => connection.close()));
+        yield* until(() => connection.state === "open");
+
+        const pending = connection
+          .request("implementation.list", undefined)
+          .catch((e: unknown) => e);
+        drop();
+        const failure = yield* Effect.promise(() => pending);
+        assert.instanceOf(failure, RequestError);
+        assert.strictEqual((failure as RequestError).code, "dropped");
+        assert.notMatch((failure as RequestError).message, wireWords);
+      }),
+    30_000
+  );
+
+  // real clock: the editor's client closed under a request, over a real socket.
+  it.live(
+    "a request its connection is closed under fails as dropped, never in the fibers' words",
+    () =>
+      Effect.gen(function* () {
+        const { port } = yield* fakeServer();
+        const { connection } = open(port);
+        yield* until(() => connection.state === "open");
+
+        const pending = connection
+          .request("documents.list", { canvas: "main" })
+          .catch((e: unknown) => e);
+        connection.close();
+        const failure = yield* Effect.promise(() => pending);
+        assert.instanceOf(failure, RequestError);
+        assert.strictEqual((failure as RequestError).code, "dropped");
+        assert.notMatch((failure as RequestError).message, wireWords);
+      }),
+    30_000
+  );
+
+  // real clock: a server's failure it did not name, over a real socket.
+  it.live(
+    "a request the server's handler died on fails in words a person can read, its reason kept apart",
+    () =>
+      Effect.gen(function* () {
+        const { port } = yield* fakeServer(["implementation.list"]);
+        const { connection } = open(port);
+        yield* Effect.addFinalizer(() => Effect.sync(() => connection.close()));
+        yield* until(() => connection.state === "open");
+
+        const failure = yield* Effect.promise(() =>
+          connection
+            .request("implementation.list", undefined)
+            .catch((e: unknown) => e)
+        );
+        assert.instanceOf(failure, RequestError);
+        const { code, detail, message } = failure as RequestError;
+        assert.strictEqual(code, "internal");
+        assert.strictEqual(message, "The server couldn’t answer. Try again.");
+        assert.strictEqual(detail, "implementation.list: the disk is full");
+      }),
     30_000
   );
 });

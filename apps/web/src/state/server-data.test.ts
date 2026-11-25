@@ -15,7 +15,7 @@ import type { Thread } from "@ultrapaint/contracts/threads";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useAgents } from "./agents.ts";
-import { useComments } from "./comments.ts";
+import { deleteReply, useComments } from "./comments.ts";
 import { useComponents } from "./components.ts";
 import { useDesignSystem } from "./design-system.ts";
 import { useDesignSystemSetup } from "./design-system-setup.ts";
@@ -279,6 +279,46 @@ describe("following the server", () => {
     await caughtUp();
     expect(held()).toEqual(heldAt(2));
     expect(reported).toEqual([]);
+  });
+
+  it("says nothing of the reads a connection drops under, and reads them again once it is back", async () => {
+    await openEditor();
+    useProject.getState().setError(null);
+    // The project is left, or its server goes away, with these on their way.
+    const never = () => new Promise<never>(() => undefined);
+    fakeApi.respond("implementation.list", never);
+    fakeApi.respond("documents.list", never);
+    const cut = Promise.all([
+      useImplementation.getState().load(),
+      useDocuments.getState().load(""),
+    ]);
+    fakeApi.disconnect();
+    await cut;
+    expect(useProject.getState().error).toBeNull();
+    expect(useDocuments.getState().failed).toBe(false);
+    server.v = 2;
+    answerAll();
+    fakeApi.connect();
+    await caughtUp();
+    expect(held()).toMatchObject({ documents: "h2", implementation: ["t2"] });
+    expect(useProject.getState().error).toBeNull();
+    expect(reported).toEqual([]);
+  });
+
+  it("tells of a write the connection drops under, in words a person reads", async () => {
+    await openEditor();
+    useProject.getState().setError(null);
+    // Nothing sends a write again: the person is told, to do it again.
+    fakeApi.respond(
+      "comments.deleteReply",
+      () => new Promise<never>(() => undefined)
+    );
+    const cut = deleteReply("c1", "r1");
+    fakeApi.disconnect();
+    await cut;
+    expect(useProject.getState().error).toBe(
+      "The connection to the server closed. Try again once it’s back."
+    );
   });
 
   it("follows the news in between", async () => {

@@ -6,6 +6,7 @@
 import {
   type Connection,
   type ConnectionState,
+  droppedError,
   RequestError,
 } from "@ultrapaint/client-runtime/connection";
 import type {
@@ -78,6 +79,9 @@ const start = (follower: Follower) => {
   }
 };
 
+/** The requests on their way, each failed as dropped when the connection drops under it. */
+const inFlight = new Set<(error: RequestError) => void>();
+
 /** Who waits for requests (`requested`): looked at again with every request made. */
 const requestWaiters = new Set<() => void>();
 let store: ConnectionStore;
@@ -103,8 +107,17 @@ export const fakeApi = {
       start(follower);
     }
   },
-  /** The connection drops: requests fail, and what the server sends meanwhile is lost. */
-  disconnect: () => setState("closed"),
+  /**
+   * The connection drops: the requests on their way fail as dropped, as do those made while it
+   * is down, and what the server sends meanwhile is lost.
+   */
+  disconnect: () => {
+    for (const drop of inFlight) {
+      drop(droppedError());
+    }
+    inFlight.clear();
+    setState("closed");
+  },
   /** Sends an event as the server would; nobody hears it while the connection is down. */
   emit: <E extends EventName>(event: E, payload: EventPayload<E>) => {
     if (store.state !== "open") {
@@ -154,7 +167,7 @@ export const fakeApi = {
     input: RequestInput<M>
   ): Promise<RequestOutput<M>> => {
     if (store.state !== "open") {
-      return Promise.reject(new RequestError("internal", "not connected"));
+      return Promise.reject(droppedError());
     }
     fakeApi.calls.push({ input, method });
     for (const waiter of requestWaiters) {
@@ -166,7 +179,15 @@ export const fakeApi = {
         new RequestError("internal", `${method}: no answer was set up`)
       );
     }
-    return Promise.resolve(responder(input));
+    const answer = responder(input);
+    if (!(answer instanceof Promise)) {
+      return Promise.resolve(answer);
+    }
+    // An answer the test settles later: on its way, until the connection drops under it.
+    return new Promise<RequestOutput<M>>((resolve, reject) => {
+      inFlight.add(reject);
+      answer.then(resolve, reject).finally(() => inFlight.delete(reject));
+    });
   },
   /**
    * Resolves once `count` requests of `method` have been made, at once when they have: what a
@@ -193,6 +214,7 @@ export const fakeApi = {
     fakeApi.started.length = 0;
     followers.clear();
     failed.clear();
+    inFlight.clear();
     streamResponders.clear();
     requestWaiters.clear();
     responders.clear();

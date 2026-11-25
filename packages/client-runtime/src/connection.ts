@@ -35,15 +35,35 @@ const RESEND_WAIT_MS = 10_000;
 
 export class RequestError extends Error {
   readonly code: ErrorCode;
+  /** What went wrong as the code saw it (the request and its reason), for a log, never a toast. */
+  readonly detail: string | undefined;
 
-  constructor(code: ErrorCode, message: string) {
+  constructor(code: ErrorCode, message: string, detail?: string) {
     super(message);
     this.code = code;
+    this.detail = detail;
     this.name = "RequestError";
   }
 }
 
+/**
+ * Whether a request failed only because its connection could not carry it (`dropped`): nothing
+ * for a person to hear of, since what the editor follows is read again at the next open.
+ */
+export const isDropped = (error: unknown): boolean =>
+  error instanceof RequestError && error.code === "dropped";
+
 type Listener<E extends EventName> = (payload: EventPayload<E>) => void;
+
+/**
+ * What a request its connection could not carry fails with (`dropped`): never the socket's or the
+ * fibers' words, which say nothing to a person.
+ */
+export const droppedError = () =>
+  new RequestError(
+    "dropped",
+    "The connection to the server closed. Try again once it’s back."
+  );
 
 /** A request the connection dropped under, with the error said of it when it is not sent again. */
 class DroppedRequest extends Error {
@@ -111,13 +131,25 @@ const isWireError = (
   Predicate.isString(error._tag) &&
   error._tag in errorCodes;
 
+/**
+ * What a request's failure says to the editor: a wire error as the server named it, one the
+ * connection went under as dropped, and any other in words a person can read, what it was kept
+ * as `detail` for whoever reports it.
+ */
 const toRequestError = (method: string, cause: Cause.Cause<unknown>) => {
   const error = Cause.squash(cause);
   if (isWireError(error)) {
     return new RequestError(errorCodes[error._tag], error.message);
   }
+  if (dropped(cause)) {
+    return droppedError();
+  }
   const reason = error instanceof Error ? error.message : String(error);
-  return new RequestError("internal", `${method} failed: ${reason}`);
+  return new RequestError(
+    "internal",
+    "The server couldn’t answer. Try again.",
+    `${method}: ${reason}`
+  );
 };
 
 interface SessionHooks {
@@ -312,8 +344,9 @@ export class Connection {
     input: RequestInput<M>
   ): Promise<RequestOutput<M>> {
     const { call } = this;
+    // Not sent again when the connection opens: what follows the server reads it again then.
     if (!call) {
-      throw new RequestError("internal", "not connected");
+      throw droppedError();
     }
     // The facade erases the per-method error union; `toRequestError` recovers it by tag.
     // @effect-diagnostics-next-line anyUnknownInErrorContext:off
