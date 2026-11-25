@@ -244,6 +244,25 @@ describe("classesOf", () => {
   });
 });
 
+describe("a blur behind a box", () => {
+  const blurred = (backdropBlur: string | number) =>
+    classesOf({ backdropBlur, children: [], id: "bar", type: "row" }, ds);
+
+  it("writes a blur token as Tailwind's step, another token as its variable and a length in brackets", () => {
+    expect(blurred("$blur-md")).toContain("backdrop-blur-md");
+    expect(blurred("$spacing-gutter")).toContain(
+      "backdrop-blur-(--spacing-gutter)"
+    );
+    expect(blurred(10)).toContain("backdrop-blur-[10px]");
+    expect(blurred("0.5rem")).toContain("backdrop-blur-[0.5rem]");
+  });
+
+  it("writes no blur as backdrop-blur-none", () => {
+    expect(blurred(0)).toContain("backdrop-blur-none");
+    expect(blurred("none")).toContain("backdrop-blur-none");
+  });
+});
+
 describe("a fill in layers", () => {
   const bg = (background: string) => responsive([null, { background }]);
 
@@ -743,6 +762,18 @@ describe("breakpoints", () => {
     };
     expect(write(node)).toBe(
       `<div className="flex max-md:flex-col gap-4 md:flex-wrap md:gap-6 lg:gap-8" />`
+    );
+  });
+
+  it("writes a blur behind a box from its breakpoint up", () => {
+    const node: DesignNode = {
+      at: { md: { backdropBlur: "$blur-lg" } },
+      children: [],
+      id: "sheet",
+      type: "column",
+    };
+    expect(write(node)).toBe(
+      `<div className="flex flex-col md:backdrop-blur-lg" />`
     );
   });
 

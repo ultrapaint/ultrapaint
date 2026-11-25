@@ -22,6 +22,18 @@ describe("a look made from the dials", () => {
     }
   });
 
+  it("lists Tailwind's blurs", () => {
+    expect(lookSystem(calm).blurs?.map((t) => t.name)).toEqual([
+      "blur-xs",
+      "blur-sm",
+      "blur-md",
+      "blur-lg",
+      "blur-xl",
+      "blur-2xl",
+      "blur-3xl",
+    ]);
+  });
+
   it("puts the brand on the main action, its text readable in light and dark", () => {
     for (const brand of ["#1f7a52", "#fde047", "#111827"]) {
       const ds = lookSystem({ ...calm, brand });

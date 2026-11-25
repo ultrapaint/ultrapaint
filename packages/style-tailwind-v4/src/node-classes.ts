@@ -21,6 +21,7 @@ import {
   spacingStepAt,
   variableOf,
 } from "@ultrapaint/contracts/token-table";
+import { blurOfFilter } from "@ultrapaint/design-document/css";
 import {
   type FillStop,
   fillCss,
@@ -609,6 +610,28 @@ const shadow: Rule = (value) => {
   );
 };
 
+/**
+ * A blur behind a box, `blur(…)` as `declarationsOf` says it: a token of the `blur` namespace by
+ * its step (`backdrop-blur-md`, which Tailwind reads from `--blur-md`), another token as its
+ * variable, a length in brackets, and no blur as `backdrop-blur-none`. Any other filter is CSS.
+ */
+const backdropFilter: Rule = (value) => {
+  const text = String(value).trim();
+  if (text === "none") {
+    return one("backdrop-blur-none", "backdropFilter");
+  }
+  const blur = blurOfFilter(text);
+  if (blur === undefined) {
+    return arbitraryProperty("backdropFilter", value);
+  }
+  return one(
+    isToken(blur)
+      ? fromToken("backdrop-blur", blur, ["blur"])
+      : arbitrary("backdrop-blur", blur),
+    "backdropFilter"
+  );
+};
+
 const opacity: Rule = (value) => {
   const text = String(value);
   return NUMBER_RE.test(text)
@@ -642,6 +665,7 @@ const RULES: Record<string, Rule> = {
     "baseline center flex-end flex-start stretch"
   ),
   alignSelf: named("alignSelf", "self", "center flex-end flex-start stretch"),
+  backdropFilter,
   background,
   borderColor: color("border", "borderColor"),
   borderRadius: radius,

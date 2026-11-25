@@ -39,7 +39,12 @@ import {
   sizeOf,
   stackFields,
 } from "./layout.ts";
-import { noTokens, type TokenMatcher, topPaint } from "./paint.ts";
+import {
+  hasLayerBlur,
+  noTokens,
+  type TokenMatcher,
+  topPaint,
+} from "./paint.ts";
 import { isShape, isVectorOnly, svgOf } from "./svg.ts";
 import { textNode } from "./text.ts";
 
@@ -263,8 +268,18 @@ const makeConverter = (file: FigFile, options: ConvertOptions) => {
   const images = new Map<string, ImageFile>();
   const unmapped: Record<string, number> = {};
   const warn = (text: string) => warnings.add(text);
-  const box = (node: FigNode, placement: Placement, own: OwnSize) =>
-    boxOf(node, placement, own, tokens);
+  /** A layer blur, which no field holds, said in the warnings. */
+  const warnOfLayerBlur = (node: FigNode) => {
+    if (hasLayerBlur(node.effects)) {
+      warn(
+        `"${node.name}" is blurred itself (a layer blur), which was left out`
+      );
+    }
+  };
+  const box = (node: FigNode, placement: Placement, own: OwnSize) => {
+    warnOfLayerBlur(node);
+    return boxOf(node, placement, own, tokens);
+  };
 
   const rootContext = (): Context => ({
     assignments: new Map(),
@@ -670,6 +685,7 @@ const makeConverter = (file: FigFile, options: ConvertOptions) => {
       return null;
     }
     if (node.type === "TEXT") {
+      warnOfLayerBlur(node);
       return textNode(node, placement, { next, tokens, warn });
     }
     if (node.type === "INSTANCE") {

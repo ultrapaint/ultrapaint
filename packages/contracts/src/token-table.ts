@@ -131,6 +131,8 @@ export const TOKEN_TABLE: readonly TokenKindEntry[] = [
     list: ["shadows"],
     prefixes: ["shadow-", "inset-shadow-", "drop-shadow-", "text-shadow-"],
   },
+  // Tailwind reads `backdrop-blur-*` (and `blur-*`) from `--blur-*`.
+  { kind: "blur", list: ["blurs"], prefixes: ["blur-"] },
   {
     kind: "borderWidth",
     list: ["borderWidths"],

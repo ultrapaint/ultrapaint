@@ -25,6 +25,7 @@ export const TokenKind = Schema.Literals([
   "tracking",
   "radius",
   "shadow",
+  "blur",
   "borderWidth",
   "breakpoint",
   "container",

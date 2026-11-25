@@ -6,6 +6,7 @@
  * person can change like any other once it is made. Pure.
  */
 import {
+  DEFAULT_BLURS,
   type DesignSystem,
   starterTextStyles,
   type Token,
@@ -375,6 +376,7 @@ export const lookSystem = (dials: LookDials): DesignSystem => {
   const roles = colorsOf(dials);
   const detailed = dials.tokens === "detailed";
   return {
+    blurs: [...DEFAULT_BLURS],
     colors: detailed
       ? detailedColorsOf(dials, roles)
       : [{ name: "Semantic", tokens: roles }],

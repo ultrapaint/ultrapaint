@@ -684,6 +684,7 @@ export const FoundationActions = ({
 export const tokenKindLabel = (name: string) => {
   const kind = tokenKindOf(name);
   const known: Partial<Record<string, string>> = {
+    blur: "Blur",
     borderWidth: "Border width",
     breakpoint: "Breakpoint",
     color: "Colour",

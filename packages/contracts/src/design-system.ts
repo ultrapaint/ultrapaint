@@ -183,6 +183,11 @@ export const DocumentBaseline = Schema.Struct({
 export type DocumentBaseline = typeof DocumentBaseline.Type;
 
 export const DesignSystem = Schema.Struct({
+  /**
+   * `--blur-*`: how much what is behind a box is blurred (`backdropBlur`). A design system made
+   * before blurs were listed has none, and is offered Tailwind's (`blursOf`).
+   */
+  blurs: Schema.optional(Schema.Array(Token)),
   /** `--border-width-*`: Tailwind has no namespace for them, so `$border-width-thin` is a variable. */
   borderWidths: Schema.optional(Schema.Array(Token)),
   /**
@@ -350,6 +355,26 @@ export const starterElevation = (
     ),
   ].filter((l): l is ElevationLevel => l !== undefined);
 };
+
+/**
+ * Tailwind's blurs, `--blur-xs` to `--blur-3xl`: what every theme of Tailwind 4 defines unless it
+ * removes them, and so what a design system that lists no blurs is offered and drawn with.
+ */
+export const DEFAULT_BLURS: readonly Token[] = [
+  { name: "blur-xs", value: "4px" },
+  { name: "blur-sm", value: "8px" },
+  { name: "blur-md", value: "12px" },
+  { name: "blur-lg", value: "16px" },
+  { name: "blur-xl", value: "24px" },
+  { name: "blur-2xl", value: "40px" },
+  { name: "blur-3xl", value: "64px" },
+];
+
+/** The blurs a design system offers: its own, or Tailwind's when it lists none (`DEFAULT_BLURS`). */
+export const blursOf = (
+  ds: Pick<DesignSystem, "blurs"> | null | undefined
+): readonly Token[] =>
+  ds?.blurs && ds.blurs.length > 0 ? ds.blurs : DEFAULT_BLURS;
 
 export const emptyDesignSystem = (): DesignSystem => ({
   colors: [],

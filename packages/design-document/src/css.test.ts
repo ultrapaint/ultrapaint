@@ -155,6 +155,52 @@ describe("a box's shadows", () => {
   });
 });
 
+describe("a box's blur behind it", () => {
+  const bar = (backdropBlur: string | number): DesignNode => ({
+    backdropBlur,
+    children: [],
+    id: "bar",
+    type: "row",
+  });
+
+  it("says a token's blur by name and draws it as its variable", () => {
+    const blurDs = { ...ds, blurs: [{ name: "blur-md", value: "10px" }] };
+    const node = bar("$blur-md");
+    expect(declarationsOf(node, makeStyleContext(blurDs)).backdropFilter).toBe(
+      "blur($blur-md)"
+    );
+    expect(nodeStyle(node, makeStyleContext(blurDs)).backdropFilter).toBe(
+      "blur(var(--blur-md, 10px))"
+    );
+  });
+
+  it("draws Tailwind's blurs with their values where the design system lists none of that name", () => {
+    const node = bar("$blur-md");
+    expect(nodeStyle(node, makeStyleContext(ds)).backdropFilter).toBe(
+      "blur(var(--blur-md, 12px))"
+    );
+    expect(nodeStyle(node, makeStyleContext(null)).backdropFilter).toBe(
+      "blur(var(--blur-md, 12px))"
+    );
+    const ownBlur = { ...ds, blurs: [{ name: "blur-glass", value: "6px" }] };
+    expect(nodeStyle(node, makeStyleContext(ownBlur)).backdropFilter).toBe(
+      "blur(var(--blur-md, 12px))"
+    );
+  });
+
+  it("says a length as pixels, and no blur as none", () => {
+    const declared = (value: string | number) =>
+      declarationsOf(bar(value), makeStyleContext(ds)).backdropFilter;
+    expect(declared(10)).toBe("blur(10px)");
+    expect(declared("0.5rem")).toBe("blur(0.5rem)");
+    expect(declared(0)).toBe("none");
+    expect(declared("none")).toBe("none");
+    const drawn = nodeStyle(bar(10), makeStyleContext(ds));
+    expect(drawn.backdropFilter).toBe("blur(10px)");
+    expect(drawn.WebkitBackdropFilter).toBe("blur(10px)");
+  });
+});
+
 describe("declarationsOf", () => {
   it("says a node's look as CSS, tokens kept by name and pixels as numbers", () => {
     const node: DesignNode = {

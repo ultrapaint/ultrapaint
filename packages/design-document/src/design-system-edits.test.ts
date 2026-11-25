@@ -321,9 +321,9 @@ describe("editsOf", () => {
   it("is checked as an edit is: a name of no kind, or a theme there is not, is a problem", () => {
     const kindless = applyEdits(
       ds,
-      editsOf(ds, [{ name: "blur-sm", value: "4px" }])
+      editsOf(ds, [{ name: "z-modal", value: "4px" }])
     );
-    expect("problem" in kindless && kindless.problem).toContain("blur-sm");
+    expect("problem" in kindless && kindless.problem).toContain("z-modal");
     const theme = applyEdits(
       ds,
       editsOf(ds, [{ name: "color-ink", theme: "sepia", value: "#000" }])

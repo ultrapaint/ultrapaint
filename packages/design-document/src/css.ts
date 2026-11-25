@@ -119,6 +119,17 @@ export const runsInRow = (
 
 type Declared = Record<string, DeclaredValue>;
 
+const BLUR_RE = /^blur\((.+)\)$/;
+
+/**
+ * The blur a backdrop filter declared says, `blur($blur-md)` → `$blur-md`; undefined for no blur
+ * (`none`) or another filter.
+ */
+export const blurOfFilter = (filter: string): string | undefined => {
+  const found: RegExpExecArray | null = BLUR_RE.exec(filter.trim());
+  return found?.[1]?.trim();
+};
+
 /** The window's height, which a page in the code is at least as tall as (`min-h-screen`). */
 const SCREEN_HEIGHT = "100vh";
 
@@ -327,7 +338,18 @@ const MASK_SIZE: Record<string, string> = {
   fill: "100% 100%",
 };
 
-/** Fill, border, corners, shadow and opacity; whether the node is shown at all. */
+/**
+ * A box's blur behind it as a backdrop filter, its token kept by name: `blur($blur-md)`, a number
+ * as pixels, and no blur (`0`, `none`) as `none`.
+ */
+const backdropFilterOf = (blur: string | number): string => {
+  const text = typeof blur === "number" ? `${blur}px` : blur.trim();
+  return text === "none" || Number.parseFloat(text) === 0
+    ? "none"
+    : `blur(${text})`;
+};
+
+/** Fill, border, corners, shadow, blur behind and opacity; whether the node is shown at all. */
 const appearanceDeclared = (node: DesignNode): Declared => {
   const out: Declared = {};
   const tint = node.type === "image" ? node.tint : undefined;
@@ -347,6 +369,9 @@ const appearanceDeclared = (node: DesignNode): Declared => {
   }
   if (node.shadow !== undefined) {
     out.boxShadow = node.shadow;
+  }
+  if (node.backdropBlur !== undefined) {
+    out.backdropFilter = backdropFilterOf(node.backdropBlur);
   }
   if (node.opacity !== undefined) {
     out.opacity = String(node.opacity);
@@ -437,7 +462,7 @@ export const pageDefaultsStyle = (
 
 /**
  * A declaration as the canvas draws it: a token as its variable, a number as pixels, every token
- * of a fill, wherever in it, and the token of each shadow of a shadow list.
+ * of a fill, wherever in it, the token of each shadow of a shadow list, and a blur's token.
  */
 const resolvedValue = (
   property: string,
@@ -449,6 +474,10 @@ const resolvedValue = (
       return resolver.fill(value);
     case "boxShadow":
       return resolver.shadow(value);
+    case "backdropFilter": {
+      const blur = blurOfFilter(String(value));
+      return blur === undefined ? String(value) : `blur(${resolver.css(blur)})`;
+    }
     default:
       return resolver.css(value);
   }
@@ -462,11 +491,19 @@ const resolved = (declarations: Declarations, resolver: TokenResolver): Style =>
     ])
   );
 
-/** The inline style a node is drawn with: its declarations over what the canvas draws besides. */
-export const nodeStyle = (node: DesignNode, ctx: StyleContext): Style => ({
-  ...baseStyle(node),
-  ...resolved(declarationsOf(node, ctx), ctx.resolver),
-});
+/**
+ * The inline style a node is drawn with: its declarations over what the canvas draws besides, a
+ * backdrop filter under its `-webkit-` name too, as Tailwind writes it for Safari before 18.
+ */
+export const nodeStyle = (node: DesignNode, ctx: StyleContext): Style => {
+  const style = resolved(declarationsOf(node, ctx), ctx.resolver);
+  const filter: string | undefined = style.backdropFilter;
+  return {
+    ...baseStyle(node),
+    ...style,
+    ...(filter !== undefined && { WebkitBackdropFilter: filter }),
+  };
+};
 
 /** The mask a tinted image is drawn with: its file, as a CSS image. */
 export const maskOf = (url: string): Style => {

@@ -278,7 +278,10 @@ const normal = (
           tailwind.initial,
           background ? 8 : 1
         )
-  ).replace(SPACES_RE, " ");
+  )
+    .replace(SPACES_RE, " ")
+    // Tailwind's filter slots left empty (`var(--tw-backdrop-sepia,)`) leave their spaces.
+    .trim();
   const [named] = groups(VARIABLE_RE, v);
   // A weight of Tailwind's theme is its number: `font-bold` is 700.
   if (named?.startsWith("--font-weight-")) {
@@ -374,11 +377,14 @@ const withOverrides = (root: DesignNode): DesignNode => {
           at.lg = { size: "$text-lg" };
         } else {
           // A drop shadow token under an inner raw one, written as one list.
+          // A frosted surface: a translucent fill and the design's blur behind it.
           at.sm = {
+            backdropBlur: "$blur-md",
             fill: "$color-primary",
             radius: 8,
             shadow: "inset 0 1px 0 #ffffff, $shadow-md",
           };
+          at.lg = { backdropBlur: 10 };
         }
         break;
       case 5:

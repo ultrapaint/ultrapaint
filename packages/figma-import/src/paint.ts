@@ -1,11 +1,15 @@
 /**
  * Colours as Figma keeps them (floats 0–1, an opacity per paint) into CSS, and back into the
- * design system's tokens where a token holds that colour; and a shadow's CSS, for the node it is
- * on and the token its style is.
+ * design system's tokens where a token holds that colour or blur; a shadow's CSS, for the node it
+ * is on and the token its style is; and a background blur's length.
  */
-import type { DesignSystem } from "@ultrapaint/contracts/design-system";
+import {
+  blursOf,
+  type DesignSystem,
+} from "@ultrapaint/contracts/design-system";
 import { tokensByValue, tokensOfKind } from "@ultrapaint/contracts/token-table";
 import { formatNumber } from "@ultrapaint/contracts/token-value";
+import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import type { FigColor, FigNode, FigPaint } from "openfig-core";
 
 const channel = (value: number) =>
@@ -26,6 +30,12 @@ export const cssRgba = (color: FigColor, opacity = 1): string => {
   return `rgba(${channel(color.r)}, ${channel(color.g)}, ${channel(color.b)}, ${Math.round(alpha * 100) / 100})`;
 };
 
+/** A node's or a style's visible effects of these types, in Figma's order. */
+const visibleOf = (effects: FigNode["effects"], ...types: string[]) =>
+  (Array.isArray(effects) ? effects : []).filter(
+    (effect) => effect?.visible !== false && types.includes(effect?.type)
+  );
+
 /** A length of a shadow in pixels, to a hundredth: Figma keeps `1.2` as `1.2000000476837158`. */
 const shadowPx = (value: number | undefined) =>
   `${formatNumber(value ?? 0, 2)}px`;
@@ -37,21 +47,35 @@ const shadowPx = (value: number | undefined) =>
  * effect's own opacity is in its colour's alpha.
  */
 export const shadowCss = (effects: FigNode["effects"]): string | undefined => {
-  const shadows = (Array.isArray(effects) ? effects : [])
-    .filter(
-      (effect) =>
-        effect?.visible !== false &&
-        (effect?.type === "DROP_SHADOW" || effect?.type === "INNER_SHADOW")
-    )
-    .map((effect) => {
+  const shadows = visibleOf(effects, "DROP_SHADOW", "INNER_SHADOW").map(
+    (effect) => {
       const inset = effect.type === "INNER_SHADOW" ? "inset " : "";
       const color = effect.color
         ? cssRgba(effect.color, effect.opacity ?? 1)
         : "rgba(0, 0, 0, 0.25)";
       return `${inset}${shadowPx(effect.offset?.x)} ${shadowPx(effect.offset?.y)} ${shadowPx(effect.radius)} ${shadowPx(effect.spread)} ${color}`;
-    });
+    }
+  );
   return shadows.length > 0 ? shadows.join(", ") : undefined;
 };
+
+/**
+ * The blur behind a node, its visible background blur's radius in pixels halved, as Figma's own
+ * CSS writes it (its radius draws about twice a CSS `blur()` of the same number); undefined when
+ * it has none.
+ */
+export const backgroundBlurOf = (
+  effects: FigNode["effects"]
+): number | undefined => {
+  const [blur] = visibleOf(effects, "BACKGROUND_BLUR");
+  return blur === undefined
+    ? undefined
+    : Math.round(((blur.radius ?? 0) / 2) * 100) / 100;
+};
+
+/** Whether a node is blurred itself, a layer blur, which no field of the format holds. */
+export const hasLayerBlur = (effects: FigNode["effects"]): boolean =>
+  visibleOf(effects, "FOREGROUND_BLUR").length > 0;
 
 /** The first visible paint of a kind, in the order Figma draws them (last on top). */
 export const topPaint = (
@@ -70,21 +94,31 @@ export const solidColor = (
   return paint?.color ? cssColor(paint.color, paint.opacity ?? 1) : undefined;
 };
 
-/** Colour → `$token` for a colour a token holds; any other colour as it is. */
-export type TokenMatcher = (color: string) => string;
+/**
+ * A colour (or a blur's length, `"12px"`) → `$token` for one a token holds; any other value as
+ * it is.
+ */
+export type TokenMatcher = (
+  value: string,
+  kind?: Extract<TokenKind, "color" | "blur">
+) => string;
 
 /**
- * The colour token that holds a colour, in whatever space either is written (the token table's
- * `tokensByValue`): the first in the design system's order, semantic groups coming first.
+ * The token that holds a colour, or a blur's length, in whatever space or unit either is written
+ * (the token table's `tokensByValue`): the first in the design system's order, semantic groups
+ * coming first; a blur among the ones it offers, Tailwind's when it lists none (`blursOf`).
  */
 export const makeTokenMatcher = (
   designSystem: DesignSystem | null | undefined
 ): TokenMatcher => {
-  const byValue = tokensByValue(tokensOfKind(designSystem, "color"));
-  return (color) => {
-    const [first] = byValue("color", color);
-    return first ? `$${first.name}` : color;
+  const byValue = tokensByValue([
+    ...tokensOfKind(designSystem, "color"),
+    ...blursOf(designSystem),
+  ]);
+  return (value, kind = "color") => {
+    const [first] = byValue(kind, value);
+    return first ? `$${first.name}` : value;
   };
 };
 
-export const noTokens: TokenMatcher = (color) => color;
+export const noTokens: TokenMatcher = (value) => value;

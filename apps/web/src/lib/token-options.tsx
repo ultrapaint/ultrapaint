@@ -1,8 +1,13 @@
 /**
  * The design system's tokens as the options of the inspector's fields: colours with a swatch,
- * sizes with the value they resolve to, spacing as the steps of its scale in pixels.
+ * sizes with the value they resolve to, spacing as the steps of its scale in pixels, and the
+ * blurs it offers, Tailwind's where it lists none.
  */
-import type { DesignSystem, Token } from "@ultrapaint/contracts/design-system";
+import {
+  blursOf,
+  type DesignSystem,
+  type Token,
+} from "@ultrapaint/contracts/design-system";
 import {
   SPACING_STEPS,
   shortName,
@@ -31,6 +36,7 @@ const tokenOption = (token: Token): StyleOption => ({
 
 /** The kinds of token a style field of a node picks from. */
 export const FIELD_TOKEN_KINDS = [
+  "blur",
   "borderWidth",
   "color",
   "container",
@@ -122,6 +128,9 @@ export const tokenOptions = (
       })),
       ...tokensOfKind(ds, kind).map(tokenOption),
     ];
+  }
+  if (kind === "blur") {
+    return blursOf(ds).map(tokenOption);
   }
   if (kind === "color") {
     // A colour says which group it is of.

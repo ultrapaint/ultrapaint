@@ -180,7 +180,7 @@ describe("scanning a Tailwind v4 design system", () => {
     }
   });
 
-  it("reads border widths, layout, motion and icons, and starts the elevation", () => {
+  it("reads border widths, blurs, layout, motion and icons, and starts the elevation", () => {
     const root = repository({
       "app.css": `@import "tailwindcss";
 @theme {
@@ -202,6 +202,8 @@ describe("scanning a Tailwind v4 design system", () => {
   --default-transition-duration: 150ms;
   --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px rgb(0 0 0 / 0.1);
+  --blur-md: 12px;
+  --blur-xs: 4px;
 }`,
       "package.json": '{"dependencies":{"lucide-react":"^1.0.0"}}',
     });
@@ -219,6 +221,10 @@ describe("scanning a Tailwind v4 design system", () => {
       "border-width-thick",
     ]);
     // Smallest first, not by name.
+    expect(designSystem.blurs?.map((t) => t.name)).toEqual([
+      "blur-xs",
+      "blur-md",
+    ]);
     expect(designSystem.layout?.breakpoints?.map((t) => t.name)).toEqual([
       "breakpoint-sm",
       "breakpoint-lg",
