@@ -827,6 +827,18 @@ describe("an image layer of the Fill section (ADR 0149)", () => {
     expect(edits()).toBe(0);
   });
 
+  it("gives no file to a layer of the same picture that slid into its row", async () => {
+    const finishes = pendingUploads();
+    show({ box: `${HERO}, ${HERO}` });
+    await openSwatch();
+    await startUpload("photo.png", 1);
+    act(() =>
+      useDocuments.setState({ docs: { [HOME]: pageOf({ box: HERO }) } })
+    );
+    await act(async () => finishes[0]?.({ src: "assets/photo.png" }));
+    expect(edits()).toBe(0);
+  });
+
   it("sets the file chosen last, whichever upload ends first", async () => {
     const finishes = pendingUploads();
     show({ box: HERO });

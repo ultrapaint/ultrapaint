@@ -894,8 +894,14 @@ export const FillSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
             </Row>
           ) : null}
           {layers.map((_layer, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: a layer is its place in the stack
-            <LayerRow index={i} key={i} layers={layers} />
+            // A layer is its place in a stack of so many: one taken off or added makes every row
+            // anew, so a pending upload never sets the file of a layer that slid in.
+            <LayerRow
+              index={i}
+              // biome-ignore lint/suspicious/noArrayIndexKey: a layer is its place in the stack
+              key={`${layers.length}:${i}`}
+              layers={layers}
+            />
           ))}
         </>
       )}
