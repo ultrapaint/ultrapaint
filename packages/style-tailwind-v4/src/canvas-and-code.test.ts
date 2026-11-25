@@ -123,10 +123,18 @@ const LONGHANDS: Record<string, readonly string[]> = {
 };
 
 /**
- * What the canvas's `background` is in Tailwind: a colour, an image for a gradient, or the
- * shorthand for a fill the editor cannot read.
+ * What the canvas's `background` is in Tailwind: a colour, an image for a gradient or a picture
+ * with its place, size and repeat, or the shorthand for a fill the editor cannot read.
  */
-const BACKGROUNDS = ["background-color", "background-image", "background"];
+const BACKGROUNDS = [
+  "background-color",
+  "background-image",
+  "background-position",
+  "background-size",
+  "background-repeat",
+  "background",
+];
+const ENCODED_SPACE_RE = /%20/g;
 
 const kebab = (property: string) =>
   property.replace(UPPER_RE, (c) => `-${c.toLowerCase()}`);
@@ -217,6 +225,10 @@ const placedStops = (value: string): string => {
     return value;
   }
   const placed = layers.map((layer) => {
+    // A class says a space in a file's path as the URL does (ADR 0149).
+    if (layer.kind === "image") {
+      return { ...layer, src: layer.src.replace(ENCODED_SPACE_RE, " ") };
+    }
     if (layer.kind !== "gradient") {
       return layer;
     }
@@ -358,6 +370,14 @@ const withOverrides = (root: DesignNode): DesignNode => {
         break;
       case 1:
         at.lg = { hidden: true };
+        if (node.type !== "text") {
+          // A picture over a colour, then one at its own size whose fit the first's bounds
+          // (ADR 0149).
+          at.md = {
+            fill: 'url("assets/a b.png") center / cover no-repeat, $color-muted-foreground',
+          };
+          at.xl = { fill: "url(assets/tile.png)" };
+        }
         break;
       case 2:
         at.md = {
@@ -370,6 +390,11 @@ const withOverrides = (root: DesignNode): DesignNode => {
       case 3:
         out.hidden = true;
         at.md = { hidden: false };
+        if (node.type !== "text") {
+          // A wash over a picture over a colour: the shorthand (ADR 0149).
+          at.md.fill =
+            "linear-gradient(in oklab, $color-primary, transparent), url(assets/hero.png) center / 100% 100% no-repeat, $color-muted-foreground";
+        }
         break;
       case 4:
         if (node.type === "text") {
@@ -643,29 +668,48 @@ const winnerOf = (setters: readonly Setter[]): Setter | undefined => {
 const backgroundWinner = (
   setBy: ReadonlyMap<string, readonly Setter[]>
 ): Setter | undefined => {
-  const [image, color, whole] = [
+  const [image, color, whole, position, size, repeat] = [
     "background-image",
     "background-color",
     "background",
+    "background-position",
+    "background-size",
+    "background-repeat",
   ].map((p) => {
     const setters = setBy.get(p) ?? [];
     return setters.length === 0 ? null : (winnerOf(setters) ?? undefined);
   });
-  if (image === undefined || color === undefined || whole === undefined) {
+  if (
+    [image, color, whole, position, size, repeat].some((s) => s === undefined)
+  ) {
     return undefined;
   }
   // The shorthand sets both, and wins over what it is as wide as or wider than.
   if (whole && whole.from >= Math.max(image?.from ?? 0, color?.from ?? 0)) {
     return whole;
   }
-  if (image && color) {
+  // A picture's place, size and repeat, as one layer of the shorthand says them (ADR 0149).
+  const placing = [position, size, repeat].filter((s) => s);
+  const picture = image && {
+    cls: [image, ...placing].map((s) => s?.cls).join(" "),
+    from: Math.max(image.from, ...placing.map((s) => s?.from ?? 0)),
+    value: [
+      image.value,
+      position?.value,
+      size && `/ ${size.value}`,
+      repeat?.value,
+    ]
+      .filter((v) => v)
+      .join(" "),
+  };
+  if (picture && color) {
     return {
-      cls: `${image.cls} ${color.cls}`,
-      from: Math.max(image.from, color.from),
-      value: `${image.value}, ${color.value}`,
+      cls: `${picture.cls} ${color.cls}`,
+      from: Math.max(picture.from, color.from),
+      value: `${picture.value}, ${color.value}`,
     };
   }
-  return image ?? color ?? undefined;
+  return picture ?? color ?? undefined;
 };
 
 describe("the canvas and the Code tab", () => {

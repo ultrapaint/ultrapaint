@@ -2,11 +2,12 @@
  * A box's fill as layers (ADR 0134): the editor's reading of the one CSS background a node's
  * `fill` holds, and its writing back. The document keeps the string (ADR 0015); this says it as
  * what a designer edits: colours and linear, radial and conic gradients, the top one first, as
- * CSS paints them. A value read no other way is one `css` layer, written back as it was. Tokens
- * are read inside a fill wherever they are (`tokensInFill`), which no other field does: a text
- * saying "Save $20" names no token. Pure.
+ * CSS paints them, and images (ADR 0149). A value read no other way is one `css` layer, written
+ * back as it was. Tokens are read inside a fill wherever they are (`tokensInFill`), which no
+ * other field does: a text saying "Save $20" names no token. Pure.
  */
 
+import type { ImageFit } from "@ultrapaint/contracts/document";
 import { splitTop } from "./css-split.ts";
 
 export type GradientShape = "linear" | "radial" | "conic";
@@ -40,13 +41,25 @@ export interface GradientLayer {
   readonly stops: readonly FillStop[];
 }
 
-/** A fill the editor cannot read as layers (an image among them), kept as it is. */
+/** How a picture fills its box: an image node's `fit`. */
+export type { ImageFit } from "@ultrapaint/contracts/document";
+
+/** A picture (ADR 0149), centred and drawn once. */
+export interface ImageLayer {
+  /** How it fills the box; none for one written as CSS's default, at its own size and tiled. */
+  readonly fit?: ImageFit | undefined;
+  readonly kind: "image";
+  /** Its file: a path in the canvas (`assets/hero.png`) or a URL, as its `url()` holds it. */
+  readonly src: string;
+}
+
+/** A fill the editor cannot read as layers (a tiled image among them), kept as it is. */
 export interface CssLayer {
   readonly css: string;
   readonly kind: "css";
 }
 
-export type FillLayer = ColorLayer | GradientLayer | CssLayer;
+export type FillLayer = ColorLayer | GradientLayer | ImageLayer | CssLayer;
 
 const SHAPES: Record<string, GradientShape> = {
   "conic-gradient": "conic",
@@ -221,10 +234,106 @@ const stopOf = (arg: string): FillStop | null => {
   return position === undefined ? { color } : { color, position };
 };
 
+/** A `url()` and the file it holds, quoted or not. */
+const URL_RE =
+  /^url\(\s*(?:"((?:\\[\s\S]|[^"\\])*)"|'((?:\\[\s\S]|[^'\\])*)'|([^)"'\s]*))\s*\)$/i;
+/** An escape of CSS: a code point in hex and the space that ends it, a line continued, a character. */
+const ESCAPE_RE =
+  /\\(?:([0-9a-f]{1,6})(?:\r\n|[ \t\n\r\f])?|(\r\n|[\n\r\f])|([\s\S]))/gi;
+/** A file a `url()` can hold unquoted. */
+const BARE_URL_RE = /^[^\s()'"\\]+$/;
+
+/** A code point CSS escapes in hex; none it can hold, the replacement character. */
+const codePointOf = (hex: string) => {
+  const n = Number.parseInt(hex, 16);
+  return String.fromCodePoint(n > 0 && n <= 0x10_ff_ff ? n : 0xff_fd);
+};
+
+/** The file a `url(…)` holds, or null for what is no `url()`. */
+const urlSrc = (text: string): string | null => {
+  const match: RegExpExecArray | null = URL_RE.exec(text.trim());
+  if (!match) {
+    return null;
+  }
+  const quoted = match[1] ?? match[2];
+  return quoted === undefined
+    ? (match[3] ?? "")
+    : quoted.replace(
+        ESCAPE_RE,
+        (_whole, hex: string | undefined, _line, char: string | undefined) =>
+          hex === undefined ? (char ?? "") : codePointOf(hex)
+      );
+};
+
+const QUOTED_RE = /["\\]/g;
+const LINE_BREAK_RE = /\r\n|[\n\r\f]/g;
+
+/** Text as a CSS string: a quote and a backslash escaped, a line break as its code point. */
+const cssString = (text: string) =>
+  `"${text.replace(QUOTED_RE, "\\$&").replace(LINE_BREAK_RE, "\\a ")}"`;
+
+/** A file as a `url()`, quoted where it must be. */
+const urlCss = (src: string) =>
+  `url(${BARE_URL_RE.test(src) ? src : cssString(src)})`;
+
+/** A fit as its `background-size`. */
+const IMAGE_SIZES: Record<ImageFit, string> = {
+  contain: "contain",
+  cover: "cover",
+  fill: "100% 100%",
+};
+const SLASH_RE = /\//g;
+const SPACES_RE = /\s+/;
+/** The ways the centre is written. */
+const CENTRES = new Set(["center", "center center", "50%", "50% 50%"]);
+
+/**
+ * How an image's words after its `url()` place it: centred and drawn once at a fit, or nothing
+ * where it says nothing; null for any other place, size or repeat, which the editor does not offer.
+ * A picture that covers its box, or is stretched over it, is drawn once whether it repeats or not.
+ */
+const fitOf = (words: string): { fit?: ImageFit } | null => {
+  const rest = words.replace(SLASH_RE, " / ").trim().split(SPACES_RE);
+  if (rest.length === 1 && rest[0] === "") {
+    return {};
+  }
+  const repeats = rest.filter((w) => w.toLowerCase() === "no-repeat");
+  const [place, size, ...more] = rest
+    .filter((w) => w.toLowerCase() !== "no-repeat")
+    .join(" ")
+    .split("/")
+    .map((part) => part.trim().toLowerCase());
+  const fit = (Object.keys(IMAGE_SIZES) as ImageFit[]).find(
+    (f) => IMAGE_SIZES[f] === size
+  );
+  const once =
+    repeats.length === 1 ||
+    (repeats.length === 0 && (fit === "cover" || fit === "fill"));
+  return once && more.length === 0 && CENTRES.has(place ?? "") && fit
+    ? { fit }
+    : null;
+};
+
+/** An image layer: a `url()` first, then how it is placed; null for anything else. */
+const imageOf = (text: string): ImageLayer | null => {
+  const [first = "", ...words] = splitTop(text, " ");
+  const src = urlSrc(first);
+  const placed = src === null ? null : fitOf(words.join(" "));
+  return src === null || placed === null
+    ? null
+    : { kind: "image", src, ...placed };
+};
+
 /** One layer of a background, or null for one this does not read. */
-const layerOf = (text: string): ColorLayer | GradientLayer | null => {
+const layerOf = (
+  text: string
+): ColorLayer | GradientLayer | ImageLayer | null => {
   if (isColor(text)) {
     return { color: text, kind: "color" };
+  }
+  const image = imageOf(text);
+  if (image) {
+    return image;
   }
   const fn: RegExpExecArray | null = FUNCTION_RE.exec(text);
   const name = (fn?.[1] ?? "").toLowerCase();
@@ -295,15 +404,15 @@ export const fillLayers = (fill: string | null | undefined): FillLayer[] => {
 };
 
 /**
- * A fill as its layers when it is more than one colour, a gradient or several layers; null for a
- * fill that is one value, or one read no other way (an image, a variable).
+ * A fill as its layers when it is more than one colour, a gradient, an image or several layers;
+ * null for a fill that is one value, or one read no other way (a tiled image, a variable).
  */
 export const layeredFill = (
   fill: string | null | undefined
 ): FillLayer[] | null => {
   const layers = fillLayers(fill);
   return layers.every((l) => l.kind !== "css") &&
-    (layers.length > 1 || layers[0]?.kind === "gradient")
+    (layers.length > 1 || layers[0]?.kind !== "color")
     ? layers
     : null;
 };
@@ -393,6 +502,10 @@ const layerCss = (layer: FillLayer, bottom: boolean): string => {
       return bottom
         ? layer.color
         : `linear-gradient(${layer.color}, ${layer.color})`;
+    case "image":
+      return layer.fit === undefined
+        ? urlCss(layer.src)
+        : `${urlCss(layer.src)} center / ${IMAGE_SIZES[layer.fit]} no-repeat`;
     default: {
       const head = gradientHeadCss(layer);
       return `${layer.shape}-gradient(${head === "" ? "" : `${head}, `}${stopsCss(layer.stops)})`;
@@ -554,3 +667,21 @@ const replaceTokens = (text: string, variable: (name: string) => string) =>
     FILL_TOKEN_RE,
     (_whole, before: string, name: string) => `${before}${variable(name)}`
   );
+
+/** A `url(…)` at the start of a literal of a fill. */
+const URL_HEAD_RE = /^url\(/i;
+
+/**
+ * A fill with each file it names as `url` gives it (ADR 0149): a path in the canvas as the
+ * address the canvas finds it at. Its tokens and other CSS are as they are.
+ */
+export const resolveFillUrls = (
+  fill: string,
+  url: (src: string) => string
+): string =>
+  tokenParts(fill)
+    .map(({ literal, text }) => {
+      const src = URL_HEAD_RE.test(literal) ? urlSrc(literal) : null;
+      return text + (src === null ? literal : `url(${cssString(url(src))})`);
+    })
+    .join("");

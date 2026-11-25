@@ -339,6 +339,53 @@ describe("a fill in layers", () => {
     ]);
   });
 
+  it("writes an image as Tailwind's own utilities, centred and not repeated at its fit, over its colour (ADR 0149)", async () => {
+    expect(
+      bg("url(assets/hero.png) center / cover no-repeat, $color-card")
+    ).toEqual([
+      "bg-[url(assets/hero.png)]",
+      "bg-center",
+      "bg-cover",
+      "bg-no-repeat",
+      "bg-card",
+    ]);
+    expect(bg("url(assets/hero.png) center / contain no-repeat")).toEqual([
+      "bg-[url(assets/hero.png)]",
+      "bg-center",
+      "bg-contain",
+      "bg-no-repeat",
+    ]);
+    // A space in its path, which Tailwind keeps inside a url(), as the URL says it.
+    const fill = bg('url("assets/a b.png") center / 100% 100% no-repeat');
+    expect(fill).toEqual([
+      "bg-[url(assets/a%20b.png)]",
+      "bg-center",
+      "bg-size-[100%_100%]",
+      "bg-no-repeat",
+    ]);
+    const rules = await compiledClasses(fill);
+    expect(fill.map((cls) => Object.fromEntries(rules.get(cls) ?? []))).toEqual(
+      [
+        { "background-image": "url(assets/a%20b.png)" },
+        { "background-position": "center" },
+        { "background-size": "100% 100%" },
+        { "background-repeat": "no-repeat" },
+      ]
+    );
+    // Written with nothing after it, an image is CSS's default: its own size, tiled.
+    expect(bg("url(assets/tile.png)")).toEqual(["bg-[url(assets/tile.png)]"]);
+  });
+
+  it("writes an image among gradients as the background shorthand, which says each layer's fit (ADR 0149)", () => {
+    expect(
+      bg(
+        "linear-gradient(in oklab, $color-scrim, transparent), url(assets/hero.png) center / cover no-repeat, $color-bg"
+      )
+    ).toEqual([
+      "[background:linear-gradient(in_oklab,_var(--color-scrim),_transparent),_url(assets/hero.png)_center_/_cover_no-repeat,_var(--color-bg)]",
+    ]);
+  });
+
   it("writes a fill it cannot read as the background shorthand, which takes an image over a colour", () => {
     expect(
       bg("linear-gradient(red 0% 25%, transparent 25% 50%), $color-bg")

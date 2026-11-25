@@ -571,3 +571,20 @@ describe("a page in its frame", () => {
     expect(at("root")?.style.minHeight).toBe("max(1024px, 100cqh)");
   });
 });
+
+describe("a box's image fill (ADR 0149)", () => {
+  it("is drawn from the file the canvas finds, under the box's children", async () => {
+    const { at } = await draw({
+      children: [text("headline")],
+      // happy-dom keeps a background of one layer only.
+      fill: "url(assets/hero.png) center / cover no-repeat",
+      id: "hero",
+      type: "column",
+    });
+    const style = at("hero")?.getAttribute("style") ?? "";
+    expect(style).toContain('url("/api/asset?canvas=&src=assets%2Fhero.png")');
+    expect(
+      at("hero")?.querySelector('[data-ed-node="headline"]')
+    ).not.toBeNull();
+  });
+});

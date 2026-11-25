@@ -9,9 +9,12 @@ import type {
   Size,
 } from "@ultrapaint/contracts/document";
 import {
+  type FillLayer,
   fillCss,
+  fillLayers,
   type GradientLayer,
   type GradientShape,
+  type ImageLayer,
 } from "@ultrapaint/design-document/fill";
 import {
   type FigNode,
@@ -217,6 +220,33 @@ const gradientOf = (
       position: percent(at(stop.position)),
     }));
   return fillCss([{ ...head, kind: "gradient", shape, stops }]) ?? undefined;
+};
+
+/**
+ * Every visible paint of a node as the layers of one fill, the top one first (ADR 0149): a
+ * picture as `image` gives it, a colour, a gradient; a paint that cannot be drawn left out.
+ */
+export const paintedFill = (
+  node: FigNode,
+  tokens: TokenMatcher,
+  image: (paint: FigPaint) => ImageLayer | null
+): string | undefined => {
+  const layers = [...(node.fillPaints ?? [])]
+    .reverse()
+    .filter((paint) => paint.visible !== false)
+    .flatMap((paint): FillLayer[] => {
+      if (paint.type === "IMAGE") {
+        const layer = image(paint);
+        return layer ? [layer] : [];
+      }
+      if (paint.type === "SOLID") {
+        const color = solidColor([paint]);
+        return color ? [{ color: tokens(color), kind: "color" }] : [];
+      }
+      const css = gradientOf(node, paint, tokens);
+      return css ? fillLayers(css) : [];
+    });
+  return fillCss(layers) ?? undefined;
 };
 
 const fillOf = (node: FigNode, tokens: TokenMatcher): string | undefined => {

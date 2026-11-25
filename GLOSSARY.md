@@ -117,13 +117,15 @@ refactor and the board view left.
   alone; **Paste style** writes them onto the nodes selected, clearing what the copy leaves unset,
   each taking only its own kind's. Not the node style, which is what fields mean as CSS.
 - **Fill layer**: one of the layers a box's `fill` is read as (ADR 0134; design-document's
-  `fill`), the top one first: a **colour**, a **gradient**, or, for a value the editor cannot
-  read, the whole fill **kept as written** (the `css` kind). A gradient has its **shape**
-  (linear, radial or conic), its **stops** (each a token or a CSS colour, and where it sits), its
-  angle or side, its **geometry** (a radial one's shape, size and centre, a conic one's centre, as
-  written) and its **colour space** (`interpolation`, the space its stops mix in). The document
-  holds the CSS; the layers are the editor's reading of it. A token stands anywhere in a fill but in a
-  comment, a URL or a quoted string; past a value's start only there and in a **shadow list**.
+  `fill`), the top one first: a **colour**, a **gradient**, an **image** (ADR 0149: its file, a
+  path in the canvas, and its **fit**, cover, contain or fill, centred and drawn once), or, for a
+  value the editor cannot read, the whole fill **kept as written** (the `css` kind). A gradient
+  has its **shape** (linear, radial or conic), its **stops** (each a token or a CSS colour, and
+  where it sits), its angle or side, its **geometry** (a radial one's shape, size and centre, a
+  conic one's centre, as written) and its **colour space** (`interpolation`, the space its stops
+  mix in). The document holds the CSS; the layers are the editor's reading of it. A token stands
+  anywhere in a fill but in a comment, a URL or a quoted string; past a value's start only there
+  and in a **shadow list**.
   _Avoid_: paint, background stack.
 - **Shadow list**: a box's `shadow` read as its shadows (design-document's `shadow`), split on
   its top-level commas, the one drawn on top first, as CSS paints a box-shadow list. Each shadow

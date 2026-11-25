@@ -38,6 +38,7 @@ import {
   type StyleContext,
   tagOf,
 } from "@ultrapaint/design-document/css";
+import { resolveFillUrls } from "@ultrapaint/design-document/fill";
 import { layerIdOf } from "@ultrapaint/design-document/instance-layers";
 import { fillSlots, slotLayoutOf } from "@ultrapaint/design-document/slots";
 import { childrenOf } from "@ultrapaint/design-document/tree";
@@ -261,6 +262,20 @@ interface RootOverride {
   readonly style: Style;
 }
 
+/** Whether a background names a file anywhere in it. */
+const NAMES_A_FILE_RE = /url\(/i;
+
+/**
+ * A node's style with the files of its fill drawn from where the canvas finds them, as an image
+ * node's `src` is (ADR 0149): `assets/hero.png` as the server's file for it.
+ */
+const withFiles = (style: Style, assetUrl: (src: string) => string): Style => {
+  const background: unknown = style.background;
+  return typeof background === "string" && NAMES_A_FILE_RE.test(background)
+    ? { ...style, background: resolveFillUrls(background, assetUrl) }
+    : style;
+};
+
 /**
  * A node drawn, and everything under it. Memoised by its props: a node the document keeps as it
  * was (`shareUnchanged`) under a scope that stayed the same is not drawn again, so an edit draws
@@ -291,7 +306,10 @@ const NodeView = memo(function NodeDrawn({
       createElement(NodeView, { node, parent })
     );
   }
-  const drawn = nodeStyle(node, { ...scope.styles, parent });
+  const drawn = withFiles(
+    nodeStyle(node, { ...scope.styles, parent }),
+    scope.assetUrl
+  );
   const style = own ? { ...drawn, ...own.style } : drawn;
   const common: Record<string, unknown> = own
     ? { ...own.attributes, style }

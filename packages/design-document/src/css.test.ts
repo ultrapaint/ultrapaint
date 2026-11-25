@@ -353,6 +353,18 @@ describe("pageDefaultsStyle", () => {
   });
 });
 
+describe("a box's image fill (ADR 0149)", () => {
+  it("is its background, the picture centred and drawn once at its fit, its tokens as variables", () => {
+    const fill =
+      "linear-gradient(in oklab, $color-scrim, transparent), url(assets/hero.png) center / contain no-repeat";
+    const box: DesignNode = { children: [], fill, id: "b", type: "column" };
+    expect(declarationsOf(box, makeStyleContext(null)).background).toBe(fill);
+    expect(nodeStyle(box, makeStyleContext(null)).background).toBe(
+      "linear-gradient(in oklab, var(--color-scrim), transparent), url(assets/hero.png) center / contain no-repeat"
+    );
+  });
+});
+
 describe("a tinted image", () => {
   it("is its file's shape filled with the tint", () => {
     const style = nodeStyle(

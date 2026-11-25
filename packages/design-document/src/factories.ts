@@ -27,8 +27,11 @@ export type ElementId =
   | "paragraph"
   | "image";
 
-/** Placeholder picture for an image nobody has chosen yet: a grey box, inline. */
-const PLACEHOLDER_IMAGE =
+/**
+ * Placeholder picture for an image nobody has chosen yet, a node's or a fill's (ADR 0149): a grey
+ * box, inline.
+ */
+export const PLACEHOLDER_IMAGE =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200" viewBox="0 0 320 200"><rect width="320" height="200" fill="#e4e4e7"/><path d="M120 130l30-36 24 28 16-18 30 26z" fill="#a1a1aa"/><circle cx="130" cy="78" r="12" fill="#a1a1aa"/></svg>'

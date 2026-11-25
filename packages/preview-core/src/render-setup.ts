@@ -21,6 +21,24 @@ interface FrameDrawing {
   readonly rendered: (renderId: number) => void;
 }
 
+/**
+ * Where the server at `assets` gives a file of a canvas: a URL as it is; a path in the canvas
+ * (`assets/hero.png`), the server's file for it, without a canvas the shared one at the root of
+ * the designs directory. What an image node's `src` and a fill's `url()` are drawn from.
+ */
+export const assetUrlOf = (
+  assets: string,
+  canvas: string,
+  src: string
+): string => {
+  if (ABSOLUTE_URL_RE.test(src)) {
+    return src;
+  }
+  const file = src.replace(LEADING_DOT_SLASH_RE, "");
+  const query = new URLSearchParams({ canvas, src: file });
+  return `${assets}?${query.toString()}`;
+};
+
 /** The setup frame `options` of the preview `input` mounts its renderer with. */
 export const renderSetup = (
   input: Pick<PreviewSetup, "assets">,
@@ -28,16 +46,8 @@ export const renderSetup = (
   frame: FrameDrawing
 ): RenderSetup => {
   const { events } = options;
-  /** A URL as it is; a path in the canvas (`assets/hero.png`), the server's file for it. */
-  const assetUrl = (src: string) => {
-    if (ABSOLUTE_URL_RE.test(src)) {
-      return src;
-    }
-    const file = src.replace(LEADING_DOT_SLASH_RE, "");
-    // Without a canvas, the shared file at the root of the designs directory.
-    const query = new URLSearchParams({ canvas: options.canvas, src: file });
-    return `${input.assets}?${query.toString()}`;
-  };
+  const assetUrl = (src: string) =>
+    assetUrlOf(input.assets, options.canvas, src);
   return {
     assetUrl,
     frame: frame.frame,

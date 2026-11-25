@@ -61,8 +61,8 @@ import { DRAFT_HINT, editPageUrl } from "../lib/page-actions.ts";
 import { presetOf, viewportPresets } from "../lib/presets.ts";
 import { MIXED, sharedValue, shownAs } from "../lib/shared-value.ts";
 import { withSides } from "../lib/sides.ts";
+import { uploadImage } from "../lib/upload-image.ts";
 import { settledPicks, useCanvasPicks } from "../state/canvas-picks.ts";
-import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf, hasPrototypeLinks } from "../state/frame-ref.ts";
 import { setPreset } from "../state/page-layout.ts";
@@ -632,21 +632,8 @@ const ImageSection = ({ nodes }: { nodes: readonly ImageNode[] }) => {
     if (!file || canvas === null) {
       return;
     }
-    const data = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const url = String(reader.result);
-        resolve(url.slice(url.indexOf(",") + 1));
-      };
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(file);
-    });
     try {
-      const { src } = await api().request("assets.upload", {
-        data,
-        name: file.name,
-      });
-      set("src", src);
+      set("src", await uploadImage(file));
     } catch (error) {
       reportError(error);
     }

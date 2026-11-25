@@ -33,6 +33,9 @@ vi.mock(
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 const HOME = "home.page.json";
+/** A fill of the image node's placeholder picture, at Cover. */
+const PLACEHOLDER_FILL_RE =
+  /^url\(data:image\/svg\+xml;utf8,.*\) center \/ cover no-repeat$/;
 const IMAGE_RE = /url\(|gradient\(/;
 const CONIC =
   "conic-gradient(in oklab, $color-primary 0deg, $color-accent 90deg, transparent 180deg)";
@@ -256,7 +259,8 @@ describe("the Fill section's layers (ADR 0134)", () => {
   });
 
   it("opens a fill it cannot read as one row, left as it is", () => {
-    show({ box: "url(hero.png) center / cover, $color-card" });
+    // A picture tiled at a fit of contain is none the editor offers (ADR 0149).
+    show({ box: "url(hero.png) center / contain, $color-card" });
     expect(rows()).toEqual(["css"]);
     expect(edits()).toBe(0);
   });
@@ -650,6 +654,202 @@ describe("the Fill section's layers (ADR 0134)", () => {
       {
         doc: HOME,
         ops: [{ id: "promo/box", op: "update", set: { fill: "$color-card" } }],
+      },
+    ]);
+  });
+});
+
+describe("an image layer of the Fill section (ADR 0149)", () => {
+  const HERO = "url(assets/hero.png) center / cover no-repeat";
+  const dotIn = (kind: string) =>
+    container.querySelector(
+      `[data-fill-layer="${kind}"] [aria-label="Outside the design system"]`
+    );
+
+  /** Chooses `file` in the open popover's file input, and waits for its upload and edit. */
+  const choose = async (file: File) => {
+    const input = document.querySelector(
+      "[data-fill-file] input[type=file]"
+    ) as HTMLInputElement | null;
+    if (!input) {
+      throw new Error("no file input");
+    }
+    Object.defineProperty(input, "files", { value: [file] });
+    act(() => {
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await act(() => fakeApi.requested("documents.apply"));
+  };
+
+  it("lists an image with a swatch drawing its picture from where the canvas finds it, and no off-system dot where a raw colour beside it has one", () => {
+    show({ box: `${HERO}, #ff0000` });
+    expect(rows()).toEqual(["image", "color"]);
+    const swatch = container.querySelector(
+      '[data-fill-layer="image"] [data-layer-swatch] span'
+    );
+    expect(swatch?.getAttribute("style")).toContain("canvas=main");
+    expect(swatch?.getAttribute("style")).toContain("src=assets%2Fhero.png");
+    expect(dotIn("image")).toBeNull();
+    expect(dotIn("color")).not.toBeNull();
+    expect(edits()).toBe(0);
+  });
+
+  it("opens an image written alone as an image layer, writing nothing", () => {
+    show({ box: 'url("assets/hero.png")' });
+    expect(rows()).toEqual(["image"]);
+    expect(edits()).toBe(0);
+  });
+
+  it("turns a colour into a picture with Kind, in one edit, the popover kept open on it", async () => {
+    show({ box: "$color-card" });
+    await openSwatch();
+    press("Image");
+    expect(edits()).toBe(1);
+    const [set] = fills() ?? [];
+    expect(String(set?.fill)).toMatch(PLACEHOLDER_FILL_RE);
+    act(() =>
+      useDocuments.setState({
+        docs: { [HOME]: pageOf({ box: String(set?.fill) }) },
+      })
+    );
+    expect(title()).toBe("Image");
+    expect(rows()).toEqual(["image"]);
+  });
+
+  it("uploads its file into the canvas's assets, then sets its fit, each in one edit", async () => {
+    fakeApi.respond("assets.upload", () => ({ src: "assets/photo.png" }));
+    show({ box: `${HERO}, $color-card` });
+    await openSwatch();
+    expect(title()).toBe("Image");
+    await choose(new File(["png"], "photo.png", { type: "image/png" }));
+    expect(
+      fakeApi.calls.find((c) => c.method === "assets.upload")?.input
+    ).toMatchObject({ name: "photo.png" });
+    expect(edits()).toBe(1);
+    expect(fills()).toEqual([
+      {
+        fill: "url(assets/photo.png) center / cover no-repeat, $color-card",
+      },
+    ]);
+    press("Contain");
+    expect(edits()).toBe(2);
+    expect(fills()).toEqual([
+      { fill: "url(assets/hero.png) center / contain no-repeat, $color-card" },
+    ]);
+  });
+
+  it("keeps a fit picked while its file uploads, the file then set over it", async () => {
+    let finish: (out: { src: string }) => void = () => undefined;
+    fakeApi.respond(
+      "assets.upload",
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        })
+    );
+    show({ box: HERO });
+    await openSwatch();
+    const input = document.querySelector(
+      "[data-fill-file] input[type=file]"
+    ) as HTMLInputElement;
+    Object.defineProperty(input, "files", {
+      value: [new File(["png"], "photo.png", { type: "image/png" })],
+    });
+    act(() => {
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await act(() => fakeApi.requested("assets.upload"));
+    press("Contain");
+    const contained = "url(assets/hero.png) center / contain no-repeat";
+    expect(fills()).toEqual([{ fill: contained }]);
+    act(() =>
+      useDocuments.setState({ docs: { [HOME]: pageOf({ box: contained }) } })
+    );
+    await act(async () => finish({ src: "assets/photo.png" }));
+    expect(fills()).toEqual([
+      { fill: "url(assets/photo.png) center / contain no-repeat" },
+    ]);
+  });
+
+  it("writes its fit on a layer of an app component's instance as the instance's override (ADR 0114)", async () => {
+    useComponents.setState({
+      components: [
+        {
+          name: "Promo",
+          origin: "app",
+          properties: [],
+          slots: [],
+          tree: {
+            children: [{ children: [], fill: HERO, id: "box", type: "column" }],
+            id: "p-root",
+            type: "column",
+          },
+          version: 1,
+        },
+      ] as never,
+    });
+    act(() =>
+      useDocuments.setState({
+        docs: {
+          [HOME]: {
+            ...pageOf({}),
+            root: {
+              children: [
+                {
+                  component: "Promo",
+                  from: "#app",
+                  id: "promo",
+                  type: "instance",
+                },
+              ],
+              id: "home",
+              type: "page",
+            } as DesignNode,
+          },
+        },
+      })
+    );
+    act(() => select({ frame: HOME, nodeId: "promo/box" }));
+    expect(rows()).toEqual(["image"]);
+    await openSwatch();
+    press("Contain");
+    expect(applied()?.edits).toEqual([
+      {
+        doc: HOME,
+        ops: [
+          {
+            id: "promo/box",
+            op: "update",
+            set: { fill: "url(assets/hero.png) center / contain no-repeat" },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("writes its fit set in a view at the view's breakpoint (ADR 0036)", async () => {
+    useEditor.setState({
+      frames: {
+        [HOME]: {
+          height: 900,
+          preset: "desktop",
+          views: [{ height: 900, id: "tablet", width: 800, x: 1600, y: 0 }],
+          width: 1440,
+          x: 0,
+          y: 0,
+        },
+        [TABLET]: { height: 900, preset: "custom", width: 800, x: 1600, y: 0 },
+      },
+    });
+    show({ box: HERO }, "box", TABLET);
+    await openSwatch();
+    press("Contain");
+    expect(applied()?.edits[0]?.ops).toEqual([
+      {
+        at: "md",
+        id: "box",
+        op: "update",
+        set: { fill: "url(assets/hero.png) center / contain no-repeat" },
       },
     ]);
   });

@@ -14,6 +14,7 @@ import type {
   PageNode,
 } from "@ultrapaint/contracts/document";
 import type { ComponentMapping } from "@ultrapaint/contracts/figma";
+import type { ImageLayer } from "@ultrapaint/design-document/fill";
 import { type IdGenerator, idPrefix } from "@ultrapaint/design-document/ids";
 import type { FigGuid, FigNode, FigPaint } from "openfig-core";
 import { nodeId } from "openfig-core";
@@ -35,6 +36,7 @@ import {
   type OwnSize,
   type Placement,
   paddingOf,
+  paintedFill,
   round,
   sizeOf,
   stackFields,
@@ -348,6 +350,18 @@ const makeConverter = (file: FigFile, options: ConvertOptions) => {
       : imageNode(node, placement, src, fitOf(scaleModeOf(image)));
   };
 
+  /** An image paint as a fill's layer, at its fit; one tiled is drawn at its own size. */
+  const imageLayer = (paint: FigPaint): ImageLayer | null => {
+    const src = imageSrc(paint);
+    if (src === null) {
+      return null;
+    }
+    const mode = scaleModeOf(paint);
+    return mode === "TILE"
+      ? { kind: "image", src }
+      : { fit: fitOf(mode) ?? "cover", kind: "image", src };
+  };
+
   /** A container whose leaves are all shapes, as one picture. */
   const icon = (node: FigNode, placement: Placement): DesignNode | null => {
     if (!isVectorOnly(file, node)) {
@@ -404,7 +418,11 @@ const makeConverter = (file: FigFile, options: ConvertOptions) => {
       const converted = convert(child, context, { direction });
       return converted ? [converted] : [];
     });
-    const fields = box(merged, placement, frameSize(merged));
+    const own = box(merged, placement, frameSize(merged));
+    // A picture behind the frame's children is its fill's image layer (ADR 0149).
+    const fields = topPaint(merged.fillPaints, "IMAGE")
+      ? { ...own, fill: paintedFill(merged, tokens, imageLayer) }
+      : own;
     if (direction === null) {
       return {
         ...fields,
@@ -666,13 +684,11 @@ const makeConverter = (file: FigFile, options: ConvertOptions) => {
     if (children.length === 0 && topPaint(node.fillPaints, "IMAGE")) {
       return imageFill(node, placement);
     }
-    if (topPaint(node.fillPaints, "IMAGE")) {
+    const drawn = children.length > 0 ? icon(node, placement) : null;
+    if (drawn && topPaint(node.fillPaints, "IMAGE")) {
       warn(`"${node.name}" has an image background, which was dropped`);
     }
-    return (
-      (children.length > 0 ? icon(node, placement) : null) ??
-      container(node, context, placement)
-    );
+    return drawn ?? container(node, context, placement);
   };
 
   const convert = (
