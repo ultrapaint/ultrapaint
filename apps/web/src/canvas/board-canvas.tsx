@@ -490,6 +490,7 @@ const BoardTree = ({
       <SelectLayer
         frameId={frameId}
         name={name}
+        onBack={pointer.onSelectLayerBack}
         onClick={pointer.onSelectClick}
         onContextMenu={pointer.onContextMenu}
         onDoubleClick={pointer.onDoubleClick}

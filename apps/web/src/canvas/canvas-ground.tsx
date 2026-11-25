@@ -30,9 +30,24 @@ import { dotsBackground, gridBackground } from "./grid.ts";
 import { useWatchMeasureKey } from "./measure-key.ts";
 import { followPointer, putBackGesture } from "./pointer-gesture.ts";
 
-/** Whether the pointer pans whatever it is over: Space held, or the pan tool. */
+/**
+ * Whether the hand is out, which pans whatever the pointer is over: Space held, or the pan tool.
+ * Nothing on the canvas shows the hover that says a click selects it while it is: a click pans.
+ */
 export const pansAnywhere = (s: { mode: string; spacePan: boolean }) =>
   s.spacePan || s.mode === "pan";
+
+/** Whether the hand is out (`pansAnywhere`), for what draws a hover. */
+export const useHand = () => useEditor(pansAnywhere);
+
+/** Where the pointer was last over the ground, in the window; null while it is off the ground. */
+let pointerAt: { x: number; y: number } | null = null;
+
+/**
+ * Where the pointer rests over the ground: what comes under it there without its moving (a
+ * frame's select layer, as the hand is put down) hit-tests it there.
+ */
+export const pointerResting = () => pointerAt;
 
 /** The pattern the camera draws on the ground at each zoom: the page's grid when shown, the dots. */
 const usePattern = (background: Surface["background"]) => {
@@ -129,6 +144,7 @@ export const CanvasGround = ({
       window.removeEventListener("resize", measure);
       el.removeEventListener("wheel", onWheel);
       groundIsAt({ left: 0, top: 0 });
+      pointerAt = null;
     };
   }, [ref]);
 
@@ -189,7 +205,14 @@ export const CanvasGround = ({
     pans.current = true;
     setPanning(true);
   };
-  const onMove = (e: ReactPointerEvent) => onPointerMove?.(e, pans.current);
+  const onMove = (e: ReactPointerEvent) => {
+    pointerAt = { x: e.clientX, y: e.clientY };
+    onPointerMove?.(e, pans.current);
+  };
+  const onLeave = () => {
+    pointerAt = null;
+    onPointerLeave?.();
+  };
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the canvas is the pointer's; its menu is on the context menu key too.
@@ -207,7 +230,7 @@ export const CanvasGround = ({
       onContextMenu={onContextMenu}
       onPointerDown={onDown}
       onPointerDownCapture={onDownCapture}
-      onPointerLeave={onPointerLeave}
+      onPointerLeave={onLeave}
       onPointerMove={onMove}
       ref={ref}
       style={pansAll ? undefined : { cursor: groundCursor }}

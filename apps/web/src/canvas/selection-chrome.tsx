@@ -46,6 +46,7 @@ import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
 import { AskAgent } from "./ask-agent.tsx";
 import { unionOf } from "./boxes.ts";
 import { screenPx, UNZOOM, useExactInv } from "./camera.ts";
+import { useHand } from "./canvas-ground.tsx";
 import { frameOf, useFrameEvents } from "./editor-frame.ts";
 import type { Corner } from "./frame.tsx";
 import {
@@ -256,6 +257,7 @@ const SpacingBand = ({
   label: string | null;
   onPress: (e: ReactPointerEvent) => void;
 }) => {
+  const hand = useHand();
   const { hit, rect } = band;
   const across = band.axis === "x";
   const above = band.side === "bottom";
@@ -277,7 +279,8 @@ const SpacingBand = ({
     >
       <div
         className={cn(
-          "absolute hidden group-hover/band:block",
+          "absolute hidden",
+          !hand && "group-hover/band:block",
           active && "block"
         )}
         style={{

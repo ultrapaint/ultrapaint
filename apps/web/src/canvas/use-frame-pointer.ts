@@ -62,7 +62,7 @@ import {
 import { holdsFree } from "./snap.ts";
 
 /** Where a pointer event was, on the element it was heard on. */
-type PointerAt = Pick<
+export type PointerAt = Pick<
   ReactPointerEvent,
   "clientX" | "clientY" | "currentTarget"
 >;
@@ -142,6 +142,14 @@ export const useFramePointer = ({
   const onSelectLayerGone = () => {
     resting.current = null;
     leaveHover(frameId);
+  };
+  /**
+   * The select layer back under a resting pointer (the hand put down, the select tool picked):
+   * what it is over is hovered at once, as a move there would hover it.
+   */
+  const onSelectLayerBack = (at: PointerAt) => {
+    resting.current = at;
+    rehover(useMeasureKey.getState().deep);
   };
   const toFrame = (e: PointerAt) => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -659,6 +667,7 @@ export const useFramePointer = ({
     onPointerLeave,
     onPointerMove,
     onSelectClick,
+    onSelectLayerBack,
     onSelectLayerGone,
   };
 };

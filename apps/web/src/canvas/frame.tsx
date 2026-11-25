@@ -54,6 +54,7 @@ import { drawnIn, useVariations, writesThrough } from "../state/variations.ts";
 import { FramePresence, PresenceLabel } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
 import { onScreen, screenPx, UNZOOM } from "./camera.ts";
+import { pointerResting, useHand } from "./canvas-ground.tsx";
 import { CARD_LIFT, commentCursor, FrameComments } from "./comments.tsx";
 import { frameOf, useFrameDrawing, useFrameEvents } from "./editor-frame.ts";
 import { nameClickSelects } from "./frame-gesture.ts";
@@ -62,7 +63,7 @@ import { MeasureOverlay } from "./measure-overlay.tsx";
 import { pageRequest } from "./page-request.ts";
 import { usePreview } from "./preview-module.ts";
 import { SelectionChrome } from "./selection-chrome.tsx";
-import { useFramePointer } from "./use-frame-pointer.ts";
+import { type PointerAt, useFramePointer } from "./use-frame-pointer.ts";
 import { CHOOSING_LIFT, VariationPreviewChrome } from "./variation-preview.tsx";
 
 /**
@@ -259,6 +260,7 @@ export const Frame = memo(
     const {
       marquee,
       onCommentContextMenu,
+      onSelectLayerBack,
       onSelectLayerGone,
       onContextMenu,
       onDoubleClick,
@@ -321,6 +323,7 @@ export const Frame = memo(
           <SelectLayer
             frameId={frameId}
             name={name}
+            onBack={onSelectLayerBack}
             onClick={onSelectClick}
             onContextMenu={onContextMenu}
             onDoubleClick={onDoubleClick}
@@ -439,6 +442,7 @@ export const clipAround = (hole: Rect) => {
 export const SelectLayer = ({
   frameId,
   name,
+  onBack,
   onClick,
   onContextMenu,
   onDoubleClick,
@@ -449,6 +453,11 @@ export const SelectLayer = ({
 }: {
   frameId: string;
   name: string;
+  /**
+   * Called as the layer comes back under a pointer resting on it (the hand put down, the select
+   * tool picked), with where it rests: the pointer sends no move, and it would hover nothing.
+   */
+  onBack: (at: PointerAt) => void;
   onClick: LayerHandler<ReactMouseEvent>;
   onContextMenu: LayerHandler<ReactMouseEvent>;
   onDoubleClick: LayerHandler<ReactMouseEvent>;
@@ -480,11 +489,20 @@ export const SelectLayer = ({
   const hole = useEditor((s) =>
     editing === null ? undefined : s.rects[frameId]?.[editing]
   );
+  const layer = useRef<HTMLButtonElement>(null);
+  const back = useEffectEvent(onBack);
   const gone = useEffectEvent(onGone);
   useEffect(() => {
-    if (selecting) {
-      return () => gone();
+    if (!selecting) {
+      return;
     }
+    const at = pointerResting();
+    const el = layer.current;
+    // Under the pointer only where nothing over it (a pin, the selection's chrome) takes it.
+    if (at && el && el.ownerDocument.elementFromPoint(at.x, at.y) === el) {
+      back({ clientX: at.x, clientY: at.y, currentTarget: el });
+    }
+    return () => gone();
   }, [selecting]);
   if (!selecting) {
     return null;
@@ -499,6 +517,7 @@ export const SelectLayer = ({
       onPointerDown={onPointerDown}
       onPointerLeave={onPointerLeave}
       onPointerMove={onPointerMove}
+      ref={layer}
       style={hole ? { clipPath: clipAround(hole) } : undefined}
       type="button"
     />
@@ -555,6 +574,7 @@ export const Marquee = ({
  * the pointer is over the frame.
  */
 const ViewBadge = ({ frameId }: { frameId: string }) => {
+  const hand = useHand();
   const breakpoint = useFrameBreakpoint(frameId);
   const isView = frameRefOf(frameId).kind === "view";
   const hasViews = useEditor(
@@ -568,7 +588,11 @@ const ViewBadge = ({ frameId }: { frameId: string }) => {
     <>
       {isView ? (
         <IconButton
-          className="text-muted-foreground opacity-0 focus-visible:opacity-100 group-hover/frame:opacity-100"
+          className={cn(
+            "text-muted-foreground opacity-0 focus-visible:opacity-100",
+            // Not there for the hand either: a press on it pans, and removes nothing unseen.
+            hand ? "pointer-events-none" : "group-hover/frame:opacity-100"
+          )}
           onClick={() => removeView(frameId)}
           onPointerDown={(e) => e.stopPropagation()}
           size="icon-xs"
@@ -645,6 +669,7 @@ const ResizeHandle = ({
   /** Shown whatever the pointer does: the frame is selected. */
   shown: boolean;
 }) => {
+  const hand = useHand();
   // Centred on the 2px outline, which is drawn just outside the frame's edge.
   const off = screenPx(-5);
   const north = corner[0] === "n";
@@ -656,7 +681,8 @@ const ResizeHandle = ({
         corner === "nw" || corner === "se"
           ? "cursor-nwse-resize"
           : "cursor-nesw-resize",
-        !shown && "opacity-0 group-hover/frame:opacity-100"
+        !shown && "opacity-0",
+        !(shown || hand) && "group-hover/frame:opacity-100"
       )}
       onPointerDown={(e) => onDragStart(e, frameId, "resize", corner)}
       style={{
@@ -719,7 +745,7 @@ export const FrameHeader = ({
  * selection outline. The route and the size are the inspector's, and a page's notes its
  * toolbar's (ADR 0085): nothing else on the header can be caught by a drag meant for the frame.
  */
-const FrameChrome = ({
+export const FrameChrome = ({
   frameId,
   frame,
   holdsSelection,
@@ -738,7 +764,10 @@ const FrameChrome = ({
   // One of several frames picked together by a marquee: outlined and lit, as a selected one.
   const picked = useCanvasPicks((s) => isPicked(s.ids, frameId));
   const lit = isSelected || picked;
-  const [titleHover, setTitleHover] = useState(false);
+  // Followed under the hand too, and shown only once it is put down: at once, the pointer still.
+  const [overName, setOverName] = useState(false);
+  const hand = useHand();
+  const titleHover = overName && !hand;
   const selectFrame = (e?: ReactMouseEvent) => {
     // The click after a press that moved the picked frames together, or added this one to them or
     // took it out (Shift or ⌘/Ctrl), keeps what is picked, the keys let go of by then or not. A
@@ -776,8 +805,8 @@ const FrameChrome = ({
           onClick={selectFrame}
           onContextMenu={onContextMenu}
           onPointerDown={(e) => onDragStart(e, frameId, "move")}
-          onPointerEnter={() => setTitleHover(true)}
-          onPointerLeave={() => setTitleHover(false)}
+          onPointerEnter={() => setOverName(true)}
+          onPointerLeave={() => setOverName(false)}
           type="button"
         >
           <CutText className="block truncate">{name}</CutText>
