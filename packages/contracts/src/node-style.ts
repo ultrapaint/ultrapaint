@@ -30,3 +30,28 @@ export interface ClassWriter {
    */
   readonly classes: (styles: readonly StyleAt[]) => readonly string[];
 }
+
+/** What a style system read off an element's classes, `ClassReader`'s answer. */
+export interface ClassReading {
+  /**
+   * What the classes set, as declarations of the kind a `ClassWriter` takes: a class naming a
+   * token of the design system as that token (`bg-primary` is `$color-primary`, `p-4`
+   * `$spacing-4`), a default of the style system's own theme as its CSS, an arbitrary value as
+   * the CSS it holds. Side by side, never as a shorthand: `p-4` sets each of `paddingTop`,
+   * `paddingRight`, `paddingBottom` and `paddingLeft`.
+   */
+  readonly declarations: Declarations;
+  /** The classes it read nothing from: a utility it does not know, a token nobody declares. */
+  readonly unread: readonly string[];
+  /** The classes that apply only at a breakpoint or in a state (`md:`, `hover:`), left unread. */
+  readonly variants: readonly string[];
+}
+
+/**
+ * How a style system reads an element's classes back into declarations (ADR 0024), the other
+ * way of a `ClassWriter`: what the classes of markup pasted on the canvas set. Its design system
+ * made once.
+ */
+export interface ClassReader {
+  readonly read: (classes: readonly string[]) => ClassReading;
+}

@@ -104,7 +104,11 @@ refactor and the board view left.
 - **Node style**: what a node's fields mean, as CSS declarations at the base and at each
   breakpoint, tokens kept by name (design-document's `declarationsOf`). The canvas draws them,
   over what it draws besides (`baseStyle`); a style system's **class writer** writes them as its
-  classes, Tailwind's with its `md:` and `max-md:` variants (ADR 0024).
+  classes, Tailwind's with its `md:` and `max-md:` variants (ADR 0024). Its **class reader** goes
+  the other way, an element's classes back into declarations (style-tailwind-v4's
+  `class-reader`): a class naming a token of the design system as that token, a default of
+  Tailwind's theme the design system does not declare as its value (`default-theme`), and the
+  classes with a variant or a utility it does not know named and left unread.
 - **Style fields**: the fields of a node that are its look, per type (design-document's
   `style-fields`): a box's fill, border, radius, shadow, opacity, padding and backdrop blur; a
   row's or column's gap, alignment, alignment across and wrap; a text's text style and its own
