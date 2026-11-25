@@ -68,4 +68,13 @@ export const errorCodes = {
   Stale: "stale",
 } as const satisfies Record<WireError["_tag"], string>;
 
-export type ErrorCode = (typeof errorCodes)[WireError["_tag"]] | "internal";
+/**
+ * A wire error's code, or one the editor's client says of a request no server answered:
+ * `internal` for a failure the server did not name, `dropped` for a request its connection could
+ * not carry (closed or lost under it, or not open when it was made). A dropped request is the
+ * connection's, never the person's: the editor reads what it follows again at the next open.
+ */
+export type ErrorCode =
+  | (typeof errorCodes)[WireError["_tag"]]
+  | "internal"
+  | "dropped";

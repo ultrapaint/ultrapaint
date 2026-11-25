@@ -59,9 +59,9 @@ describe("the fake server", () => {
     fakeApi.respond("edit.state", () => undo);
     fakeApi.disconnect();
     fakeApi.emit("edit.state", undo);
-    await expect(fakeApi.request("edit.state", undefined)).rejects.toThrow(
-      "not connected"
-    );
+    await expect(
+      fakeApi.request("edit.state", undefined)
+    ).rejects.toMatchObject({ code: "dropped" });
     fakeApi.connect();
     fakeApi.emit("edit.state", undo);
     expect(heard).toEqual([undo]);

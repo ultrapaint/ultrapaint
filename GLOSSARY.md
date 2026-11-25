@@ -659,6 +659,11 @@ refactor and the board view left.
   piece (`whole`: the checkpoints, the snapshots, git's status). A snapshot on screen is the
   other **source** of what it keeps (the pages, the documents, the layouts), whose news waits
   until the editor goes back to now (ADR 0019).
+- **Dropped request**: a request its connection could not carry, cut off by a socket that closed
+  or went away under it, or made while none was open (the client's `RequestError` with the code
+  `dropped`, in its own words, never the socket's or the fibers'). A command is sent again once
+  the connection opens (ADR 0130); a read of the **server data** is no failure, and is read again
+  at that open; any other request tells the person to try again.
 - **Pointer gesture**: what a press on the canvas begins and its release ends, a marquee, a drag,
   a frame gesture, a group or text drawn, a pan (the web's `pointer-gesture`, ADR 0133): followed
   on the window by the pointer that pressed, whatever it crosses, let go on its release or its

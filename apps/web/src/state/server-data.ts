@@ -9,7 +9,8 @@
  * - The server's events reach every piece that declared them, from `followServer` on.
  * - A piece is read when its store asks, and from then on again at every connection open: news
  *   sent while the editor was away is lost, and reading again is how the editor catches up. The
- *   pieces read `atOpen` are read first, one after the other, at the first open too.
+ *   pieces read `atOpen` are read first, one after the other, at the first open too. A read its
+ *   connection cut off (`dropped`) is no failure: it is read again at that open.
  * - A piece of something chosen (the documents of the canvas open) reads what its `key` names
  *   now, and an answer for what is no longer chosen is dropped.
  * - Answers are taken in the order their reads began: one older than an answer taken, or than
@@ -22,6 +23,8 @@
  *   now, when it is read again. What a snapshot does not keep (comments, the design system, the
  *   threads) stays live while one is open.
  */
+
+import { isDropped } from "@ultrapaint/client-runtime/connection";
 import {
   type EventName,
   type EventPayload,
@@ -111,7 +114,17 @@ const readEntry = async (entry: Entry) => {
   const at = entry.begun;
   entry.reading += 1;
   try {
-    const value = await fromSource(piece, key);
+    let value: unknown;
+    try {
+      value = await fromSource(piece, key);
+    } catch (error) {
+      // Cut off with its connection (a project left, a server gone): nothing went wrong, and it
+      // is read again at the next open, as it is asked for.
+      if (isDropped(error)) {
+        return;
+      }
+      throw error;
+    }
     // Something else was chosen while it was on its way.
     if (piece.key && !Object.is(piece.key(), key)) {
       return;

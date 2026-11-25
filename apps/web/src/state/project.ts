@@ -169,7 +169,11 @@ export const onNotConfigured = (listener: () => void) => {
   return () => notConfiguredListeners.delete(listener);
 };
 
+/** Tells the person of a failure, as a toast; what the code saw of it goes to the console. */
 export const reportError = (error: unknown) => {
+  if (error instanceof RequestError && error.detail !== undefined) {
+    console.error(`[ultrapaint] ${error.detail}`);
+  }
   if (
     error instanceof RequestError &&
     error.code === "not_configured" &&
