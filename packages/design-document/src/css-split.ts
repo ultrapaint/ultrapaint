@@ -28,7 +28,8 @@ const outside = (scan: Scan, c: string): boolean => {
 };
 
 /**
- * `text` split where `separator` stands outside brackets, quotes and comments, each part trimmed.
+ * `text` split where `separator` stands outside brackets, quotes, comments and escapes, each part
+ * trimmed.
  */
 export const splitTop = (text: string, separator: "," | " "): string[] => {
   const parts: string[] = [];
@@ -43,6 +44,11 @@ export const splitTop = (text: string, separator: "," | " "): string[] => {
       continue;
     }
     const c = text[i] ?? "";
+    // An escaped character is the value's own, never a bracket, a quote or a separator: `\)`.
+    if (c === "\\") {
+      i += 1;
+      continue;
+    }
     if (outside(scan, c) && splits(c)) {
       parts.push(text.slice(start, i));
       start = i + 1;

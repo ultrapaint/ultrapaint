@@ -236,7 +236,7 @@ const stopOf = (arg: string): FillStop | null => {
 
 /** A `url()` and the file it holds, quoted or not. */
 const URL_RE =
-  /^url\(\s*(?:"((?:\\[\s\S]|[^"\\])*)"|'((?:\\[\s\S]|[^'\\])*)'|([^)"'\s]*))\s*\)$/i;
+  /^url\(\s*(?:"((?:\\[\s\S]|[^"\\])*)"|'((?:\\[\s\S]|[^'\\])*)'|((?:\\[\s\S]|[^)"'\s\\])*))\s*\)$/i;
 /** An escape of CSS: a code point in hex and the space that ends it, a line continued, a character. */
 const ESCAPE_RE =
   /\\(?:([0-9a-f]{1,6})(?:\r\n|[ \t\n\r\f])?|(\r\n|[\n\r\f])|([\s\S]))/gi;
@@ -256,13 +256,12 @@ const urlSrc = (text: string): string | null => {
     return null;
   }
   const quoted = match[1] ?? match[2];
-  return quoted === undefined
-    ? (match[3] ?? "")
-    : quoted.replace(
-        ESCAPE_RE,
-        (_whole, hex: string | undefined, _line, char: string | undefined) =>
-          hex === undefined ? (char ?? "") : codePointOf(hex)
-      );
+  // Quoted or not, its escapes are decoded: `url(/hero\).png)` is `/hero).png`.
+  return (quoted ?? match[3] ?? "").replace(
+    ESCAPE_RE,
+    (_whole, hex: string | undefined, _line, char: string | undefined) =>
+      hex === undefined ? (char ?? "") : codePointOf(hex)
+  );
 };
 
 const QUOTED_RE = /["\\]/g;
@@ -628,7 +627,7 @@ const FILL_TOKEN_RE = /(^|[\s(,])\$([a-z0-9][\w.-]*)/gi;
  * escapes take any character, a line break included.
  */
 const LITERAL_RE =
-  /\/\*[\s\S]*?\*\/|url\(\s*(?:"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|[^)"']*)\s*\)|"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'/gi;
+  /\/\*[\s\S]*?\*\/|url\(\s*(?:"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|(?:\\[\s\S]|[^)"'\\])*)\s*\)|"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'/gi;
 
 /** A fill split at its literals: the parts that may name tokens, and the literals between. */
 const tokenParts = (
