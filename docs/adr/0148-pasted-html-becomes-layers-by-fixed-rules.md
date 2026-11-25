@@ -86,9 +86,11 @@ editor's paste reaches them.
   - Else `text/html`, a browser's copy, whose plain text is only the words it shows. HTML whose
     every block it shows is a `pre` or has `white-space: pre` (VS Code's and JetBrains' copies,
     their `<meta charset>` aside) is a code editor's highlighting of code that is not markup, and
-    pastes nothing.
-  - JSX (`isJsx`) makes no layers, and the toast says so. Words that are not markup paste nothing,
-    as before.
+    pastes nothing. A browser's copy of words alone (a word from a page, a chat or a doc, as a
+    span) pastes as a text layer with the styles it was copied with: chosen with the person on
+    2026-11-25 over pasting nothing.
+  - JSX (`isJsx`) makes no layers, and the toast says so. Plain text that is not markup, with no
+    HTML beside it, pastes nothing, as before.
   - The classes are read as Tailwind's, whatever the project's style system: markup on the web is
     written with them.
 - **Landing.** The layers go where a paste of nodes goes, through `insertNodes`: into the selected
