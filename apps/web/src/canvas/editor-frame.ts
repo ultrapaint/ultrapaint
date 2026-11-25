@@ -625,6 +625,11 @@ export class EditorFrame {
     this.mount?.runtime.editText(nodeId);
   }
 
+  /** Ends the text edited in place, if one is, keeping what was typed. */
+  endTextEdit() {
+    this.mount?.runtime.endTextEdit();
+  }
+
   /**
    * Whether the page responds to input: in the prototype and in interact mode. Otherwise it is a
    * picture, which the pointer goes past.

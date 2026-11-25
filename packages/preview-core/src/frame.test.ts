@@ -18,6 +18,7 @@ afterEach(() => {
   for (const runtime of opened.splice(0)) {
     runtime.unmount();
   }
+  getSelection()?.removeAllRanges();
   document.body.replaceChildren();
 });
 
@@ -121,6 +122,33 @@ describe("a frame's host", () => {
   });
 });
 
+/** A frame shown as `shown`, holding one text, node `t`: "IT Admin". */
+const framedText = (shown: Partial<FrameShown> = {}) => {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const textCommit = vi.fn();
+  const runtime = preview.mountFrame(host, {
+    canvas: "canvas",
+    events: { textCommit },
+    frame: "a",
+    shown,
+  });
+  opened.push(runtime);
+  const title = document.createElement("h1");
+  title.setAttribute(NODE_ATTRIBUTE, "t");
+  title.textContent = "IT Admin";
+  host.shadowRoot?.querySelector(`[${BODY_ATTRIBUTE}]`)?.append(title);
+  return { runtime, textCommit, title };
+};
+
+/** The browser's selection on `el`'s words, as a drag over them leaves it. */
+const selectWords = (el: Node) => {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  getSelection()?.removeAllRanges();
+  getSelection()?.addRange(range);
+};
+
 describe("a text edited in place", () => {
   it("takes the pointer and no focus ring until the edit ends, and says what is edited", () => {
     const host = document.createElement("div");
@@ -150,6 +178,65 @@ describe("a text edited in place", () => {
     expect(textEditing).toHaveBeenLastCalledWith(null);
     expect(host.style.pointerEvents).toBe("none");
     expect(title.style.outline).toBe(own);
+  });
+
+  it("has its words selected while edited", () => {
+    const { runtime } = framedText();
+    runtime.editText("t");
+    expect(getSelection()?.toString()).toBe("IT Admin");
+  });
+
+  it("leaves no highlight once committed", () => {
+    const { runtime, title } = framedText();
+    runtime.editText("t");
+    title.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    expect(getSelection()?.rangeCount).toBe(0);
+  });
+
+  it("leaves no highlight once cancelled", () => {
+    const { runtime, title } = framedText();
+    runtime.editText("t");
+    title.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(getSelection()?.rangeCount).toBe(0);
+  });
+
+  it("leaves no highlight when the frame stops taking input", () => {
+    const { runtime } = framedText();
+    runtime.editText("t");
+    runtime.show({ interactive: false });
+    expect(getSelection()?.rangeCount).toBe(0);
+  });
+
+  it("is ended by the editor keeping what was typed, and leaves no highlight", () => {
+    const { runtime, textCommit, title } = framedText();
+    runtime.editText("t");
+    title.textContent = "IT Support";
+    runtime.endTextEdit();
+    expect(textCommit).toHaveBeenCalledWith("t", "IT Support");
+    expect(title.hasAttribute("contenteditable")).toBe(false);
+    expect(getSelection()?.rangeCount).toBe(0);
+  });
+
+  it("leaves the browser's selection outside its frame alone as it ends: the field the person went to", () => {
+    const { runtime } = framedText();
+    runtime.editText("t");
+    const field = document.createElement("p");
+    field.textContent = "A panel's words";
+    document.body.append(field);
+    selectWords(field);
+    runtime.endTextEdit();
+    expect(getSelection()?.toString()).toBe("A panel's words");
+  });
+});
+
+describe("a frame's page selected in as it runs", () => {
+  it("leaves no highlight once the frame is a picture again", () => {
+    const { runtime, title } = framedText({ interactive: true });
+    selectWords(title);
+    runtime.show({ interactive: true, title: "Home" });
+    expect(getSelection()?.toString()).toBe("IT Admin");
+    runtime.show({ interactive: false });
+    expect(getSelection()?.rangeCount).toBe(0);
   });
 });
 

@@ -61,6 +61,7 @@ const fakePreview = () => {
     mountFrame: (_host, options) =>
       ({
         editText: () => undefined,
+        endTextEdit: () => undefined,
         hitTest: () => [],
         measure: () => ({}),
         pageAt: () => [],

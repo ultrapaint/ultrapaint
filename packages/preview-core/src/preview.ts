@@ -177,6 +177,8 @@ export interface FrameEvents {
 export interface FrameRuntime {
   /** Measures and hit tests read the DOM as it is: no message, no wait. */
   readonly editText: (nodeId: string) => void;
+  /** Ends the text edited in place, if one is, keeping what was typed: as a click away does. */
+  readonly endTextEdit: () => void;
   /** The nodes under a point of the frame, outermost first; empty on nothing. */
   readonly hitTest: (x: number, y: number) => readonly string[];
   /** Where these nodes are; a node that renders nothing is left out. */
