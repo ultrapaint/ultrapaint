@@ -195,7 +195,8 @@ const BG_IMAGE = "backgroundImage";
 /** What the `background` shorthand sets besides, which no gradient's utilities do. */
 const BG_REST = ["backgroundPosition", "backgroundSize", "backgroundRepeat"];
 const VAR_RE = /^var\(/i;
-const SPACE_RE = /\s/g;
+/** What would make a file's `url()` quoted: a space, a bracket, a quote, a backslash. */
+const QUOTED_URL_RE = /[\s()'"\\]/g;
 
 /**
  * A side or corner as Tailwind's `bg-linear-to-*` names it, by the angle the codec gives it:
@@ -345,13 +346,19 @@ const BG_SIZES: Record<ImageFit, string> = {
   fill: "bg-size-[100%_100%]",
 };
 
+/** A character as a URL writes it: `(` is `%28`. */
+const percentEncoded = (c: string) =>
+  `%${c.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")}`;
+
 /**
- * A layer with its file as a class can hold it: Tailwind keeps an underscore inside a `url()`, so
- * a space is written as the URL says it, `%20`.
+ * A layer with its file as a class can hold it, unquoted: a space, a bracket, a quote or a
+ * backslash written as the URL says it (`%20`, `%28`). Tailwind keeps an underscore inside a
+ * `url()`, and a quote in a class is escaped by JSX and HTML, which Tailwind's scanner does not
+ * undo.
  */
 const forClass = (layer: FillLayer): FillLayer =>
   layer.kind === "image"
-    ? { ...layer, src: layer.src.replace(SPACE_RE, encodeURIComponent) }
+    ? { ...layer, src: layer.src.replace(QUOTED_URL_RE, percentEncoded) }
     : layer;
 
 /**
