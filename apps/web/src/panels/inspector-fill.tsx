@@ -683,7 +683,11 @@ const LayerSwatch = ({
         render={
           <button
             aria-label={`Edit the ${titleOf(layer).toLowerCase()} layer`}
-            className="flex min-w-0 shrink-0 items-center gap-2 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className={cn(
+              "flex min-w-0 items-center gap-2 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              // A summary beside the swatch is cut to the row rather than run under its −.
+              children === undefined && "shrink-0"
+            )}
             data-layer-swatch=""
             type="button"
           />
