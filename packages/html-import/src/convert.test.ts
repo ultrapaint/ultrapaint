@@ -390,9 +390,11 @@ describe("markup a review found the rules misread", () => {
   it("sets a text setting reset inline back to where it starts, not to what it inherits", () => {
     expect(
       paste(
-        `<div class="font-bold"><p style="font-weight: initial">a</p><p style="font-weight: inherit">b</p></div>`
+        `<div class="font-bold"><p style="font-weight: initial">a</p><p style="font-weight: inherit">b</p><p style="font-weight: revert">c</p></div>`
       ).nodes
-    ).toMatchObject([{ children: [{ weight: 400 }, { weight: 700 }] }]);
+    ).toMatchObject([
+      { children: [{ weight: 400 }, { weight: 700 }, { weight: 700 }] },
+    ]);
   });
 
   it("keeps a multiple of the size of 4 or more as a multiple", () => {
