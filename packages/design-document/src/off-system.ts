@@ -113,6 +113,55 @@ const FIELDS: readonly (readonly [string, OffSystemKind])[] = [
   ["tracking", "tracking"],
 ];
 
+/** A field of a node a token is due for, as the check names it, and what it holds. */
+export interface TokenField {
+  /** The field, with its side or breakpoint: `padding.top`, `at.md.gap`, `border.color`. */
+  readonly field: string;
+  readonly kind: OffSystemKind;
+  readonly value: unknown;
+}
+
+/**
+ * One node's fields (its own, or a breakpoint's, `prefix` naming it) a token is due for, in the
+ * check's order and by its paths: what the off-system check reads, and what finding a value
+ * across a canvas walks.
+ */
+export const tokenFieldsOf = (
+  fields: Readonly<Record<string, unknown>>,
+  prefix: string
+): TokenField[] => {
+  const found: TokenField[] = [];
+  for (const [field, kind] of FIELDS) {
+    // A text node's size is its font size; a box's width and height are not checked.
+    if (field !== "size" || fields.type === "text" || prefix !== "") {
+      found.push({ field: `${prefix}${field}`, kind, value: fields[field] });
+    }
+  }
+  for (const box of ["padding", "margin"] as const) {
+    const value = fields[box];
+    if (typeof value === "object" && value !== null) {
+      for (const [side, v] of Object.entries(value)) {
+        found.push({
+          field: `${prefix}${box}.${side}`,
+          kind: "spacing",
+          value: v,
+        });
+      }
+    } else {
+      found.push({ field: `${prefix}${box}`, kind: "spacing", value });
+    }
+  }
+  const { border } = fields;
+  if (typeof border === "object" && border !== null) {
+    found.push({
+      field: `${prefix}border.color`,
+      kind: "color",
+      value: (border as { color?: unknown }).color,
+    });
+  }
+  return found;
+};
+
 /** One node's fields (its own, or a breakpoint's), each value a token was due for and isn't. */
 const offIn = (
   fields: Readonly<Record<string, unknown>>,
@@ -131,33 +180,11 @@ const offIn = (
       return;
     }
     if (isOffSystem(kind, value, spacingBase)) {
-      found.push({
-        field: `${prefix}${field}`,
-        kind,
-        node,
-        value: value as string | number,
-      });
+      found.push({ field, kind, node, value: value as string | number });
     }
   };
-  for (const [field, kind] of FIELDS) {
-    // A text node's size is its font size; a box's width and height are not checked.
-    if (field !== "size" || fields.type === "text" || prefix !== "") {
-      check(field, kind, fields[field]);
-    }
-  }
-  for (const box of ["padding", "margin"] as const) {
-    const value = fields[box];
-    if (typeof value === "object" && value !== null) {
-      for (const [side, v] of Object.entries(value)) {
-        check(`${box}.${side}`, "spacing", v);
-      }
-    } else {
-      check(box, "spacing", value);
-    }
-  }
-  const { border } = fields;
-  if (typeof border === "object" && border !== null) {
-    check("border.color", "color", (border as { color?: unknown }).color);
+  for (const { field, kind, value } of tokenFieldsOf(fields, prefix)) {
+    check(field, kind, value);
   }
   return found;
 };
