@@ -1,16 +1,18 @@
 /**
  * The variation preview on the canvas (ADR 0098): the thing in its page, outlined dashed while
  * it shows another than the variation in use, with its controls hanging under its bottom-left
- * edge as the agent's ✦ hangs off a selection's top-left: Done while it is the one in use; Reset
- * and Use this once it differs, after what it is made of when it mixes several; while an agent
- * makes more, how many are coming.
+ * edge as the agent's ✦ hangs off a selection's top-left: the switch that steps through the
+ * variations in place (ADR 0147), then Done while it is the one in use; Reset and Use this once
+ * it differs, after what it is made of when it mixes several; while an agent makes more, how
+ * many are coming.
  * Drawn in the frame's own pixels, at their size on screen whatever the zoom.
  */
 import type { Rect } from "@ultrapaint/contracts/preview";
-import { CornerDownLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight, CornerDownLeft } from "lucide-react";
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
+import { IconButton } from "../components/icon-button.tsx";
 import { kindColor } from "../lib/selection-kind.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError } from "../state/project.ts";
@@ -18,8 +20,10 @@ import {
   closeVariations,
   previewDiffers,
   previewName,
+  previewStop,
   putPreviewInUse,
   resetPreview,
+  stepVariation,
   takesOfOpen,
   useVariations,
 } from "../state/variations.ts";
@@ -50,7 +54,51 @@ const useThingRect = (
 };
 
 /**
- * The preview's controls: Done, or Reset and Use this, after what the preview is made of when it
+ * The switch in place (ADR 0147): the previous and the next variation shown in the preview, as
+ * ← and → show them, and where it is among them. Their names are over them beside the page, so
+ * it says the place alone. None with one variation alone.
+ */
+const PreviewSwitch = () => {
+  const at = useVariations((s) => previewStop(s).at);
+  const of = useVariations((s) => previewStop(s).of);
+  if (of < 2) {
+    return null;
+  }
+  return (
+    <div className="flex items-center" data-variation-switch="">
+      <IconButton
+        label="Previous variation"
+        onClick={() => stepVariation(-1)}
+        size="icon-sm"
+        tooltip={
+          <>
+            Previous variation <Kbd>←</Kbd>
+          </>
+        }
+      >
+        <ChevronLeft />
+      </IconButton>
+      <span className="px-0.5 font-body-small text-muted-foreground tabular-nums">
+        {at} of {of}
+      </span>
+      <IconButton
+        label="Next variation"
+        onClick={() => stepVariation(1)}
+        size="icon-sm"
+        tooltip={
+          <>
+            Next variation <Kbd>→</Kbd>
+          </>
+        }
+      >
+        <ChevronRight />
+      </IconButton>
+    </div>
+  );
+};
+
+/**
+ * The preview's controls: the switch, then Done, or Reset and Use this, after what the preview is made of when it
  * holds parts of several. One variation alone is named over it beside the page, outlined.
  */
 export const PreviewControls = () => {
@@ -65,6 +113,7 @@ export const PreviewControls = () => {
       className="flex items-center gap-1 whitespace-nowrap rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10"
       data-variation-controls=""
     >
+      <PreviewSwitch />
       {coming > 0 ? (
         <span className="px-1.5 font-body-small text-muted-foreground">
           {coming} more coming

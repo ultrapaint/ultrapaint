@@ -10,7 +10,7 @@
  * beside the others, those that failed red boxes with Try again, and the thing's variations are
  * laid out once the first of a round comes in or fails.
  */
-import type { Box } from "@ultrapaint/contracts/canvas-layout";
+import { type Box, roomFor } from "@ultrapaint/contracts/canvas-layout";
 import {
   type ComponentFile,
   componentOfDoc,
@@ -85,6 +85,11 @@ interface VariationsStore {
   readonly byDoc: Readonly<Record<string, VariationSets>>;
   readonly canvas: string | null;
   readonly open: OpenVariations | null;
+  /**
+   * How far each frame in the way of the open variations is drawn to the right, by frame, while
+   * they are open (ADR 0147): room made for them, never written.
+   */
+  readonly room: Readonly<Record<string, number>>;
   /** The agents' rounds of takes under way, and those with a take that failed. */
   readonly rounds: readonly VariationRound[];
 }
@@ -93,6 +98,7 @@ export const useVariations = create<VariationsStore>(() => ({
   byDoc: {},
   canvas: null,
   open: null,
+  room: {},
   rounds: [],
 }));
 
@@ -532,20 +538,36 @@ export const previewName = (state: VariationsStore): string => {
   );
 };
 
-/** The next variation in the preview (← -1, → +1), round from the last to the first. */
-export const stepVariation = (by: 1 | -1) => {
-  const state = useVariations.getState();
+/**
+ * What the preview steps through, and where it is: the variations, and with none in use the
+ * thing as it is drawn first; `at` counts from 0.
+ */
+const stopsOf = (
+  state: VariationsStore
+): { readonly at: number; readonly ids: readonly (string | null)[] } => {
   const set = openSet(state);
   if (!(state.open && set)) {
-    return;
+    return { at: -1, ids: [] };
   }
-  // With none in use, the thing as it is drawn is one of the stops.
   const ids = [
     ...(set.inUse === null ? [null] : []),
     ...set.variations.map((v) => v.id),
   ];
   // The thing as drawn is the one in use once an undo puts one back.
-  const at = ids.indexOf(state.open.preview ?? set.inUse);
+  return { at: ids.indexOf(state.open.preview ?? set.inUse), ids };
+};
+
+/** Where the preview is among what it steps through, from 1, and how many there are. */
+export const previewStop = (
+  state: VariationsStore
+): { readonly at: number; readonly of: number } => {
+  const { at, ids } = stopsOf(state);
+  return { at: at + 1, of: ids.length };
+};
+
+/** The next variation in the preview (← -1, → +1), round from the last to the first. */
+export const stepVariation = (by: 1 | -1) => {
+  const { at, ids } = stopsOf(useVariations.getState());
   const next = ids[(at + by + ids.length) % ids.length];
   if (next !== undefined) {
     showVariation(next);
@@ -720,30 +742,39 @@ export const BESIDE_GAP = 80;
 const BESIDE_COLUMNS = 2;
 
 /**
- * The room between two rows of variations: the name over a row is `28px` on screen at any zoom,
- * and the camera fits the page and its variations, which zooms out by about the thing's larger
- * side; an eighth of it holds the name in a window down to about `750px`.
+ * The room over a row of variations for what is said over each: a line is `28px` on screen at any
+ * zoom, and the camera fits the page and its variations, which zooms out by about the thing's
+ * larger side; an eighth of it holds a line in a window down to about `750px`. What a variation
+ * varied is a second line under its name (ADR 0147), so a row saying one takes a quarter.
  */
-const rowGap = (thing: Box) =>
-  Math.max(BESIDE_GAP, Math.max(thing.width, thing.height) / 8);
+export const roomOver = (thing: Box, lines: 1 | 2) =>
+  Math.max(BESIDE_GAP, (Math.max(thing.width, thing.height) * lines) / 8);
+
+/** How many lines are said over a row of variations: two where one of them says what it varied. */
+const linesOver = (row: readonly string[], varied: ReadonlySet<string>) =>
+  row.some((id) => varied.has(id)) ? 2 : 1;
 
 /**
  * Where a thing's variations are laid out beside its page: two to a row past the page's right
  * edge, the first row level with the thing, each as wide as the thing and as tall as it is drawn
  * (the thing's height until it is measured), a row below the tallest of the one above, by as much
- * as its names need (`rowGap`). They may lie over a neighbouring page: the rest of the canvas
- * fades back under them while they are open.
+ * as the names over it need (`roomOver`), two lines where one of them says what it varied
+ * (`varied`). What else is on the canvas there is moved aside while they are open (`besideRoom`).
  */
 export const besideBoxes = (
   page: Box,
   thing: Box,
   ids: readonly string[],
-  heights: Readonly<Record<string, number>>
+  heights: Readonly<Record<string, number>>,
+  varied: ReadonlySet<string> = new Set()
 ): Record<string, Box> => {
   const boxes: Record<string, Box> = {};
   let { y } = thing;
   for (let start = 0; start < ids.length; start += BESIDE_COLUMNS) {
     const row = ids.slice(start, start + BESIDE_COLUMNS);
+    if (start > 0) {
+      y += roomOver(thing, linesOver(row, varied));
+    }
     row.forEach((id, column) => {
       boxes[id] = {
         height: heights[id] ?? thing.height,
@@ -756,9 +787,75 @@ export const besideBoxes = (
         y,
       };
     });
-    y += Math.max(...row.map((id) => boxes[id]?.height ?? 0)) + rowGap(thing);
+    y += Math.max(...row.map((id) => boxes[id]?.height ?? 0));
   }
   return boxes;
+};
+
+/**
+ * The room the variations laid out beside a page take, the names over the first row included,
+ * and how far each frame in the way of it is drawn to the right while they are open (ADR 0147):
+ * the frames that crowd it shift past it, as `roomFor` makes room, and the thing's own frame
+ * (`frame`) stays. Nothing is written: closed, every frame is back where it was.
+ */
+export const besideRoom = (
+  thing: Box,
+  boxes: Readonly<Record<string, Box>>,
+  varied: ReadonlySet<string>,
+  frames: Readonly<Record<string, Box>>,
+  frame: string
+): Record<string, number> => {
+  const laid = Object.entries(boxes);
+  if (laid.length === 0) {
+    return {};
+  }
+  const firstRow = laid.slice(0, BESIDE_COLUMNS).map(([id]) => id);
+  const left = Math.min(...laid.map(([, b]) => b.x));
+  const right = Math.max(...laid.map(([, b]) => b.x + b.width));
+  const top =
+    Math.min(...laid.map(([, b]) => b.y)) -
+    roomOver(thing, linesOver(firstRow, varied));
+  const bottom = Math.max(...laid.map(([, b]) => b.y + b.height));
+  const { [frame]: _, ...others } = frames;
+  return roomFor(
+    { height: bottom - top, width: right - left, x: left, y: top },
+    others
+  );
+};
+
+/** The box last drawn aside from each box, by how far: the same object while it stays there. */
+const asideOf = new WeakMap<Box, { readonly by: number; readonly box: Box }>();
+
+/**
+ * A frame's box as it is drawn while the variations are open: `by` to the right where it is in
+ * their way (`room`), else the box itself.
+ */
+export const asideBy = <B extends Box>(box: B, by: number | undefined): B => {
+  if (!by) {
+    return box;
+  }
+  const was = asideOf.get(box);
+  if (was?.by === by) {
+    return was.box as B;
+  }
+  const moved = { ...box, x: box.x + by };
+  asideOf.set(box, { box: moved, by });
+  return moved;
+};
+
+/**
+ * Keeps the room made for the open variations (`besideRoom`), by frame: the same object while
+ * the distances are the same, so the canvas draws again only when a frame moves.
+ */
+export const setRoom = (room: Readonly<Record<string, number>>) => {
+  const was = useVariations.getState().room;
+  const keys = Object.keys(room);
+  if (
+    keys.length !== Object.keys(was).length ||
+    keys.some((key) => was[key] !== room[key])
+  ) {
+    useVariations.setState({ room });
+  }
 };
 
 /**

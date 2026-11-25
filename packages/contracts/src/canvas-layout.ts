@@ -227,6 +227,43 @@ export const placeView = (
 };
 
 /**
+ * Room made for a block on the canvas by shifting what is in the way, never drawing over it
+ * (ADR 0147): every box that crowds the block moves right, past it, by one distance, so the
+ * boxes that move keep their places among themselves; a box to the right of one that moves, and
+ * that the moved one would crowd, moves with it. Returns how far each box that moves goes, by
+ * its key; the others stay.
+ */
+export const roomFor = (
+  block: Box,
+  boxes: Readonly<Record<string, Box>>
+): Record<string, number> => {
+  const entries = Object.entries(boxes);
+  const inWay = entries.filter(([, box]) => crowds(block, box));
+  if (inWay.length === 0) {
+    return {};
+  }
+  const by = Math.max(
+    ...inWay.map(([, box]) => block.x + block.width + FRAME_GAP - box.x)
+  );
+  const moved = new Map(inWay);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const [key, box] of entries) {
+      const pushed =
+        !moved.has(key) &&
+        [...moved.values()].some(
+          (m) => box.x >= m.x && crowds({ ...m, x: m.x + by }, box)
+        );
+      if (pushed) {
+        moved.set(key, box);
+        grew = true;
+      }
+    }
+  }
+  return Object.fromEntries([...moved.keys()].map((key) => [key, by]));
+};
+
+/**
  * A page's family: the pages of its canvas drawn from the same base page, the base with its
  * states (ADR 0030). They are named after the base, and move and go with it.
  */

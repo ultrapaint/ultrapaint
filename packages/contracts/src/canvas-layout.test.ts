@@ -10,6 +10,7 @@ import {
   placeFrame,
   placeFrameAt,
   placeView,
+  roomFor,
   sizeFrame,
   viewIdFor,
   viewsAt,
@@ -382,5 +383,59 @@ describe("familyOf", () => {
     expect(familyOf(pages, page("", "settings/pricing.page.json"))).toEqual([
       page("", "settings/pricing.page.json"),
     ]);
+  });
+});
+
+describe("room made for a block by shifting what is in the way (ADR 0147)", () => {
+  const box = (x: number, y: number, width = 400, height = 300) => ({
+    height,
+    width,
+    x,
+    y,
+  });
+  // Variations beside a page at 0,0: two columns of 400, two rows, from x 1520.
+  const block = box(1520, 0, 880, 1000);
+
+  it("moves nothing when nothing crowds the block", () => {
+    expect(roomFor(block, { far: box(3000, 0), under: box(0, 1100) })).toEqual(
+      {}
+    );
+  });
+
+  it("moves what crowds it right, past the block, by one distance", () => {
+    // A frame at 1600 in the first row and one at 1520 in the second (the person's canvas).
+    const room = roomFor(block, {
+      below: box(1520, 900),
+      menu: box(1600, 0),
+      page: box(0, 0, 1440, 900),
+    });
+    expect(room).toEqual({ below: 960, menu: 960 });
+    for (const [key, at] of [
+      ["below", box(1520, 900)],
+      ["menu", box(1600, 0)],
+    ] as const) {
+      expect(at.x + (room[key] ?? 0)).toBeGreaterThanOrEqual(
+        block.x + block.width + FRAME_GAP
+      );
+    }
+  });
+
+  it("moves what lies right of a moved box with it, so the moved one lands on nothing", () => {
+    const room = roomFor(block, {
+      // In the row of the moved box but further on, past where the moved one lands: it stays.
+      last: box(8000, 0),
+      menu: box(1600, 0),
+      // Clear of the block, but where the menu lands.
+      next: box(2600, 0),
+      // Under the block and left of it: nothing moves into it.
+      under: box(0, 1200),
+    });
+    expect(room).toEqual({ menu: 880, next: 880 });
+  });
+
+  it("leaves a box left of the block in place, as it moves the boxes right", () => {
+    expect(roomFor(block, { left: box(800, 0), menu: box(1600, 0) })).toEqual({
+      menu: 880,
+    });
   });
 });

@@ -3,9 +3,9 @@
  * straight on the canvas background, with no card around it, its name and what it varied over
  * it, the one in use marked. A click shows it in the preview, the thing in its page. Opening them
  * fits the camera to the page and its variations. After them, an agent's takes still coming are
- * placeholders in its colour, and those that failed red boxes with Try again. The rest of the
- * canvas fades back under them, so they may lie over a neighbouring page, and a press on it
- * closes them.
+ * placeholders in its colour, and those that failed red boxes with Try again. They never lie
+ * over anything: what is in their way is drawn aside while they are open (ADR 0147). The rest of
+ * the canvas fades back under them, and a press on it closes them.
  */
 import type { Box } from "@ultrapaint/contracts/canvas-layout";
 import { componentOfDoc } from "@ultrapaint/contracts/components";
@@ -22,6 +22,7 @@ import {
   memo,
   type MouseEvent as ReactMouseEvent,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
 } from "react";
@@ -41,11 +42,12 @@ import { useBreakpoints, useDesignSystem } from "../state/design-system.ts";
 import { canvasNodes, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { frameRefOf } from "../state/frame-ref.ts";
-import { nodeFrameLayout } from "../state/page-layout.ts";
+import { framesOnCanvas, nodeFrameLayout } from "../state/page-layout.ts";
 import { useAgentSweeps } from "../state/preferences.ts";
 import { useFrameBreakpoint } from "../state/selection.ts";
 import {
   besideBoxes,
+  besideRoom,
   clickUndone,
   clickVariation,
   closeOnSelecting,
@@ -57,15 +59,16 @@ import {
   putPartInPreview,
   rootOfDocument,
   selectPart,
+  setRoom,
   sizedAsInPage,
   takesOfOpen,
   useVariations,
   variationFrameOf,
 } from "../state/variations.ts";
-import { screenPx, UNZOOM } from "./camera.ts";
+import { onScreen, screenPx, UNZOOM } from "./camera.ts";
 import { pansAnywhere } from "./canvas-ground.tsx";
 import { frameOf, useFrameDrawing } from "./editor-frame.ts";
-import { FrameHeader, HEADER_NAME } from "./frame.tsx";
+import { FrameHeader, HEADER_GAP, HEADER_NAME } from "./frame.tsx";
 import { pageRequest } from "./page-request.ts";
 import { PreviewSurface } from "./preview-surface.tsx";
 import { CHOOSING_LIFT } from "./variation-preview.tsx";
@@ -208,19 +211,12 @@ const VariationFrame = memo(
           width: box.width,
         }}
       >
-        <FrameHeader width={box.width}>
-          {/* As tall as its text, as what follows it is, so the header centres both on one line. */}
-          <span className={cn(HEADER_NAME, "h-auto text-foreground")}>
-            {variation.name}
-          </span>
-          {varied ? (
-            <span className="text-muted-foreground">{varied}</span>
-          ) : null}
-          {inUse ? (
-            // Filled a step off the canvas, which shares the badge's own fill in the light theme.
-            <Badge className="bg-foreground/8">In use</Badge>
-          ) : null}
-        </FrameHeader>
+        <VariationHeader
+          inUse={inUse}
+          name={variation.name}
+          varied={varied}
+          width={box.width}
+        />
         <PreviewSurface
           canvas={canvas}
           // A page fills the box it is drawn in, as its frame does; a part is as big as it draws.
@@ -248,6 +244,51 @@ const VariationFrame = memo(
   }
 );
 VariationFrame.displayName = "VariationFrame";
+
+/**
+ * What is said over a variation, at its size on screen at any zoom: its name, In use beside the
+ * one in use, and under them what it varied. Each line is cut short with an ellipsis at the
+ * variation's width, never under another line or another variation (ADR 0147), and says itself
+ * whole in its tooltip. The room over its row holds both lines (`roomOver`).
+ */
+const VariationHeader = ({
+  inUse,
+  name,
+  varied,
+  width,
+}: {
+  inUse: boolean;
+  name: string;
+  varied: string | undefined;
+  /** The variation's width, on the canvas. */
+  width: number;
+}) => (
+  <div
+    className="pointer-events-none absolute left-0 flex flex-col font-body-small *:pointer-events-auto"
+    data-variation-header=""
+    style={{
+      bottom: `calc(100% + ${screenPx(HEADER_GAP)})`,
+      transform: UNZOOM,
+      transformOrigin: "bottom left",
+      width: onScreen(width),
+    }}
+  >
+    <span className="flex h-6 min-w-0 items-center gap-1.5">
+      <span className="min-w-0 truncate text-foreground" title={name}>
+        {name}
+      </span>
+      {inUse ? (
+        // Filled a step off the canvas, which shares the badge's own fill in the light theme.
+        <Badge className="shrink-0 bg-foreground/8">In use</Badge>
+      ) : null}
+    </span>
+    {varied ? (
+      <span className="truncate text-muted-foreground" title={varied}>
+        {varied}
+      </span>
+    ) : null}
+  </div>
+);
 
 /**
  * A double-click inside a variation selects one of its parts, as on the canvas: the outermost
@@ -440,9 +481,9 @@ const SCRIM_REACH = 1_000_000;
 
 /**
  * The rest of the canvas while a thing's variations are open (ADR 0098): faded back under the
- * canvas's own colour, so the variations are drawn on its ground wherever they lie, a neighbouring
- * page included. A click on it closes them, the one in use kept, as Escape does, and selects
- * nothing under it; it pans as the canvas does. It closes on its own click, not on the press: a
+ * canvas's own colour, so the variations are drawn on its ground, clear of every page (ADR
+ * 0147). A click on it closes them, the one in use kept, as Escape does, and selects nothing
+ * under it; it pans as the canvas does. It closes on its own click, not on the press: a
  * scrim gone at the press would leave the release, and a browser's click after it, to what lies
  * under it, which would select it.
  */
@@ -496,13 +537,47 @@ const useTakeKeys = () => {
 };
 
 /**
+ * What is in the way of the variations laid out (`laid`) beside the thing in `frame`, drawn aside
+ * while they are open and back once they close (ADR 0147): the pages, their views and the nodes
+ * beside them on the page canvas, or the boards given (`boards`) on a component's board view.
+ */
+const useRoomBeside = (
+  boards: Readonly<Record<string, Box>> | undefined,
+  frame: string | undefined,
+  thing: Box | null,
+  laid: Readonly<Record<string, Box>> | undefined,
+  varied: ReadonlySet<string>
+) => {
+  const docs = useDocuments((s) => s.docs);
+  const frames = useEditor((s) => s.frames);
+  const held = useEditor((s) => s.held);
+  const sizes = useEditor((s) => s.sizes);
+  const canvas = useEditor((s) => s.canvas);
+  const around = useMemo(
+    () => boards ?? framesOnCanvas({ canvas, frames, held, sizes }, docs),
+    [boards, canvas, frames, held, sizes, docs]
+  );
+  const room =
+    frame !== undefined && thing && laid
+      ? besideRoom(thing, laid, varied, around, frame)
+      : {};
+  useLayoutEffect(() => setRoom(room));
+  useLayoutEffect(() => () => setRoom({}), []);
+};
+
+/**
  * The open thing's variations, beside its page on the page canvas; beside its board, `board`,
  * on a component's board view, where its main tree is drawn (ADR 0098).
  */
 export const VariationsBeside = ({
   board,
 }: {
-  board?: { readonly box: Box; readonly frameId: string };
+  board?: {
+    readonly box: Box;
+    readonly frameId: string;
+    /** Every board of the view, by frame, which make room for the variations. */
+    readonly frames: Readonly<Record<string, Box>>;
+  };
 }) => {
   const open = useVariations((s) => s.open);
   const set = useVariations(openSet);
@@ -533,12 +608,24 @@ export const VariationsBeside = ({
       : page;
   const ids = useMemo(() => set?.variations.map((v) => v.id) ?? [], [set]);
   const varied = useMemo(() => variedOnce(set?.variations ?? []), [set]);
+  const saysVaried = useMemo(
+    () => new Set(ids.filter((id) => varied[id] !== undefined)),
+    [ids, varied]
+  );
   const takes = useTakeKeys();
   const heights = open ? heightsOf(open, ids, drawnHeights) : {};
   const boxes =
     page && thing
-      ? besideBoxes(page, thing, [...ids, ...takes.map((t) => t.key)], heights)
+      ? besideBoxes(
+          page,
+          thing,
+          [...ids, ...takes.map((t) => t.key)],
+          heights,
+          saysVaried
+        )
       : undefined;
+
+  useRoomBeside(board?.frames, open?.frame, thing, boxes, saysVaried);
 
   // Open, selecting something closes them.
   const isOpen = open !== null;

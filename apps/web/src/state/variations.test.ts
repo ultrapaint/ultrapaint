@@ -10,6 +10,8 @@ import { rightHasSubject } from "./panels.ts";
 import { select, selectMany } from "./selection.ts";
 import { followServer } from "./server-data.ts";
 import {
+  asideBy,
+  besideBoxes,
   closeVariations,
   drawnIn,
   loadVariations,
@@ -322,5 +324,27 @@ describe("a part drawn out of its page (ADR 0098)", () => {
       height: "hug",
       width: 240,
     });
+  });
+});
+
+describe("room made beside the page for its variations (ADR 0147)", () => {
+  const page = { height: 900, width: 1440, x: 0, y: 0 };
+  const thing = { height: 900, width: 240, x: 0, y: 0 };
+
+  it("leaves room over a row for two lines where one of it says what it varied", () => {
+    const tops = (varied: ReadonlySet<string>) =>
+      Object.values(besideBoxes(page, thing, ["a", "b", "c"], {}, varied)).map(
+        (b) => b.y
+      );
+    // An eighth of the thing's 900 px over a row of names; a quarter over names and what varied.
+    expect(tops(new Set())).toEqual([0, 0, 1012.5]);
+    expect(tops(new Set(["c"]))).toEqual([0, 0, 1125]);
+  });
+
+  it("draws a frame aside by how far, the same box while it stays there", () => {
+    const box = { height: 10, width: 10, x: 5, y: 0 };
+    expect(asideBy(box, undefined)).toBe(box);
+    expect(asideBy(box, 100)).toEqual({ ...box, x: 105 });
+    expect(asideBy(box, 100)).toBe(asideBy(box, 100));
   });
 });
