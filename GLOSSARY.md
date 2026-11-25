@@ -106,12 +106,12 @@ refactor and the board view left.
   over what it draws besides (`baseStyle`); a style system's **class writer** writes them as its
   classes, Tailwind's with its `md:` and `max-md:` variants (ADR 0024).
 - **Style fields**: the fields of a node that are its look, per type (design-document's
-  `style-fields`): a box's fill, border, radius, shadow, opacity and padding; a row's or column's
-  gap, alignment, alignment across and wrap; a text's text style and its own settings over it; an
-  image's fit and tint. Never what it says, its size, margin, place, identity or direction. **Copy
-  style** keeps a node's as its view draws them, for the editor's session alone; **Paste style**
-  writes them onto the nodes selected, clearing what the copy leaves unset, each taking only its
-  own kind's. Not the node style, which is what fields mean as CSS.
+  `style-fields`): a box's fill, border, radius, shadow, opacity, padding and backdrop blur; a
+  row's or column's gap, alignment, alignment across and wrap; a text's text style and its own
+  settings over it; an image's fit and tint. Never what it says, its size, margin, place, identity
+  or direction. **Copy style** keeps a node's as its view draws them, for the editor's session
+  alone; **Paste style** writes them onto the nodes selected, clearing what the copy leaves unset,
+  each taking only its own kind's. Not the node style, which is what fields mean as CSS.
 - **Fill layer**: one of the layers a box's `fill` is read as (ADR 0134; design-document's
   `fill`), the top one first: a **colour**, a **gradient**, or, for a value the editor cannot
   read, the whole fill **kept as written** (the `css` kind). A gradient has its **shape**
