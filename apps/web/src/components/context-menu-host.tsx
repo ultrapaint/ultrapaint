@@ -172,6 +172,7 @@ const ICONS: Partial<Record<ActKind, LucideIcon>> = {
 
 const SUBMENU_ICONS: Partial<Record<SubmenuId, LucideIcon>> = {
   arrange: ArrowUpDown,
+  code: Code,
   copyTo: Copy,
   layers: Layers,
   link: Link,

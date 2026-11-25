@@ -1055,6 +1055,7 @@ const EVERY_ACTION = {
     ask: true,
     comment: true,
     copy: true,
+    copyCode: true,
     copyLink: true,
     copyRef: true,
     copyStyle: true,
@@ -1180,6 +1181,21 @@ const setUpForEvery = () => {
     ],
   }));
 };
+
+describe("Copy as code (ADR 0150)", () => {
+  it("puts the element's HTML, as the server writes it, on the clipboard", async () => {
+    fakeApi.respond("code.write", ({ format, node }) => ({
+      code: `<p>${node.id}</p>`,
+      language: format ?? "tsx",
+    }));
+    await choose(nodeAt(HOME, "title"), { format: "html", kind: "copyCode" });
+    expect(fakeApi.calls.at(-1)).toMatchObject({
+      input: { format: "html", imports: false, node: { id: "title" } },
+      method: "code.write",
+    });
+    expect(await navigator.clipboard.readText()).toBe("<p>title</p>");
+  });
+});
 
 describe("every action", () => {
   it("is in a menu, and runs", async ({ onTestFinished }) => {

@@ -8,9 +8,9 @@
 
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { pageComponentName } from "@ultrapaint/design-document/code";
-import { layoutOf, type ParentLayout } from "@ultrapaint/design-document/css";
+import type { ParentLayout } from "@ultrapaint/design-document/css";
 import { layerPath } from "@ultrapaint/design-document/instance-layers";
-import { slotLayoutOf } from "@ultrapaint/design-document/slots";
+import { parentLayoutOf } from "@ultrapaint/design-document/slots";
 import { nodeKind, nodeLabel } from "@ultrapaint/design-document/tree";
 import { routeOf } from "@ultrapaint/shared/route";
 import { Check, Code as CodeIcon, Copy } from "lucide-react";
@@ -239,12 +239,9 @@ export const CodePanel = () => {
       ? pageComponentName(route)
       : undefined;
   // Inside an instance, a node is sized against the layout of the slot it fills.
-  let parentLayout: ParentLayout = "free";
-  if (parent?.type === "instance" && node) {
-    parentLayout = slotLayoutOf(parent, node.slot, catalogue) ?? "block";
-  } else if (parent) {
-    parentLayout = layoutOf(parent);
-  }
+  const parentLayout: ParentLayout = node
+    ? parentLayoutOf(node, parent, catalogue)
+    : "free";
   const { code, failed } = useWritten({
     canvas: subject?.canvas ?? null,
     component,

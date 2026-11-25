@@ -8,6 +8,7 @@ import { APP_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { isBound } from "@ultrapaint/contracts/implementation";
 import type { ViewportPreset } from "@ultrapaint/contracts/pages";
+import type { CodeFormat } from "@ultrapaint/contracts/rpc";
 import {
   isContainer,
   nodeKind,
@@ -38,6 +39,8 @@ export interface Item<A> {
 /** The submenus, by what they gather: their icon is told by it. */
 export type SubmenuId =
   | "arrange"
+  /** An element's code, copied as JSX or HTML (ADR 0150). */
+  | "code"
   | "copyTo"
   /** The layers under the point the menu was right-clicked at (ADR 0143). */
   | "layers"
@@ -130,6 +133,8 @@ export type NodeAction =
   | { kind: "editText" }
   | { kind: "rename" }
   | { kind: "viewCode" }
+  /** The element's code, the outermost of those it acts on, put on the clipboard (ADR 0150). */
+  | { kind: "copyCode"; format: CodeFormat }
   | { kind: "comment" }
   | { kind: "makeApp" }
   /** An app component's instance: its component edited in place, or the instance detached from it (ADR 0041). */
@@ -277,13 +282,32 @@ const headingOf = (node: DesignNode) => {
 export const isPageRoot = (node: DesignNode) => node.type === "page";
 
 /**
- * What a node's frame gives it: its code, a comment and an app component made of it on a page;
- * the code alone beside the pages; none of them on a board, whose document is generated.
+ * The style system the copied code's classes are in, which the items name: Tailwind v4's is the
+ * only one (ADR 0024).
  */
-const frameEntries = (f: NodeFacts): (Item<NodeAction> | false)[] => {
+const CLASSES = "Tailwind classes";
+
+/** The element's code to copy, in each format (ADR 0150). */
+const copyCodeEntry: Entry<NodeAction> = {
+  entries: [
+    item({ format: "tsx", kind: "copyCode" }, `JSX with ${CLASSES}`),
+    item({ format: "html", kind: "copyCode" }, `HTML with ${CLASSES}`),
+  ],
+  id: "code",
+  kind: "submenu",
+  label: "Copy as code",
+};
+
+/**
+ * What a node's frame gives it: its code to view or copy, a comment and an app component made of
+ * it on a page; the code alone beside the pages; none of them on a board, whose document is
+ * generated.
+ */
+const frameEntries = (f: NodeFacts): (Entry<NodeAction> | false)[] => {
   const one = { disabled: f.count > 1 };
   return [
     f.frame.kind !== "board" && item({ kind: "viewCode" }, "View code", one),
+    f.frame.kind !== "board" && copyCodeEntry,
     takesComments(f.frame) && item({ kind: "comment" }, "Comment on this", one),
     // Part of the page, siblings, made one of the project's own components (ADR 0041).
     pageOfRef(f.frame) !== null &&

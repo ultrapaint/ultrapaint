@@ -16,6 +16,7 @@ import {
 } from "@ultrapaint/contracts/catalogue";
 import { variantKey } from "@ultrapaint/contracts/component-names";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
+import { layoutOf, type ParentLayout } from "./css.ts";
 
 /** The slot a child naming `name` fills: the slot of that name that holds nodes, else the default. */
 const slotFor = (
@@ -108,4 +109,19 @@ export const slotLayoutOf = (
     .map((key) => filled.layoutIn?.[key])
     .findLast((layout) => layout !== undefined);
   return over ?? filled.layout ?? "block";
+};
+
+/**
+ * How a node's parent lays it out, which its `fill` and `hug` are written against (the Code tab,
+ * Copy as code): inside an instance, the slot it fills; free without a parent.
+ */
+export const parentLayoutOf = (
+  node: DesignNode,
+  parent: DesignNode | undefined,
+  catalogue: Catalogue
+): ParentLayout => {
+  if (parent?.type === "instance") {
+    return slotLayoutOf(parent, node.slot, catalogue) ?? "block";
+  }
+  return parent ? layoutOf(parent) : "free";
 };
