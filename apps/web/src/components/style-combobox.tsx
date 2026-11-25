@@ -347,13 +347,14 @@ const ActiveCombobox = ({
     : [...ways, ...itemsFor(options, query, custom)];
   // The item the keyboard or the pointer is on: a swatch is read under the palettes.
   const [highlighted, setHighlighted] = useState<Item | null>(null);
-  // The grid's items by their values, for the arrow keys to hand the highlight to.
+  // The grid's items by their keys (Use nearest and its token's swatch share a value), for the
+  // arrow keys to hand the highlight to.
   const cells = useRef(new Map<string, HTMLElement>());
-  const cellRef = (value: string) => (element: HTMLElement | null) => {
+  const cellRef = (item: Item) => (element: HTMLElement | null) => {
     if (element) {
-      cells.current.set(value, element);
+      cells.current.set(keyOf(item), element);
     } else {
-      cells.current.delete(value);
+      cells.current.delete(keyOf(item));
     }
   };
   /**
@@ -369,8 +370,8 @@ const ActiveCombobox = ({
     if (!(swatches && highlighted && direction)) {
       return;
     }
-    const next = stepTo(swatches, highlighted.value, direction);
-    const element = next && cells.current.get(next.value);
+    const next = stepTo(swatches, keyOf(highlighted), direction);
+    const element = next && cells.current.get(keyOf(next));
     if (!element) {
       return;
     }
@@ -500,7 +501,7 @@ const ActiveCombobox = ({
                       <ListItem
                         item={item}
                         outside={outside}
-                        ref={cellRef(item.value)}
+                        ref={cellRef(item)}
                       />
                     </ComboboxPrimitive.Row>
                   ))
@@ -582,18 +583,16 @@ const swatchGridOf = (
 };
 
 /**
- * Where up or down goes from an item when it leaves or enters a palette, or null to leave it to
- * the list: from a list row to a palette's first shade; from a palette to the nearest shade at
- * the same place, the lower of two as near; to a list row's item.
+ * Where up or down goes from the item of a key (`keyOf`) when it leaves or enters a palette, or
+ * null to leave it to the list: from a list row to a palette's first shade; from a palette to the
+ * nearest shade at the same place, the lower of two as near; to a list row's item.
  */
 const stepTo = (
   rows: readonly GridRow[],
-  value: string,
+  key: string,
   direction: number
 ): Item | null => {
-  const from = rows.findIndex((row) =>
-    row.cells.some((c) => c.value === value)
-  );
+  const from = rows.findIndex((row) => row.cells.some((c) => keyOf(c) === key));
   const source = rows[from];
   const target = rows[from + direction];
   if (!(source && target && (source.palette || target.palette))) {
@@ -603,7 +602,7 @@ const stepTo = (
   if (!source.palette) {
     return shades[0] ?? null;
   }
-  const place = source.cells.findIndex((c) => c.value === value);
+  const place = source.cells.findIndex((c) => keyOf(c) === key);
   const distance = (c: Item) => Math.abs(target.cells.indexOf(c) - place);
   return shades.reduce<Item | null>(
     (best, c) => (best === null || distance(c) < distance(best) ? c : best),
@@ -616,7 +615,7 @@ const PaletteSwatches = ({
   cellRef,
   row,
 }: {
-  cellRef: (value: string) => React.Ref<HTMLDivElement>;
+  cellRef: (item: Item) => React.Ref<HTMLDivElement>;
   row: GridRow;
 }) => (
   <ComboboxPrimitive.Row
@@ -635,7 +634,7 @@ const PaletteSwatches = ({
         className="size-4 shrink-0 cursor-pointer rounded-sm border border-foreground/15 outline-none data-highlighted:ring-2 data-highlighted:ring-ring data-selected:ring-2 data-selected:ring-foreground data-highlighted:ring-offset-1 data-highlighted:ring-offset-popover data-selected:ring-offset-1 data-selected:ring-offset-popover"
         disabled={cell.empty}
         key={cell.value}
-        ref={cellRef(cell.value)}
+        ref={cellRef(cell)}
         style={
           cell.empty
             ? { visibility: "hidden" }

@@ -348,6 +348,22 @@ describe("a colour field's palettes (UP-136)", () => {
     expect(rowNames()).toEqual(["Blue", "Red", "Clear"]);
   });
 
+  it("are gone down from a swatch that Use nearest offers too, as from any swatch", () => {
+    showing([box("#555556")], { ...ds, colors: ds.colors.slice(1) });
+    openField("#555556");
+    expect(rowNames().slice(0, 2)).toEqual([
+      "Use nearestblue-500#555555",
+      "New token from this value…",
+    ]);
+    for (const _ of [1, 2, 3]) {
+      press("ArrowDown");
+    }
+    across(5);
+    expect(highlighted()).toBe("blue-500");
+    press("ArrowDown");
+    expect(highlighted()).toBe("red-600");
+  });
+
   it.each([
     [
       "a text's colour",
