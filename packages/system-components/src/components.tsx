@@ -1,3 +1,6 @@
+/** @jsxRuntime automatic */
+// The runtime said here, not only in this package's tsconfig: the server runs this file under
+// tsx in development with its own tsconfig, which tsx applies to its own files alone (ADR 0150).
 /**
  * The system components, drawn (ADR 0040): Base UI's behaviour, every part marked with its `data-slot`
  * for the look (`look.ts`, then the project's looks) to style. The renderer gives each one the

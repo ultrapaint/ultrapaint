@@ -29,11 +29,15 @@
     "@ultrapaint/system-components": "workspace:*",
     "effect": "catalog:",
     "ignore": "^7.0.14",
-    "launch-editor": "2.14.2"
+    "launch-editor": "2.14.2",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
     "@types/node": "^24.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@ultrapaint/client-runtime": "workspace:*",
     "esbuild": "^0.28.2",
     "tsx": "^4.23.13",

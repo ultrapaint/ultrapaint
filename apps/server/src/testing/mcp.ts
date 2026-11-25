@@ -25,7 +25,16 @@ export const callMcp = (
   const meta = (params._meta ?? {}) as Record<string, unknown>;
   // What a call names goes in a header too: a tool or a prompt by its name, a resource by its URI.
   const named = params.name ?? params.uri;
-  const name = typeof named === "string" ? { "mcp-name": named } : {};
+  const name: Record<string, string> =
+    typeof named === "string" ? { "mcp-name": named } : {};
+  const headers: Record<string, string> = {
+    ...JSON_RPC,
+    ...ACCEPT,
+    ...(token ? { [MCP_TOKEN_HEADER]: token } : {}),
+    "mcp-method": body.method,
+    "mcp-protocol-version": PROTOCOL,
+    ...name,
+  };
   return Effect.promise(() =>
     fetch(`http://127.0.0.1:${port}${path}`, {
       body: JSON.stringify({
@@ -45,14 +54,7 @@ export const callMcp = (
           },
         },
       }),
-      headers: {
-        ...JSON_RPC,
-        ...ACCEPT,
-        ...(token ? { [MCP_TOKEN_HEADER]: token } : {}),
-        "mcp-method": body.method,
-        "mcp-protocol-version": PROTOCOL,
-        ...name,
-      },
+      headers,
       method: "POST",
     })
   );

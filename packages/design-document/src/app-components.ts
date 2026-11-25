@@ -324,7 +324,7 @@ export const detachedOf = (
 };
 
 /** Where a node sits, as `PLACEMENT` says. */
-const placementOf = (node: DesignNode): Fields =>
+export const placementOf = (node: DesignNode): Fields =>
   Object.fromEntries(
     PLACEMENT.flatMap((field) => {
       const value = (node as unknown as Fields)[field];

@@ -1,6 +1,7 @@
-import type {
-  AppComponentFile,
-  ComponentChange,
+import {
+  type AppComponentFile,
+  type ComponentChange,
+  systemComponentsIn,
 } from "@ultrapaint/contracts/components";
 import {
   DESIGN_SYSTEM_FILE,
@@ -16,6 +17,7 @@ import type {
 } from "@ultrapaint/contracts/document";
 import { BadRequest } from "@ultrapaint/contracts/errors";
 import type { Page } from "@ultrapaint/contracts/pages";
+import type { CodeFormat } from "@ultrapaint/contracts/rpc";
 import { tokenChangesBetween } from "@ultrapaint/contracts/token-table";
 import type { SourceToken } from "@ultrapaint/contracts/tokens";
 import { breakpointsOf } from "@ultrapaint/design-document/breakpoints";
@@ -23,12 +25,14 @@ import {
   type CodeOptions,
   componentsImportBase,
   toCode,
+  toHtml,
 } from "@ultrapaint/design-document/code";
 import {
   applyEdits,
   editLabel,
 } from "@ultrapaint/design-document/design-system-edits";
 import { linkTargetOf, pageOfLink } from "@ultrapaint/shared/link";
+import { systemDrawingOf } from "@ultrapaint/system-components/resting-markup";
 import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { EventBus } from "../events.ts";
 import { makeStampedCache } from "../file-stamp.ts";
@@ -128,13 +132,16 @@ export class DesignSystemService extends Context.Service<
     /**
      * A node of the designs as the application's code writes it: the markup the design
      * document's, the classes the style system's (ADR 0024), at the design system's breakpoints.
-     * A link to a page of `canvas`, the one the node is in, is the URL that page serves (ADR
-     * 0021); a page that serves none keeps its file, and so does every link without a canvas.
+     * As JSX with the application's components, or as HTML (`format`), each system component's
+     * instance drawn by its view at rest (ADR 0150). A link to a page of `canvas`, the one the
+     * node is in, is the URL that page serves (ADR 0021); a page that serves none keeps its file,
+     * and so does every link without a canvas.
      */
     readonly codeOf: (
       node: DesignNode,
       options: Omit<CodeOptions, "breakpoints" | "catalogue" | "hrefOf"> & {
         readonly canvas?: string | undefined;
+        readonly format?: CodeFormat | undefined;
       }
     ) => Effect.Effect<string>;
     /**
@@ -556,7 +563,7 @@ export class DesignSystemService extends Context.Service<
       );
 
       return DesignSystemService.of({
-        codeOf: (node, { canvas, ...options }) =>
+        codeOf: (node, { canvas, format, ...options }) =>
           Effect.map(
             Effect.all([
               get,
@@ -568,21 +575,33 @@ export class DesignSystemService extends Context.Service<
                     all.pages.filter((p) => p.canvas === canvas)
                   ),
             ]),
-            ([{ designSystem: ds }, components, files, inCanvas]) =>
-              toCode(node, styleSystem.nodeClasses(ds), {
-                componentsFrom: componentsImportBase(paths.settings),
-                ...options,
+            ([{ designSystem: ds }, components, files, inCanvas]) => {
+              const written = {
                 breakpoints: breakpointsOf(ds),
                 catalogue: components,
                 designSystem: ds,
-                // An instance override is written as a prop named for its layer (ADR 0114).
-                fileOf: (name) =>
+                // An instance override is written as a prop named for its layer (ADR 0114); in
+                // HTML, an instance is its layers.
+                fileOf: (name: string) =>
                   files.find(
                     (f): f is AppComponentFile =>
                       f.origin === "app" && f.name === name
                   ),
-                hrefOf: (link) => hrefOf(inCanvas, link),
-              })
+                hrefOf: (link: string) => hrefOf(inCanvas, link),
+              };
+              const classes = styleSystem.nodeClasses(ds);
+              return format === "html"
+                ? toHtml(node, classes, {
+                    ...written,
+                    parent: options.parent,
+                    systemDrawing: systemDrawingOf(systemComponentsIn(files)),
+                  })
+                : toCode(node, classes, {
+                    componentsFrom: componentsImportBase(paths.settings),
+                    ...options,
+                    ...written,
+                  });
+            }
           ),
         detect,
         edit,

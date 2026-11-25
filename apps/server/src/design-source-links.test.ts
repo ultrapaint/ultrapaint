@@ -52,6 +52,9 @@ const toolText = (response: Response) =>
     )
   );
 
+/** A button whose classes hold its default look's radius, as Tailwind writes the token. */
+const BUTTON_ROUNDED_RE = /<button\s+class="[^"]*\brounded-md\b/;
+
 /** The project set up with a stylesheet, a cva Button and a design system read from them. */
 const setUp = Effect.gen(function* () {
   const { client, repo, settings } = yield* TestEnv;
@@ -545,6 +548,67 @@ describe("bringing the code up to the design, and existing projects in (ADR 0028
         assert.strictEqual(language, "tsx");
         assert.include(code, '<div className="flex gap-4 bg-brand">');
         assert.include(code, "<p>Hi</p>");
+      })
+  );
+
+  /** A row with a text and a system component's instance. */
+  const ROW = {
+    children: [
+      { id: "t", role: "paragraph", text: "Hi", type: "text" },
+      {
+        component: "Button",
+        from: "@ultrapaint/system",
+        id: "b",
+        props: { variant: "outline" },
+        text: "Go",
+        type: "instance",
+      },
+    ],
+    fill: "$color-brand",
+    gap: 16,
+    id: "row",
+    type: "row",
+  } as const;
+
+  inProject.effect(
+    "writes a node as HTML through the project's style system, a system component as the elements its view renders",
+    () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        yield* setUp;
+        const { code, language } = yield* client["code.write"]({
+          format: "html",
+          node: ROW,
+          parent: "column",
+        });
+        assert.strictEqual(language, "html");
+        assert.include(code, '<div class="flex gap-4 bg-brand">');
+        assert.include(code, "<p>Hi</p>");
+        assert.match(code, BUTTON_ROUNDED_RE);
+        assert.include(code, 'data-variant="outline"');
+        assert.notInclude(code, "import");
+      })
+  );
+
+  inProject.effect(
+    "writes JSX when no format is given, its imports left out on request",
+    () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        yield* setUp;
+        const jsx = yield* client["code.write"]({
+          node: ROW,
+          parent: "column",
+        });
+        assert.strictEqual(jsx.language, "tsx");
+        assert.include(jsx.code, "import { Button } from");
+        const bare = yield* client["code.write"]({
+          imports: false,
+          node: ROW,
+          parent: "column",
+        });
+        assert.notInclude(bare.code, "import");
+        assert.include(bare.code, '<Button variant="outline">Go</Button>');
       })
   );
 

@@ -1,10 +1,22 @@
 import type { Catalogue } from "@ultrapaint/contracts/catalogue";
 import { APP_FROM, SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
-import type { AppComponentFile } from "@ultrapaint/contracts/components";
+import type {
+  AppComponentFile,
+  PartStyles,
+} from "@ultrapaint/contracts/components";
 import type { DesignNode, PageNode } from "@ultrapaint/contracts/document";
 import type { ClassWriter } from "@ultrapaint/contracts/node-style";
 import { describe, expect, it } from "vitest";
-import { componentsImportBase, pageComponentName, toCode } from "./code.ts";
+import {
+  componentsImportBase,
+  type Markup,
+  pageComponentName,
+  SLOT_PLACEHOLDER,
+  type SystemDrawing,
+  toCode,
+  toHtml,
+} from "./code.ts";
+import type { ComponentLook } from "./component-look.ts";
 
 /** A style system that writes each declaration as a class, to see what it is given. */
 const writer: ClassWriter = {
@@ -535,6 +547,391 @@ import { Dialog, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
     expect(componentsImportBase({ libraryDirs: ["src/lib"] })).toBe("@/lib/ui");
     expect(componentsImportBase({ libraryDirs: ["packages/ui/src"] })).toBe(
       "packages/ui/src/ui"
+    );
+  });
+});
+
+describe("toHtml", () => {
+  const breakpoints = [{ min: 768, name: "md" }];
+  /** The classes of every element, in the order they are written: `class` or `className`. */
+  const classesIn = (code: string) =>
+    [...code.matchAll(/class(?:Name)?="([^"]*)"/g)].map((m) => m[1]);
+
+  it("writes a row with a text and an image as HTML elements, with the classes its JSX has and no imports", () => {
+    const row: DesignNode = {
+      children: [
+        {
+          id: "t",
+          role: "heading",
+          text: "Cats & <dogs>",
+          type: "text",
+          width: "fill",
+        },
+        { alt: 'A "cat"', id: "i", src: "/cat.png", type: "image", width: 40 },
+      ],
+      gap: 8,
+      id: "row",
+      type: "row",
+    };
+    const html = toHtml(row, writer);
+    expect(html).toBe(
+      `<div class="display:flex flexDirection:row gap:8">
+  <h1 class="flexBasis:0% flexGrow:1 flexShrink:1 minWidth:0">
+    Cats &amp; &lt;dogs&gt;
+  </h1>
+  <img
+    alt="A &quot;cat&quot;"
+    class="width:40 flexShrink:0 objectFit:cover"
+    src="/cat.png"
+  >
+</div>`
+    );
+    expect(classesIn(html)).toEqual(classesIn(toCode(row, writer)));
+  });
+
+  it("writes an app component's instance as its layers as the instance draws them, its overrides applied", () => {
+    const files: Record<string, AppComponentFile> = {
+      Plan: {
+        name: "Plan",
+        origin: "app",
+        properties: [
+          {
+            default: "Basic",
+            kind: "text",
+            name: "plan name",
+            targets: [{ node: "t_name" }],
+          },
+        ],
+        slots: [],
+        tree: {
+          children: [
+            {
+              id: "t_name",
+              name: "Name",
+              role: "paragraph",
+              text: "Basic",
+              type: "text",
+            },
+            {
+              component: "Price",
+              from: APP_FROM,
+              id: "i_price",
+              name: "Price",
+              type: "instance",
+            },
+          ],
+          id: "r_plan",
+          padding: 16,
+          type: "column",
+        },
+        version: 1,
+      },
+      Price: {
+        name: "Price",
+        origin: "app",
+        properties: [],
+        slots: [],
+        tree: {
+          children: [
+            { id: "t_sum", role: "paragraph", text: "$9", type: "text" },
+          ],
+          id: "r_price",
+          type: "row",
+        },
+        version: 1,
+      },
+    } as unknown as Record<string, AppComponentFile>;
+    const plan: DesignNode = {
+      component: "Plan",
+      from: APP_FROM,
+      id: "p",
+      overrides: {
+        "i_price/t_sum": { color: "red", text: "$29" },
+        t_name: { at: { md: { hidden: true } } },
+      },
+      props: { "plan name": "Pro" },
+      type: "instance",
+      width: 240,
+    };
+    expect(
+      toHtml(plan, writer, { breakpoints, fileOf: (name) => files[name] })
+    ).toBe(
+      `<div
+  class="display:flex flexDirection:column width:240 padding:16 md/display:flex md/flexDirection:column md/width:240 md/padding:16"
+>
+  <p class="md/display:none">Pro</p>
+  <div
+    class="display:flex flexDirection:row md/display:flex md/flexDirection:row"
+  >
+    <p class="color:red md/color:red">$29</p>
+  </div>
+</div>`
+    );
+  });
+
+  describe("a system component's instance", () => {
+    const catalogue: Catalogue = [
+      {
+        category: "Inputs",
+        importFrom: SYSTEM_FROM,
+        name: "Button",
+        props: [],
+        slots: [
+          { holds: "default", label: "Button", layout: "row", name: "root" },
+          { label: "Spinner", name: "button-spinner" },
+        ],
+        variants: { variant: ["primary", "outline"] },
+      },
+      {
+        category: "Overlay",
+        importFrom: SYSTEM_FROM,
+        name: "Toast",
+        props: [],
+        slots: [{ label: "Toast", name: "root" }],
+        variants: {},
+      },
+    ];
+    const button = (
+      parts: PartStyles,
+      variants: ComponentLook["variants"] = {}
+    ): ComponentLook => ({
+      base: parts,
+      component: "Button",
+      defaults: { variant: "primary" },
+      parts: ["root", "button-spinner"],
+      states: { hover: { root: { fill: "$color-accent" } } },
+      variants,
+    });
+    /** What the view renders at rest, as a fake of the server's rendering. */
+    const markup: SystemDrawing["markup"] = ({ props = {} }, slots) => [
+      {
+        attributes: [
+          ["type", "button"],
+          ["data-ed-node", ""],
+          ["data-slot", "root"],
+          ["data-variant", String(props.variant ?? "primary")],
+          ["data-system", "button"],
+        ],
+        children: [
+          {
+            attributes: [
+              ["aria-hidden", "true"],
+              ["data-slot", "button-spinner"],
+            ],
+            children: [],
+            kind: "element",
+            tag: "span",
+          },
+          ...slots.map(
+            (name): Markup => ({
+              attributes: [["name", name]],
+              children: [],
+              kind: "element",
+              tag: SLOT_PLACEHOLDER,
+            })
+          ),
+        ],
+        kind: "element",
+        tag: "button",
+      },
+    ];
+    const drawings: Record<string, SystemDrawing> = {
+      Button: {
+        content: {},
+        looks: [
+          // The default look, then the project's, which the canvas draws over it.
+          button(
+            {
+              "button-spinner": { width: 12 },
+              root: { fill: "$color-primary", radius: 6 },
+            },
+            { variant: { outline: { root: { border: { width: 1 } } } } }
+          ),
+          {
+            ...button(
+              { root: { padding: { left: 12, right: 12 } } },
+              { variant: { outline: { root: { fill: "transparent" } } } }
+            ),
+            hidden: ["button-spinner"],
+          },
+        ],
+        markup,
+      },
+      Toast: { content: {}, looks: [], markup: () => [] },
+    };
+    const options = {
+      breakpoints,
+      catalogue,
+      systemDrawing: (name: string) => drawings[name],
+    };
+
+    it("is written as the elements its view renders at rest, each part with its look's classes in the instance's variant", () => {
+      const go = (props?: Record<string, string>): DesignNode => ({
+        component: "Button",
+        from: SYSTEM_FROM,
+        id: "b",
+        margin: 4,
+        text: "Go",
+        type: "instance",
+        ...(props && { props }),
+      });
+      // The project's look over the default's; the node's own style over both; a part the look
+      // leaves out is left out; a state is not drawn at rest; the editor's marks go.
+      expect(toHtml(go({ variant: "outline" }), writer, options)).toBe(
+        `<button
+  class="background:transparent borderRadius:6 borderWidth:1 borderStyle:solid paddingRight:12 paddingLeft:12 margin:4"
+  type="button"
+  data-slot="root"
+  data-variant="outline"
+>
+  Go
+</button>`
+      );
+      // An instance that does not set an axis is in its default member.
+      expect(toHtml(go(), writer, options)).toContain(
+        'class="background:$color-primary borderRadius:6 paddingRight:12 paddingLeft:12 margin:4"'
+      );
+    });
+
+    it("holds its children in its slots, against the slot's layout", () => {
+      const go: DesignNode = {
+        children: [
+          {
+            height: "fill",
+            id: "t",
+            role: "paragraph",
+            text: "Go",
+            type: "text",
+          },
+        ],
+        component: "Button",
+        from: SYSTEM_FROM,
+        id: "b",
+        link: "next.page.json",
+        type: "instance",
+      };
+      const none: ClassWriter = {
+        classes: (styles) =>
+          styles[0]?.declarations.alignSelf === "stretch" ? ["stretch"] : [],
+      };
+      expect(
+        toHtml(go, none, { ...options, hrefOf: () => "/next" })
+      ).toBe(`<a href="/next">
+  <button type="button" data-slot="root" data-variant="primary">
+    <p class="stretch">Go</p>
+  </button>
+</a>`);
+    });
+
+    it("that its view draws nothing for at rest is left out, and says so", () => {
+      const toast: DesignNode = {
+        component: "Toast",
+        from: SYSTEM_FROM,
+        id: "t",
+        name: "Saved",
+        props: { open: true },
+        type: "instance",
+      };
+      expect(toHtml(toast, writer, options)).toBe(
+        "<!-- Saved draws nothing at rest: it shows when open. -->"
+      );
+    });
+  });
+
+  it("writes a node's values at the breakpoints as the classes' breakpoint variants, as the JSX has them", () => {
+    const node: DesignNode = {
+      at: { md: { gap: 32 } },
+      children: [
+        {
+          at: { md: { text: "Wide" } },
+          id: "t",
+          role: "paragraph",
+          text: "Narrow",
+          type: "text",
+        },
+      ],
+      gap: 16,
+      id: "s",
+      type: "column",
+    };
+    const html = toHtml(node, writer, { breakpoints });
+    expect(html).toBe(
+      `<div
+  class="display:flex flexDirection:column gap:16 md/display:flex md/flexDirection:column md/gap:32"
+>
+  <p class="md/display:none">Narrow</p>
+  <p class="display:none">Wide</p>
+</div>`
+    );
+    expect(classesIn(html)).toEqual(
+      classesIn(toCode(node, writer, { breakpoints }))
+    );
+  });
+
+  it("writes a link as the href its caller gives it", () => {
+    const nav: DesignNode = {
+      children: [
+        {
+          id: "t",
+          link: "pricing.page.json",
+          role: "paragraph",
+          text: "Pricing",
+          type: "text",
+        },
+      ],
+      id: "nav",
+      link: "draft.page.json",
+      type: "row",
+    };
+    const none: ClassWriter = { classes: () => [] };
+    expect(
+      toHtml(nav, none, {
+        hrefOf: (link) => (link === "pricing.page.json" ? "/pricing" : link),
+      })
+    ).toBe(`<a href="draft.page.json">
+  <a href="/pricing">
+    <p>Pricing</p>
+  </a>
+</a>`);
+  });
+
+  it("leaves out a node hidden at every breakpoint, as the JSX does", () => {
+    const node: DesignNode = {
+      children: [
+        {
+          hidden: true,
+          id: "h",
+          name: "Old price",
+          role: "paragraph",
+          text: "$5",
+          type: "text",
+        },
+        { id: "t", role: "paragraph", text: "$9", type: "text" },
+      ],
+      id: "s",
+      type: "row",
+    };
+    const none: ClassWriter = { classes: () => [] };
+    expect(toHtml(node, none)).toBe(`<div>
+  <!-- Hidden: Old price -->
+  <p>$9</p>
+</div>`);
+  });
+});
+
+describe("an instance's prop named as an attribute of the markup", () => {
+  it("keeps its own name beside the classes", () => {
+    const badge: DesignNode = {
+      component: "Badge",
+      from: SYSTEM_FROM,
+      id: "b",
+      padding: 4,
+      props: { class: "pill" },
+      text: "New",
+      type: "instance",
+    };
+    expect(toCode(badge, writer, { imports: false })).toBe(
+      '<Badge class="pill" className="padding:4">New</Badge>'
     );
   });
 });

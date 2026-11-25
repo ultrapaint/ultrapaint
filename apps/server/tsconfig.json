@@ -1,7 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["node"]
+    "types": ["node"],
+    // The system components' views, which the server renders to write HTML (ADR 0150): their
+    // effects, which never run there, are typed against the document.
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx"
   },
   "include": ["src", "bench", "spike", "scripts"]
 }

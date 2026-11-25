@@ -176,6 +176,13 @@ const ThreadRef = { threadId: FileId };
  */
 const Command = { commandId: Schema.optional(Schema.String) };
 
+/**
+ * What a node's code is written as (`code.write`): JSX with the application's components, or
+ * HTML that needs nothing of it (ADR 0150).
+ */
+export const CodeFormat = Schema.Literals(["tsx", "html"]);
+export type CodeFormat = typeof CodeFormat.Type;
+
 /** Every request the editor can make. Tags are the method names the editor already uses. */
 /** A node selected in the editor: the reference the tools take (`/vibe#c_1`), and its name. */
 export const SelectedNode = Schema.Struct({
@@ -926,24 +933,29 @@ const requestRpcs = [
   }),
 
   /**
-   * A node of a design as code, everything under it included (the inspector's Code tab): JSX
-   * with the repository's components, its look in the classes of the project's style system
-   * (ADR 0024). `parent` is how its parent lays it out; `component` names a page's function.
-   * An instance's children are laid out as the catalogue's slots say (ADR 0042). `canvas` is the
-   * one the node is in: a link to one of its pages is written as the URL the page serves, and as
-   * the page's file when it serves none. Left out, a link is written as it is.
+   * A node of a design as code, everything under it included (the inspector's Code tab, an
+   * element's Copy as code): its look in the classes of the project's style system (ADR 0024).
+   * `format` is what it is written as: JSX with the repository's components (`tsx`, when left
+   * out), the imports they need above it unless `imports` is false; or HTML on its own (`html`,
+   * ADR 0150), each component's instance as the markup the canvas draws for it. `language` is the
+   * format written. `parent` is how its parent lays it out; `component` names a page's function
+   * in JSX. An instance's children are laid out as the catalogue's slots say (ADR 0042).
+   * `canvas` is the one the node is in: a link to one of its pages is written as the URL the page
+   * serves, and as the page's file when it serves none. Left out, a link is written as it is.
    */
   Rpc.make("code.write", {
     error: NotConfigured,
     payload: {
       canvas: Schema.optional(CanvasId),
       component: Schema.optional(Schema.String),
+      format: Schema.optional(CodeFormat),
+      imports: Schema.optional(Schema.Boolean),
       node: DesignNode,
       parent: Schema.optional(
         Schema.Literals(["row", "column", "block", "free"])
       ),
     },
-    success: Schema.Struct({ code: Schema.String, language: Schema.String }),
+    success: Schema.Struct({ code: Schema.String, language: CodeFormat }),
   }),
 
   /** The components of the designs directory (ADR 0041), each read or with its problem. */
