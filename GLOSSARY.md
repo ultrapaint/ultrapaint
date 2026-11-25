@@ -159,7 +159,9 @@ refactor and the board view left.
   0148). An element's **element style** is its inline style over its classes, as the class
   reader reads them, folded so each field has one property. The rules make rows, columns, groups, texts and
   images of it, write each value with a token as that token, and count by kind what they cannot
-  carry, its **warnings**. _Avoid_: HTML parser, converter.
+  carry, its **warnings**. The editor's paste reads the clipboard for it in the web's
+  `paste-markup`: its own nodes first, image files left to the canvas, then `text/plain` that is
+  markup, then `text/html`. _Avoid_: HTML parser, converter.
 - **Page**: a design document, `.page.json`, of a **canvas** (ADRs 0015, 0019, 0020). Its root is
   the screen's own container, a column or a row (`direction`, ADR 0075); a row or column under it
   that only fills it is a **wrapper**, which folds into it (design-document's `foldOps`). The page

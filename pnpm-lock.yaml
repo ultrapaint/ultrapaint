@@ -190,6 +190,9 @@ importers:
       '@ultrapaint/design-document':
         specifier: workspace:*
         version: link:../../packages/design-document
+      '@ultrapaint/html-import':
+        specifier: workspace:*
+        version: link:../../packages/html-import
       '@ultrapaint/preview-core':
         specifier: workspace:*
         version: link:../../packages/preview-core
@@ -199,6 +202,9 @@ importers:
       '@ultrapaint/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@ultrapaint/style-tailwind-v4':
+        specifier: workspace:*
+        version: link:../../packages/style-tailwind-v4
       '@ultrapaint/system-components':
         specifier: workspace:*
         version: link:../../packages/system-components

@@ -8,8 +8,8 @@ Status: accepted, 2026-11-25. Follows 0016 (a Figma frame is imported by fixed r
 A designer with a piece of a web page, a snippet an agent wrote, or a component's markup from
 their code cannot bring it onto the canvas: they rebuild it by hand, layer by layer. The only
 importer is the Figma one, whose rules read Figma's own nodes. UP-144 makes a paste of HTML on
-the canvas make layers of it. This ADR holds the rules that turn markup into layers. How the
-editor's paste reaches them comes in the story's third stage.
+the canvas make layers of it. This ADR holds the rules that turn markup into layers, and how the
+editor's paste reaches them.
 
 ## Decision
 
@@ -74,6 +74,31 @@ editor's paste reaches them comes in the story's third stage.
   not read and those with a variant (`md:`, `hover:`). Layout a page's stylesheet gave is not on
   the clipboard, so it is told as classes not read.
 - **HTML in which nothing could be carried gives no nodes**, and its warnings say why.
+
+- **The paste.** ⌘V stays the key (ADR 0090), taken by the editor's clipboard listener when
+  nothing that takes text has the focus, so a paste in the chat's composer, a field or a dialog
+  pastes there (ADR 0064). Its order (the web's `paste-markup`):
+  - The editor's own copied nodes paste as themselves, first, as before.
+  - A clipboard holding image files is left to the canvas, which places them. A browser copying a
+    picture puts HTML beside it, which never makes an `img` layer instead.
+  - `text/plain` whose trimmed text starts with `<` and parses into an element is the markup. A
+    code editor copies markup so, and the HTML it puts beside it is the code's highlighting.
+  - Else `text/html`, a browser's copy, whose plain text is only the words it shows. HTML whose
+    every block it shows is a `pre` or has `white-space: pre` (VS Code's and JetBrains' copies,
+    their `<meta charset>` aside) is a code editor's highlighting of code that is not markup, and
+    pastes nothing.
+  - JSX (`isJsx`) makes no layers, and the toast says so. Words that are not markup paste nothing,
+    as before.
+  - The classes are read as Tailwind's, whatever the project's style system: markup on the web is
+    written with them.
+- **Landing.** The layers go where a paste of nodes goes, through `insertNodes`: into the selected
+  container, after the selected element, or at the end of the page, from the view's breakpoint up
+  (ADR 0036), in one `applyEdits` labelled "Paste", and what landed is selected. The layers are
+  the clipboard's then, so the canvas's Paste pastes them again, as after a paste of nodes.
+- **The toast** says how many layers were pasted ("Pasted 12 layers") and what was not carried,
+  each kind once with its count ("Not carried: 4 classes not read, a grid laid out as a column.").
+  It is shown once the layers landed. Nothing carried pastes nothing and says why ("Nothing to
+  paste"), and so does a paste with nowhere to land, no page and nothing selected.
 
 ## Consequences
 
