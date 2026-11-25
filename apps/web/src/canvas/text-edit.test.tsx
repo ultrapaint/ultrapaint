@@ -56,6 +56,7 @@ const Page = () => {
     <SelectLayer
       frameId={HOME}
       name="home"
+      onBack={pointer.onSelectLayerBack}
       onClick={pointer.onSelectClick}
       onContextMenu={pointer.onContextMenu}
       onDoubleClick={pointer.onDoubleClick}
