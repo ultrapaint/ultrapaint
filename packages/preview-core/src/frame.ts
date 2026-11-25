@@ -573,7 +573,14 @@ const mountFrame = (
    */
   const clearBrowserSelection = () => {
     const selection = getSelection();
-    if (selection?.anchorNode && shadow.contains(selection.anchorNode)) {
+    const anchor = selection?.anchorNode;
+    // Chromium gives a selection inside the shadow root as it is; WebKit as the host's place in
+    // its parent.
+    if (
+      anchor &&
+      (shadow.contains(anchor) ||
+        anchor.childNodes[selection.anchorOffset] === host)
+    ) {
       selection.removeAllRanges();
     }
   };
