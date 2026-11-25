@@ -573,16 +573,23 @@ const mountFrame = (
    */
   const clearBrowserSelection = () => {
     const selection = getSelection();
-    const anchor = selection?.anchorNode;
-    // Chromium gives a selection inside the shadow root as it is; WebKit as the host's place in
-    // its parent.
-    if (
-      anchor &&
-      (shadow.contains(anchor) ||
-        anchor.childNodes[selection.anchorOffset] === host)
-    ) {
+    if (selection && isInFrame(selection)) {
       selection.removeAllRanges();
     }
+  };
+
+  /**
+   * Whether the browser's highlight is the frame's. A browser reports one inside the shadow root
+   * there, or as the host's place in its parent: Chrome and WebKit both report a highlight made
+   * with the mouse that way, and WebKit every one.
+   */
+  const isInFrame = (selection: Selection) => {
+    const anchor = selection.anchorNode;
+    return (
+      anchor !== null &&
+      (shadow.contains(anchor) ||
+        anchor.childNodes[selection.anchorOffset] === host)
+    );
   };
 
   const finishTextEdit = (commit: boolean) => {

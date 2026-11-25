@@ -142,9 +142,13 @@ const framedText = (shown: Partial<FrameShown> = {}) => {
 };
 
 /** The browser's selection on `el`'s words, as a drag over them leaves it. */
-const selectWords = (el: Node) => {
+const selectWords = (el: Node) =>
+  highlight((range) => range.selectNodeContents(el));
+
+/** The browser's highlight, set to the range `pick` makes. */
+const highlight = (pick: (range: Range) => void) => {
   const range = document.createRange();
-  range.selectNodeContents(el);
+  pick(range);
   getSelection()?.removeAllRanges();
   getSelection()?.addRange(range);
 };
@@ -217,14 +221,10 @@ describe("a text edited in place", () => {
     expect(getSelection()?.rangeCount).toBe(0);
   });
 
-  it("leaves no highlight where the browser reports its selection at the frame's host, as WebKit does", () => {
+  it("leaves no highlight the browser reports at the host's place, as it does one made with the mouse", () => {
     const { host, runtime } = framedText();
     runtime.editText("t");
-    // WebKit gives a selection inside a shadow root as the host's place in its parent.
-    const range = document.createRange();
-    range.selectNode(host);
-    getSelection()?.removeAllRanges();
-    getSelection()?.addRange(range);
+    highlight((range) => range.selectNode(host));
     runtime.endTextEdit();
     expect(getSelection()?.rangeCount).toBe(0);
   });
