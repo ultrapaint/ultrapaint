@@ -24,8 +24,11 @@ const UNSET = new Set(["", "initial", "inherit", "unset", "revert"]);
 const SIDES = ["Top", "Right", "Bottom", "Left"] as const;
 const CORNERS = ["TopLeft", "TopRight", "BottomRight", "BottomLeft"] as const;
 const BORDER_PARTS = ["Width", "Style", "Color"] as const;
-/** Resets that set a property to where it starts rather than to what it inherits. */
-const RESET_TO_INITIAL = new Set(["initial", "revert"]);
+/**
+ * Resets that set a property to where it starts rather than to what it inherits: `initial`. A
+ * `revert` rolls back to the browser's own value, which for a text setting is to inherit.
+ */
+const RESET_TO_INITIAL = new Set(["initial"]);
 /** Where each text setting starts, which an inline `initial` sets it back to. */
 const INITIAL_TEXT: Readonly<Partial<Record<string, string>>> = {
   color: "initial",
