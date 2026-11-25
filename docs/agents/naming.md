@@ -13,7 +13,7 @@ keep the root `AGENTS.md` form, `type: ` and the behaviour as it now is, naming 
 | --- | --- |
 | `editor` | `apps/web`, `packages/preview-core`, `packages/renderer-react`, `packages/system-components`, `packages/client-runtime` |
 | `server` | `apps/server`, `packages/contracts`, `packages/acp` |
-| `document` | `packages/design-document`, `packages/design-md`, `packages/figma-import`, `packages/style-tailwind-v4`, `packages/framework-*`, `packages/design-checks` |
+| `document` | `packages/design-document`, `packages/design-md`, `packages/figma-import`, `packages/html-import`, `packages/style-tailwind-v4`, `packages/framework-*`, `packages/design-checks` |
 | `desktop` | `apps/desktop` |
 | `cli` | The `ultrapaint` command (`scripts/command.ts`, `scripts/cli.ts`), the package (`scripts/pack.ts`) and the release |
 | `skill` | `skills/ultrapaint/` |
