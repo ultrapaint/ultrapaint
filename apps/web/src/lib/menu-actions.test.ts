@@ -802,6 +802,7 @@ describe("Copy style and Paste style", () => {
   /** Every style field of a text, cleared: what a paste sets where the copy leaves one unset. */
   const cleared = {
     align: null,
+    backdropBlur: null,
     border: null,
     color: null,
     fill: null,

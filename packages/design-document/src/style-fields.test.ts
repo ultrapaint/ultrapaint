@@ -24,6 +24,7 @@ const box = {
 
 /** What every node's box sets that is its look. */
 const look = {
+  backdropBlur: "$blur-md",
   border: { color: "$color-border", width: 1 },
   fill: "$color-surface",
   opacity: 0.8,
@@ -178,6 +179,7 @@ describe("the style for a type", () => {
     });
     expect(styleFor(plain, "column")).toEqual({
       align: null,
+      backdropBlur: null,
       border: null,
       crossAlign: null,
       fill: "$color-accent",

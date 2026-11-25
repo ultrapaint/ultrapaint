@@ -1,9 +1,10 @@
 /**
  * Style fields: the fields of a node that are its look, per type, so that a look is copied off
- * one node and pasted onto others. A box's fill, border, radius, shadow, opacity and padding; a
- * row's or column's spacing and alignment; a text's text style and its own settings over it; an
- * image's fit and tint. Nothing else is style: what a node says or shows, its size, its margin,
- * its place, what it is, and how a container lays its children out (its direction, its type).
+ * one node and pasted onto others. A box's fill, border, radius, shadow, opacity, padding and the
+ * blur behind it; a row's or column's spacing and alignment; a text's text style and its own
+ * settings over it; an image's fit and tint. Nothing else is style: what a node says or shows, its
+ * size, its margin, its place, what it is, and how a container lays its children out (its
+ * direction, its type).
  * Not the node style, which is what the fields mean as CSS (`css.ts`).
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
@@ -13,7 +14,15 @@ import type { DesignNode } from "@ultrapaint/contracts/document";
 type Type = DesignNode["type"];
 
 /** Every node's: its box's look. */
-const BOX = ["fill", "border", "radius", "shadow", "opacity", "padding"];
+const BOX = [
+  "fill",
+  "border",
+  "radius",
+  "shadow",
+  "opacity",
+  "padding",
+  "backdropBlur",
+];
 
 /**
  * What each kind of node adds, by kind: a field is the same field only within one, as a text's
