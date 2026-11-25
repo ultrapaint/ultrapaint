@@ -1452,6 +1452,149 @@ describe("the tools for documents", () => {
   );
 });
 
+describe("the nodes holding a value, found with read_page's match", () => {
+  /** A box holding a fill, to put on a page or beside the pages. */
+  const box = (id: string, more: Record<string, unknown> = {}) =>
+    inserted({ children: [], fill: "#2563eb", id, type: "group", ...more });
+
+  const withBrokenPageAndVariation = toolTest({
+    files: {
+      // Not JSON: a page the canvas lists and no tool can read.
+      "designs/broken.page.json": "{ not json",
+      // A variation of /home not in use, written as a project made before variations has it.
+      "designs/home@bold.page.json": `${JSON.stringify({
+        root: {
+          children: [
+            { children: [], fill: "#2563eb", id: "bold", type: "group" },
+          ],
+          id: "root",
+          type: "page",
+        },
+        version: 1,
+      })}\n`,
+    },
+  });
+
+  /** The value on two pages with a URL, a page without one and a node beside the pages. */
+  const drawn = Effect.gen(function* () {
+    yield* pageAt("Pricing", "/pricing");
+    yield* tool("apply_operations", {
+      ops: [box("plan", { border: { color: "#2563EB", width: 1 } })],
+      route: "/pricing",
+    });
+    yield* tool("apply_operations", {
+      ops: [box("hero", { at: { md: { fill: "#fff" } } })],
+      route: "/home",
+    });
+    yield* tool("create_page", { name: "Sketch" });
+    yield* tool("apply_operations", {
+      ops: [box("idea")],
+      route: "sketch.page.json",
+    });
+    yield* tool("apply_operations", {
+      loose: true,
+      ops: [box("note", { x: 0, y: 0 })],
+    });
+  });
+
+  withBrokenPageAndVariation(
+    "finds a value on every page of the canvas, page by page, then beside them, and none in a variation not in use",
+    () =>
+      Effect.gen(function* () {
+        yield* drawn;
+        const found = yield* tool("read_page", { match: "#2563eb" });
+        assert.deepStrictEqual(found.matches, [
+          { field: "fill", node: "/home#hero", value: "#2563eb" },
+          { field: "fill", node: "/pricing#plan", value: "#2563eb" },
+          { field: "border.color", node: "/pricing#plan", value: "#2563EB" },
+          { field: "fill", node: "sketch.page.json#idea", value: "#2563eb" },
+          { field: "fill", node: "canvas#note", value: "#2563eb" },
+        ]);
+        assert.isUndefined(found.document);
+      })
+  );
+
+  withBrokenPageAndVariation(
+    "passes by a page of the canvas it cannot read, and names its file",
+    () =>
+      Effect.gen(function* () {
+        const found = yield* tool("read_page", { match: "#2563eb" });
+        assert.deepStrictEqual(found.skipped, ["designs/broken.page.json"]);
+      })
+  );
+
+  inAProject(
+    "with a route, finds that page's hits alone, with the hash to edit it by",
+    () =>
+      Effect.gen(function* () {
+        yield* drawn;
+        const one = yield* tool("read_page", {
+          match: "#2563eb",
+          route: "/pricing",
+        });
+        assert.deepStrictEqual(
+          one.matches?.map((m) => [m.node, m.field]),
+          [
+            ["/pricing#plan", "fill"],
+            ["/pricing#plan", "border.color"],
+          ]
+        );
+        assert.strictEqual(one.file, "designs/pricing.page.json");
+        assert.isString(one.hash);
+      })
+  );
+
+  withBrokenPageAndVariation(
+    "fails as read_page does on a page it cannot read that route names",
+    () =>
+      Effect.gen(function* () {
+        assert.include(
+          yield* refusal("read_page", {
+            match: "#2563eb",
+            route: "broken.page.json",
+          }),
+          "is not a valid page"
+        );
+      })
+  );
+
+  inAProject("gives the first twelve hits and counts the rest", () =>
+    Effect.gen(function* () {
+      yield* tool("apply_operations", {
+        ops: Array.from({ length: 15 }, (_, i) => box(`b${i}`)),
+        route: "/home",
+      });
+      const found = yield* tool("read_page", { match: "#2563eb" });
+      assert.lengthOf(found.matches ?? [], 12);
+      assert.strictEqual(found.more, 3);
+    })
+  );
+
+  inAProject("refuses match beside node or depth, which read a tree", () =>
+    Effect.gen(function* () {
+      for (const beside of [{ node: "heading" }, { depth: 1 }]) {
+        assert.include(
+          yield* refusal("read_page", {
+            match: "#2563eb",
+            route: "/home",
+            ...beside,
+          }),
+          "match searches for the nodes holding a value and reads no tree"
+        );
+      }
+    })
+  );
+
+  inAProject("still needs a route to read a page without match", () =>
+    Effect.gen(function* () {
+      assert.include(
+        yield* refusal("read_page", {}),
+        "say which page with `route`"
+      );
+    })
+  );
+});
+
 describe("a big page, read as a task gives it", () => {
   inAProject(
     "reads a page too big to give whole as its outline, and a part of it whole",
