@@ -374,17 +374,32 @@ describe("markup a review found the rules misread", () => {
   });
 
   it("lets an inline reset take back what a class set", () => {
-    expect(
-      paste(`<p class="p-4" style="padding-left: initial">x</p>`).nodes
-    ).toMatchObject([
-      {
-        padding: {
-          bottom: "$spacing-4",
-          right: "$spacing-4",
-          top: "$spacing-4",
-        },
+    const [text] = paste(
+      `<p class="p-4" style="padding-left: initial">x</p>`
+    ).nodes;
+    expect(text).toMatchObject({
+      padding: {
+        bottom: "$spacing-4",
+        right: "$spacing-4",
+        top: "$spacing-4",
       },
-    ]);
+    });
+    expect((text as { padding: object }).padding).not.toHaveProperty("left");
+  });
+
+  it("sets a text setting reset inline back to where it starts, not to what it inherits", () => {
+    expect(
+      paste(
+        `<div class="font-bold"><p style="font-weight: initial">a</p><p style="font-weight: inherit">b</p></div>`
+      ).nodes
+    ).toMatchObject([{ children: [{ weight: 400 }, { weight: 700 }] }]);
+  });
+
+  it("keeps a multiple of the size of 4 or more as a multiple", () => {
+    expect(
+      paste(`<p style="line-height: 24">a</p><p style="line-height: 2">b</p>`)
+        .nodes
+    ).toMatchObject([{ lineHeight: "24" }, { lineHeight: 2 }]);
   });
 
   it("keeps a class's gradient under an inline colour, as the cascade meets them field by field", () => {

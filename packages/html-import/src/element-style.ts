@@ -24,6 +24,18 @@ const UNSET = new Set(["", "initial", "inherit", "unset", "revert"]);
 const SIDES = ["Top", "Right", "Bottom", "Left"] as const;
 const CORNERS = ["TopLeft", "TopRight", "BottomRight", "BottomLeft"] as const;
 const BORDER_PARTS = ["Width", "Style", "Color"] as const;
+/** Resets that set a property to where it starts rather than to what it inherits. */
+const RESET_TO_INITIAL = new Set(["initial", "revert"]);
+/** Where each text setting starts, which an inline `initial` sets it back to. */
+const INITIAL_TEXT: Readonly<Partial<Record<string, string>>> = {
+  color: "initial",
+  fontFamily: "initial",
+  fontSize: "medium",
+  fontWeight: "normal",
+  letterSpacing: "normal",
+  lineHeight: "normal",
+  textAlign: "start",
+};
 
 const camel = (property: string) =>
   property.replace(KEBAB_RE, (_, c: string) => c.toUpperCase());
@@ -194,10 +206,15 @@ const inlineOf = (
     if (property.startsWith("--")) {
       continue;
     }
-    if (UNSET.has(value)) {
-      // `initial` and its like take back what a class set.
-      for (const name of Object.keys(components(camel(property), 0))) {
-        reset.add(name);
+    const name = camel(property);
+    const initial = INITIAL_TEXT[name];
+    if (initial !== undefined && RESET_TO_INITIAL.has(value)) {
+      // A text setting set back to its start is that, never what the elements around it set.
+      set[name] = initial;
+    } else if (UNSET.has(value)) {
+      // `initial` and its like take back what a class set; a text setting then inherits.
+      for (const part of Object.keys(components(name, 0))) {
+        reset.add(part);
       }
     } else {
       set[camel(property)] = value;
