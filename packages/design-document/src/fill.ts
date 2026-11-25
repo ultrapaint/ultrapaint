@@ -313,11 +313,14 @@ const fitOf = (words: string): { fit?: ImageFit } | null => {
     : null;
 };
 
-/** An image layer: a `url()` first, then how it is placed; null for anything else. */
+/** An image layer: a `url()` and how it is placed, in any order; null for anything else. */
 const imageOf = (text: string): ImageLayer | null => {
-  const [first = "", ...words] = splitTop(text, " ");
-  const src = urlSrc(first);
-  const placed = src === null ? null : fitOf(words.join(" "));
+  const words = splitTop(text, " ");
+  // The `url()` may stand anywhere among the layer's words, as CSS takes them in any order.
+  const at = words.findIndex((w) => urlSrc(w) !== null);
+  const src = at < 0 ? null : urlSrc(words[at] ?? "");
+  const placed =
+    src === null ? null : fitOf(words.filter((_, i) => i !== at).join(" "));
   return src === null || placed === null
     ? null
     : { kind: "image", src, ...placed };

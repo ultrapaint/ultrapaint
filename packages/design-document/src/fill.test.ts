@@ -136,6 +136,9 @@ describe("a fill as layers", () => {
     expect(fillLayers("url('a b.png') no-repeat 50% 50%/100% 100%")).toEqual([
       { fit: "fill", kind: "image", src: "a b.png" },
     ]);
+    expect(fillLayers("no-repeat center / cover url(assets/hero.png)")).toEqual(
+      [{ fit: "cover", kind: "image", src: "assets/hero.png" }]
+    );
     expect(layeredFill("url(a.png) center / contain no-repeat")).toEqual([
       { fit: "contain", kind: "image", src: "a.png" },
     ]);
