@@ -8,10 +8,12 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { isInstanceLayer } from "@ultrapaint/design-document/instance-layers";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
+import type { HtmlConversion } from "@ultrapaint/html-import/convert";
 import { toast } from "sonner";
 import { create } from "zustand";
 import { placementAt, placeOfDrop } from "../canvas/drag.ts";
 import { placeOnCanvas } from "../state/canvas-grid.ts";
+import { useDesignSystem } from "../state/design-system.ts";
 import { nodeIn, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import {
@@ -24,6 +26,7 @@ import {
   pageContext,
 } from "./node-actions.ts";
 import { nodesFromText, textOfNodes } from "./node-text.ts";
+import { markupOn, notCarried, pastedTitle } from "./paste-markup.ts";
 
 export const useClipboard = create<{ nodes: readonly DesignNode[] }>(() => ({
   nodes: [],
@@ -130,11 +133,55 @@ export const onCopyEvent = (e: ClipboardEvent, cut: boolean) => {
   return true;
 };
 
-/** A paste event: nodes of ours on the clipboard go where the Library would insert. */
+/**
+ * Markup's layers pasted where the Library would insert, as one undo step, then the toast saying
+ * how many landed and what they did not carry (ADR 0148); nothing landed, it says why.
+ */
+const landMarkup = async ({ nodes, warnings }: HtmlConversion) => {
+  if (nodes.length === 0) {
+    toast("Nothing to paste", {
+      description: notCarried(warnings) ?? "The markup shows nothing.",
+    });
+    return;
+  }
+  useClipboard.setState({ nodes });
+  const created = await pasteInto(undefined, nodes);
+  if (created.length === 0) {
+    toast("Nothing to paste", {
+      description: "Select a page or an element to paste into.",
+    });
+    return;
+  }
+  toast(pastedTitle(nodes), { description: notCarried(warnings) });
+};
+
+/** Markup on the clipboard pasted as layers (ADR 0148). True when the paste was markup. */
+const pasteMarkup = (e: ClipboardEvent) => {
+  const markup = e.clipboardData
+    ? markupOn(e.clipboardData, useDesignSystem.getState().designSystem)
+    : null;
+  if (!markup) {
+    return false;
+  }
+  e.preventDefault();
+  if (markup.kind === "jsx") {
+    toast("JSX isn’t pasted as layers", {
+      description: "Paste its HTML, as a browser renders it.",
+    });
+  } else {
+    landMarkup(markup.conversion);
+  }
+  return true;
+};
+
+/**
+ * A paste event: nodes of ours on the clipboard go where the Library would insert, and markup
+ * becomes layers there; image files are the canvas's.
+ */
 export const onPasteEvent = (e: ClipboardEvent) => {
   const nodes = nodesFromText(e.clipboardData?.getData("text/plain") ?? "");
   if (!nodes) {
-    return false;
+    return pasteMarkup(e);
   }
   e.preventDefault();
   useClipboard.setState({ nodes });

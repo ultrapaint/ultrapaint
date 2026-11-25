@@ -24,7 +24,9 @@ Status: accepted, 2026-10-06. Amends 0011 (framework packages) and 0015 (the des
 > design system does not declare reads as its value, written out (`default-theme`, held to the
 > installed `tailwindcss/theme.css`), so it never names a token the design system lacks. Classes
 > with a variant (`md:`, `hover:`) and utilities it does not know are named and left unread.
-> Tailwind's is `tailwindClassReader` in `class-reader`.
+> Tailwind's is `tailwindClassReader` in `class-reader`. The editor imports it to read pasted
+> markup (ADR 0148), the one place it knows Tailwind's utilities: markup on the web is written
+> with them, whatever the project's style system.
 
 > Amended 2026-10-28 (`docs/plans/done/PLAN-architecture-2.md`, step 7): a `ClassWriter` (contracts'
 > `node-style`) takes declarations, not nodes. `classes(styles)` is given an element's CSS
