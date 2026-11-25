@@ -660,7 +660,12 @@ const ImageSection = ({ nodes }: { nodes: readonly ImageNode[] }) => {
         <input
           accept="image/*"
           className="hidden"
-          onChange={(e) => upload(e.target.files?.[0])}
+          onChange={(e) => {
+            const [file] = e.target.files ?? [];
+            // Cleared, so the same file chosen again, after a failed upload, is a change.
+            e.target.value = "";
+            upload(file);
+          }}
           ref={input}
           type="file"
         />
