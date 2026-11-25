@@ -372,6 +372,13 @@ describe("a fill in layers", () => {
         { "background-repeat": "no-repeat" },
       ]
     );
+    // A bracket or a quote, which would quote the url() in the class, as the URL says it.
+    expect(bg("url('assets/hero(1).png') center / cover no-repeat")).toEqual([
+      "bg-[url(assets/hero%281%29.png)]",
+      "bg-center",
+      "bg-cover",
+      "bg-no-repeat",
+    ]);
     // Written with nothing after it, an image is CSS's default: its own size, tiled.
     expect(bg("url(assets/tile.png)")).toEqual(["bg-[url(assets/tile.png)]"]);
   });

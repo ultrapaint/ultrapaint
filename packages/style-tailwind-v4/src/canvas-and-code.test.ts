@@ -134,7 +134,7 @@ const BACKGROUNDS = [
   "background-repeat",
   "background",
 ];
-const ENCODED_SPACE_RE = /%20/g;
+const PERCENT_ENCODED_RE = /%([0-9A-F]{2})/gi;
 
 const kebab = (property: string) =>
   property.replace(UPPER_RE, (c) => `-${c.toLowerCase()}`);
@@ -225,9 +225,14 @@ const placedStops = (value: string): string => {
     return value;
   }
   const placed = layers.map((layer) => {
-    // A class says a space in a file's path as the URL does (ADR 0149).
+    // A class says a space or a bracket in a file's path as the URL does (ADR 0149).
     if (layer.kind === "image") {
-      return { ...layer, src: layer.src.replace(ENCODED_SPACE_RE, " ") };
+      return {
+        ...layer,
+        src: layer.src.replace(PERCENT_ENCODED_RE, (_whole, hex: string) =>
+          String.fromCharCode(Number.parseInt(hex, 16))
+        ),
+      };
     }
     if (layer.kind !== "gradient") {
       return layer;
@@ -374,7 +379,7 @@ const withOverrides = (root: DesignNode): DesignNode => {
           // A picture over a colour, then one at its own size whose fit the first's bounds
           // (ADR 0149).
           at.md = {
-            fill: 'url("assets/a b.png") center / cover no-repeat, $color-muted-foreground',
+            fill: 'url("assets/a (b).png") center / cover no-repeat, $color-muted-foreground',
           };
           at.xl = { fill: "url(assets/tile.png)" };
         }
