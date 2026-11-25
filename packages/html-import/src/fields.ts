@@ -72,6 +72,13 @@ const compact = <T extends object>(value: T): T =>
 const numeric = (value: DeclaredValue | undefined) =>
   typeof value === "string" && NUMBER_RE.test(value) ? Number(value) : value;
 
+/**
+ * A line height as the format holds it: pixels keep their unit, as a bare number below 4 is a
+ * multiple of the size there; a multiple written as one (`"1.5"`) a number; a token as it is.
+ */
+const leadingOf = (value: DeclaredValue) =>
+  typeof value === "number" ? `${value}px` : numeric(value);
+
 /** The fields every node has, as a box's. */
 export type BoxFields = ReturnType<ReturnType<typeof makeFields>["box"]>;
 
@@ -119,15 +126,22 @@ export const makeFields = (
   const sizes = (style: ElementStyle, parent: Layout) => {
     let width = sizeOf(style.width);
     let height = sizeOf(style.height);
-    // Growing into the free room is filling the parent's main axis; stretching, its cross axis.
+    // Growing into the free room is filling the parent's main axis; stretching, its cross axis,
+    // only where that axis is left to it, its size `auto` and neither of its margins `auto`.
     const grows = style.flexGrow !== undefined && Number(style.flexGrow) > 0;
-    const stretches = style.alignSelf === "stretch";
+    const stretches = (
+      size: Size | undefined,
+      margins: readonly ("Top" | "Right" | "Bottom" | "Left")[]
+    ) =>
+      style.alignSelf === "stretch" &&
+      size === undefined &&
+      margins.every((side) => style[`margin${side}`] !== "auto");
     if (parent === "row") {
       width = grows ? "fill" : width;
-      height = stretches ? "fill" : height;
+      height = stretches(height, ["Top", "Bottom"]) ? "fill" : height;
     } else if (parent === "column") {
       height = grows ? "fill" : height;
-      width = stretches ? "fill" : width;
+      width = stretches(width, ["Left", "Right"]) ? "fill" : width;
     }
     return { height, width };
   };
@@ -207,8 +221,11 @@ export const makeFields = (
 
   /** The fields every node has: its size and bounds, spacing, fill, border, corners and shadow. */
   const box = (style: ElementStyle, parent: Layout) => {
+    // A minimum of 0 binds nothing; a maximum of 0 holds the box shut.
     const bound = (value: DeclaredValue | undefined) =>
       isUnset(value) ? undefined : value;
+    const maximum = (value: DeclaredValue | undefined) =>
+      value === undefined || value === "none" ? undefined : value;
     const opacity = style.opacity === undefined ? 1 : Number(style.opacity);
     const shadow = style.boxShadow;
     return compact({
@@ -216,8 +233,8 @@ export const makeFields = (
       border: borderOf(style),
       fill: fillOf(style),
       margin: spacingSides(style, "margin"),
-      maxHeight: bound(style.maxHeight),
-      maxWidth: bound(style.maxWidth),
+      maxHeight: maximum(style.maxHeight),
+      maxWidth: maximum(style.maxWidth),
       minHeight: bound(style.minHeight),
       minWidth: bound(style.minWidth),
       opacity: opacity < 1 && opacity >= 0 ? opacity : undefined,
@@ -284,7 +301,7 @@ export const makeFields = (
         lineHeight === "normal" ||
         lineHeight === paired
           ? undefined
-          : numeric(values.of("leading", lineHeight)),
+          : leadingOf(values.of("leading", lineHeight)),
       size,
       tracking:
         letterSpacing === undefined || letterSpacing === "normal"

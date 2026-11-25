@@ -9,6 +9,8 @@ describe("telling JSX from HTML", () => {
       `<div className="p-4">x</div>`,
       `<label htmlFor="name">Name</label>`,
       "<button onClick={go}>Buy</button>",
+      `<div className = "p-4">x</div>`,
+      "<button onClick = {go}>Buy</button>",
     ]) {
       expect(isJsx(text)).toBe(true);
     }
@@ -17,7 +19,8 @@ describe("telling JSX from HTML", () => {
   it("reads markup a browser or an editor of HTML writes as HTML", () => {
     for (const text of [
       `<div class="flex gap-4"><p>Pay {as} you go</p></div>`,
-      "<DIV>shouting</DIV>".toLowerCase(),
+      "<P>An old page</P><BR>",
+      "<p>x = {1, 2}</p>",
       `<a href="/docs">Docs</a>`,
     ]) {
       expect(isJsx(text)).toBe(false);

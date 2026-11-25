@@ -2,15 +2,17 @@
  * An element's style, what an element of pasted markup sets with its classes and its inline
  * style, as one set of declarations (ADR 0148): the classes as the style system's class reader reads them, the inline
  * style over them field by field. Both come in many shapes, a shorthand or its longhands, a corner
- * or a side each; they are folded into one, so the rules that make fields read one property per
- * field (`padding*` side by side, `border*` and `borderRadius` once for every side, `background`
- * with its image). A length in pixels is a number. Pure, and reads the DOM it is given.
+ * or a side each: both are taken apart into the same components, met, then folded into one, so
+ * the rules that make fields read one property per field (`padding*` side by side, `border*` and
+ * `borderRadius` once for every side, `background` with its image). A length in pixels is a
+ * number. Pure, and reads the DOM it is given.
  */
 import type {
   ClassReader,
   DeclaredValue,
 } from "@ultrapaint/contracts/node-style";
-import { parseLength } from "@ultrapaint/contracts/token-value";
+import { parseColor, parseLength } from "@ultrapaint/contracts/token-value";
+import { isToken } from "@ultrapaint/design-document/tokens";
 import type { Warn, WarningKind } from "./warnings.ts";
 
 /** An element's style: what its classes and inline style set, one property per field. */
@@ -52,38 +54,80 @@ const allTheSame = (look: ElementStyle, names: readonly string[]) => {
     : undefined;
 };
 
-/** Properties a fold reads and writes again as others, which the folded look leaves out. */
+const BOXES = new Set(["padding", "margin", "inset"]);
+const BORDER_WHOLE = new Set(BORDER_PARTS.map((part) => `border${part}`));
+const LAYER_SPLIT_RE = /,(?![^(]*\))/;
+
+/** A box shorthand's property for one side: `paddingTop`, but `top` for the inset. */
+const sideName = (box: string, side: (typeof SIDES)[number]) =>
+  box === "inset" ? side.toLowerCase() : `${box}${side}`;
+
+/** A fill as its image over its colour: the colour is its last layer, when that is one. */
+const backgroundParts = (value: DeclaredValue): ElementStyle => {
+  const layers = String(value)
+    .split(LAYER_SPLIT_RE)
+    .map((layer) => layer.trim());
+  const last = layers.at(-1) ?? "";
+  const colour =
+    parseColor(last) !== null || isToken(last) || last === "transparent";
+  const images = colour ? layers.slice(0, -1) : layers;
+  return {
+    ...(colour ? { backgroundColor: last } : {}),
+    ...(images.length > 0 ? { backgroundImage: images.join(", ") } : {}),
+  };
+};
+
+/** One declaration as the components the classes' and the inline style's meet in. */
+const components = (property: string, value: DeclaredValue): ElementStyle => {
+  if (BOXES.has(property)) {
+    const sides = boxSides(value);
+    return Object.fromEntries(
+      SIDES.map((side, i) => [sideName(property, side), sides[i] ?? 0])
+    );
+  }
+  if (property === "gap") {
+    const [row = 0, column = row] = boxSides(value);
+    return { columnGap: column, rowGap: row };
+  }
+  if (BORDER_WHOLE.has(property)) {
+    const part = property.slice("border".length);
+    return Object.fromEntries(
+      SIDES.map((side) => [`border${side}${part}`, value])
+    );
+  }
+  if (property === "borderRadius") {
+    return Object.fromEntries(
+      CORNERS.map((corner) => [`border${corner}Radius`, value])
+    );
+  }
+  if (property === "background") {
+    return backgroundParts(value);
+  }
+  return { [property]: value };
+};
+
+/**
+ * Declarations as components, so the classes' and the inline style's meet field by field: a box
+ * shorthand as its sides, a gap as its two axes, a whole border and radius as each side's and
+ * corner's, a fill as its image and its colour. Pixels are a number.
+ */
+const expanded = (declared: ElementStyle): ElementStyle => {
+  const out: ElementStyle = {};
+  for (const [property, value] of Object.entries(declared)) {
+    if (value !== undefined) {
+      Object.assign(out, components(property, pixelsOrCss(value)));
+    }
+  }
+  return out;
+};
+
+/** The components a fold writes again as one property, which the folded style leaves out. */
 const FOLDED = new Set([
-  "padding",
-  "margin",
-  "inset",
-  "gap",
   "backgroundImage",
   "backgroundColor",
   ...BORDER_PARTS.flatMap((part) => SIDES.map((s) => `border${s}${part}`)),
   ...CORNERS.map((corner) => `border${corner}Radius`),
 ]);
-
-/** A box shorthand's sides, each where the look does not set it on its own. */
-const sidesOf = (look: ElementStyle): ElementStyle => {
-  const out: ElementStyle = {};
-  for (const box of ["padding", "margin", "inset"] as const) {
-    const value = look[box];
-    if (value !== undefined) {
-      const sides = boxSides(value);
-      SIDES.forEach((side, i) => {
-        const name = box === "inset" ? side.toLowerCase() : `${box}${side}`;
-        out[name] = look[name] ?? sides[i] ?? 0;
-      });
-    }
-  }
-  if (look.gap !== undefined) {
-    const [row = 0, column = row] = boxSides(look.gap);
-    out.rowGap = look.rowGap ?? row;
-    out.columnGap = look.columnGap ?? column;
-  }
-  return out;
-};
 
 /** A border's and a corner's sides as one value where they agree; warned where they do not. */
 const bordersOf = (look: ElementStyle, warn: Warn): ElementStyle => {
@@ -123,61 +167,66 @@ const backgroundOf = (look: ElementStyle): ElementStyle => {
 };
 
 /**
- * Declarations folded so each field has one property: shorthands into sides, a border's and a
- * corner's sides into one where they agree, a gap into both axes, a fill's colour and image into
- * `background`. Sides that disagree are said in the warnings and left out.
+ * Components folded so each field the rules read has one property: a border's and a corner's sides
+ * into one where they agree (warned where they do not), a fill's image and colour into
+ * `background`. Padding, margin and the inset stay side by side.
  */
-const folded = (declared: ElementStyle, warn: Warn): ElementStyle => {
-  const look: ElementStyle = {};
-  for (const [property, value] of Object.entries(declared)) {
-    if (value !== undefined) {
-      look[property] = pixelsOrCss(value);
-    }
-  }
-  const kept = Object.fromEntries(
+const folded = (look: ElementStyle, warn: Warn): ElementStyle => ({
+  ...Object.fromEntries(
     Object.entries(look).filter(([property]) => !FOLDED.has(property))
-  );
-  return {
-    ...kept,
-    ...sidesOf(look),
-    ...bordersOf(look, warn),
-    ...backgroundOf(look),
-  };
-};
+  ),
+  ...bordersOf(look, warn),
+  ...backgroundOf(look),
+});
 
-/** The longhands an element's inline style sets, as the DOM expands its shorthands. */
-const inlineOf = (element: Element): ElementStyle => {
+/** An element's inline style: the longhands the DOM expands it into, and those it resets. */
+const inlineOf = (
+  element: Element
+): { readonly reset: ReadonlySet<string>; readonly set: ElementStyle } => {
   const style = (element as HTMLElement).style as
     | CSSStyleDeclaration
     | undefined;
-  const look: ElementStyle = {};
+  const set: ElementStyle = {};
+  const reset = new Set<string>();
   for (let i = 0; i < (style?.length ?? 0); i += 1) {
     const property = style?.item(i) ?? "";
-    const value = style?.getPropertyValue(property) ?? "";
-    if (!(property.startsWith("--") || UNSET.has(value.trim()))) {
-      look[camel(property)] = value;
+    const value = (style?.getPropertyValue(property) ?? "").trim();
+    if (property.startsWith("--")) {
+      continue;
+    }
+    if (UNSET.has(value)) {
+      // `initial` and its like take back what a class set.
+      for (const name of Object.keys(components(camel(property), 0))) {
+        reset.add(name);
+      }
+    } else {
+      set[camel(property)] = value;
     }
   }
-  return look;
+  return { reset, set };
 };
 
 /**
  * What an element sets: its classes read by the style system's reader, the classes it could not
- * read said in the warnings, then its inline style over them, field by field.
+ * read said in the warnings, then its inline style over them, component by component, a reset
+ * (`initial`) taking a class's value back.
  */
 export const styleOf = (
   element: Element,
   classes: ClassReader,
   warn: Warn
 ): ElementStyle => {
-  const list = [...element.classList];
-  const reading = classes.read(list);
+  const reading = classes.read([...element.classList]);
   warn("variant", reading.variants.length);
   warn("unread", reading.unread.length);
-  return {
-    ...folded(reading.declarations, warn),
-    ...folded(inlineOf(element), warn),
-  };
+  const inline = inlineOf(element);
+  const merged = Object.fromEntries(
+    Object.entries({
+      ...expanded(reading.declarations),
+      ...expanded(inline.set),
+    }).filter(([name]) => !inline.reset.has(name))
+  );
+  return folded(merged, warn);
 };
 
 const FLEX = new Set(["flex", "inline-flex"]);

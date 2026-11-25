@@ -445,16 +445,17 @@ export const convertHtml = (
     depth: number
   ): Converted | null {
     const tag = tagOf(element);
-    const left = LEFT_OUT[tag];
+    // What is not shown is dropped without a word, a hidden control as anything else.
+    if (!shown(element)) {
+      return null;
+    }
+    const left = Object.hasOwn(LEFT_OUT, tag) ? LEFT_OUT[tag] : undefined;
     if (left !== undefined) {
       warn(left);
       return null;
     }
     if (depth > MAX_DEPTH) {
       warn("depth");
-      return null;
-    }
-    if (!shown(element)) {
       return null;
     }
     const own = style(element);
@@ -475,8 +476,13 @@ export const convertHtml = (
     return placed(own, textNode(words, settings, fields.box(own, parent), tag));
   }
 
-  const layers = childrenOf(document.body, {}, "column", true, 0).map(
-    (c) => c.node
-  );
+  // The body is an element as any other: hidden, it shows nothing; its text settings are its
+  // children's to inherit.
+  const { body } = document;
+  const layers = shown(body)
+    ? childrenOf(body, inherit({}, style(body)), "column", true, 0).map(
+        (c) => c.node
+      )
+    : [];
   return { nodes: layers, warnings: list() };
 };
