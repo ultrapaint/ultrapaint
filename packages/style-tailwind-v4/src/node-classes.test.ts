@@ -379,6 +379,22 @@ describe("a fill in layers", () => {
       "bg-cover",
       "bg-no-repeat",
     ]);
+    // Any space, in UTF-8 as a URL says it; the code's className holds the class as it is.
+    const [file] = bg('url("assets/a\u00a0b.png") center / cover no-repeat');
+    expect(file).toBe("bg-[url(assets/a%C2%A0b.png)]");
+    const code = toCode(
+      {
+        children: [],
+        fill: "url('assets/hero(1).png') center / cover no-repeat",
+        id: "hero",
+        type: "column",
+      },
+      ds
+    );
+    const match: RegExpExecArray | null = CLASS_NAME_RE.exec(code);
+    expect(match?.[1]).toContain(
+      "bg-[url(assets/hero%281%29.png)] bg-center bg-cover bg-no-repeat"
+    );
     // Written with nothing after it, an image is CSS's default: its own size, tiled.
     expect(bg("url(assets/tile.png)")).toEqual(["bg-[url(assets/tile.png)]"]);
   });
