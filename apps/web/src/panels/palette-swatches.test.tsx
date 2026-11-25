@@ -349,6 +349,8 @@ describe("a colour field's palettes (UP-136)", () => {
   });
 
   it("are gone down from a swatch that Use nearest offers too, as from any swatch", () => {
+    // Palettes only, so that the two ways are the list above them; `#555556` is nearest
+    // blue-500, the sixth swatch of Blue.
     showing([box("#555556")], { ...ds, colors: ds.colors.slice(1) });
     openField("#555556");
     expect(rowNames().slice(0, 2)).toEqual([
