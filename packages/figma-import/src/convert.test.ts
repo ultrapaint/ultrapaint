@@ -473,6 +473,49 @@ describe("converting a frame", () => {
     expect(warnings).toEqual([]);
   });
 
+  it("draws a free-layout page's picture once, behind its one child, the page taking the colour under it (ADR 0149)", () => {
+    const f = makeFixture();
+    const landing = f.add(f.page, {
+      fillPaints: [
+        solid(1, 1, 1),
+        {
+          image: { hash: new Uint8Array(20).fill(0xab) },
+          imageScaleMode: "FIT",
+          opacity: 0.5,
+          type: "IMAGE",
+          visible: true,
+        },
+      ],
+      name: "Landing",
+      size: { x: 400, y: 300 },
+      type: "FRAME",
+    });
+    f.add(landing, {
+      fontName: { family: "Inter", postscript: "Inter", style: "Regular" },
+      fontSize: 32,
+      name: "Headline",
+      size: { x: 200, y: 40 },
+      textAutoResize: "WIDTH_AND_HEIGHT",
+      textData: { characters: "Ship on Friday" },
+      type: "TEXT",
+    });
+    f.addImage("ab".repeat(20), PNG_BYTES);
+    const file = readFig(f.build());
+    const [frame] = file.pages[0]?.frames ?? [];
+    if (!frame) {
+      throw new Error("no frame");
+    }
+    const { root, warnings } = convertFrame(file, frame, options());
+    expect(root.fill).toBe("#ffffff");
+    expect(childrenOf(root)[0]?.fill).toBe(
+      "url(assets/figma-abababababab.png) center / contain no-repeat, #ffffff"
+    );
+    // Figma's opacity on a picture is one the fill cannot say.
+    expect(warnings).toEqual([
+      '"Landing" has a see-through image background, drawn opaque',
+    ]);
+  });
+
   it("brings a background blur as the blur token that holds its length", () => {
     const { file, frame } = frostedBar();
     const tokens = makeTokenMatcher({
