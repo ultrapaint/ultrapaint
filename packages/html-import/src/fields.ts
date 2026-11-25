@@ -60,6 +60,8 @@ const HUGS = new Set(["fit-content", "max-content", "min-content"]);
 const URL_RE = /url\(/i;
 const LAYER_SPLIT_RE = /,(?![^(]*\))/;
 const NUMBER_RE = /^-?\d*\.?\d+$/;
+/** A line height the format reads as a multiple of the size, as a number: one below 4. */
+const MULTIPLE_BELOW = 4;
 /** The largest radius, a full one: Tailwind's `rounded-full`, as the editor writes it. */
 const FULL_RADIUS = 9999;
 
@@ -76,8 +78,16 @@ const numeric = (value: DeclaredValue | undefined) =>
  * A line height as the format holds it: pixels keep their unit, as a bare number below 4 is a
  * multiple of the size there; a multiple written as one (`"1.5"`) a number; a token as it is.
  */
-const leadingOf = (value: DeclaredValue) =>
-  typeof value === "number" ? `${value}px` : numeric(value);
+const leadingOf = (value: DeclaredValue) => {
+  if (typeof value === "number") {
+    return `${value}px`;
+  }
+  // The format reads a number of 4 or more as pixels: a larger multiple stays as written.
+  const multiple = numeric(value);
+  return typeof multiple === "number" && multiple >= MULTIPLE_BELOW
+    ? value
+    : multiple;
+};
 
 /** The fields every node has, as a box's. */
 export type BoxFields = ReturnType<ReturnType<typeof makeFields>["box"]>;
