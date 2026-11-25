@@ -194,8 +194,18 @@ const outline = () =>
   (document.querySelector("[data-variation-preview]") as HTMLElement).style
     .outlineStyle;
 
-const controls = () =>
-  document.querySelector("[data-variation-controls]")?.textContent ?? "";
+/** What the preview's controls say past the switch in place: its actions, and what it is made of. */
+const controls = () => {
+  const el = document
+    .querySelector("[data-variation-controls]")
+    ?.cloneNode(true) as HTMLElement | undefined;
+  el?.querySelector("[data-variation-switch]")?.remove();
+  return el?.textContent ?? "";
+};
+
+/** The switch in place: where the preview is among the variations. */
+const switchSays = () =>
+  document.querySelector("[data-variation-switch]")?.textContent ?? null;
 
 const initialEditor = useEditor.getState();
 const initialDocuments = useDocuments.getState();
@@ -380,6 +390,109 @@ describe("a thing's variations laid out beside its page", () => {
     expect(fits.count).toBe(3);
     measure("lede", 200);
     expect(fits.count).toBe(4);
+  });
+});
+
+describe("never over anything else on the canvas (ADR 0147)", () => {
+  /** Each variation's box on the canvas, as it is drawn. */
+  const laidOut = () =>
+    [...document.querySelectorAll("[data-variation]")].map((el) => {
+      const { height, left, top, width } = (el as HTMLElement).style;
+      return {
+        height: Number.parseFloat(height),
+        width: Number.parseFloat(width),
+        x: Number.parseFloat(left),
+        y: Number.parseFloat(top),
+      };
+    });
+  const overlaps = (
+    a: { height: number; width: number; x: number; y: number },
+    b: { height: number; width: number; x: number; y: number }
+  ) =>
+    a.x < b.x + b.width &&
+    b.x < a.x + a.width &&
+    a.y < b.y + b.height &&
+    b.y < a.y + a.height;
+  // The person's canvas of 25 Nov: a page beside the page, and one under it.
+  const MENU = "menu.page.json";
+  const SIGN_IN = "sign-in.page.json";
+  const NEIGHBOURS = {
+    [MENU]: { ...PAGE, x: 1520 },
+    [SIGN_IN]: { ...PAGE, y: 980 },
+  };
+
+  beforeEach(() => {
+    useEditor.setState((s) => ({ frames: { ...s.frames, ...NEIGHBOURS } }));
+  });
+
+  it("draws what is in their way aside, past them, and leaves the rest where it is", () => {
+    show();
+    const { room } = useVariations.getState();
+    expect(Object.keys(room)).toEqual([MENU]);
+    const menu = { ...NEIGHBOURS[MENU], x: 1520 + (room[MENU] ?? 0) };
+    for (const box of laidOut()) {
+      expect(overlaps(box, menu)).toBe(false);
+      expect(overlaps(box, NEIGHBOURS[SIGN_IN])).toBe(false);
+    }
+  });
+
+  it("puts every frame back once they close, nothing written", () => {
+    show();
+    press("escape");
+    expect(useVariations.getState().room).toEqual({});
+    expect(useEditor.getState().frames[MENU]).toEqual(NEIGHBOURS[MENU]);
+    expect(fakeApi.calls.filter((c) => c.method.startsWith("canvas."))).toEqual(
+      []
+    );
+  });
+
+  it("says what each varied on a line of its own under its name, whole in its tooltip", () => {
+    show();
+    const header = document.querySelector(
+      '[data-variation="v2"] [data-variation-header]'
+    );
+    expect(
+      [...(header?.children ?? [])].map((line) => line.textContent)
+    ).toEqual(["Editorial", "Tone of the copy"]);
+    expect(header?.querySelector('[title="Tone of the copy"]')).not.toBeNull();
+  });
+});
+
+describe("the switch in place under the preview (ADR 0147)", () => {
+  const button = (label: string) =>
+    document.querySelector(`[aria-label="${label}"]`);
+
+  it("says where the preview is, and steps it through the variations in place, round from the last", () => {
+    show();
+    expect(switchSays()).toBe("1 of 3");
+    click(button("Next variation"));
+    expect(switchSays()).toBe("2 of 3");
+    expect(useVariations.getState().open?.preview).toBe("v2");
+    expect(controls()).toBe("ResetUse this");
+    expect(outline()).toBe("dashed");
+
+    click(button("Previous variation"));
+    click(button("Previous variation"));
+    expect(switchSays()).toBe("3 of 3");
+    expect(useVariations.getState().open?.preview).toBe("v3");
+    expect(fakeApi.calls.filter((c) => c.method === "variations.use")).toEqual(
+      []
+    );
+  });
+
+  it("is not there with one variation alone", () => {
+    fakeApi.emit("variations", {
+      doc: HOME,
+      sets: {
+        title: {
+          inUse: "original",
+          variations: [{ id: "original", name: "Original" }],
+        },
+      } as VariationSets,
+    });
+    show();
+    expect(switchSays()).toBeNull();
+    expect(controls()).toBe("Done");
   });
 });
 

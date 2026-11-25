@@ -659,7 +659,7 @@ const ResizeHandle = ({
 
 /** The header's height and its distance from the frame, on screen. */
 const HEADER_HEIGHT = 24;
-const HEADER_GAP = 4;
+export const HEADER_GAP = 4;
 
 /** The class of a header's first child, its name: cut short to the frame's width, as Figma does. */
 export const HEADER_NAME =

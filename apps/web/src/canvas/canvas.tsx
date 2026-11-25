@@ -17,6 +17,7 @@ import { nodeFrameOf, viewFrameOf } from "../state/frame-ref.ts";
 import { nodeFrameLayout } from "../state/page-layout.ts";
 import { useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
+import { asideBy, useVariations } from "../state/variations.ts";
 import { useFollowAgent } from "./agent-presence.tsx";
 import { useFramesInView } from "./camera.ts";
 import { CanvasGround } from "./canvas-ground.tsx";
@@ -69,6 +70,8 @@ export const Canvas = () => {
   useFollowAgent();
   const ref = useRef<HTMLDivElement>(null);
   const frames = useEditor((s) => s.frames);
+  // What is in the way of a thing's variations, drawn aside while they are open (ADR 0147).
+  const room = useVariations((s) => s.room);
   const canvas = useEditor((s) => s.canvas);
   const mode = useEditor((s) => s.mode);
   const spacePan = useEditor((s) => s.spacePan);
@@ -281,7 +284,7 @@ export const Canvas = () => {
           return box
             ? [
                 <Frame
-                  frame={box}
+                  frame={asideBy(box, room[id])}
                   frameId={id}
                   key={id}
                   onDragStart={beginFrameGesture}
@@ -345,11 +348,15 @@ const NodeFrame = memo(
     const grid = useCanvasGrid((s) => s.visible);
     const movingX = useDrag((s) => movingTo(s, frameId, grid)?.x ?? null);
     const movingY = useDrag((s) => movingTo(s, frameId, grid)?.y ?? null);
-    const box = {
-      ...nodeFrameLayout(node, size),
-      ...held,
-      ...(movingX !== null && movingY !== null && { x: movingX, y: movingY }),
-    };
+    const aside = useVariations((s) => s.room[frameId]);
+    const box = asideBy(
+      {
+        ...nodeFrameLayout(node, size),
+        ...held,
+        ...(movingX !== null && movingY !== null && { x: movingX, y: movingY }),
+      },
+      aside
+    );
     return (
       <Frame
         frame={box}

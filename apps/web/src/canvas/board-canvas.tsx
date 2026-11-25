@@ -71,7 +71,7 @@ import { LOOK_ITEM, useLookPage } from "../state/look-page.ts";
 import { useProject } from "../state/project.ts";
 import { select, useSelectedIn } from "../state/selection.ts";
 import { stepInto } from "../state/tree.ts";
-import { useVariations } from "../state/variations.ts";
+import { asideBy, useVariations } from "../state/variations.ts";
 import { screenPx } from "./camera.ts";
 import { CanvasGround } from "./canvas-ground.tsx";
 import { frameOf, useFrameDrawing, useFrameEvents } from "./editor-frame.ts";
@@ -264,6 +264,8 @@ export const BoardCanvas = ({ open }: { open: BoardPlace }) => {
     s.open && ids.includes(s.open.frame) ? s.open.frame : null
   );
   const choosingBox = choosingOn === null ? undefined : layout[choosingOn];
+  // The boards in the way of the variations, drawn aside while they are open (ADR 0147).
+  const room = useVariations((s) => s.room);
 
   return (
     <CanvasGround
@@ -283,7 +285,7 @@ export const BoardCanvas = ({ open }: { open: BoardPlace }) => {
         return box ? (
           <BoardFrame
             board={board}
-            box={box}
+            box={asideBy(box, room[id])}
             frameId={id}
             key={id}
             name={name}
@@ -291,7 +293,9 @@ export const BoardCanvas = ({ open }: { open: BoardPlace }) => {
         ) : null;
       })}
       {choosingOn !== null && choosingBox ? (
-        <VariationsBeside board={{ box: choosingBox, frameId: choosingOn }} />
+        <VariationsBeside
+          board={{ box: choosingBox, frameId: choosingOn, frames: layout }}
+        />
       ) : null}
     </CanvasGround>
   );

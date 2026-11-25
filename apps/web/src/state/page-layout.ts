@@ -433,10 +433,17 @@ export const applyLayout = (canvas: string, pushed: CanvasLayout) => {
  * The page canvas's frames, pages, their views and the nodes beside the pages alike: what fits,
  * zooms and drops look at there.
  */
-export const pageCanvasFrames = (): Record<string, Box> => {
-  const { frames, held, sizes, canvas } = useEditor.getState();
+export const pageCanvasFrames = (): Record<string, Box> =>
+  framesOnCanvas(useEditor.getState(), useDocuments.getState().docs);
+
+/** `pageCanvasFrames` from the editor's state and the documents given, for a hook to follow. */
+export const framesOnCanvas = (
+  editor: Pick<EditorState, "canvas" | "frames" | "held" | "sizes">,
+  docs: Parameters<typeof canvasNodes>[0]
+): Record<string, Box> => {
+  const { frames, held, sizes, canvas } = editor;
   const out: Record<string, Box> = { ...frames };
-  for (const node of canvasNodes(useDocuments.getState().docs, canvas)) {
+  for (const node of canvasNodes(docs, canvas)) {
     const frame = nodeFrameOf(node.id);
     out[frame] = { ...nodeFrameLayout(node, sizes[frame]), ...held[frame] };
   }

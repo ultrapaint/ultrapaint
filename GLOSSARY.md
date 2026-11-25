@@ -174,6 +174,9 @@ refactor and the board view left.
     node with its id, **Add to preview** in the same place in its parent; the preview is then a
     **mix** ("Original with Editorial's heading", `state/variation-parts.ts`), which Use this
     puts in use as a variation of its own.
+  - While they are open, the frames in their way are drawn **aside**, past them, nothing written
+    (the store's `room`, contracts' `roomFor`, ADR 0147), and the preview's controls start with
+    the **switch in place**, which steps the preview through them as ← and → do.
   - A round's **distance** is where a page's or a container's takes start (ADR 0139; a text's
     or an image's are always This design), the person's **Start from**:
     **This design** (a copy changed in place), **Different** (a copy whose layout each take
