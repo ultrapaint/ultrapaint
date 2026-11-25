@@ -50,7 +50,10 @@ off-system check flagged a picture as a raw colour, and the Figma import dropped
   of its fill, the top one first, so a wash laid over a photo stays over
   it: the image at its fit (Figma's Fill is cover, Fit contain, Stretch fill, Tile no fit, any
   other cover), its file saved as an image node's is, a colour and a gradient as 0134 reads them.
-  No warning. A frame without children with an image paint is still an image node, and one whose
+  No warning, but for an image paint Figma draws see-through, which a fill cannot say: it is drawn
+  opaque, with a warning. A free-layout frame, whose one child the page holds, draws its picture
+  once, on that child, the page taking only the colour under it. A frame without children with an
+  image paint is still an image node, and one whose
   children are all shapes, drawn as one picture, still drops its image paint with a warning.
 - **The document format's** description of `fill` says it may layer images, by their
   `assets/…` path.

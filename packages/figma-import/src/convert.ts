@@ -14,7 +14,7 @@ import type {
   PageNode,
 } from "@ultrapaint/contracts/document";
 import type { ComponentMapping } from "@ultrapaint/contracts/figma";
-import type { ImageLayer } from "@ultrapaint/design-document/fill";
+import { fillLayers, type ImageLayer } from "@ultrapaint/design-document/fill";
 import { type IdGenerator, idPrefix } from "@ultrapaint/design-document/ids";
 import type { FigGuid, FigNode, FigPaint } from "openfig-core";
 import { nodeId } from "openfig-core";
@@ -224,6 +224,16 @@ const PLAIN_SHAPES = new Set([
 const CONTAINERS = new Set(["FRAME", "GROUP", "SECTION", "SYMBOL"]);
 const NO_SIZE: OwnSize = { height: undefined, width: undefined };
 
+/** A fill as a page under a child that draws it: its bottom colour where it holds a picture. */
+const behindPicture = (fill: string | undefined): string | undefined => {
+  const layers = fillLayers(fill);
+  if (!layers.some((l) => l.kind === "image")) {
+    return fill;
+  }
+  const bottom = layers.at(-1);
+  return bottom?.kind === "color" ? bottom.color : undefined;
+};
+
 export const convertFrame = (
   file: FigFile,
   frame: FigNode,
@@ -351,10 +361,13 @@ const makeConverter = (file: FigFile, options: ConvertOptions) => {
   };
 
   /** An image paint as a fill's layer, at its fit; one tiled is drawn at its own size. */
-  const imageLayer = (paint: FigPaint): ImageLayer | null => {
+  const imageLayer = (node: FigNode, paint: FigPaint): ImageLayer | null => {
     const src = imageSrc(paint);
     if (src === null) {
       return null;
+    }
+    if ((paint.opacity ?? 1) < 1) {
+      warn(`"${node.name}" has a see-through image background, drawn opaque`);
     }
     const mode = scaleModeOf(paint);
     return mode === "TILE"
@@ -421,7 +434,12 @@ const makeConverter = (file: FigFile, options: ConvertOptions) => {
     const own = box(merged, placement, frameSize(merged));
     // A picture behind the frame's children is its fill's image layer (ADR 0149).
     const fields = topPaint(merged.fillPaints, "IMAGE")
-      ? { ...own, fill: paintedFill(merged, tokens, imageLayer) }
+      ? {
+          ...own,
+          fill: paintedFill(merged, tokens, (paint) =>
+            imageLayer(merged, paint)
+          ),
+        }
       : own;
     if (direction === null) {
       return {
@@ -731,7 +749,9 @@ const makeConverter = (file: FigFile, options: ConvertOptions) => {
         type: "page",
       });
     }
-    // A free layout is the page's one child; its fill is the page's background too.
+    // A free layout is the page's one child; its fill is the page's background too, but a
+    // picture is drawn once, behind the child, the page taking only the colour under it.
+    const pageFill = behindPicture(converted.fill);
     const child = compact({
       ...converted,
       height: undefined,
@@ -739,7 +759,7 @@ const makeConverter = (file: FigFile, options: ConvertOptions) => {
     }) as DesignNode;
     return compact({
       children: [child],
-      fill: converted.fill,
+      fill: pageFill,
       id: "root",
       name,
       type: "page",
