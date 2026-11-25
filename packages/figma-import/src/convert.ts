@@ -702,10 +702,11 @@ const makeConverter = (file: FigFile, options: ConvertOptions) => {
     if (children.length === 0 && topPaint(node.fillPaints, "IMAGE")) {
       return imageFill(node, placement);
     }
-    const drawn = children.length > 0 ? icon(node, placement) : null;
-    if (drawn && topPaint(node.fillPaints, "IMAGE")) {
-      warn(`"${node.name}" has an image background, which was dropped`);
-    }
+    // A frame with a picture behind its shapes keeps it as its fill, never drawn as one icon.
+    const drawn =
+      children.length > 0 && !topPaint(node.fillPaints, "IMAGE")
+        ? icon(node, placement)
+        : null;
     return drawn ?? container(node, context, placement);
   };
 
