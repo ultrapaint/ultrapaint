@@ -370,7 +370,7 @@ const ActiveCombobox = ({
     if (!(swatches && highlighted && direction)) {
       return;
     }
-    const next = stepTo(swatches, keyOf(highlighted), direction);
+    const next = stepTo(swatches, highlighted, direction);
     const element = next && cells.current.get(keyOf(next));
     if (!element) {
       return;
@@ -583,15 +583,17 @@ const swatchGridOf = (
 };
 
 /**
- * Where up or down goes from the item of a key (`keyOf`) when it leaves or enters a palette, or
- * null to leave it to the list: from a list row to a palette's first shade; from a palette to the
- * nearest shade at the same place, the lower of two as near; to a list row's item.
+ * Where up or down goes from an item when it leaves or enters a palette, or null to leave it to
+ * the list: from a list row to a palette's first shade; from a palette to the nearest shade at
+ * the same place, the lower of two as near; to a list row's item. An item is told by its key
+ * (`keyOf`): Use nearest and its token's swatch share a value.
  */
 const stepTo = (
   rows: readonly GridRow[],
-  key: string,
+  item: Item,
   direction: number
 ): Item | null => {
+  const key = keyOf(item);
   const from = rows.findIndex((row) => row.cells.some((c) => keyOf(c) === key));
   const source = rows[from];
   const target = rows[from + direction];
