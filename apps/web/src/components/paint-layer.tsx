@@ -95,8 +95,12 @@ export const PaintLayer = ({
         ctx.globalAlpha = leftAfter(Date.now() - carried.at);
         ctx.drawImage(image, 0, 0, width, height);
         ctx.globalAlpha = 1;
-        // Wiped 2 s after it was laid, as it would have been on the start page.
-        lastPainted = performance.now() - (Date.now() - carried.at);
+        // Wiped 2 s after it was laid, as it would have been on the start page, unless painted
+        // on since.
+        lastPainted = Math.max(
+          lastPainted,
+          performance.now() - (Date.now() - carried.at)
+        );
       };
       image.src = carried.image;
     }
