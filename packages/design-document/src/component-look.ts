@@ -18,6 +18,10 @@ import type {
   StateStyles,
 } from "@ultrapaint/contracts/components";
 import type { Border, Padding } from "@ultrapaint/contracts/document";
+import type {
+  Declarations,
+  DeclaredValue,
+} from "@ultrapaint/contracts/node-style";
 import { ITEMS, JUSTIFY, type StyleContext } from "./css.ts";
 
 /** A system component's look as it is drawn: its file's fields, with what the catalogue says of it. */
@@ -451,4 +455,117 @@ export const lookCss = (
 ): string => {
   const rules = looks.flatMap((look) => lookRules(look, ctx));
   return rules.length === 0 ? "" : `${rules.join("\n\n")}\n`;
+};
+
+// ---- A look at rest, as declarations ----
+
+type Declared = Record<string, DeclaredValue>;
+
+/** What a field declares when it is set; nothing when it is not. */
+const when = <V>(value: V | undefined, declare: (value: V) => Declared) =>
+  value === undefined ? {} : declare(value);
+
+/** Padding on every side at once, or side by side. */
+const paddingDeclared = (padding: Padding): Declared => {
+  if (typeof padding === "number" || typeof padding === "string") {
+    return { padding };
+  }
+  const out: Declared = {};
+  for (const [side, property] of [
+    ["top", "paddingTop"],
+    ["right", "paddingRight"],
+    ["bottom", "paddingBottom"],
+    ["left", "paddingLeft"],
+  ] as const) {
+    const length = padding[side];
+    if (length !== undefined) {
+      out[property] = length;
+    }
+  }
+  return out;
+};
+
+/** A border as `borderCss` draws it: a width draws a line, a colour alone recolours one. */
+const borderDeclared = (border: Border): Declared => ({
+  ...when(border.width, (width) => ({ borderWidth: width })),
+  ...(border.style !== undefined || border.width !== undefined
+    ? { borderStyle: border.style ?? "solid" }
+    : {}),
+  ...when(border.color, (color) => ({ borderColor: color })),
+});
+
+/**
+ * What each of a part's fields declares, in the order the code lists a node's: layout, size and
+ * spacing, type, then appearance.
+ */
+const PART_DECLARED: readonly ((style: PartStyle) => Declared)[] = [
+  (s) => when(s.direction, (d) => ({ display: "flex", flexDirection: d })),
+  (s) => when(s.align, (a) => ({ justifyContent: JUSTIFY[a] ?? "flex-start" })),
+  (s) => when(s.crossAlign, (a) => ({ alignItems: ITEMS[a] ?? "stretch" })),
+  (s) => when(s.order, (order) => ({ order: String(order) })),
+  (s) => when(s.width, (width) => ({ width })),
+  (s) => when(s.height, (height) => ({ height })),
+  (s) => when(s.gap, (gap) => ({ gap })),
+  (s) => when(s.padding, paddingDeclared),
+  (s) => when(s.fontSize, (fontSize) => ({ fontSize })),
+  (s) => when(s.fontWeight, (weight) => ({ fontWeight: String(weight) })),
+  (s) => when(s.color, (color) => ({ color })),
+  (s) => when(s.fill, (fill) => ({ background: fill })),
+  (s) => when(s.border, borderDeclared),
+  (s) => when(s.radius, (radius) => ({ borderRadius: radius })),
+  (s) => when(s.shadow, (shadow) => ({ boxShadow: shadow })),
+  (s) => when(s.opacity, (opacity) => ({ opacity: String(opacity) })),
+];
+
+/**
+ * One part's style as the declarations a style system writes as classes (ADR 0024): camelCased,
+ * tokens kept by name, as a node's are (`declarationsOf`). What it means is `partStyleCss`'s.
+ */
+export const partDeclarations = (style: PartStyle): Declarations =>
+  Object.assign({}, ...PART_DECLARED.map((declare) => declare(style)));
+
+/** The member of each of a look's axes an instance is in: its prop as its mark has it, else the default. */
+const membersIn = (
+  look: ComponentLook,
+  props: Readonly<Record<string, unknown>> | undefined
+): (readonly [string, string])[] => {
+  const marked = new Map(
+    variantAttributeOf(props)
+      .split(" ")
+      .filter(Boolean)
+      .map((token) => {
+        const at = token.indexOf(":");
+        return [token.slice(0, at), token.slice(at + 1)] as const;
+      })
+  );
+  return Object.keys(look.variants).flatMap((axis) => {
+    const member = marked.get(axis) ?? look.defaults[axis];
+    return member === undefined ? [] : [[axis, member] as const];
+  });
+};
+
+/**
+ * A part's declarations at rest, in an instance's variant (ADR 0040): each look's base, then its
+ * axes' members, the looks in the order the canvas lays them, a later one's property winning
+ * over an earlier one's as its rule does. A state, a hover or an open, is not at rest.
+ */
+export const restingDeclarations = (
+  looks: readonly ComponentLook[],
+  props: Readonly<Record<string, unknown>> | undefined,
+  part: string
+): Declarations => {
+  const out: Record<string, DeclaredValue> = {};
+  for (const look of looks) {
+    const members = membersIn(look, props);
+    const styles = [
+      look.base[part],
+      ...members.map(([axis, member]) => look.variants[axis]?.[member]?.[part]),
+    ];
+    for (const style of styles) {
+      if (style) {
+        Object.assign(out, partDeclarations(style));
+      }
+    }
+  }
+  return out;
 };

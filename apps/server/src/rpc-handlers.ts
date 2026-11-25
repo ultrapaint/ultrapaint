@@ -145,7 +145,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         designSystem((d) =>
           Effect.map(d.codeOf(node, options), (code) => ({
             code,
-            language: "tsx",
+            language: options.format ?? "tsx",
           }))
         ),
       "commands.list": () => Effect.succeed(commands.list),

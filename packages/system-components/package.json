@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./components": "./src/components.tsx",
+    "./resting-markup": "./src/resting-markup.tsx",
     "./*": "./src/*.ts"
   },
   "scripts": {

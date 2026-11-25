@@ -125,7 +125,8 @@ const kept = (id: string, name: string, createdAt: number, repo?: string) => ({
 const upload = (port: number, name: string, bytes: Uint8Array) =>
   Effect.promise(() =>
     fetch(`http://127.0.0.1:${port}/api/figma/import`, {
-      body: bytes,
+      // Copied into a buffer of its own, which the fetch of the document's types takes as a body.
+      body: new Uint8Array(bytes),
       headers: {
         "content-type": "application/octet-stream",
         origin: `http://127.0.0.1:${port}`,
