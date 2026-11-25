@@ -75,7 +75,14 @@ so locally the problem was how it looked; over SSH it is longer, with nothing to
   (`useOnceOpened`), so the editor's splash never lifts on a project not yet read.
 - **Paint while you wait.**
   - **The paint:** the pointer, anywhere on the splash but its buttons, paints strokes of the
-    accent that dry away in about a second and a half (`PaintLayer`).
+    accent that dry away in about a second and a half (`PaintLayer`). A faster stroke is
+    thinner, 14px at rest and never under 6px.
+  - **From the start page to the editor's:** a step of the opening never wipes it. When the
+    desktop app's tab gives its start page's place to the editor's page, in the app's own origin,
+    the start page leaves its wet paint in the tab's `sessionStorage`
+    (`ultrapaint:splash-paint`), and the editor's first frame, then React's splash, take it up as
+    it has dried since. An editor served by the project's server, in another origin, starts
+    clean.
   - **The bar:** it is a brush stroke laid by the mark. The mark is drawn without its bristles'
     tip and turned −15.19°, so the cut under its body lies level 1px over the bar, whose end is
     cut on the tip's slant. The paint is wettest behind the brush, with a sheen.

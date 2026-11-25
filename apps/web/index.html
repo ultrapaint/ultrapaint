@@ -40,6 +40,8 @@
     /* Where the opening splash puts its header (components/opening-splash.tsx), so that React's
        takes this one's place without a jump. */
     .splash header {
+      /* Over the paint the start page left (.paint). */
+      position: relative;
       display: flex;
       flex-direction: column;
       gap: 32px;
@@ -69,6 +71,15 @@
     }
     .dark .splash p {
       color: oklch(0.7 0.008 70);
+    }
+    /* The paint the start page left (components/paint-layer.tsx), where React's splash goes on
+       drying it. */
+    .splash .paint {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
     }
     </style>
   </head>
@@ -110,8 +121,30 @@
           `Opening ${opening.name}`;
         document.getElementById("splash-where").textContent = opening.where;
       }
+      // The paint the desktop app's start page left in this tab, still wet: shown as it has dried
+      // since, at the layer's half strength, fading on until React's splash takes it up. The
+      // key, the drying and the 2 s are `PaintLayer`'s (components/paint-layer.tsx), which this
+      // script, run before any module, cannot import.
+      const carried = JSON.parse(
+        sessionStorage.getItem("ultrapaint:splash-paint") ?? "null"
+      );
+      const ago = carried ? Date.now() - carried.at : Number.POSITIVE_INFINITY;
+      if (ago < 2000) {
+        const paint = new Image();
+        paint.alt = "";
+        paint.className = "paint";
+        paint.src = carried.image;
+        paint.style.opacity = String(0.5 * 0.965 ** (ago / (1000 / 60)));
+        document.querySelector(".splash").prepend(paint);
+        // It fades on here too, about as the layer dries, so React's takes it up with little
+        // change: laid out with its first opacity before the change, which then runs as a
+        // transition from it.
+        paint.getBoundingClientRect();
+        paint.style.transition = `opacity ${2000 - ago}ms cubic-bezier(0.2, 0.7, 0.4, 1)`;
+        paint.style.opacity = "0";
+      }
     } catch {
-      // A shell that says nothing leaves the splash as it is.
+      // A shell that says nothing, or no paint to read, leaves the splash as it is.
     }
     </script>
     <script src="/src/main.tsx" type="module"></script>
