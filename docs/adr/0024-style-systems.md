@@ -14,6 +14,18 @@ Status: accepted, 2026-10-06. Amends 0011 (framework packages) and 0015 (the des
 > `@ultrapaint/design-document/code` writes its JSX with; the server writes the tab's code
 > (`code.write`), so the editor no longer knows Tailwind's utilities.
 >
+> Amended 2026-11-25 (UP-144, stage 1): a style system also reads classes back. A `ClassReader`
+> (contracts' `node-style`, made from the design system) gives the declarations an element's
+> classes set, in the shape a `ClassWriter` takes, for markup pasted on the canvas. Sides are
+> written out one by one, and the narrower class wins whatever the order (`p-4 pt-2`). A class
+> naming a token the design system declares reads as that token (`bg-primary` is
+> `$color-primary`). A spacing step reads as its `$spacing-*`, a step of the design system's own
+> scale whatever its base. An arbitrary property reads as the declaration it is (`[left:24px]`). A default of Tailwind's theme that the
+> design system does not declare reads as its value, written out (`default-theme`, held to the
+> installed `tailwindcss/theme.css`), so it never names a token the design system lacks. Classes
+> with a variant (`md:`, `hover:`) and utilities it does not know are named and left unread.
+> Tailwind's is `tailwindClassReader` in `class-reader`.
+
 > Amended 2026-10-28 (`docs/plans/done/PLAN-architecture-2.md`, step 7): a `ClassWriter` (contracts'
 > `node-style`) takes declarations, not nodes. `classes(styles)` is given an element's CSS
 > declarations at the base and at each breakpoint, tokens kept by name, as

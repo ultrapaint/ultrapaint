@@ -215,22 +215,30 @@ export const SHADOW_STEPS: ReadonlySet<string> = new Set([
 
 /** Keywords a utility takes, by the CSS each is. */
 interface Keywords {
+  /** The CSS a keyword is, `full` → `100%`: its first spelling. */
+  readonly css: (keyword: string) => string | undefined;
   /** The keyword a value is written as, `100%` → `full`, any case. */
   readonly keyword: (css: string) => string | undefined;
 }
 
-/** Each keyword with the CSS it is, in every spelling a value may have. */
+/** Each keyword with the CSS it is, in every spelling a value may have, the first its own. */
 const keywords = (
   table: Readonly<Record<string, string | readonly string[]>>
 ): Keywords => {
+  const spellings = (css: string | readonly string[]) =>
+    typeof css === "string" ? [css] : css;
   const byCss = new Map(
     Object.entries(table).flatMap(([keyword, css]) =>
-      (typeof css === "string" ? [css] : css).map(
-        (c) => [c.toLowerCase(), keyword] as const
-      )
+      spellings(css).map((c) => [c.toLowerCase(), keyword] as const)
     )
   );
-  return { keyword: (css) => byCss.get(css.trim().toLowerCase()) };
+  const byKeyword = new Map(
+    Object.entries(table).map(([keyword, css]) => [keyword, spellings(css)[0]])
+  );
+  return {
+    css: (keyword) => byKeyword.get(keyword),
+    keyword: (css) => byCss.get(css.trim().toLowerCase()),
+  };
 };
 
 /** The sizes a length utility says by name, `w-full`, `h-fit`; a maximum's without `auto`. */
@@ -256,16 +264,24 @@ const NO_KEYWORDS = keywords({});
 const WIDTH = { ...SIZES, ...VIEWPORT, screen: "100vw" };
 const HEIGHT = { ...SIZES, ...VIEWPORT, lh: "1lh", screen: "100vh" };
 const MARGIN = keywords({ auto: "auto" });
+const INSET = keywords({ auto: "auto", full: "100%" });
 
 /**
  * The keywords each length utility takes, as Tailwind v4 compiles them: a width or a height
  * (and its minimum) a size by name and the viewport's lengths, `screen` in its own axis's unit
  * and a height the line's (`lh`); a maximum no `auto` but `none`; `size` no `screen`; a margin
- * `auto` only. A gap or a padding takes none (`gap-full` is no class). `px` is the spacing
- * scale's, not a keyword.
+ * `auto` only; an offset and a flex basis `auto` and `full`. A gap or a padding takes none
+ * (`gap-full` is no class). `px` is the spacing scale's, not a keyword.
  */
 const LENGTH_KEYWORDS: Readonly<Record<string, Keywords>> = {
+  basis: keywords({ auto: "auto", full: "100%" }),
+  bottom: INSET,
+  end: INSET,
   h: keywords(HEIGHT),
+  inset: INSET,
+  "inset-x": INSET,
+  "inset-y": INSET,
+  left: INSET,
   m: MARGIN,
   "max-h": keywords({
     ...FITS,
@@ -283,7 +299,10 @@ const LENGTH_KEYWORDS: Readonly<Record<string, Keywords>> = {
   mt: MARGIN,
   mx: MARGIN,
   my: MARGIN,
+  right: INSET,
   size: keywords({ ...SIZES, ...VIEWPORT }),
+  start: INSET,
+  top: INSET,
   w: keywords(WIDTH),
 };
 
@@ -302,6 +321,104 @@ export const COLOR_KEYWORDS = keywords({
   transparent: "transparent",
   white: ["#fff", "white"],
 });
+
+/** A keyword utility: the property it sets and the CSS each of its keywords is. */
+export interface KeywordUtility {
+  readonly property: string;
+  readonly values: Readonly<Record<string, string>>;
+}
+
+const ALIGN = {
+  center: "center",
+  end: "flex-end",
+  start: "flex-start",
+  stretch: "stretch",
+};
+
+/**
+ * The utilities that set one property to a keyword, as Tailwind compiles them: `items-center` is
+ * `align-items: center`, `justify-between` `justify-content: space-between`.
+ */
+export const KEYWORD_UTILITIES: Readonly<Record<string, KeywordUtility>> = {
+  items: { property: "alignItems", values: { ...ALIGN, baseline: "baseline" } },
+  justify: {
+    property: "justifyContent",
+    values: {
+      ...ALIGN,
+      around: "space-around",
+      between: "space-between",
+      evenly: "space-evenly",
+      normal: "normal",
+    },
+  },
+  object: {
+    property: "objectFit",
+    values: {
+      contain: "contain",
+      cover: "cover",
+      fill: "fill",
+      none: "none",
+      "scale-down": "scale-down",
+    },
+  },
+  self: {
+    property: "alignSelf",
+    values: { ...ALIGN, auto: "auto", baseline: "baseline" },
+  },
+  whitespace: {
+    property: "whiteSpace",
+    values: {
+      normal: "normal",
+      nowrap: "nowrap",
+      pre: "pre",
+      "pre-line": "pre-line",
+      "pre-wrap": "pre-wrap",
+    },
+  },
+};
+
+/** The alignments `text-*` names, which share the utility with a size and a colour. */
+export const TEXT_ALIGNS: Readonly<Record<string, string>> = {
+  center: "center",
+  end: "right",
+  justify: "justify",
+  left: "left",
+  right: "right",
+  start: "left",
+};
+
+/** The utilities that are a display, bare: `hidden` is `display: none`. */
+export const DISPLAY_UTILITIES: Readonly<Record<string, string>> = {
+  block: "block",
+  contents: "contents",
+  flex: "flex",
+  "flow-root": "flow-root",
+  grid: "grid",
+  hidden: "none",
+  inline: "inline",
+  "inline-block": "inline-block",
+  "inline-flex": "inline-flex",
+  "inline-grid": "inline-grid",
+  table: "table",
+};
+
+/** The utilities that are a position, bare: `absolute`. */
+export const POSITION_UTILITIES: readonly string[] = [
+  "absolute",
+  "fixed",
+  "relative",
+  "static",
+  "sticky",
+];
+
+/** The border styles `border-*` names. */
+export const BORDER_STYLES: readonly string[] = [
+  "solid",
+  "dashed",
+  "dotted",
+  "double",
+  "none",
+];
 
 // ---- Colour namespaces ----
 
