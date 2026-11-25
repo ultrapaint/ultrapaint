@@ -149,6 +149,7 @@ import {
 } from "./page-actions.ts";
 import { reveal } from "./reveal.ts";
 import { startTask } from "./start-thread.ts";
+import { copyStyle, pasteStyle, useCopiedStyle } from "./style-clipboard.ts";
 import { deleteThread, openChat, stopThread } from "./thread-actions.ts";
 
 // ---- An action, bound to what it acts on ----
@@ -185,6 +186,8 @@ const bind = <K extends keyof Actions>(
 // ---- What a menu holds ----
 
 const canPaste = () => useClipboard.getState().nodes.length > 0;
+
+const canPasteStyle = () => useCopiedStyle.getState().style !== null;
 
 const onCanvas = () => useEditor.getState().workspace !== "prototype";
 
@@ -244,6 +247,7 @@ const nodeMenu = (target: Selection & { at?: Point }) => {
   const frame = frameRefOf(target.frame);
   return nodeEntries({
     canPaste: canPaste(),
+    canPasteStyle: canPasteStyle(),
     count: targets.length,
     frame,
     hidden: allHidden(targets),
@@ -559,6 +563,10 @@ const runNode = (target: TargetOf<"node">, act: NodeAction): unknown => {
       return pasteInto(sel);
     case "duplicate":
       return duplicateSelection(sel);
+    case "copyStyle":
+      return copyStyle(sel);
+    case "pasteStyle":
+      return pasteStyle(sel);
     case "wrap":
       return wrapSelection(act.in, sel);
     case "unwrap":

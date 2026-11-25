@@ -23,6 +23,7 @@ const page: DesignNode = { children: [row], id: "home", type: "page" };
 
 const facts = (over: Partial<NodeFacts> = {}): NodeFacts => ({
   canPaste: false,
+  canPasteStyle: false,
   count: 1,
   frame: { kind: "page", page: "home.page.json" },
   hidden: false,

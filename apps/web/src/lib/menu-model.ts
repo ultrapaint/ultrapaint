@@ -148,6 +148,9 @@ export type NodeAction =
   | { kind: "cut" }
   | { kind: "paste" }
   | { kind: "duplicate" }
+  /** The node's look kept, and given to the nodes acted on (`style-clipboard.ts`). */
+  | { kind: "copyStyle" }
+  | { kind: "pasteStyle" }
   | { kind: "wrap"; in: Wrapper }
   | { kind: "unwrap" }
   | { kind: "arrange"; to: Arrangement }
@@ -168,6 +171,8 @@ export interface LayerUnder {
 export interface NodeFacts {
   /** Something copied that can be pasted. */
   canPaste: boolean;
+  /** A style copied, which Paste style gives the nodes. */
+  canPasteStyle: boolean;
   /**
    * How many nodes the menu acts on: the whole selection when the node is one of it, the node
    * alone otherwise. What is about one node only is greyed out for several.
@@ -318,6 +323,34 @@ const addressEntries = (f: NodeFacts): (Item<NodeAction> | false)[] => {
       ];
 };
 
+/**
+ * Copy, Cut, Paste and Duplicate, then Copy style and Paste style. A page's root and a layer of an
+ * instance are copied as nodes neither (ADR 0114), and a layer is pasted into nowhere; a layer's
+ * look is copied and pasted on the page too, and a page's root, the page, has neither (ADR 0075).
+ */
+const clipboardEntries = (f: NodeFacts): (Item<NodeAction> | false)[] => {
+  const page = isPageRoot(f.node);
+  const layer = f.layer === true;
+  const root = page || layer;
+  return [
+    !root && item({ kind: "copy" }, "Copy", { command: "copy" }),
+    !root && item({ kind: "cut" }, "Cut", { command: "cut" }),
+    !layer &&
+      item({ kind: "paste" }, "Paste", {
+        command: "paste",
+        disabled: !f.canPaste,
+      }),
+    !root && item({ kind: "duplicate" }, "Duplicate", { command: "duplicate" }),
+    !page &&
+      item({ kind: "copyStyle" }, "Copy style", { command: "copyStyle" }),
+    !page &&
+      item({ kind: "pasteStyle" }, "Paste style", {
+        command: "pasteStyle",
+        disabled: !f.canPasteStyle,
+      }),
+  ];
+};
+
 export const nodeEntries = (f: NodeFacts): Entry<NodeAction>[] => {
   const { node } = f;
   // A page's root, and a layer of an instance (ADR 0114), stay where they are: the layer is
@@ -352,14 +385,7 @@ export const nodeEntries = (f: NodeFacts): Entry<NodeAction>[] => {
     separator,
     ...addressEntries(f),
     separator,
-    !root && item({ kind: "copy" }, "Copy", { command: "copy" }),
-    !root && item({ kind: "cut" }, "Cut", { command: "cut" }),
-    !layer &&
-      item({ kind: "paste" }, "Paste", {
-        command: "paste",
-        disabled: !f.canPaste,
-      }),
-    !root && item({ kind: "duplicate" }, "Duplicate", { command: "duplicate" }),
+    ...clipboardEntries(f),
     separator,
     !root && {
       disabled: !f.wrappable,
