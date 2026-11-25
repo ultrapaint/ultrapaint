@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import "../testing/fake-browser.ts";
+import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, DocumentState } from "@ultrapaint/contracts/document";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -627,5 +628,303 @@ describe("the Text section", () => {
       ],
       label: "Reset instance overrides",
     });
+  });
+});
+
+describe("the Colours used section", () => {
+  const initialDesignSystem = useDesignSystem.getState();
+  beforeEach(() => {
+    const ds = {
+      ...emptyDesignSystem(),
+      colors: [
+        {
+          name: "Semantic",
+          tokens: [{ name: "color-primary", value: "#2563eb" }],
+        },
+      ],
+    };
+    useDesignSystem.setState({ designSystem: ds, saved: ds });
+  });
+  afterEach(() => useDesignSystem.setState(initialDesignSystem, true));
+
+  const applied = () =>
+    fakeApi.calls.findLast((c) => c.method === "documents.apply")?.input;
+  const showing = (children: readonly DesignNode[]) =>
+    useDocuments.setState({
+      docs: {
+        [HOME]: {
+          ...home,
+          root: { children, id: "home", type: "page" } as DesignNode,
+        },
+      },
+    });
+  /** A card holding a heading and a lede, white twice, the lede's primary at a breakpoint. */
+  const card = (): DesignNode =>
+    ({
+      children: [
+        { ...text("title"), color: "#fff" },
+        { ...text("lede"), at: { md: { color: "$color-primary" } } },
+      ],
+      fill: "#ffffff",
+      id: "card",
+      type: "column",
+    }) as DesignNode;
+  const section = () =>
+    [...container.querySelectorAll("section")].find(
+      (s) => s.querySelector("h3")?.textContent === "Colours used"
+    );
+  /** Each row as its label and what its field shows. */
+  const rows = () =>
+    [...(section()?.querySelectorAll('input[role="combobox"]') ?? [])].map(
+      (input) => [
+        input.closest(".grid")?.firstElementChild?.textContent ?? "",
+        (input as HTMLInputElement).value,
+      ]
+    );
+  const fieldShowing = (value: string) => {
+    const found = [
+      ...(section()?.querySelectorAll<HTMLInputElement>(
+        'input[role="combobox"]'
+      ) ?? []),
+    ].find((input) => input.value === value);
+    if (!found) {
+      throw new Error(`no field shows ${value}`);
+    }
+    return found;
+  };
+  const openField = (value: string) => {
+    const input = fieldShowing(value);
+    act(() => {
+      input.dispatchEvent(
+        new MouseEvent("pointerdown", { bubbles: true, button: 0 })
+      );
+    });
+  };
+  const options = () => [
+    ...document.querySelectorAll<HTMLElement>('[role="option"]'),
+  ];
+  const pick = (label: string) => {
+    const found = options().find((o) => o.textContent?.startsWith(label));
+    if (!found) {
+      throw new Error(`no option ${label}`);
+    }
+    act(() => found.click());
+  };
+
+  it("lists a column's colours a row each, labelled by how many times each is used", () => {
+    showing([card()]);
+    act(() => select({ frame: HOME, nodeId: "card" }));
+    expect(rows()).toEqual([
+      ["2 uses", "#ffffff"],
+      ["1 use", "primary"],
+    ]);
+  });
+
+  it("lists the colours of several elements selected together", () => {
+    showing([
+      { ...text("a"), color: "#ff0000" },
+      { ...text("b"), color: "#00ff00" },
+    ] as DesignNode[]);
+    act(() => {
+      select({ frame: HOME, nodeId: "a" });
+      toggleSelected({ frame: HOME, nodeId: "b" });
+    });
+    expect(rows()).toEqual([
+      ["1 use", "#ff0000"],
+      ["1 use", "#00ff00"],
+    ]);
+  });
+
+  it("lists every colour of the page selected", () => {
+    showing([card(), { ...text("aside"), color: "#ff0000" }] as DesignNode[]);
+    act(() => select({ frame: HOME, nodeId: "home" }));
+    expect(rows()).toEqual([
+      ["2 uses", "#ffffff"],
+      ["1 use", "primary"],
+      ["1 use", "#ff0000"],
+    ]);
+  });
+
+  it("is not shown for one text or one image", () => {
+    showing([
+      { ...text("a"), color: "#ff0000" },
+      { id: "icon", src: "i.svg", tint: "#ff0000", type: "image" },
+    ] as DesignNode[]);
+    act(() => select({ frame: HOME, nodeId: "a" }));
+    expect(section()).toBeUndefined();
+    act(() => select({ frame: HOME, nodeId: "icon" }));
+    expect(section()).toBeUndefined();
+  });
+
+  it("lists the colours one app component's instance overrides on its layers", () => {
+    showing([
+      {
+        component: "Promo",
+        from: "#app",
+        id: "promo",
+        overrides: { sale: { at: { md: { color: "#ff0000" } } } },
+        type: "instance",
+      },
+    ] as DesignNode[]);
+    act(() => select({ frame: HOME, nodeId: "promo" }));
+    expect(rows()).toEqual([["1 use", "#ff0000"]]);
+  });
+
+  it("marks a raw colour outside the design system, and not a token", () => {
+    showing([card()]);
+    act(() => select({ frame: HOME, nodeId: "card" }));
+    const dotOn = (value: string) =>
+      fieldShowing(value)
+        .closest('[data-slot="input-group"]')
+        ?.querySelector('[aria-label="Outside the design system"]') ?? null;
+    expect(dotOn("#ffffff")).not.toBeNull();
+    expect(dotOn("primary")).toBeNull();
+  });
+
+  it("says so when the selection uses no colour", () => {
+    showing([
+      { children: [text("a")], id: "box", type: "column" },
+    ] as DesignNode[]);
+    act(() => select({ frame: HOME, nodeId: "box" }));
+    expect(section()?.textContent).toContain("Nothing here sets a colour.");
+  });
+
+  it("changes every use of a colour, at its breakpoint and on an instance's layer, in one step", async () => {
+    showing([
+      {
+        children: [
+          { ...text("title"), at: { md: { color: "#fff" } } },
+          {
+            component: "Promo",
+            from: "#app",
+            id: "promo",
+            overrides: { sale: { color: "#ffffff" } },
+            type: "instance",
+          },
+        ],
+        fill: "#ffffff",
+        id: "card",
+        type: "column",
+      },
+    ] as DesignNode[]);
+    act(() => select({ frame: HOME, nodeId: "card" }));
+    fakeApi.respond("documents.apply", () => ({ changes: [], created: [] }));
+    openField("#ffffff");
+    pick("primary");
+    await act(() => fakeApi.requested("documents.apply"));
+    expect(applied()).toEqual({
+      edits: [
+        {
+          doc: HOME,
+          ops: [
+            { id: "card", op: "update", set: { fill: "$color-primary" } },
+            {
+              at: "md",
+              id: "title",
+              op: "update",
+              set: { color: "$color-primary" },
+            },
+            {
+              id: "promo/sale",
+              op: "update",
+              set: { color: "$color-primary" },
+            },
+          ],
+        },
+      ],
+      label: "Change a colour used",
+    });
+  });
+
+  it("offers no Clear in a row's list", () => {
+    showing([card()]);
+    act(() => select({ frame: HOME, nodeId: "card" }));
+    openField("#ffffff");
+    expect(options().length).toBeGreaterThan(0);
+    expect(options().some((o) => o.textContent === "Clear")).toBe(false);
+  });
+
+  /** A card whose fill and title are both the raw `#2563ea`, near primary. */
+  const nearPrimary = () =>
+    showing([
+      {
+        children: [{ ...text("title"), color: "#2563ea" }],
+        fill: "#2563ea",
+        id: "card",
+        type: "column",
+      },
+    ] as DesignNode[]);
+
+  it("puts every use on the nearest token by Use nearest", async () => {
+    nearPrimary();
+    act(() => select({ frame: HOME, nodeId: "card" }));
+    fakeApi.respond("documents.apply", () => ({ changes: [], created: [] }));
+    openField("#2563ea");
+    pick("Use nearest");
+    await act(() => fakeApi.requested("documents.apply"));
+    expect(applied()).toMatchObject({
+      edits: [
+        {
+          ops: [
+            { id: "card", set: { fill: "$color-primary" } },
+            { id: "title", set: { color: "$color-primary" } },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("makes a new token from a row's value and puts every use on it, in one edit", async () => {
+    nearPrimary();
+    act(() => select({ frame: HOME, nodeId: "card" }));
+    fakeApi.respond("designSystem.edit", () => ({ changes: [], files: [] }));
+    openField("#2563ea");
+    pick("New token from this value…");
+    const naming = document.querySelector<HTMLInputElement>(
+      'input[aria-label="The new token\'s name"]'
+    ) as HTMLInputElement;
+    act(() => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value"
+      )?.set?.call(naming, "color-brand");
+      naming.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    act(() => {
+      naming.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Enter" })
+      );
+    });
+    await act(() => fakeApi.requested("designSystem.edit"));
+    expect(
+      fakeApi.calls.findLast((c) => c.method === "designSystem.edit")?.input
+    ).toEqual({
+      edits: [
+        {
+          doc: HOME,
+          ops: [
+            { id: "card", op: "update", set: { fill: "$color-brand" } },
+            { id: "title", op: "update", set: { color: "$color-brand" } },
+          ],
+        },
+      ],
+      label: "Change a colour used",
+      ops: [{ name: "color-brand", op: "addToken", value: "#2563ea" }],
+    });
+  });
+
+  it("stays current as the page changes, two colours made one becoming one row", () => {
+    showing([card()]);
+    act(() => select({ frame: HOME, nodeId: "card" }));
+    act(() =>
+      showing([
+        {
+          ...card(),
+          children: [{ ...text("title"), color: "$color-primary" }],
+          fill: "$color-primary",
+        } as DesignNode,
+      ])
+    );
+    expect(rows()).toEqual([["2 uses", "primary"]]);
   });
 });

@@ -460,6 +460,13 @@ refactor and the board view left.
   check reads, an image's tint, and an instance's own fields and overrides. Values are compared in
   the default theme, the tokens they name followed; a token matched is found by its name and its
   value, and a value written by hand whose nearest token comes to it is a **near** hit.
+- **Colours used**: the inspector's list of every colour a selection's trees use, one row per
+  value with its count of uses (design-document's `coloursUsed`, the web's `inspector-colours`),
+  for a container, one app component's instance or several elements. It reads a fill colour by
+  colour, a text's colour, an image's tint and a border's colour, at each breakpoint and in an
+  instance's overrides (ADR 0036, 0114); a token is one value by its name, raw colours one value
+  when they are the same colour. Changing a row changes every use in one undo step.
+  _Avoid_: selection colours, which are the canvas's highlights (ADR 0018).
 - **Outline**: a design's sections, words, actions and states in text, written before the first
   node (ADR 0061); in the lab, a gap section's `outline.md`, which `recall --inputs outline`
   reviews instead of its pictures.

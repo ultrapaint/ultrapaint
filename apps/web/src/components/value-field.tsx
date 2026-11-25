@@ -139,6 +139,7 @@ export const displayOf = (value: JsonValue | undefined): string => {
 
 export const ValueField = ({
   autoOpen,
+  clearable = true,
   colors,
   kind,
   value,
@@ -154,6 +155,8 @@ export const ValueField = ({
 }: {
   /** Opens the list as soon as it is drawn: the field was just added, to be given a value. */
   autoOpen?: boolean;
+  /** Whether the list offers Clear, which takes the value off; a field it would mean nothing in has none. */
+  clearable?: boolean;
   /** What a colour field colours, which names a new token's namespace in a detailed system. */
   colors?: ColorRole;
   /**
@@ -182,7 +185,7 @@ export const ValueField = ({
 }) => {
   const current = optionOf(value);
   const custom = (query: string) => typedValue(query, accept);
-  const withUnset = withClear(options, current);
+  const withUnset = clearable ? withClear(options, current) : [...options];
   const ways = useWaysOnto(kind, colors);
   // The field a new token is being named for, which its popover is drawn by.
   const [naming, setNaming] = useState<HTMLElement | null>(null);

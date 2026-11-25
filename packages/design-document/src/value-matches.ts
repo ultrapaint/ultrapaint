@@ -36,7 +36,7 @@ import {
   sameAs,
 } from "@ultrapaint/contracts/token-value";
 import type { TokenKind } from "@ultrapaint/contracts/tokens";
-import { fillLayers } from "./fill.ts";
+import { layerColours, layeredFill } from "./fill.ts";
 import {
   type OffSystemKind,
   type TokenField,
@@ -93,19 +93,9 @@ const partsOf = (kind: OffSystemKind, value: string | number) => {
     const shadows = shadowsOf(value);
     return shadows.length > 1 ? shadows : [value];
   }
-  if (kind === "color") {
-    const layers = fillLayers(value);
-    if (
-      layers.every((l) => l.kind !== "css") &&
-      (layers.length > 1 || layers[0]?.kind === "gradient")
-    ) {
-      return layers.flatMap((layer) => {
-        if (layer.kind === "gradient") {
-          return layer.stops.map((stop) => stop.color);
-        }
-        return layer.kind === "color" ? [layer.color] : [];
-      });
-    }
+  const layers = kind === "color" ? layeredFill(value) : null;
+  if (layers) {
+    return layerColours(layers);
   }
   return [value];
 };

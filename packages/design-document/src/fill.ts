@@ -294,6 +294,29 @@ export const fillLayers = (fill: string | null | undefined): FillLayer[] => {
   return layers as FillLayer[];
 };
 
+/**
+ * A fill as its layers when it is more than one colour, a gradient or several layers; null for a
+ * fill that is one value, or one read no other way (an image, a variable).
+ */
+export const layeredFill = (
+  fill: string | null | undefined
+): FillLayer[] | null => {
+  const layers = fillLayers(fill);
+  return layers.every((l) => l.kind !== "css") &&
+    (layers.length > 1 || layers[0]?.kind === "gradient")
+    ? layers
+    : null;
+};
+
+/** The colours of a fill's layers, the top one's first, a gradient's stop by stop. */
+export const layerColours = (layers: readonly FillLayer[]): string[] =>
+  layers.flatMap((layer) => {
+    if (layer.kind === "gradient") {
+      return layer.stops.map((stop) => stop.color);
+    }
+    return layer.kind === "color" ? [layer.color] : [];
+  });
+
 /** A linear gradient's side or corner as the angle it runs at: `to right` is 90. */
 export const SIDE_DEGREES: Readonly<Record<string, number>> = {
   "to bottom": 180,

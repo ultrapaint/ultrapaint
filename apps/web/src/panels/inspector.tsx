@@ -79,6 +79,10 @@ import {
 import { ComponentProps } from "./component-props.tsx";
 import { AppearanceSection } from "./inspector-appearance.tsx";
 import { BreakpointSection } from "./inspector-breakpoints.tsx";
+import {
+  ColoursUsedSection,
+  showsColoursUsed,
+} from "./inspector-colours-used.tsx";
 import { IsolatedComponent } from "./inspector-component.tsx";
 import {
   allOf,
@@ -182,6 +186,7 @@ export const Inspector = () => {
           <SizeSection frame={frame} nodes={nodes} />
           <SpacingSection nodes={nodes} write={writeSides} />
           <AppearanceSection nodes={nodes} />
+          {showsColoursUsed(nodes) && <ColoursUsedSection frame={frame} />}
           {/* Only a page's node is in the prototype: nothing would follow a link anywhere else. */}
           {node.type !== "page" && hasPrototypeLinks(frameRefOf(frame)) && (
             <LinkSection nodes={nodes} />
