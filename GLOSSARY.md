@@ -162,6 +162,13 @@ refactor and the board view left.
   carry, its **warnings**. The editor's paste reads the clipboard for it in the web's
   `paste-markup`: its own nodes first, image files left to the canvas, then `text/plain` that is
   markup, then `text/html`. _Avoid_: HTML parser, converter.
+- **Copy as code**: an element's code put on the clipboard from its menu (the web's
+  `copy-code`, ADR 0150), as JSX, the Code tab's without its imports, or as **HTML**: the same
+  tree with the same classes, written by design-document's `toHtml`, every app component's
+  instance as its layers and every system component's as the markup its view renders **at
+  rest** (closed, unhovered, in the instance's variant; system-components' `restingMarkupOf`),
+  each part with its look's classes. _Avoid_: export (a format of the whole project), static
+  markup alone.
 - **Page**: a design document, `.page.json`, of a **canvas** (ADRs 0015, 0019, 0020). Its root is
   the screen's own container, a column or a row (`direction`, ADR 0075); a row or column under it
   that only fills it is a **wrapper**, which folds into it (design-document's `foldOps`). The page

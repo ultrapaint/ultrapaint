@@ -84,6 +84,7 @@ import {
   removeComponent,
   takeOverLook,
 } from "./component-actions.ts";
+import { copyCode } from "./copy-code.ts";
 import { linkToPage } from "./links.ts";
 import {
   type CanvasAction,
@@ -532,6 +533,8 @@ const runNode = (target: TargetOf<"node">, act: NodeAction): unknown => {
       // The workspace first: it brings back the selection it kept.
       showRightPanel("code");
       return select(sel);
+    case "copyCode":
+      return copyCode(sel, act.format);
     case "comment":
       return commentOn(sel, target.at);
     case "makeApp":

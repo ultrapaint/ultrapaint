@@ -257,6 +257,47 @@ describe("the node menu", () => {
   });
 });
 
+describe("Copy as code", () => {
+  it("offers an element's code as JSX or HTML in Tailwind classes, beside View code, for several as for one", () => {
+    const menu = nodeEntries(facts());
+    expect(find(menu, "code")).toMatchObject({
+      kind: "submenu",
+      label: "Copy as code",
+    });
+    expect(inside(find(menu, "code"))).toEqual([
+      { format: "tsx", kind: "copyCode" },
+      { format: "html", kind: "copyCode" },
+    ]);
+    const code = find(menu, "code");
+    expect(
+      code?.kind === "submenu" &&
+        code.entries.map((e) => e.kind === "item" && e.label)
+    ).toEqual(["JSX with Tailwind classes", "HTML with Tailwind classes"]);
+    const order = kinds(menu);
+    expect(order.indexOf("code")).toBe(order.indexOf("viewCode") + 1);
+    expect(find(nodeEntries(facts({ count: 3 })), "code")).not.toMatchObject({
+      disabled: true,
+    });
+  });
+
+  it("is not offered on a board's node, which has no code, nor on an instance's layer, whose code is its main component's", () => {
+    const board = nodeEntries(
+      facts({
+        frame: {
+          item: "Promo",
+          kind: "board",
+          name: "component",
+          view: "library",
+        },
+      })
+    );
+    expect(kinds(board)).not.toContain("code");
+    expect(
+      kinds(nodeEntries(facts({ layer: true, node: text })))
+    ).not.toContain("code");
+  });
+});
+
 describe("the node menu, several selected", () => {
   const several = nodeEntries(facts({ count: 3, node: text }));
 
@@ -326,6 +367,11 @@ describe("the page menu", () => {
     statesFree: [],
     variantsFree: ["bold"],
   };
+
+  it("offers no Copy as code, which is an element's", () => {
+    expect(kinds(pageEntries(base))).not.toContain("code");
+    expect(kinds(pageEntries(base))).not.toContain("copyCode");
+  });
 
   it("marks the current viewport", () => {
     expect(
