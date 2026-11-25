@@ -88,6 +88,17 @@ describe("a command given keys of the person's", () => {
   });
 });
 
+describe("Copy style and Paste style", () => {
+  it("run by ⌘⌥C and ⌘⌥V, and take other keys, being no clipboard command's (ADR 0090)", () => {
+    expect(pressed("mod+alt+c")).toBe("copyStyle");
+    expect(pressed("mod+alt+v")).toBe("pasteStyle");
+    expect(rowOf("pasteStyle")).toMatchObject({ fixed: false });
+    expect(recordKeys(binding("pasteStyle"), "mod+shift+v")).toBeNull();
+    expect(pressed("mod+shift+v")).toBe("pasteStyle");
+    expect(pressed("mod+alt+v")).toBeUndefined();
+  });
+});
+
 describe("taking a command's keys away", () => {
   it("leaves it none, the unshown ones too", () => {
     removeKeys(binding("delete"));

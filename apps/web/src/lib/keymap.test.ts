@@ -465,6 +465,7 @@ describe("the menus", () => {
       ...named(
         nodeEntries({
           canPaste: true,
+          canPasteStyle: true,
           count: 1,
           frame: { kind: "page", page: "home.page.json" },
           hidden: false,

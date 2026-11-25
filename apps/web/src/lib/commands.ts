@@ -78,6 +78,7 @@ import {
   zoomBy,
 } from "./shortcuts.ts";
 import { createThread } from "./start-thread.ts";
+import { copyStyle, pasteStyle } from "./style-clipboard.ts";
 import { openChat } from "./thread-actions.ts";
 import { threadView } from "./thread-view.ts";
 
@@ -591,6 +592,24 @@ const keyOnlyCommands = (): CommandSpec[] => [
     offered: keyOnly,
     scope: "canvas",
     title: "Paste",
+  },
+  {
+    group: "Edit",
+    id: "copyStyle",
+    keys: ["mod+alt+c"],
+    offered: keyOnly,
+    run: () => copyStyle(),
+    scope: "canvas",
+    title: "Copy style",
+  },
+  {
+    group: "Edit",
+    id: "pasteStyle",
+    keys: ["mod+alt+v"],
+    offered: keyOnly,
+    run: () => pasteStyle(),
+    scope: "canvas",
+    title: "Paste style",
   },
   {
     group: "Selection",

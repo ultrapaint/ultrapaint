@@ -35,18 +35,32 @@ import { useProject } from "../state/project.ts";
 import { select, selectMany } from "../state/selection.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useClipboard } from "./clipboard.ts";
-import { commandList } from "./commands.ts";
+import { commandList, paletteCommands } from "./commands.ts";
+import { isMac } from "./keys.ts";
 import {
   type MenuAction,
   type MenuEntry,
   menuFor,
   runMenuAction,
 } from "./menu-actions.ts";
+import { useCopiedStyle } from "./style-clipboard.ts";
 
 vi.mock(
   "../state/connection.ts",
   async () => (await import("../testing/fake-api.ts")).connectionModule
 );
+
+/** The toasts shown, by their message. */
+const toasts = vi.hoisted(() => [] as string[]);
+vi.mock("sonner", async (original) => {
+  const real = await original<typeof import("sonner")>();
+  return {
+    ...real,
+    toast: Object.assign((message: string) => {
+      toasts.push(message);
+    }, real.toast),
+  };
+});
 
 /** What the dialogs answer: a name typed, a deletion confirmed. */
 const answers = vi.hoisted(() => ({
@@ -163,6 +177,8 @@ const setUp = () => {
   answers.confirm = true;
   answers.prompt = "Typed";
   useClipboard.setState({ nodes: [] });
+  useCopiedStyle.setState({ style: null });
+  toasts.length = 0;
   usePagePicks.setState({ ids: [] });
   useCanvasGrid.setState({ visible: false });
   usePanels.setState({ left: false, right: true });
@@ -766,6 +782,233 @@ describe("the canvas's menu", () => {
   });
 });
 
+describe("Copy style and Paste style", () => {
+  /** The home page's hero, its texts given looks of their own. */
+  const homeWith = (children: readonly DesignNode[]) =>
+    useDocuments.setState((s) => ({
+      docs: {
+        ...s.docs,
+        [HOME]: stateOf(HOME, {
+          children: [
+            { children, id: "hero", type: "column" },
+            { component: "Promo", from: "#app", id: "promo", type: "instance" },
+          ],
+          id: "home",
+          type: "page",
+        }),
+      },
+    }));
+
+  /** Every style field of a text, cleared: what a paste sets where the copy leaves one unset. */
+  const cleared = {
+    align: null,
+    border: null,
+    color: null,
+    fill: null,
+    font: null,
+    lineHeight: null,
+    opacity: null,
+    padding: null,
+    radius: null,
+    shadow: null,
+    size: null,
+    textStyle: null,
+    tracking: null,
+    weight: null,
+  };
+
+  const lede = text("lede", {
+    border: { color: "$color-border", width: 1 },
+    color: "$color-muted",
+    fill: "$color-surface",
+    textStyle: "Body",
+  });
+
+  /** A page's root as the documents have it now. */
+  const rootOf = (doc: string) =>
+    useDocuments.getState().docs[doc]?.root as PageNode;
+
+  const runCommand = (id: string) =>
+    commandList()
+      .find((c) => c.id === id)
+      ?.run?.();
+
+  it("copies the node right-clicked, and pastes it onto every node selected in one step, clearing what it leaves unset", async ({
+    onTestFinished,
+  }) => {
+    const clipboard = vi.spyOn(navigator.clipboard, "writeText");
+    onTestFinished(() => clipboard.mockRestore());
+    homeWith([
+      text("title", { radius: 8, shadow: "$shadow-md", weight: 700 }),
+      lede,
+      text("cta", { opacity: 0.5 }),
+    ]);
+    selectMany([
+      { frame: HOME, nodeId: "title" },
+      { frame: HOME, nodeId: "lede" },
+    ]);
+    // Of the two selected, the one right-clicked.
+    await choose(nodeAt(HOME, "lede"), { kind: "copyStyle" });
+    expect(toasts).toEqual(["Copied the style of lede"]);
+    expect(clipboard).not.toHaveBeenCalled();
+
+    selectMany([
+      { frame: HOME, nodeId: "title" },
+      { frame: HOME, nodeId: "cta" },
+    ]);
+    await choose(nodeAt(HOME, "cta"), { kind: "pasteStyle" });
+    const look = {
+      ...cleared,
+      border: { color: "$color-border", width: 1 },
+      color: "$color-muted",
+      fill: "$color-surface",
+      textStyle: "Body",
+    };
+    expect(sent("documents.apply")).toHaveLength(1);
+    expect(lastEdit()).toEqual({
+      label: "Paste style",
+      ops: [
+        { doc: HOME, id: "title", op: "update", set: look },
+        { doc: HOME, id: "cta", op: "update", set: look },
+      ],
+    });
+  });
+
+  it("pastes only once a style is copied, which Copy leaves as it is", async () => {
+    homeWith([text("title", { fill: "$color-accent" }), lede, text("cta")]);
+    expect(itemOf(nodeAt(HOME, "cta"), { kind: "pasteStyle" }).disabled).toBe(
+      true
+    );
+    await choose(nodeAt(HOME, "title"), { kind: "copyStyle" });
+    await choose(nodeAt(HOME, "lede"), { kind: "copy" });
+    expect(useClipboard.getState().nodes.map((n) => n.id)).toEqual(["lede"]);
+    expect(itemOf(nodeAt(HOME, "cta"), { kind: "pasteStyle" }).disabled).toBe(
+      false
+    );
+    await choose(nodeAt(HOME, "cta"), { kind: "pasteStyle" });
+    expect(lastEdit().ops).toEqual([
+      {
+        doc: HOME,
+        id: "cta",
+        op: "update",
+        set: { ...cleared, fill: "$color-accent" },
+      },
+    ]);
+  });
+
+  it("copies the look a view draws, and pastes it at the view's breakpoint (ADR 0036)", async () => {
+    homeWith([
+      text("title", {
+        at: { md: { fill: "$color-accent" } },
+        fill: "$color-surface",
+      }),
+      text("cta", { radius: 4 }),
+    ]);
+    await choose(nodeAt(TABLET, "title"), { kind: "copyStyle" });
+    select({ frame: TABLET, nodeId: "cta" });
+    await choose(nodeAt(TABLET, "cta"), { kind: "pasteStyle" });
+    // Each lands in the tablet's `md`, the phone's own fields left as they are.
+    expect(lastEdit().ops).toEqual([
+      {
+        at: "md",
+        doc: HOME,
+        id: "cta",
+        op: "update",
+        set: { ...cleared, fill: "$color-accent" },
+      },
+    ]);
+  });
+
+  it("copies a layer of an instance as the instance draws it, and pastes onto one as its overrides (ADR 0114)", async () => {
+    useComponents.setState({
+      components: [
+        {
+          name: "Promo",
+          origin: "app",
+          properties: [],
+          slots: [],
+          tree: {
+            children: [text("sale", { fill: "$color-accent", radius: 4 })],
+            id: "p-root",
+            type: "column",
+          },
+          version: 1,
+        },
+      ],
+    });
+    homeWith([text("title"), lede]);
+    const sale = nodeAt(HOME, "promo/sale");
+    await choose(sale, { kind: "copyStyle" });
+    expect(toasts).toEqual(["Copied the style of sale"]);
+    await choose(nodeAt(HOME, "title"), { kind: "pasteStyle" });
+    expect(lastEdit().ops?.[0]).toMatchObject({
+      id: "title",
+      set: { fill: "$color-accent", radius: 4 },
+    });
+
+    await choose(nodeAt(HOME, "lede"), { kind: "copyStyle" });
+    await choose(sale, { kind: "pasteStyle" });
+    const promo = rootOf(HOME).children.find((n) => n.id === "promo");
+    // The instance's own, the main component's tree untouched. The radius the copy leaves unset
+    // has no value of its own to override with: taken off, the layer has its main's again, as an
+    // inspector edit there clears it.
+    expect(promo).toMatchObject({
+      overrides: { sale: { fill: "$color-surface", textStyle: "Body" } },
+    });
+    expect(
+      (promo as { overrides: Record<string, object> }).overrides.sale
+    ).not.toHaveProperty("radius");
+    expect(useComponents.getState().components[0]).toMatchObject({
+      tree: { children: [{ fill: "$color-accent", radius: 4 }] },
+    });
+  });
+
+  it("neither copies a page's look nor pastes onto it (ADR 0075)", async () => {
+    homeWith([lede]);
+    const kinds = itemsOf(menuFor(nodeAt(HOME, "home")) ?? []).map((e) =>
+      e.kind === "item" ? e.action.act.kind : null
+    );
+    expect(kinds).not.toContain("copyStyle");
+    expect(kinds).not.toContain("pasteStyle");
+    await choose(nodeAt(HOME, "lede"), { kind: "copyStyle" });
+    select({ frame: HOME, nodeId: "home" });
+    expect(runCommand("copyStyle")).toBe(false);
+    expect(runCommand("pasteStyle")).toBe(false);
+    expect(sent("documents.apply")).toEqual([]);
+  });
+
+  it("by their keys, copy the node the inspector shows and paste onto the selection", async () => {
+    homeWith([text("title", { fill: "$color-accent" }), lede, text("cta")]);
+    expect(runCommand("pasteStyle")).toBe(false);
+    selectMany([
+      { frame: HOME, nodeId: "title" },
+      { frame: HOME, nodeId: "lede" },
+    ]);
+    expect(runCommand("copyStyle")).toBe(true);
+    expect(toasts).toEqual(["Copied the style of title"]);
+    select({ frame: HOME, nodeId: "cta" });
+    await runCommand("pasteStyle");
+    expect(lastEdit()).toMatchObject({
+      label: "Paste style",
+      ops: [{ id: "cta", set: { fill: "$color-accent" } }],
+    });
+  });
+
+  it("are in the palette, with the selection's menu, showing their keys", () => {
+    homeWith([lede]);
+    select({ frame: HOME, nodeId: "lede" });
+    // Paste style greyed out, as it is with nothing copied, is not offered.
+    expect(
+      paletteCommands().find((c) => c.title === "Paste style")
+    ).toBeUndefined();
+    runCommand("copyStyle");
+    const keysOf = (title: string) =>
+      paletteCommands().find((c) => c.title === title)?.keys;
+    expect(keysOf("Copy style")).toBe(isMac ? "⌥⌘C" : "Ctrl+Alt+C");
+    expect(keysOf("Paste style")).toBe(isMac ? "⌥⌘V" : "Ctrl+Alt+V");
+  });
+});
+
 /**
  * Every kind of action of every menu: the type checker asks for one more here when an action is
  * added, and the sweep below finds it in a menu and runs it.
@@ -810,6 +1053,7 @@ const EVERY_ACTION = {
     copy: true,
     copyLink: true,
     copyRef: true,
+    copyStyle: true,
     cut: true,
     delete: true,
     detach: true,
@@ -822,6 +1066,7 @@ const EVERY_ACTION = {
     lock: true,
     makeApp: true,
     paste: true,
+    pasteStyle: true,
     rename: true,
     selectLayerUnder: true,
     selectParent: true,
@@ -900,6 +1145,7 @@ const CONTACT = "contact.page.json";
 const setUpForEvery = () => {
   setUp();
   useClipboard.setState({ nodes: [text("copied")] });
+  useCopiedStyle.setState({ style: { fields: { fill: "red" }, type: "text" } });
   select({ frame: HOME, nodeId: "title" });
   useProject.setState((s) => ({
     pages: [...s.pages, page(CONTACT, "Contact")],
