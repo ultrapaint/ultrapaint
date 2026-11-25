@@ -380,6 +380,21 @@ describe("the tokens of a fill", () => {
 });
 
 describe("the files of a fill", () => {
+  it("take an escaped bracket in an unquoted url() as part of the file", () => {
+    const fill = "url(/hero\\).png) center / cover no-repeat, $color-bg";
+    expect(fillLayers(fill)[0]).toEqual({
+      fit: "cover",
+      kind: "image",
+      src: "/hero).png",
+    });
+    expect(resolveFillUrls(fill, (src) => `/api/asset?src=${src}`)).toBe(
+      'url("/api/asset?src=/hero).png") center / cover no-repeat, $color-bg'
+    );
+    expect(tokensInFill("url(a\\) $hero.png), $color-bg")).toEqual([
+      "color-bg",
+    ]);
+  });
+
   it("are drawn from where the canvas finds each, its tokens and other CSS as they are", () => {
     expect(
       resolveFillUrls(
