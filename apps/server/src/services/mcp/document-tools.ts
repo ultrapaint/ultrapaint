@@ -5,19 +5,29 @@
  */
 import { Json } from "@ultrapaint/contracts/base";
 import type { Catalogue } from "@ultrapaint/contracts/catalogue";
+import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
 import { type DesignNode, DocOp } from "@ultrapaint/contracts/document";
+import type { Page } from "@ultrapaint/contracts/pages";
 import { breakpointsOf } from "@ultrapaint/design-document/breakpoints";
 import { fillIds } from "@ultrapaint/design-document/ids";
 import { inertFields } from "@ultrapaint/design-document/inert-fields";
 import { touchedBy } from "@ultrapaint/design-document/ops";
 import { wrapperWarning } from "@ultrapaint/design-document/page-root";
 import { fillWarnings } from "@ultrapaint/design-document/sizing";
-import { canvasDocOf, findNode, walk } from "@ultrapaint/design-document/tree";
+import {
+  canvasDocOf,
+  childrenOf,
+  findNode,
+  walk,
+} from "@ultrapaint/design-document/tree";
+import { valueMatcher } from "@ultrapaint/design-document/value-matches";
+import { formatNodeRef } from "@ultrapaint/shared/node-ref";
 import { Effect, Predicate, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { EventBus } from "../../events.ts";
 import { ComponentService } from "../components.ts";
 import { DesignSystemService } from "../design-system.ts";
+import { DocumentService } from "../documents.ts";
 import { ProjectStyleSystem } from "../style-system.ts";
 import {
   designSystemSchema,
@@ -86,25 +96,45 @@ const warningsOf = (root: DesignNode, catalogue: Catalogue): string[] => {
   ];
 };
 
+/** A field of a node holding the value `read_page` matched. */
+const Match = Schema.Struct({
+  field: Schema.String,
+  /** A near hit: the value of the token matched, which the field's own is near. */
+  near: Schema.optional(Schema.String),
+  /** Its reference: page and node (`/orders#c_1`, `canvas#c_1` beside the pages). */
+  node: Schema.String,
+  /** For a value that names a token: what it comes to in the default theme. */
+  resolves: Schema.optional(Schema.String),
+  value: Schema.Union([Schema.String, Schema.Number]),
+});
+
 const ReadPage = Tool.make("read_page", {
   description:
-    "A page's nodes with ids, and a hash for apply_operations; a big one as an outline, deeper levels counted. node: its subtree only; depth: levels shown. A node reference (/orders#c_8x2k1q) names page and node.",
+    "A page's nodes with ids, and a hash for apply_operations; a big one as an outline, deeper levels counted. node: its subtree only; depth: levels shown. A node reference (/orders#c_8x2k1q) names page and node. match ($token, CSS or px): the nodes holding it, every page's without route.",
   failure: ToolFailure,
   parameters: Schema.Struct({
     /** Needed only when the URL is a page in more than one canvas. */
     canvas: opt(Schema.String),
     /** Levels below the node or the root shown; a node at the last keeps a count of its children. */
     depth: opt(finite(0, 50)),
+    /** A value: the nodes holding it rather than a tree, on every page and beside them without `route`. */
+    match: opt(Schema.String),
     /** Only this node and what is inside it: a big page costs less to read in parts. */
     node: opt(Schema.String),
-    route: Schema.String,
+    /** Needed without `match`. */
+    route: opt(Schema.String),
   }),
   success: Schema.Struct({
-    document: Json,
-    file: Schema.String,
-    hash: Schema.String,
+    document: Schema.optional(Json),
+    file: Schema.optional(Schema.String),
+    hash: Schema.optional(Schema.String),
+    /** The nodes holding the value matched, page by page; past twelve, `more` counts the rest. */
+    matches: Schema.optional(Schema.Array(Match)),
+    more: Schema.optional(Schema.Number),
     /** Said when a tree too big to give whole is given as its outline. */
     outline: Schema.optional(Schema.String),
+    /** The files of the canvas's pages a match could not read, and so did not search. */
+    skipped: Schema.optional(Schema.Array(Schema.String)),
   }),
 }).annotateMerge(doing("read"));
 
@@ -243,7 +273,7 @@ const breakpointsNamedIn = (ops: readonly DocOp[]): string[] => [
 export const DocumentToolsLive = DocumentTools.toLayer(
   Effect.gen(function* () {
     const events = yield* EventBus;
-    const { canvasOf, documents, project, where } = yield* makeLookup;
+    const { canvasOf, documents, pagesOf, project, where } = yield* makeLookup;
 
     /**
      * Refuses a breakpoint the design system does not have: the code has no prefix for it.
@@ -271,6 +301,102 @@ export const DocumentToolsLive = DocumentTools.toLayer(
     const catalogue = reported(
       project.use(Effect.flatMap(ComponentService, (c) => c.catalogue))
     );
+
+    /**
+     * The nodes holding a value (`valueMatcher`): on the page `route` names, or on every page of
+     * the canvas as its variations in use draw it and among the nodes beside them. A page of the
+     * canvas that cannot be read is skipped and named, as `list_pages` passes one by; named by
+     * `route`, it fails as `read_page` does. Past `MAX_WARNINGS`, `more` counts the rest.
+     */
+    const matching = Effect.fnUntraced(function* (
+      match: string,
+      canvas: string | undefined,
+      route: string | undefined
+    ) {
+      const { designSystem } = yield* reported(
+        project.use(Effect.flatMap(DesignSystemService, (d) => d.get))
+      );
+      // A project with no design system matches its values as they are written.
+      const find = valueMatcher(designSystem ?? emptyDesignSystem(), match);
+      const { canvases, pages } = yield* reported(pagesOf);
+      const several = canvases.length > 1;
+      /** The hits in a page's tree, or among the nodes beside the pages, by their references. */
+      const hitsIn = (
+        root: DesignNode | null,
+        at: { readonly canvas: string; readonly page: string | null }
+      ) => {
+        if (root === null) {
+          return [];
+        }
+        // The nodes beside the pages are each a tree of their own.
+        const trees = at.page === null ? childrenOf(root) : [root];
+        return trees
+          .flatMap((tree) => find(tree))
+          .map(({ node, ...hit }) => ({
+            ...hit,
+            node: formatNodeRef({
+              ...(several && { canvas: at.canvas }),
+              nodeId: node,
+              page: at.page,
+            }),
+          }));
+      };
+      /** A page as a node reference names it: its URL, else its file inside the canvas. */
+      const pageName = (page: Page | null) =>
+        page === null ? null : (page.route ?? page.path);
+      const answer = (hits: ReturnType<typeof hitsIn>) => ({
+        matches: hits.slice(0, MAX_WARNINGS),
+        ...(hits.length > MAX_WARNINGS && {
+          more: hits.length - MAX_WARNINGS,
+        }),
+      });
+      if (route !== undefined) {
+        const at = yield* where({ canvas, route });
+        const state = yield* documents((d) => d.get(at.doc));
+        if (state.problem !== undefined) {
+          return yield* missing(
+            `${at.file} is not a valid page: ${state.problem}`
+          );
+        }
+        return {
+          file: at.file,
+          hash: state.hash,
+          ...answer(
+            hitsIn(state.root, { canvas: at.canvas, page: pageName(at.page) })
+          ),
+        };
+      }
+      const id = yield* canvasOf(canvas);
+      const beside = yield* where({ canvas: id, loose: true });
+      const searched = [
+        ...pages
+          .filter((p) => p.canvas === id)
+          .map((p) => ({ doc: p.id, file: p.file, page: pageName(p) })),
+        { doc: beside.doc, file: beside.file, page: null },
+      ];
+      const found: ReturnType<typeof hitsIn> = [];
+      const skipped: string[] = [];
+      for (const { doc, file, page } of searched) {
+        // A page that is not valid, or whose file went since the pages were listed, is passed by
+        // and named, as list_pages passes one by; a failure to read the storage fails the call.
+        const state = yield* reported(
+          project.use(
+            Effect.flatMap(DocumentService, (d) => d.get(doc)).pipe(
+              Effect.catchTag("NotFound", () => Effect.succeed(null))
+            )
+          )
+        );
+        if (state === null || state.problem !== undefined) {
+          skipped.push(file);
+        } else {
+          found.push(...hitsIn(state.root, { canvas: id, page }));
+        }
+      }
+      return {
+        ...answer(found),
+        ...(skipped.length > 0 && { skipped }),
+      };
+    });
 
     /** How the design maps to code, in the open project's style system. */
     const codeRulesOf = reported(
@@ -411,8 +537,21 @@ export const DocumentToolsLive = DocumentTools.toLayer(
         route,
         canvas,
         depth,
+        match,
         node,
       }) {
+        if (match !== undefined) {
+          return node === undefined && depth === undefined
+            ? yield* matching(match, canvas, route)
+            : yield* missing(
+                "match searches for the nodes holding a value and reads no tree: leave out node and depth"
+              );
+        }
+        if (route === undefined) {
+          return yield* missing(
+            "say which page with `route`, or pass `match` to search the canvas for a value"
+          );
+        }
         /** The tree, or its outline when it is too big or the agent asked for one. */
         const shown = (tree: DesignNode) => {
           const read = treeForAgent(tree, depth);

@@ -449,6 +449,13 @@ refactor and the board view left.
   the rendered page, with a threshold (ADR 0061): values **off the system** (design-document's
   `offSystemValues`: spacing off the base's steps, a raw radius, colour or type size where a
   token was due), and the rendered checks of `measure --checks` (evals' `auditInBrowser`).
+- **Value match**: the nodes holding a value, a token (`$color-primary`), CSS or pixels, as an agent
+  finds them with `read_page`'s `match`: on one page, or on every page of a canvas as its variations
+  in use draw it and among the nodes beside the pages, a page that cannot be read passed by and
+  named (design-document's `valueMatcher`, ADR 0098, 0114, 0136). It reads the fields the off-system
+  check reads, an image's tint, and an instance's own fields and overrides. Values are compared in
+  the default theme, the tokens they name followed; a token matched is found by its name and its
+  value, and a value written by hand whose nearest token comes to it is a **near** hit.
 - **Outline**: a design's sections, words, actions and states in text, written before the first
   node (ADR 0061); in the lab, a gap section's `outline.md`, which `recall --inputs outline`
   reviews instead of its pictures.
