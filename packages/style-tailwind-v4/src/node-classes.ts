@@ -403,12 +403,14 @@ const background: Rule = (value) => {
     varUnder ||
     imageAmongImages
   ) {
-    // Tailwind reads `bg-[…]` as a colour or as images, never as images over a colour.
+    // Tailwind reads `bg-[…]` as a colour or as images, never as images over a colour. A fill
+    // with a picture is written from its layers, its files as a class holds them.
+    const pictured =
+      layers.some((l) => l.kind === "image") &&
+      !layers.some((l) => l.kind === "css");
     return one(
       printArbitrary(
-        withVariables(
-          imageAmongImages ? (fillCss(layers) ?? "") : String(value)
-        ),
+        withVariables(pictured ? (fillCss(layers) ?? "") : String(value)),
         "background"
       ),
       BG_COLOR,

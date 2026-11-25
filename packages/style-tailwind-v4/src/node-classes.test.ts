@@ -384,6 +384,12 @@ describe("a fill in layers", () => {
     ).toEqual([
       "[background:linear-gradient(in_oklab,_var(--color-scrim),_transparent),_url(assets/hero.png)_center_/_cover_no-repeat,_var(--color-bg)]",
     ]);
+    // Over a variable, which may hold an image too: the shorthand, a space in the path as %20.
+    expect(
+      bg('url("assets/a b.png") center / cover no-repeat, var(--under, red)')
+    ).toEqual([
+      "[background:url(assets/a%20b.png)_center_/_cover_no-repeat,_var(--under,_red)]",
+    ]);
   });
 
   it("writes a fill it cannot read as the background shorthand, which takes an image over a colour", () => {
