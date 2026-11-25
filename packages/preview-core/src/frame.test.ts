@@ -138,7 +138,7 @@ const framedText = (shown: Partial<FrameShown> = {}) => {
   title.setAttribute(NODE_ATTRIBUTE, "t");
   title.textContent = "IT Admin";
   host.shadowRoot?.querySelector(`[${BODY_ATTRIBUTE}]`)?.append(title);
-  return { runtime, textCommit, title };
+  return { host, runtime, textCommit, title };
 };
 
 /** The browser's selection on `el`'s words, as a drag over them leaves it. */
@@ -214,6 +214,18 @@ describe("a text edited in place", () => {
     runtime.endTextEdit();
     expect(textCommit).toHaveBeenCalledWith("t", "IT Support");
     expect(title.hasAttribute("contenteditable")).toBe(false);
+    expect(getSelection()?.rangeCount).toBe(0);
+  });
+
+  it("leaves no highlight where the browser reports its selection at the frame's host, as WebKit does", () => {
+    const { host, runtime } = framedText();
+    runtime.editText("t");
+    // WebKit gives a selection inside a shadow root as the host's place in its parent.
+    const range = document.createRange();
+    range.selectNode(host);
+    getSelection()?.removeAllRanges();
+    getSelection()?.addRange(range);
+    runtime.endTextEdit();
     expect(getSelection()?.rangeCount).toBe(0);
   });
 
