@@ -43,6 +43,31 @@ let putBack: (() => void) | null = null;
 /** Whether a gesture follows the pointer: what the canvas would show under it waits. */
 export const isFollowing = () => putBack !== null;
 
+/** What waits for the gesture followed now to end. */
+let waiting: (() => void)[] = [];
+
+/** Runs what waited for the gesture that just ended, once it has done what its end does. */
+const ended = () => {
+  const now = waiting;
+  waiting = [];
+  for (const then of now) {
+    then();
+  }
+};
+
+/**
+ * Runs `then` once the gesture followed now ends, let go or put back, whatever began it (a pan,
+ * a drag, a marquee): what the canvas shows under a pointer that has not moved since is seen to
+ * then. At once when none is followed.
+ */
+export const afterGesture = (then: () => void) => {
+  if (putBack === null) {
+    then();
+  } else {
+    waiting.push(then);
+  }
+};
+
 /** Puts back the gesture being followed, if one is: whether there was one. */
 export const putBackGesture = (): boolean => {
   const was = putBack;
@@ -73,6 +98,7 @@ export const followPointer = (press: Press, gesture: Gesture) => {
   const letGo = () => {
     stop();
     gesture.up();
+    ended();
   };
   const move = (e: PointerEvent) => {
     if (!ours(e)) {
@@ -93,6 +119,7 @@ export const followPointer = (press: Press, gesture: Gesture) => {
   const cancel = () => {
     stop();
     gesture.cancel();
+    ended();
   };
   const cancelled = (e: PointerEvent) => {
     if (ours(e)) {

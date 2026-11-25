@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  afterGesture,
   followPointer,
   isFollowing,
   putBackGesture,
@@ -95,5 +96,32 @@ describe("a pointer gesture", () => {
     followPointer({ pointerId: 1 }, second.gesture);
     hear("pointermove", { clientX: 5 });
     expect([first.seen, second.seen]).toEqual([["cancel"], ["move 5"]]);
+  });
+});
+
+describe("what waits for a gesture to end", () => {
+  it("runs once it has ended, let go or put back, and at once when none is followed", () => {
+    const seen: string[] = [];
+    const wait = (what: string) => afterGesture(() => seen.push(what));
+    const { gesture } = recorder();
+    followPointer(
+      { pointerId: 1 },
+      {
+        ...gesture,
+        up: () => seen.push("up"),
+      }
+    );
+    wait("after the release");
+    hear("pointerup", { buttons: 0 });
+    followPointer({ pointerId: 1 }, gesture);
+    wait("after it is put back");
+    putBackGesture();
+    wait("at once");
+    expect(seen).toEqual([
+      "up",
+      "after the release",
+      "after it is put back",
+      "at once",
+    ]);
   });
 });

@@ -225,6 +225,29 @@ describe.each(hands)("the hand, by %s, over a page", (hand) => {
   });
 });
 
+describe("Space released while its pan is dragged over a page", () => {
+  it("hovers the node under the still pointer once the pan is let go", () => {
+    space("keydown");
+    const page = host.querySelector("[data-frame]") as Element;
+    moveOnto(page);
+    const press = { bubbles: true, button: 0, clientX: 40, clientY: 40 };
+    act(() => {
+      page.dispatchEvent(
+        new PointerEvent("pointerdown", { ...press, buttons: 1, pointerId: 1 })
+      );
+    });
+    space("keyup");
+    // The pan goes on until the button is let go: nothing is hovered while it does.
+    expect(hovered()).toBeNull();
+    act(() => {
+      window.dispatchEvent(
+        new PointerEvent("pointerup", { ...press, buttons: 0, pointerId: 1 })
+      );
+    });
+    expect(hovered()).toBe("heading");
+  });
+});
+
 describe("the hand put down where something covers the page", () => {
   it("hovers no node of it", () => {
     const pin = document.createElement("button");

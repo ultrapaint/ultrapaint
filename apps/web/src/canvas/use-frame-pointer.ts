@@ -55,6 +55,7 @@ import { frameOf } from "./editor-frame.ts";
 import { hitUnlocked } from "./hit-test.ts";
 import { useMeasureKey } from "./measure-key.ts";
 import {
+  afterGesture,
   followPointer,
   isFollowing,
   putBackGesture,
@@ -229,27 +230,28 @@ export const useFramePointer = ({
   // ⌥ pressed or let go with the pointer at rest: what it is over is the innermost node there
   // at once, to measure to (ADR 0131), and the one a click would select again once let go,
   // the innermost still while Ctrl or ⌘ is held.
-  const keyDuringPress = useRef<boolean>(false);
+  /** Whether a hit-test waits for the gesture under way to end. */
+  const waitsForGesture = useRef<boolean>(false);
   const rehover = (innermost: boolean) => {
     const at = resting.current;
     if (at === null) {
       return;
     }
-    // A gesture under way keeps what it is about: the key is heard once it ends (`pressEnded`).
+    // A gesture under way keeps what it is about, a pan or a press of this frame's or another's:
+    // where the pointer rests is hit-tested once it ends, with the keys held then.
     if (isFollowing()) {
-      keyDuringPress.current = true;
+      if (!waitsForGesture.current) {
+        waitsForGesture.current = true;
+        afterGesture(() => {
+          waitsForGesture.current = false;
+          rehover(useMeasureKey.getState().deep);
+        });
+      }
       return;
     }
     hoverOn(nodeUnder(toFrame(at), innermost));
   };
   const hitAgain = useEffectEvent((innermost: boolean) => rehover(innermost));
-  /** A press ends: ⌥ pressed or let go during it now hit-tests where the pointer is. */
-  const pressEnded = () => {
-    if (keyDuringPress.current) {
-      keyDuringPress.current = false;
-      rehover(useMeasureKey.getState().deep);
-    }
-  };
   useEffect(
     () =>
       useMeasureKey.subscribe((now, before) => {
@@ -525,7 +527,6 @@ export const useFramePointer = ({
         } else if (doing === "drag" && useDrag.getState().dragged) {
           cancelDrag();
         }
-        pressEnded();
       },
       move,
       up: () => {
@@ -550,7 +551,6 @@ export const useFramePointer = ({
         } else if (doing === "drag" && useDrag.getState().dragged) {
           endDrag();
         }
-        pressEnded();
       },
     });
     pressing.current = true;
