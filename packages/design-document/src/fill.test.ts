@@ -3,8 +3,10 @@ import {
   type FillLayer,
   fillCss,
   fillLayers,
+  layeredFill,
   placedInPercent,
   resolveFillTokens,
+  resolveFillUrls,
   stopPositions,
   tokensInFill,
 } from "./fill.ts";
@@ -93,7 +95,10 @@ describe("a fill as layers", () => {
     for (const css of [
       // A variable may hold a gradient as well as a colour.
       "var(--hero, linear-gradient(red, blue))",
-      "url(hero.png) center / cover, $color-bg",
+      // A repeated image, or one placed off the centre, is no fit the editor offers.
+      "url(hero.png) center / contain, $color-bg",
+      "url(hero.png) top left / cover no-repeat",
+      "url(hero.png) repeat-x",
       "red, blue",
       "repeating-linear-gradient(red 0 10px, blue 10px 20px)",
       "linear-gradient(red, 30%, blue)",
@@ -104,6 +109,68 @@ describe("a fill as layers", () => {
       expect(fillLayers(css)).toEqual([{ css, kind: "css" }]);
       expect(fillCss(fillLayers(css))).toBe(css);
     }
+  });
+
+  it("reads an image with its fit, alone, under a gradient and over a colour, and writes it back centred and not repeated", () => {
+    const fill =
+      "linear-gradient(in oklab, $color-scrim, transparent), url(assets/hero.png) center / cover no-repeat, $color-bg";
+    const layers: FillLayer[] = [
+      {
+        interpolation: "oklab",
+        kind: "gradient",
+        shape: "linear",
+        stops: [{ color: "$color-scrim" }, { color: "transparent" }],
+      },
+      { fit: "cover", kind: "image", src: "assets/hero.png" },
+      { color: "$color-bg", kind: "color" },
+    ];
+    expect(fillLayers(fill)).toEqual(layers);
+    expect(fillCss(layers)).toBe(fill);
+    expect(
+      fillCss([{ fit: "contain", kind: "image", src: "assets/a b.png" }])
+    ).toBe('url("assets/a b.png") center / contain no-repeat');
+    expect(fillCss([{ fit: "fill", kind: "image", src: "a.png" }])).toBe(
+      "url(a.png) center / 100% 100% no-repeat"
+    );
+    // A fit written in another order, or the centre spelled out, is the same fit.
+    expect(fillLayers("url('a b.png') no-repeat 50% 50%/100% 100%")).toEqual([
+      { fit: "fill", kind: "image", src: "a b.png" },
+    ]);
+    expect(layeredFill("url(a.png) center / contain no-repeat")).toEqual([
+      { fit: "contain", kind: "image", src: "a.png" },
+    ]);
+  });
+
+  it("reads an image that covers or fills its box as drawn once, repeated or not", () => {
+    expect(fillLayers("url(hero.png) center / cover, $color-bg")).toEqual([
+      { fit: "cover", kind: "image", src: "hero.png" },
+      { color: "$color-bg", kind: "color" },
+    ]);
+    expect(fillLayers("url(hero.png) center / 100% 100%")).toEqual([
+      { fit: "fill", kind: "image", src: "hero.png" },
+    ]);
+  });
+
+  it("quotes a file as CSS reads it back, its quotes, backslashes and line breaks escaped", () => {
+    for (const src of ['a "b".png', "a\\b.png", "a\nb.png", "a b.png"]) {
+      const css = fillCss([{ fit: "cover", kind: "image", src }]) ?? "";
+      expect(fillLayers(css)).toEqual([{ fit: "cover", kind: "image", src }]);
+    }
+    expect(fillCss([{ kind: "image", src: "a\nb.png" }])).toBe(
+      'url("a\\a b.png")'
+    );
+    expect(fillLayers('url("a\\110000 b.png")')).toEqual([
+      { kind: "image", src: "a\ufffdb.png" },
+    ]);
+  });
+
+  it("reads an image written alone as one with no fit, and writes it back as it was", () => {
+    expect(fillLayers('url("assets/hero.png")')).toEqual([
+      { kind: "image", src: "assets/hero.png" },
+    ]);
+    expect(fillCss([{ kind: "image", src: "assets/hero.png" }])).toBe(
+      "url(assets/hero.png)"
+    );
   });
 
   it("writes layers back as one background, a colour above another as a flat gradient", () => {
@@ -308,6 +375,19 @@ describe("the tokens of a fill", () => {
       )
     ).toBe(
       "linear-gradient(var(--color-primary), var(--color-accent) 50%), var(--color-bg)"
+    );
+  });
+});
+
+describe("the files of a fill", () => {
+  it("are drawn from where the canvas finds each, its tokens and other CSS as they are", () => {
+    expect(
+      resolveFillUrls(
+        'linear-gradient($color-a, transparent), url(assets/hero.png) center / cover no-repeat, url("a b.png"), $color-bg',
+        (src) => `/api/asset?src=${src}`
+      )
+    ).toBe(
+      'linear-gradient($color-a, transparent), url("/api/asset?src=assets/hero.png") center / cover no-repeat, url("/api/asset?src=a b.png"), $color-bg'
     );
   });
 });

@@ -87,7 +87,8 @@ export const isOffSystem = (
   if (kind === "color") {
     const layers = fillLayers(value);
     const read = layers.every((l) => l.kind !== "css");
-    if (read && (layers.length > 1 || layers[0]?.kind === "gradient")) {
+    // An image is no colour: only its colour layers are checked (ADR 0149).
+    if (read && (layers.length > 1 || layers[0]?.kind !== "color")) {
       return layers.some((layer) =>
         layer.kind === "gradient"
           ? layer.stops.some((stop) => isOffSystem(kind, stop.color))

@@ -1,7 +1,8 @@
 /**
  * The inspector's Fill section (ADR 0134): a box's fill as its layers, the top one first, one row
  * each. A row's swatch previews its layer and opens the popover that edits it (its kind, a
- * gradient's shape, stops and angle); the section lists, the popover edits one layer (ADR 0102).
+ * gradient's shape, stops and angle, an image's file and fit, ADR 0149); the section lists, the
+ * popover edits one layer (ADR 0102).
  * The section's + puts a colour on top, a row's − takes its layer off. Every change writes the
  * whole fill as one edit, through the fill's field, so it lands at the view's breakpoint (ADR
  * 0036) and on an instance's layer as its override (ADR 0114).
@@ -9,6 +10,7 @@
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { shortName } from "@ultrapaint/contracts/token-table";
+import { PLACEHOLDER_IMAGE } from "@ultrapaint/design-document/factories";
 import {
   angleOf,
   type FillLayer,
@@ -17,9 +19,12 @@ import {
   fillLayers,
   type GradientLayer,
   type GradientShape,
+  type ImageFit,
+  type ImageLayer,
   placedInPercent,
   positionPercent,
   resolveFillTokens,
+  resolveFillUrls,
   stopPositions,
 } from "@ultrapaint/design-document/fill";
 import { isOffSystem } from "@ultrapaint/design-document/off-system";
@@ -28,8 +33,9 @@ import {
   tokenName,
   tokenValues,
 } from "@ultrapaint/design-document/tokens";
-import { Minus, Plus, X } from "lucide-react";
-import { type ReactNode, useRef, useState } from "react";
+import { assetUrlOf } from "@ultrapaint/preview-core/render-setup";
+import { Minus, Plus, Upload, X } from "lucide-react";
+import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import {
   Popover,
   PopoverContent,
@@ -38,6 +44,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/cn";
+import { assetsAddress } from "../canvas/preview-module.ts";
 import { IconButton } from "../components/icon-button.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import {
@@ -49,12 +56,16 @@ import { setField } from "../lib/node-actions.ts";
 import { sharedField, TOKEN_FIELDS } from "../lib/node-fields.ts";
 import { MIXED } from "../lib/shared-value.ts";
 import { Swatch, useTokenOptions } from "../lib/token-options.tsx";
+import { uploadImage } from "../lib/upload-image.ts";
 import { useDesignSystem } from "../state/design-system.ts";
+import { useEditor } from "../state/editor.ts";
+import { reportError } from "../state/project.ts";
 import {
   NodeValueField,
   Row,
   Section,
   SectionAction,
+  TextInput,
   useReveal,
 } from "./inspector-fields.tsx";
 
@@ -87,6 +98,8 @@ const labelOf = (layer: FillLayer) => {
       return "Colour";
     case "gradient":
       return SHAPE_NAMES[layer.shape];
+    case "image":
+      return "Image";
     default:
       return "Fill";
   }
@@ -98,19 +111,48 @@ const titleOf = (layer: FillLayer) =>
     ? `${SHAPE_NAMES[layer.shape]} gradient`
     : labelOf(layer);
 
-/** A fill drawn outside its frame, each token as the value the design system gives it. */
+/**
+ * A fill drawn outside its frame, each token as the value the design system gives it and each
+ * file from where the canvas finds it (ADR 0149).
+ */
 const usePreview = () => {
   const values = tokenValues(useDesignSystem((s) => s.designSystem));
+  const canvas = useEditor((s) => s.canvas) ?? "";
   return (css: string) =>
-    resolveFillTokens(css, (name) => values.get(name) ?? "transparent");
+    resolveFillUrls(
+      resolveFillTokens(css, (name) => values.get(name) ?? "transparent"),
+      (src) => assetUrlOf(assetsAddress(), canvas, src)
+    );
 };
 
-/** A layer's CSS, drawn on its own. */
-const layerPreviewCss = (layer: FillLayer) =>
-  layer.kind === "css" ? layer.css : (fillCss([layer]) ?? "");
+/** A layer's CSS, drawn on its own: an image covering its swatch, whatever its fit. */
+const layerPreviewCss = (layer: FillLayer) => {
+  if (layer.kind === "css") {
+    return layer.css;
+  }
+  return (
+    fillCss([layer.kind === "image" ? { ...layer, fit: "cover" } : layer]) ?? ""
+  );
+};
 
-/** A layer turned into the other kind: a colour into a gradient from it, a gradient into its first colour. */
-const asKind = (layer: FillLayer, kind: "color" | "gradient"): FillLayer => {
+/** A kind Kind makes a layer: any the editor reads. */
+type LayerKind = Exclude<FillLayer["kind"], "css">;
+
+/** The picture an image layer holds before a file is chosen: an image node's placeholder. */
+const NEW_IMAGE: ImageLayer = {
+  fit: "cover",
+  kind: "image",
+  src: PLACEHOLDER_IMAGE,
+};
+
+/**
+ * A layer turned into another kind: a colour into a gradient from it, a gradient into its first
+ * colour, either into a picture still to choose (ADR 0149); a picture into no colour.
+ */
+const asKind = (layer: FillLayer, kind: LayerKind): FillLayer => {
+  if (kind === "image") {
+    return layer.kind === "image" ? layer : NEW_IMAGE;
+  }
   if (kind === "gradient") {
     if (layer.kind === "gradient") {
       return layer;
@@ -126,7 +168,9 @@ const asKind = (layer: FillLayer, kind: "color" | "gradient"): FillLayer => {
   if (layer.kind === "gradient") {
     return { color: layer.stops[0]?.color ?? "transparent", kind: "color" };
   }
-  return layer;
+  return layer.kind === "image"
+    ? { color: "transparent", kind: "color" }
+    : layer;
 };
 
 /**
@@ -486,7 +530,111 @@ const GradientFields = ({
   );
 };
 
-/** What edits one layer: its kind, then a colour or a gradient's fields. */
+/** What an image's file field reads: its path, or that it is the placeholder. */
+const fileName = (src: string) =>
+  src.startsWith("data:") ? "placeholder" : src;
+
+/** An image's file, uploaded into the canvas's assets or typed, and its fit (ADR 0149). */
+const ImageFields = ({
+  layer,
+  onChange,
+}: {
+  layer: ImageLayer;
+  onChange: (layer: ImageLayer) => void;
+}) => {
+  const input = useRef<HTMLInputElement>(null);
+  // The layer as it is when the file arrives: a fit picked while it uploads is kept.
+  const latest = useRef({ layer, onChange });
+  useLayoutEffect(() => {
+    latest.current = { layer, onChange };
+  });
+  const upload = async (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+    try {
+      const src = await uploadImage(file);
+      latest.current.onChange({ ...latest.current.layer, src });
+    } catch (error) {
+      reportError(error);
+    }
+  };
+  return (
+    <>
+      <Row label="File">
+        <div
+          className="flex min-w-0 flex-1 items-center gap-1"
+          data-fill-file=""
+        >
+          <TextInput
+            onChange={(src) =>
+              src === "" ? undefined : onChange({ ...layer, src })
+            }
+            value={fileName(layer.src)}
+          />
+          <IconButton
+            className="shrink-0 text-muted-foreground"
+            onClick={() => input.current?.click()}
+            size="icon-sm"
+            tooltip="Upload an image"
+          >
+            <Upload />
+          </IconButton>
+          <input
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => upload(e.target.files?.[0])}
+            ref={input}
+            type="file"
+          />
+        </div>
+      </Row>
+      <Row label="Fit">
+        <Segmented
+          onChange={(fit: ImageFit) => onChange({ ...layer, fit })}
+          options={[
+            { label: "Cover", value: "cover" as const },
+            { label: "Contain", value: "contain" as const },
+            { label: "Fill", value: "fill" as const },
+          ]}
+          value={layer.fit ?? null}
+        />
+      </Row>
+    </>
+  );
+};
+
+/** The fields of one layer's kind: a gradient's, an image's, or a colour's. */
+const LayerFields = ({
+  layer,
+  onChange,
+}: {
+  layer: FillLayer;
+  onChange: (layer: FillLayer) => void;
+}) => {
+  switch (layer.kind) {
+    case "gradient":
+      return <GradientFields layer={layer} onChange={onChange} />;
+    case "image":
+      return <ImageFields layer={layer} onChange={onChange} />;
+    default:
+      return (
+        <Row label="Colour">
+          <ColorValue
+            onChange={(value) => {
+              const [next] = layersOfValue(value);
+              if (next) {
+                onChange(next);
+              }
+            }}
+            value={layer.kind === "color" ? layer.color : layer.css}
+          />
+        </Row>
+      );
+  }
+};
+
+/** What edits one layer: its kind, then a colour, a gradient's or an image's fields. */
 const LayerPopover = ({
   layer,
   onChange,
@@ -504,25 +652,12 @@ const LayerPopover = ({
         options={[
           { label: "Colour", value: "color" as const },
           { label: "Gradient", value: "gradient" as const },
+          { label: "Image", value: "image" as const },
         ]}
-        value={layer.kind === "gradient" ? "gradient" : "color"}
+        value={layer.kind === "css" ? "color" : layer.kind}
       />
     </Row>
-    {layer.kind === "gradient" ? (
-      <GradientFields layer={layer} onChange={onChange} />
-    ) : (
-      <Row label="Colour">
-        <ColorValue
-          onChange={(value) => {
-            const [next] = layersOfValue(value);
-            if (next) {
-              onChange(next);
-            }
-          }}
-          value={layer.kind === "color" ? layer.color : layer.css}
-        />
-      </Row>
-    )}
+    <LayerFields layer={layer} onChange={onChange} />
   </PopoverContent>
 );
 
@@ -588,6 +723,17 @@ const LayerContent = ({
           title="Colour"
           value={layer.color}
         />
+      );
+    case "image":
+      // A picture is no colour: it shows no off-system dot (ADR 0149).
+      return (
+        <div className="flex h-7 min-w-0 flex-1 items-center gap-1 rounded-md bg-muted px-2">
+          <LayerSwatch layer={layer} onChange={onChange} open={open}>
+            <span className="min-w-0 truncate font-body">
+              {fileName(layer.src).split("/").at(-1)}
+            </span>
+          </LayerSwatch>
+        </div>
       );
     case "gradient":
       return (

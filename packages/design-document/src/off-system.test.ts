@@ -84,6 +84,25 @@ describe("values off the design system", () => {
     ]);
   });
 
+  it("passes an image layer, and still flags a raw colour beside it (ADR 0149)", () => {
+    expect(
+      isOffSystem("color", "url(assets/hero.png) center / cover no-repeat")
+    ).toBe(false);
+    expect(isOffSystem("color", "url(assets/hero.png)")).toBe(false);
+    expect(
+      isOffSystem(
+        "color",
+        "linear-gradient($color-scrim, transparent), url(assets/hero.png) center / cover no-repeat, $color-bg"
+      )
+    ).toBe(false);
+    expect(
+      isOffSystem(
+        "color",
+        "url(assets/hero.png) center / cover no-repeat, #ffffff"
+      )
+    ).toBe(true);
+  });
+
   it("reads a shadow list shadow by shadow, a raw one after a token off the system", () => {
     expect(isOffSystem("shadow", "$shadow-md, $shadow-ring")).toBe(false);
     const found = offSystemValues(

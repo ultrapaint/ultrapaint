@@ -383,6 +383,96 @@ describe("converting a frame", () => {
     ]);
   });
 
+  it("brings an image fill on a frame with children as the box's image fill, with its fit, over its colour (ADR 0149)", () => {
+    const f = makeFixture();
+    const page = f.add(f.page, {
+      name: "Landing",
+      size: { x: 400, y: 300 },
+      stackMode: "VERTICAL",
+      type: "FRAME",
+    });
+    const hero = f.add(page, {
+      fillPaints: [
+        solid(1, 1, 1),
+        {
+          image: { hash: new Uint8Array(20).fill(0xab) },
+          imageScaleMode: "FIT",
+          type: "IMAGE",
+          visible: true,
+        },
+      ],
+      name: "Hero",
+      size: { x: 400, y: 200 },
+      stackMode: "VERTICAL",
+      type: "FRAME",
+    });
+    f.add(hero, {
+      fontName: { family: "Inter", postscript: "Inter", style: "Regular" },
+      fontSize: 32,
+      name: "Headline",
+      size: { x: 200, y: 40 },
+      textAutoResize: "WIDTH_AND_HEIGHT",
+      textData: { characters: "Ship on Friday" },
+      type: "TEXT",
+    });
+    f.addImage("ab".repeat(20), PNG_BYTES);
+    const file = readFig(f.build());
+    const [frame] = file.pages[0]?.frames ?? [];
+    if (!frame) {
+      throw new Error("no frame");
+    }
+    const { images, root, warnings } = convertFrame(file, frame, options());
+    const [box] = childrenOf(root);
+    const src = "assets/figma-abababababab.png";
+    expect(box).toMatchObject({
+      children: [{ text: "Ship on Friday", type: "text" }],
+      fill: `url(${src}) center / contain no-repeat, #ffffff`,
+      type: "column",
+    });
+    expect(images.map((image) => image.src)).toEqual([src]);
+    expect(warnings).toEqual([]);
+  });
+
+  it("brings an image fill on the frame imported as the page as the page's image fill (ADR 0149)", () => {
+    const f = makeFixture();
+    const landing = f.add(f.page, {
+      fillPaints: [
+        {
+          image: { hash: new Uint8Array(20).fill(0xab) },
+          imageScaleMode: "STRETCH",
+          type: "IMAGE",
+          visible: true,
+        },
+        solid(0, 0, 0, 0.5),
+      ],
+      name: "Landing",
+      size: { x: 400, y: 300 },
+      stackMode: "VERTICAL",
+      type: "FRAME",
+    });
+    f.add(landing, {
+      fontName: { family: "Inter", postscript: "Inter", style: "Regular" },
+      fontSize: 32,
+      name: "Headline",
+      size: { x: 200, y: 40 },
+      textAutoResize: "WIDTH_AND_HEIGHT",
+      textData: { characters: "Ship on Friday" },
+      type: "TEXT",
+    });
+    f.addImage("ab".repeat(20), PNG_BYTES);
+    const file = readFig(f.build());
+    const [frame] = file.pages[0]?.frames ?? [];
+    if (!frame) {
+      throw new Error("no frame");
+    }
+    const { root, warnings } = convertFrame(file, frame, options());
+    // The wash laid over the picture in Figma stays over it.
+    expect(root.fill).toBe(
+      "linear-gradient(#00000080, #00000080), url(assets/figma-abababababab.png) center / 100% 100% no-repeat"
+    );
+    expect(warnings).toEqual([]);
+  });
+
   it("brings a background blur as the blur token that holds its length", () => {
     const { file, frame } = frostedBar();
     const tokens = makeTokenMatcher({

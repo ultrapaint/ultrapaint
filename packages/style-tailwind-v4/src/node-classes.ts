@@ -23,11 +23,14 @@ import {
 } from "@ultrapaint/contracts/token-table";
 import { blurOfFilter } from "@ultrapaint/design-document/css";
 import {
+  type FillLayer,
   type FillStop,
   fillCss,
   fillLayers,
   type GradientLayer,
   gradientHeadCss,
+  type ImageFit,
+  type ImageLayer,
   placedInPercent,
   resolveFillTokens,
   SIDE_DEGREES,
@@ -192,6 +195,7 @@ const BG_IMAGE = "backgroundImage";
 /** What the `background` shorthand sets besides, which no gradient's utilities do. */
 const BG_REST = ["backgroundPosition", "backgroundSize", "backgroundRepeat"];
 const VAR_RE = /^var\(/i;
+const SPACE_RE = /\s/g;
 
 /**
  * A side or corner as Tailwind's `bg-linear-to-*` names it, by the angle the codec gives it:
@@ -334,6 +338,40 @@ const namedGradient = (layer: GradientLayer): Utility[] | null => {
   ];
 };
 
+/** An image's fit as Tailwind's `background-size` utility. */
+const BG_SIZES: Record<ImageFit, string> = {
+  contain: "bg-contain",
+  cover: "bg-cover",
+  fill: "bg-size-[100%_100%]",
+};
+
+/**
+ * A layer with its file as a class can hold it: Tailwind keeps an underscore inside a `url()`, so
+ * a space is written as the URL says it, `%20`.
+ */
+const forClass = (layer: FillLayer): FillLayer =>
+  layer.kind === "image"
+    ? { ...layer, src: layer.src.replace(SPACE_RE, encodeURIComponent) }
+    : layer;
+
+/**
+ * An image (ADR 0149) as Tailwind's own utilities: its file, `bg-[url(…)]`, then, at a fit,
+ * `bg-center`, its size and `bg-no-repeat`.
+ */
+const namedImage = (layer: ImageLayer): Utility[] => [
+  ...one(
+    arbitrary("bg", fillCss([{ kind: "image", src: layer.src }]) ?? ""),
+    BG_IMAGE
+  ),
+  ...(layer.fit === undefined
+    ? []
+    : [
+        ...one("bg-center", "backgroundPosition"),
+        ...one(BG_SIZES[layer.fit], "backgroundSize"),
+        ...one("bg-no-repeat", "backgroundRepeat"),
+      ]),
+];
+
 /** A fill's colour, under its gradients or alone, as its `bg` utility. */
 const bgColor = (value: string) =>
   color("bg", BG_COLOR)(fillColorCss(value), new Map(), { step: 0 });
@@ -342,33 +380,50 @@ const bgColor = (value: string) =>
  * A fill (ADR 0134): a colour as its `bg` utility; a gradient, over a colour or not, as Tailwind's
  * gradient utilities (`bg-linear-to-r from-primary to-accent`); what they cannot say (more stops
  * than from, via and to hold, several gradients) as one arbitrary `bg-[…]`, its tokens as their
- * variables; a fill the editor cannot read, as it is.
+ * variables; an image as `bg-[url(…)]` and its fit's utilities, or, among other images, in the
+ * shorthand (ADR 0149); a fill the editor cannot read, as it is.
  */
 const background: Rule = (value) => {
-  const layers = fillLayers(String(value));
+  const layers = fillLayers(String(value)).map(forClass);
   const [only] = layers;
   if (layers.length === 1 && only?.kind === "color") {
     return bgColor(only.color);
   }
   const bottom = layers.at(-1);
+  const images = bottom?.kind === "color" ? layers.slice(0, -1) : layers;
   // A variable under images may hold another image as well as a colour.
   const varUnder =
     layers.length > 1 && bottom?.kind === "color" && VAR_RE.test(bottom.color);
-  if (layers.length === 0 || layers.some((l) => l.kind === "css") || varUnder) {
+  // A picture among other images: only the shorthand says each one's size, place and repeat.
+  const imageAmongImages =
+    images.length > 1 && images.some((l) => l.kind === "image");
+  if (
+    layers.length === 0 ||
+    layers.some((l) => l.kind === "css") ||
+    varUnder ||
+    imageAmongImages
+  ) {
     // Tailwind reads `bg-[…]` as a colour or as images, never as images over a colour.
     return one(
-      printArbitrary(withVariables(String(value)), "background"),
+      printArbitrary(
+        withVariables(
+          imageAmongImages ? (fillCss(layers) ?? "") : String(value)
+        ),
+        "background"
+      ),
       BG_COLOR,
       BG_IMAGE,
       ...BG_REST
     );
   }
   const under = bottom?.kind === "color" ? bgColor(bottom.color) : [];
-  const images = bottom?.kind === "color" ? layers.slice(0, -1) : layers;
-  const [gradient] = images;
+  const [first] = images;
+  if (images.length === 1 && first?.kind === "image") {
+    return [...namedImage(first), ...under];
+  }
   const named =
-    images.length === 1 && gradient?.kind === "gradient"
-      ? namedGradient(gradient)
+    images.length === 1 && first?.kind === "gradient"
+      ? namedGradient(first)
       : null;
   if (named) {
     return [...named, ...under];

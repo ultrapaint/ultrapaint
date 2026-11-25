@@ -26,11 +26,12 @@ export const Color = Schema.String.annotate({
 
 /**
  * A box's fill: any CSS background, read by the editor as layers (ADR 0134): a colour, or
- * gradients over one, with tokens in a gradient's stops.
+ * gradients and images over one, with tokens in a gradient's stops and an image's file a path in
+ * the canvas (ADR 0149).
  */
 export const Fill = Schema.String.annotate({
   description:
-    'A colour (a token such as "$color-primary", or CSS), or CSS gradients layered over one, top first, with "$color-…" tokens in their stops: "linear-gradient(90deg in oklab, $color-primary, transparent), $color-background".',
+    'A colour (a token such as "$color-primary", or CSS), or CSS gradients and images layered over one, top first, with "$color-…" tokens in their stops: "linear-gradient(90deg in oklab, $color-primary, transparent), $color-background". An image is its file, "assets/<file>" as an image\'s src, centred and not repeated at a fit of cover, contain or 100% 100%, its children drawn over it: "linear-gradient(in oklab, $color-scrim, transparent), url(assets/hero.jpg) center / cover no-repeat".',
 });
 
 /**

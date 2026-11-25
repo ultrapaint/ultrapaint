@@ -19,7 +19,9 @@ export const codeRules = `How the design maps to code (Tailwind v4):
   or h-full in a group. "hug": w-fit or h-fit. A number: a fixed size (w-80 or w-[320px]).
   Inside an instance, "the parent" is the element of the component that holds its children:
   read the component to see whether it is a flex row, a flex column or a block.
-- fill: bg-*. border: border, border-* and the colour; "$border-width-*" is
+- fill: bg-*; an image in it ("url(assets/hero.jpg) center / cover no-repeat") is
+  bg-[url(…)] bg-center bg-cover bg-no-repeat (bg-contain, bg-size-[100%_100%]).
+- border: border, border-* and the colour; "$border-width-*" is
   border-(length:--border-width-*). radius: rounded-*. shadow: shadow-*; a list of shadows
   ("$shadow-md, inset 0 1px 0 #fff") is one shadow-[…] in its order, a token as var(--name).
   backdropBlur: "$blur-md" is backdrop-blur-md, 10 is backdrop-blur-[10px]. "$container-md" in maxWidth or minWidth is max-w-md or min-w-md.
@@ -42,7 +44,8 @@ export const codeRules = `How the design maps to code (Tailwind v4):
   does not take a className gets them on a div around it (flex flex-col, then the classes).
 - image: <img>; an "assets/..." src is a file of the canvas's own assets/ directory when it has
   one, and of the shared assets/ at the root of the designs directory otherwise — copy it to
-  where the application keeps images.
+  where the application keeps images. An "assets/..." file in a fill's url() is copied the same
+  way, and the class's url() names it where the application serves it.
 - link: the application's own router link. A page file (pricing.page.json) links to the URL that
   page serves (its canvas.json says which); a URL links to itself; "back" goes back in the router's
   history; another site is a plain anchor. A link to a page without a URL: ask where it goes.`;
