@@ -155,6 +155,11 @@ refactor and the board view left.
   type), the steps of Tailwind's default scales, and the keywords each utility takes as Tailwind
   compiles them, both ways (`w-full` is `100%`; a gap takes none, `gap-[100%]`). What a class means stays the reader's: a look's field, DESIGN.md's
   token, the usage inventory's kind.
+- **HTML import**: pasted markup made layers by fixed rules (html-import's `convertHtml`, ADR
+  0148). An element's **element style** is its inline style over its classes, as the class
+  reader reads them, folded so each field has one property. The rules make rows, columns, groups, texts and
+  images of it, write each value with a token as that token, and count by kind what they cannot
+  carry, its **warnings**. _Avoid_: HTML parser, converter.
 - **Page**: a design document, `.page.json`, of a **canvas** (ADRs 0015, 0019, 0020). Its root is
   the screen's own container, a column or a row (`direction`, ADR 0075); a row or column under it
   that only fills it is a **wrapper**, which folds into it (design-document's `foldOps`). The page
