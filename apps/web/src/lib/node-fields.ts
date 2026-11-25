@@ -7,7 +7,13 @@
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { TextStyle } from "@ultrapaint/contracts/design-system";
-import type { DesignNode, TextAlign } from "@ultrapaint/contracts/document";
+import type {
+  DesignNode,
+  TextAlign,
+  TextCase,
+  TextLines,
+  TextWrap,
+} from "@ultrapaint/contracts/document";
 import { attachTextStyle } from "@ultrapaint/design-document/text-styles";
 import type { ColorRole } from "./new-token.ts";
 import { type Shared, sharedValue } from "./shared-value.ts";
@@ -57,6 +63,44 @@ export const ALIGN: NodeField<TextAlign, TextAlign> = {
   write: (align) => ({ align: align === "start" ? null : align }),
 };
 
+/**
+ * A field of a text's whose default is one of its values, unset where the text has none, and
+ * written as unset: as typed, wrapping as usual, every line.
+ */
+const textField = <T extends string | number>(
+  key: "case" | "textWrap" | "lines",
+  unset: T,
+  label: string
+): NodeField<T, T> => ({
+  key,
+  label: () => label,
+  read: (node) =>
+    node.type === "text" ? ((node[key] as T | undefined) ?? unset) : undefined,
+  unset,
+  write: (value) => ({ [key]: value === unset ? null : value }),
+});
+
+/** A text's case over its words as typed. */
+export const CASE = textField<TextCase>(
+  "case",
+  "none",
+  "Change the text's case"
+);
+
+/** How a text's lines break. */
+export const TEXT_WRAP = textField<TextWrap>(
+  "textWrap",
+  "wrap",
+  "Change how the text wraps"
+);
+
+/** How many lines a text takes. */
+export const LINES = textField<TextLines>(
+  "lines",
+  "all",
+  "Change the text's lines"
+);
+
 /** The text style a text is set in, by name; setting one sets the text in it. */
 export const TEXT_STYLE: NodeField<string, TextStyle> = {
   key: "textStyle",
@@ -102,6 +146,9 @@ export type TokenFieldName = keyof typeof TOKEN_FIELDS;
 
 const ALL: readonly NodeField<JsonValue, never>[] = [
   ALIGN,
+  CASE,
+  TEXT_WRAP,
+  LINES,
   TEXT_STYLE,
   ...Object.values(TOKEN_FIELDS),
 ];

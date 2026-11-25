@@ -30,7 +30,7 @@ import {
   updateSelection,
   wrapSelection,
 } from "./node-actions.ts";
-import { ALIGN } from "./node-fields.ts";
+import { ALIGN, CASE, LINES, TEXT_WRAP } from "./node-fields.ts";
 import { spacingOf } from "./sides.ts";
 
 vi.mock(
@@ -409,6 +409,43 @@ describe("a field edited", () => {
       ["Align the text", [{ id: "title", op: "update", set: { align: null } }]],
     ]);
   });
+
+  it.each([
+    [CASE, "none", { case: "upper" }, { case: "none" }],
+    [TEXT_WRAP, "wrap", { textWrap: "balance" }, { textWrap: "wrap" }],
+    [LINES, "all", { lines: 1 }, { lines: "all" }],
+  ] as const)(
+    "writes a text's %s default at a breakpoint over a base that sets another",
+    async (field, value, base, set) => {
+      useDocuments.setState((s) => ({
+        docs: {
+          ...s.docs,
+          [HOME]: stateOf(HOME, {
+            children: [column("hero", [text("title", base), text("lede")])],
+            id: "home",
+            type: "page",
+          }),
+        },
+      }));
+      await setField(field as never, value as never, [
+        { frame: TABLET, nodeId: "title" },
+      ]);
+      await setField(field as never, value as never, [
+        { frame: TABLET, nodeId: "lede" },
+      ]);
+      expect(applied().map((a) => a.edits[0]?.ops)).toEqual([
+        [{ at: "md", id: "title", op: "update", set }],
+        [
+          {
+            at: "md",
+            id: "lede",
+            op: "update",
+            set: { [field.key]: null },
+          },
+        ],
+      ]);
+    }
+  );
 
   it("types text in a view at its breakpoint, and resizes a node on the canvas in its own fields", async () => {
     await updateNodes([{ frame: TABLET, nodeId: "title" }], { text: "Hi" });

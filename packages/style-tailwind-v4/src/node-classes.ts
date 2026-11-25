@@ -657,6 +657,100 @@ const display: Rule = (value) => {
     : arbitraryProperty("display", value);
 };
 
+/** The properties a text's cut sets, which the utilities of a cut set together. */
+const CUTS: readonly {
+  readonly cls: (of: (name: string) => string | undefined) => string | null;
+  readonly sets: Readonly<Record<string, string | null>>;
+}[] = [
+  // One line, with an ellipsis.
+  {
+    cls: () => "truncate",
+    sets: {
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap",
+    },
+  },
+  // A clamp to that many lines; Tailwind takes any whole number.
+  {
+    cls: (of) => `line-clamp-${of("WebkitLineClamp")}`,
+    sets: {
+      display: "-webkit-box",
+      overflow: "hidden",
+      WebkitBoxOrient: "vertical",
+      WebkitLineClamp: null,
+    },
+  },
+  {
+    cls: () => "line-clamp-none",
+    sets: {
+      display: "block",
+      overflow: "visible",
+      WebkitBoxOrient: "horizontal",
+      WebkitLineClamp: "unset",
+    },
+  },
+];
+
+const TEXT_TRANSFORM: Record<string, string> = {
+  lowercase: "lowercase",
+  none: "normal-case",
+  uppercase: "uppercase",
+};
+
+const WHOLE_RE = /^\d+$/;
+
+/** What a property says alone, where no cut takes it. */
+const ALONE: Record<string, Rule> = {
+  overflow: named("overflow", "overflow", "auto clip hidden scroll visible"),
+  textOverflow: named("textOverflow", "text", "clip ellipsis"),
+  whiteSpace: named(
+    "whiteSpace",
+    "whitespace",
+    "break-spaces normal nowrap pre pre-line pre-wrap"
+  ),
+};
+
+/**
+ * A text's cut: `truncate` for the three declarations of one line together, `line-clamp-n` for
+ * the four of a clamp, `line-clamp-none` for the four that take a clamp away, each taking the
+ * properties it covers from the rest as the padding sides do; a property no cut takes, alone.
+ */
+const cut =
+  (property: string): Rule =>
+  (value, rest, scale) => {
+    const of = (name: string) => {
+      if (name === property) {
+        return String(value);
+      }
+      const v = rest.get(name);
+      return v === undefined ? undefined : String(v);
+    };
+    for (const { cls, sets } of CUTS) {
+      const names = Object.keys(sets);
+      const matches =
+        names.includes(property) &&
+        names.every((name) => {
+          const want = sets[name];
+          const has = of(name);
+          return want === null
+            ? has !== undefined && WHOLE_RE.test(has)
+            : has === want;
+        });
+      const written = matches ? cls(of) : null;
+      if (written !== null) {
+        for (const name of names) {
+          rest.delete(name);
+        }
+        return one(written, ...names);
+      }
+    }
+    const alone = property === "display" ? display : ALONE[property];
+    return alone
+      ? alone(value, rest, scale)
+      : arbitraryProperty(property, value);
+  };
+
 /** Each property a node's declarations set, as the utilities that write it. */
 const RULES: Record<string, Rule> = {
   alignItems: named(
@@ -673,7 +767,7 @@ const RULES: Record<string, Rule> = {
   borderWidth,
   boxShadow: shadow,
   color: color("text", "color"),
-  display,
+  display: cut("display"),
   flexBasis: flex("flexBasis"),
   flexDirection: (value) =>
     value === "column"
@@ -705,11 +799,22 @@ const RULES: Record<string, Rule> = {
   objectFit: named("objectFit", "object", "contain cover fill"),
   opacity,
   order,
+  overflow: cut("overflow"),
   padding: sidesAtOnce("padding", "p"),
   ...sideRules("padding", "p"),
   ...sideRules("margin", "m"),
   textAlign: named("textAlign", "text", "center left right"),
-  whiteSpace: named("whiteSpace", "whitespace", "pre-wrap"),
+  textOverflow: cut("textOverflow"),
+  textTransform: (value) => {
+    const cls = TEXT_TRANSFORM[String(value)];
+    return cls === undefined
+      ? arbitraryProperty("textTransform", value)
+      : one(cls, "textTransform");
+  },
+  textWrap: named("textWrap", "text", "balance nowrap pretty wrap"),
+  WebkitBoxOrient: cut("WebkitBoxOrient"),
+  WebkitLineClamp: cut("WebkitLineClamp"),
+  whiteSpace: cut("whiteSpace"),
   width: length("w", "width"),
 };
 

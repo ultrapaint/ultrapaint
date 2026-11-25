@@ -140,3 +140,55 @@ describe("a root given as an element or a shadow root", () => {
     );
   });
 });
+
+describe("a text cut on purpose", () => {
+  /**
+   * A text of 300px of words in a 200px box, drawn with `style`. happy-dom computes no longhand
+   * of `overflow`: `overflow-x` is given as a browser would compute it.
+   */
+  const cut = (style: string, height = 20) => {
+    const el = shownAt(
+      { height, width: 200, x: 0, y: 0 },
+      "A long name",
+      style
+    );
+    Object.defineProperty(el, "scrollWidth", { value: 300 });
+    Object.defineProperty(el, "clientWidth", { value: 200 });
+    return el;
+  };
+  const clipped = (root: Element) =>
+    auditInBrowser({
+      grid: 0,
+      nearTone: 0.045,
+      only: ["clipped-text"],
+      root,
+      stress: false,
+    }).findings.map((f) => f.check);
+
+  it("to one line with an ellipsis, or clamped, is not clipped; one cut with neither is", () => {
+    const oneLine = cut(
+      "overflow-x:hidden;text-overflow:ellipsis;white-space:nowrap"
+    );
+    const clamped = shownAt(
+      { height: 40, width: 200, x: 0, y: 30 },
+      "A description clamped to two lines",
+      "overflow-x:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2"
+    );
+    // Its lines wrap inside its width, and those past the second are cut below.
+    for (const [name, value] of [
+      ["scrollWidth", 200],
+      ["clientWidth", 200],
+      ["scrollHeight", 80],
+      ["clientHeight", 40],
+    ] as const) {
+      Object.defineProperty(clamped, name, { value });
+    }
+    const panel = shownAt({ height: 100, width: 200, x: 0, y: 0 });
+    panel.append(oneLine, clamped);
+    document.body.append(panel);
+    assert.deepStrictEqual(clipped(panel), []);
+    // What is cut with no ellipsis is still found.
+    panel.append(cut("overflow-x:hidden"));
+    assert.deepStrictEqual(clipped(panel), ["clipped-text"]);
+  });
+});

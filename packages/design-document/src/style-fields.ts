@@ -2,7 +2,7 @@
  * Style fields: the fields of a node that are its look, per type, so that a look is copied off
  * one node and pasted onto others. A box's fill, border, radius, shadow, opacity, padding and the
  * blur behind it; a row's or column's spacing and alignment; a text's text style and its own
- * settings over it; an image's fit and tint. Nothing else is style: what a node says or shows, its
+ * settings over it, and its case, text wrap and lines; an image's fit and tint. Nothing else is style: what a node says or shows, its
  * size, its margin, its place, what it is, and how a container lays its children out (its
  * direction, its type).
  * Not the node style, which is what the fields mean as CSS (`css.ts`).
@@ -32,7 +32,15 @@ const KINDS = {
   box: [],
   image: ["fit", "tint"],
   stack: ["gap", "align", "crossAlign", "wrap"],
-  text: ["textStyle", ...TEXT_STYLE_SETTINGS, "color", "align"],
+  text: [
+    "textStyle",
+    ...TEXT_STYLE_SETTINGS,
+    "color",
+    "align",
+    "case",
+    "textWrap",
+    "lines",
+  ],
 } as const satisfies Record<string, readonly string[]>;
 
 /** Each type's kind: a page's too, for every type to have one, though the editor copies none. */

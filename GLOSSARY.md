@@ -112,7 +112,7 @@ refactor and the board view left.
 - **Style fields**: the fields of a node that are its look, per type (design-document's
   `style-fields`): a box's fill, border, radius, shadow, opacity, padding and backdrop blur; a
   row's or column's gap, alignment, alignment across and wrap; a text's text style and its own
-  settings over it; an image's fit and tint. Never what it says, its size, margin, place, identity
+  settings over it, and its case, text wrap and lines; an image's fit and tint. Never what it says, its size, margin, place, identity
   or direction. **Copy style** keeps a node's as its view draws them, for the editor's session
   alone; **Paste style** writes them onto the nodes selected, clearing what the copy leaves unset,
   each taking only its own kind's. Not the node style, which is what fields mean as CSS.
@@ -138,6 +138,17 @@ refactor and the board view left.
   with Tailwind's value. The canvas draws it as `backdrop-filter: blur()`, the code as
   `backdrop-blur-*`; the Effects section shows it as a row its + adds.
   _Avoid_: backdrop blur, background blur (Figma's name, which the import reads).
+- **Lines**: how many lines a text takes (its `lines`, contracts' `document`): every one (`all`,
+  as unset), one line cut at its box's edge with an ellipsis (`1`), or two or more, clamped with
+  an ellipsis at the end. With a text's **case** (`case`: capitals or lower case laid over the
+  words as typed, which stay as written) and its **text wrap** (`textWrap`: lines balanced to
+  even lengths, or never broken), a text field set at a breakpoint and on an instance's layer like
+  the others, each default written only at a breakpoint over a base that sets another. What they
+  mean as CSS is design-document's `declarationsOf`; the canvas lifts the cut while the text is
+  edited in place (preview-core's `frame`), the inspector sets them in Formatting (the web's
+  `node-fields`), and the code writes Tailwind's `uppercase`, `text-balance`, `text-nowrap`,
+  `truncate` and `line-clamp-2`.
+  _Avoid_: truncate (Tailwind's name for one line cut), wrap alone (a stack's).
 - **Utility vocabulary**: Tailwind's utilities as the class writer and every reader of classes
   in the style adapter speak them (style-tailwind-v4's `utilities`): how a class is written (its
   variants, `!`, sign, utility and value, a colour's opacity, an **arbitrary value** and its
@@ -699,8 +710,8 @@ refactor and the board view left.
   kind of token it offers. An edit lands at the view's breakpoint, where
   unset is the value a node is drawn with.
 - **Formatting**: the popover the inspector's Text section opens from its header (the web's
-  `inspector-text`): a text's settings changed less often than its type, its role first, as the
-  inspector's own rows. The section's override mark for them is on its button (ADR 0114).
+  `inspector-text`): a text's settings changed less often than its type, its role first, then
+  its case, text wrap and lines, as the inspector's own rows. The section's override mark for them is on its button (ADR 0114).
 - **Layers' tree**: the Layers panel's rows as data (the web's `layer-tree`): what a filter leaves
   of them, their **folds** (the rows flipped from pages open and layers folded, or folded among
   what a filter finds), the way down to the selection a reveal opens, and where a dragged row

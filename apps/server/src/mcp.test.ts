@@ -1450,6 +1450,52 @@ describe("the tools for documents", () => {
         assert.strictEqual(yield* blurOf("sheet"), 10);
       })
   );
+  inAProject(
+    "cases, wraps and cuts a text to its lines, as the page's schema says, and on a text only",
+    () =>
+      Effect.gen(function* () {
+        yield* pageAt("Card", "/card");
+        const schema = JSON.stringify(
+          (yield* tool("get_document_format", {})).schema
+        );
+        for (const name of ['"case"', '"textWrap"', '"lines"', '"balance"']) {
+          assert.include(schema, name);
+        }
+        const { ignored } = yield* tool("apply_operations", {
+          ops: [
+            inserted({
+              case: "upper",
+              id: "name",
+              lines: 1,
+              role: "paragraph",
+              text: "A long name",
+              textWrap: "balance",
+              type: "text",
+            }),
+            inserted({ children: [], id: "box", type: "group" }),
+            { id: "box", op: "update", set: { case: "upper", lines: 2 } },
+          ],
+          route: "/card",
+        });
+        assert.deepStrictEqual(ignored, [
+          { field: "case", id: "box", why: "a group has no case" },
+          { field: "lines", id: "box", why: "a group has no lines" },
+        ]);
+        const read = (id: string) =>
+          Effect.map(
+            tool("read_page", { node: `/card#${id}`, route: "/card" }),
+            ({ document }) => document as Record<string, unknown>
+          );
+        assert.deepInclude(yield* read("name"), {
+          case: "upper",
+          lines: 1,
+          textWrap: "balance",
+        });
+        const box = yield* read("box");
+        assert.notProperty(box, "case");
+        assert.notProperty(box, "lines");
+      })
+  );
 });
 
 describe("the nodes holding a value, found with read_page's match", () => {

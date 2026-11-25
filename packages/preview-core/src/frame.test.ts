@@ -153,6 +153,46 @@ describe("a text edited in place", () => {
   });
 });
 
+describe("a text cut to its lines, edited in place", () => {
+  const cutText = (style: string) => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const runtime = preview.mountFrame(host, {
+      canvas: "canvas",
+      events: {},
+      frame: "a",
+      shown: {},
+    });
+    opened.push(runtime);
+    const name = document.createElement("p");
+    name.setAttribute(NODE_ATTRIBUTE, "t");
+    name.style.cssText = style;
+    name.textContent = "A long name cut to one line";
+    host.shadowRoot?.querySelector(`[${BODY_ATTRIBUTE}]`)?.append(name);
+    return { name, runtime };
+  };
+  const ONE_LINE =
+    "margin: 0px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;";
+
+  it("shows every word while edited, and is cut again once the edit is cancelled", () => {
+    const { name, runtime } = cutText(ONE_LINE);
+    runtime.editText("t");
+    expect(name.style.whiteSpace).toBe("pre-wrap");
+    expect(name.style.overflow).toBe("visible");
+    expect(name.style.textOverflow).toBe("clip");
+    name.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(name.style.cssText).toBe(ONE_LINE);
+  });
+
+  it("is cut again once the edit is committed", () => {
+    const { name, runtime } = cutText(ONE_LINE);
+    runtime.editText("t");
+    name.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    expect(name.style.cssText).toBe(ONE_LINE);
+  });
+  // A clamp (`-webkit-line-clamp`) is lifted the same way; happy-dom keeps no `-webkit-` style.
+});
+
 describe("a frame's theme", () => {
   it("is on its body as the theme's selector reads it: one word, as a class and as data-theme", () => {
     const { body, draw } = open("a", "dark");

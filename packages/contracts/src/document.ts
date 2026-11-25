@@ -96,6 +96,21 @@ export type PageDirection = typeof PageDirection.Type;
 export const TextAlign = Schema.Literals(["start", "center", "end"]);
 export type TextAlign = typeof TextAlign.Type;
 
+/** How a text is cased over the words as typed: as typed (`none`), in capitals, in lower case. */
+export const TextCase = Schema.Literals(["none", "upper", "lower"]);
+export type TextCase = typeof TextCase.Type;
+
+/** How a text's lines break: as usual, to even lengths (`balance`), or never (`none`). */
+export const TextWrap = Schema.Literals(["wrap", "balance", "none"]);
+export type TextWrap = typeof TextWrap.Type;
+
+/** How many lines a text may take: every one (`all`), or that many, the last ending in an ellipsis. */
+export const TextLines = Schema.Union([
+  Schema.Literal("all"),
+  Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
+]);
+export type TextLines = typeof TextLines.Type;
+
 export const ImageFit = Schema.Literals(["cover", "contain", "fill"]);
 export type ImageFit = typeof ImageFit.Type;
 
@@ -220,18 +235,24 @@ export interface StackNode extends BoxFields, StackFields {
 export interface TextNode extends BoxFields {
   readonly align?: TextAlign | undefined;
   readonly at?: AtBreakpoints<OverrideOf<TextNode>> | undefined;
+  /** Capitals or lower case laid over the words as typed; as typed when absent. */
+  readonly case?: TextCase | undefined;
   readonly color?: string | undefined;
   /** A font family token (`"$font-sans"`) or CSS. */
   readonly font?: string | undefined;
   /** 1–6, for a heading. */
   readonly level?: number | undefined;
   readonly lineHeight?: Length | undefined;
+  /** 1 cuts the text to one line with an ellipsis, 2 or more clamp it; every line when absent. */
+  readonly lines?: TextLines | undefined;
   readonly role: "heading" | "paragraph";
   /** A font size token (`"$text-lg"`, which brings its line height) or a length. */
   readonly size?: Length | undefined;
   readonly text: string;
   /** Name of a text style of the design system; the fields above override it. */
   readonly textStyle?: string | undefined;
+  /** How its lines break; as usual when absent. */
+  readonly textWrap?: TextWrap | undefined;
   readonly tracking?: Length | undefined;
   readonly type: "text";
   /** A weight token (`"$font-weight-semibold"`) or a number. */
@@ -417,11 +438,29 @@ const StackNodeSchema = Schema.Struct({
 
 const textFields = {
   align: Schema.optional(TextAlign),
+  case: Schema.optional(
+    TextCase.annotate({
+      description:
+        'Capitals ("upper") or lower case ("lower") laid over the words as typed, which stay as written; leave it out for as typed ("none" only at a breakpoint over another).',
+    })
+  ),
   color: Schema.optional(Color),
   font: Schema.optional(Schema.String),
   lineHeight: Schema.optional(Length),
+  lines: Schema.optional(
+    TextLines.annotate({
+      description:
+        'How many lines the text may take: 1 cuts it to one line with an ellipsis, 2 or more clamp it to that many; leave it out for every line ("all" only at a breakpoint over another).',
+    })
+  ),
   size: Schema.optional(Length),
   textStyle: Schema.optional(Schema.String),
+  textWrap: Schema.optional(
+    TextWrap.annotate({
+      description:
+        'How the lines break: "balance" to even lengths (a heading), "none" never (a value that must stay on one line); leave it out to wrap as usual ("wrap" only at a breakpoint over another).',
+    })
+  ),
   tracking: Schema.optional(Length),
   weight: Schema.optional(Length),
 };
