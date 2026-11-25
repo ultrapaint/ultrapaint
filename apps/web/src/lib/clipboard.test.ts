@@ -213,6 +213,20 @@ describe("pasting markup on the canvas (ADR 0148)", () => {
     expect(applied()).toEqual([]);
   });
 
+  it("pastes a browser's copy of a word alone as a text, with the styles it was copied with", async () => {
+    select({ frame: PHONE, nodeId: "list" });
+    await paste({
+      "text/html": `<meta charset="utf-8"><span style="color: rgb(255, 0, 0); font-size: 16px">word</span>`,
+      "text/plain": "word",
+    });
+    expect(inserted().node).toMatchObject({
+      color: "rgb(255, 0, 0)",
+      size: 16,
+      text: "word",
+      type: "text",
+    });
+  });
+
   it("pastes nothing from words that are not markup", () => {
     expect(pasteOther({ "text/plain": "just words" }).taken).toBe(false);
     expect(applied()).toEqual([]);
