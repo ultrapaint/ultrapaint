@@ -462,6 +462,21 @@ export const SelectLayer = ({
   const selecting = useEditor(isSelecting);
   const [editing, setEditing] = useState<string | null>(null);
   useFrameEvents(frameId, { textEditing: setEditing });
+  // An edit lasts while its text is what is selected with the select tool, in this frame: every
+  // way into one selects the text here first. A press on the canvas keeps the browser from moving
+  // the focus (the marquee's), so the text is not blurred: the selection leaving it, by that
+  // press, another pick or another tool, ends the edit as a click away does.
+  const editStillSelected = useEditor(
+    (s) =>
+      s.mode === "select" &&
+      s.selection?.frame === frameId &&
+      s.selection.nodeId === editing
+  );
+  useEffect(() => {
+    if (editing !== null && !editStillSelected) {
+      frameOf(frameId).endTextEdit();
+    }
+  }, [editing, editStillSelected, frameId]);
   const hole = useEditor((s) =>
     editing === null ? undefined : s.rects[frameId]?.[editing]
   );

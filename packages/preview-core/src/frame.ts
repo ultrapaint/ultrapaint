@@ -566,6 +566,18 @@ const mountFrame = (
     recut: () => void;
   } | null = null;
 
+  /**
+   * Takes the browser's highlight (its text selection) out of the frame: outside an edit nothing
+   * in a frame shows it, as nothing on Figma's canvas does. One elsewhere, the caret in a field
+   * the person went to, is left alone.
+   */
+  const clearBrowserSelection = () => {
+    const selection = getSelection();
+    if (selection?.anchorNode && shadow.contains(selection.anchorNode)) {
+      selection.removeAllRanges();
+    }
+  };
+
   const finishTextEdit = (commit: boolean) => {
     if (!editing) {
       return;
@@ -577,6 +589,7 @@ const mountFrame = (
     showShown();
     el.contentEditable = "false";
     el.removeAttribute("contenteditable");
+    clearBrowserSelection();
     el.style.outline = outline;
     recut();
     const text = el.textContent ?? "";
@@ -718,6 +731,7 @@ const mountFrame = (
 
   const runtime: FrameRuntime = {
     editText: startTextEdit,
+    endTextEdit: () => finishTextEdit(true),
     hitTest: (x, y) => chainAt(drawnAt(x, y)),
     measure,
     pageAt: (x, y) => pageChainAt(drawnAt(x, y)),
@@ -734,6 +748,10 @@ const mountFrame = (
       shown = { ...shown, ...next };
       showShown();
       setInert();
+      if (wasInteractive && !shown.interactive) {
+        // What the person selected in the running page is not left on the picture.
+        clearBrowserSelection();
+      }
       if (shown.interactive !== wasInteractive) {
         for (const listener of interactiveListeners) {
           listener();

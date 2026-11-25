@@ -87,6 +87,7 @@ vi.mock("./preview-module.ts", () => {
     ) =>
       ({
         editText: () => undefined,
+        endTextEdit: () => undefined,
         hitTest: () => drawnAt.hits,
         measure: (ids: readonly string[]) =>
           Object.fromEntries(

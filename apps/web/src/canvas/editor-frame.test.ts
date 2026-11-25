@@ -31,6 +31,7 @@ const fakePreview = () => {
     mountFrame: (host, options) => {
       const runtime = {
         editText: vi.fn(),
+        endTextEdit: vi.fn(),
         hitTest: vi.fn((x: number, y: number) => [`at ${x},${y}`]),
         measure: vi.fn((ids: readonly string[]) =>
           Object.fromEntries(
