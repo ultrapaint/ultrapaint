@@ -14,6 +14,7 @@ import type {
   DeclaredValue,
 } from "@ultrapaint/contracts/node-style";
 import {
+  lineHeightName,
   nameOfVariable,
   spacingBasePx,
   spacingStepName,
@@ -82,6 +83,8 @@ const BARE_RADIUS = "0.25rem";
 interface Theme {
   /** CSS from a class: a variable of a token the design system declares as `$name`, pixels a number. */
   readonly fromCss: (css: string) => DeclaredValue;
+  /** The line height a type size token is paired with, as its token; none when it declares none. */
+  readonly pairedLeading: (name: string) => string | undefined;
   /** One step of the spacing scale in pixels. */
   readonly stepPx: number;
   /** The first of these tokens the design system declares, as `$name`; else the default's CSS. */
@@ -102,6 +105,10 @@ const themeOf = (ds: DesignSystem | null | undefined): Theme => {
       const length = parseLength(css);
       return length?.unit === "px" ? length.value : css;
     },
+    pairedLeading: (name) =>
+      tokenOf(ds, name)?.lineHeight === undefined
+        ? undefined
+        : `$${lineHeightName(name)}`,
     stepPx: spacingBasePx(ds?.spacing.base),
     tokenOrDefault: (names) => {
       const own = names.find(declared);
@@ -125,6 +132,15 @@ const tokenOrArbitrary = (
     ? theme.tokenOrDefault([`${prefix}-${value}`])
     : theme.fromCss(arbitrary.css);
 };
+
+/**
+ * A table's entry for a value written in a class, its own and never an object's (`constructor`):
+ * pasted markup's classes are anyone's.
+ */
+const own = <T>(
+  table: Readonly<Record<string, T>>,
+  key: string
+): T | undefined => (Object.hasOwn(table, key) ? table[key] : undefined);
 
 /** A fraction of the room, `1/2` → `50%`. */
 const fractionOf = (value: string): string | undefined => {
@@ -180,16 +196,25 @@ const spacingOf = (
   );
 };
 
-/** A length below zero, for a utility written with a minus: a step in pixels, as it has no token. */
-const negated = (theme: Theme, value: DeclaredValue): DeclaredValue => {
+/**
+ * A length below zero, for a utility written with a minus: a step in pixels, as it has no token;
+ * none for any other token, which no value below zero names.
+ */
+const negated = (
+  theme: Theme,
+  value: DeclaredValue
+): DeclaredValue | undefined => {
   if (typeof value === "number") {
     return value === 0 ? 0 : -value;
   }
   if (NUMBER_RE.test(value)) {
     return `-${value}`;
   }
-  const step = isToken(value) ? spacingStepOf(tokenName(value)) : null;
-  return step === null ? `calc(${value} * -1)` : -step * theme.stepPx;
+  if (!isToken(value)) {
+    return `calc(${value} * -1)`;
+  }
+  const step = spacingStepOf(tokenName(value));
+  return step === null ? undefined : -step * theme.stepPx;
 };
 
 /**
@@ -237,9 +262,10 @@ const colorOf = (
   const arbitrary = arbitraryOf(name);
   let color: DeclaredValue | undefined;
   if (arbitrary === undefined) {
+    // The design system's own `color-white` before Tailwind's white.
     color =
-      COLOR_KEYWORDS.css(name) ??
-      theme.tokenOrDefault(colorNamespaces(use).map((ns) => `${ns}${name}`));
+      theme.tokenOrDefault(colorNamespaces(use).map((ns) => `${ns}${name}`)) ??
+      COLOR_KEYWORDS.css(name);
   } else if (
     arbitrary.hint === "color" ||
     (arbitrary.hint === undefined &&
@@ -273,7 +299,7 @@ const bare =
 const keyword =
   ({ property, values }: (typeof KEYWORD_UTILITIES)[string]): Read =>
   (value) => {
-    const css = value === undefined ? undefined : values[value];
+    const css = value === undefined ? undefined : own(values, value);
     return css === undefined ? null : { [property]: css };
   };
 
@@ -312,9 +338,9 @@ const sizeOf = (theme: Theme, value: string): Declared | null => {
   }
   const paired = `text-${name}--line-height`;
   const lineHeight = isToken(size)
-    ? `$${paired}`
+    ? theme.pairedLeading(tokenName(size))
     : resolveCalc(DEFAULT_THEME.get(paired) ?? "");
-  return lineHeight === null || lineHeight === ""
+  return lineHeight === null || lineHeight === undefined || lineHeight === ""
     ? { fontSize: size }
     : { fontSize: size, lineHeight };
 };
@@ -391,7 +417,9 @@ const rulesOf = (theme: Theme): Record<string, Rule> => {
 
   // `flex` is a display bare and a flex's direction, wrap or growth with a value.
   add("flex", (value) =>
-    value === undefined ? { display: "flex" } : (FLEX_VALUES[value] ?? null)
+    value === undefined
+      ? { display: "flex" }
+      : (own(FLEX_VALUES, value) ?? null)
   );
   const growth = (property: string) => (value: string | undefined) => {
     if (value === undefined) {
@@ -549,10 +577,9 @@ const rulesOf = (theme: Theme): Record<string, Rule> => {
       if (value === undefined) {
         return null;
       }
-      const css = ORDERS[value] ?? arbitraryOf(value)?.css ?? value;
-      return STEP_RE.test(css) || ORDERS[value] !== undefined
-        ? { order: css }
-        : null;
+      const named = own(ORDERS, value);
+      const css = named ?? arbitraryOf(value)?.css ?? value;
+      return STEP_RE.test(css) || named !== undefined ? { order: css } : null;
     },
     0,
     true
@@ -563,7 +590,7 @@ const rulesOf = (theme: Theme): Record<string, Rule> => {
     if (value === undefined) {
       return null;
     }
-    const align = TEXT_ALIGNS[value];
+    const align = own(TEXT_ALIGNS, value);
     if (align !== undefined) {
       return { textAlign: align };
     }
@@ -665,14 +692,15 @@ export const tailwindClassReader = (
     if (declared === null) {
       return null;
     }
-    return {
-      declared: parsed.negative
-        ? Object.fromEntries(
-            Object.entries(declared).map(([p, v]) => [p, negated(theme, v)])
-          )
-        : declared,
-      rank: rule.rank,
-    };
+    if (!parsed.negative) {
+      return { declared, rank: rule.rank };
+    }
+    const below = Object.entries(declared).map(
+      ([p, v]) => [p, negated(theme, v)] as const
+    );
+    return below.every(([, v]) => v !== undefined)
+      ? { declared: Object.fromEntries(below) as Declared, rank: rule.rank }
+      : null;
   };
   return {
     read: (classes): ClassReading => {

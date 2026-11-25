@@ -194,6 +194,59 @@ describe("reading an element's classes", () => {
     });
   });
 
+  it("leaves a minus on a token no length below zero names unread", () => {
+    const named = {
+      ...ds,
+      spacing: {
+        ...ds.spacing,
+        tokens: [{ name: "spacing-gutter", value: "20px" }],
+      },
+    };
+    expect(read("-mt-gutter mt-gutter", named)).toEqual({
+      declarations: { marginTop: "$spacing-gutter" },
+      unread: ["-mt-gutter"],
+      variants: [],
+    });
+  });
+
+  it("reads black and white as the design system's own tokens where it declares them", () => {
+    const own = {
+      ...ds,
+      colors: [
+        { name: "Base", tokens: [{ name: "color-white", value: "#fafafa" }] },
+      ],
+    };
+    expect(read("bg-white text-black", own).declarations).toEqual({
+      background: "$color-white",
+      color: "#000",
+    });
+  });
+
+  it("reads nothing from a value that names a property of every object", () => {
+    expect(
+      read("items-constructor flex-toString order-valueOf text-constructor")
+        .unread
+    ).toEqual([
+      "items-constructor",
+      "flex-toString",
+      "order-valueOf",
+      "text-constructor",
+    ]);
+  });
+
+  it("names a type size token's line height only where the design system pairs it with one", () => {
+    const plain = {
+      ...ds,
+      typography: {
+        ...ds.typography,
+        sizes: [{ name: "text-sm", value: "0.875rem" }],
+      },
+    };
+    expect(read("text-sm", plain).declarations).toEqual({
+      fontSize: "$text-sm",
+    });
+  });
+
   it("reads back what the class writer writes", () => {
     const declarations: Declarations = {
       alignItems: "center",
