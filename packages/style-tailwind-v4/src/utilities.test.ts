@@ -1,3 +1,4 @@
+import { DEFAULT_BLURS } from "@ultrapaint/contracts/design-system";
 import { describe, expect, it } from "vitest";
 import { compiledClasses, tailwindTheme } from "./testing.ts";
 import {
@@ -131,6 +132,15 @@ describe("Tailwind's default scales", () => {
     expect([...RADIUS_STEPS]).toEqual(stepsOf(theme, "radius"));
     expect([...SHADOW_STEPS]).toEqual(stepsOf(theme, "shadow"));
     expect([...WEIGHT_STEPS.keys()]).toEqual(stepsOf(theme, "font-weight"));
+  });
+
+  it("are the blurs a design system that lists none is offered and drawn with", () => {
+    expect(DEFAULT_BLURS.map((t) => [t.name, t.value])).toEqual(
+      stepsOf(theme, "blur").map((step) => [
+        `blur-${step}`,
+        theme.get(`blur-${step}`),
+      ])
+    );
   });
 
   it("give each weight the number the theme does, and a number its step", () => {

@@ -3,9 +3,10 @@
  * written as a design system so the Design system place shows it like any other, and agents read
  * it as tokens. Its values are the ones the system components draw with before a design says
  * otherwise (`look.ts`): the neutral palette in light and dark, the system's sans, Tailwind's
- * scales, three radii, three levels and Lucide's icons.
+ * scales and blurs, three radii, three levels and Lucide's icons.
  */
 import {
+  DEFAULT_BLURS,
   type DesignSystem,
   starterTextStyles,
   type Token,
@@ -85,6 +86,7 @@ const shadows = NEUTRAL_SHADOWS.map((s) =>
 );
 
 export const DEFAULT_LOOK: DesignSystem = {
+  blurs: [...DEFAULT_BLURS],
   colors: [
     {
       name: "Semantic",

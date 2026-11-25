@@ -112,7 +112,7 @@ export class AgentTasks extends Context.Service<
      colour token, the \`shadow\` that goes with it, and the z-index \`layer\` of those that
      overlap. The scan starts you off from the semantic surfaces; fix it from how the product's
      cards, menus and dialogs are styled.
-   - borderWidths, layout (breakpoints, containers) and motion (easings, durations,
+   - borderWidths, blurs, layout (breakpoints, containers) and motion (easings, durations,
      animations): the scan reads them from the theme; keep what the product uses and say in
      \`description\` what each is for. A project that hard-codes durations or border widths in
      its components has them read from there.

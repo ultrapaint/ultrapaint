@@ -1,5 +1,8 @@
 import { SystemComponentFile } from "@ultrapaint/contracts/components";
-import type { DesignSystem } from "@ultrapaint/contracts/design-system";
+import {
+  DEFAULT_BLURS,
+  type DesignSystem,
+} from "@ultrapaint/contracts/design-system";
 import { emptySystemComponent } from "@ultrapaint/contracts/testing/components";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
@@ -97,6 +100,10 @@ describe("the default look", () => {
     expect(SYSTEM_COMPONENTS_CSS).toContain(
       "background-color: var(--color-primary)"
     );
+  });
+
+  it("lists Tailwind's blurs, which the code's theme defines without declaring them", () => {
+    expect(DEFAULT_LOOK.blurs).toEqual(DEFAULT_BLURS);
   });
 
   it("is drawn with the values the default look lists, a card's and a popup's shadow their level's", () => {

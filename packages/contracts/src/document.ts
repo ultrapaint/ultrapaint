@@ -101,6 +101,11 @@ export type ImageFit = typeof ImageFit.Type;
 
 /** What every node has: identity, its box, and where it goes when pressed in the prototype. */
 interface BoxFields {
+  /**
+   * How much what is behind the box is blurred, seen through its fill where that lets it through
+   * (CSS `backdrop-filter: blur()`): a blur token (`"$blur-md"`) or a length.
+   */
+  readonly backdropBlur?: Length | undefined;
   readonly border?: Border | undefined;
   /** Background. */
   readonly fill?: string | undefined;
@@ -291,6 +296,12 @@ export type DesignNode =
   | InstanceNode;
 
 const boxFields = {
+  backdropBlur: Schema.optional(
+    Length.annotate({
+      description:
+        'How much what is behind the box is blurred, seen through a translucent fill (frosted glass): a blur token such as "$blur-md", or a length (pixels as a number).',
+    })
+  ),
   border: Schema.optional(Border),
   fill: Schema.optional(Fill),
   height: Schema.optional(Size),

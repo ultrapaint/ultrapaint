@@ -78,6 +78,15 @@ describe("the token table", () => {
     expect(tokenPrefix("other")).toBe("");
   });
 
+  it("lists a blur, by its namespace, in the blurs, a list a design system may lack", () => {
+    expect(emptyDesignSystem().blurs).toBeUndefined();
+    const ds = addTokens(emptyDesignSystem(), [
+      { name: "blur-md", value: "12px" },
+    ]);
+    expect(tokenKindOf("blur-md")).toBe("blur");
+    expect(ds.blurs).toEqual([{ name: "blur-md", value: "12px" }]);
+  });
+
   it.each(TOKEN_TABLE.map((e) => [e.kind, e] as const))(
     "adds, sets and takes out a %s token in its list",
     (_kind, entry) => {

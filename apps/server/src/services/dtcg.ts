@@ -56,6 +56,7 @@ type Rec = Record<string, unknown>;
  */
 const GROUP_NAMES: Record<TokenKind, string> = {
   animation: "animation",
+  blur: "blur",
   borderWidth: "border-width",
   breakpoint: "breakpoint",
   color: "color",

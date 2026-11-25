@@ -39,6 +39,8 @@ describe("a token from another tool", () => {
     ["Stroke/Thin", "number", "borderWidth", "border-width-thin"],
     ["border/width/thin", "dimension", "borderWidth", "border-width-thin"],
     ["screens/md", "dimension", "breakpoint", "breakpoint-md"],
+    ["Blur/md", "dimension", "blur", "blur-md"],
+    ["Effects/Background blur/Glass", "number", "blur", "blur-glass"],
     ["Weight/Bold", "number", "fontWeight", "font-weight-bold"],
     // Without a type, the path's words decide among every kind.
     ["colors/brand", null, "color", "color-brand"],
@@ -73,6 +75,7 @@ describe("a token from another tool", () => {
     expect(numberCss("radius", 12)).toBe("12px");
     expect(numberCss("spacing", 0.1234)).toBe("0.123px");
     expect(numberCss("tracking", 0.5)).toBe("0.5px");
+    expect(numberCss("blur", 12)).toBe("12px");
     expect(numberCss("fontWeight", 700)).toBe("700");
     expect(numberCss("leading", 1.5)).toBe("1.5");
   });

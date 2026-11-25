@@ -119,6 +119,7 @@ const tokenOf = (t: SourceToken): Token => {
 
 /** The order a kind's tokens are listed in: by name, but where a name does not sort. */
 const ORDERS: Partial<Record<TokenKind, (a: Token, b: Token) => number>> = {
+  blur: byLength,
   borderWidth: byLength,
   breakpoint: byLength,
   container: byLength,

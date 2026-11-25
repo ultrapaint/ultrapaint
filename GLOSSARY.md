@@ -120,6 +120,13 @@ refactor and the board view left.
   and the Effects section shows a row per shadow. In code, one shadow is its utility and several
   are one arbitrary `shadow-[…]` in their order.
   _Avoid_: shadow layers, shadow stack.
+- **Blur behind**: a box's `backdropBlur`, how much what is behind it is blurred where its fill
+  lets it through (frosted glass): a **blur** token (`$blur-md`, of the token table's `blur`
+  kind, listed in the design system's `blurs`) or a length. A design system that lists no blurs
+  is offered Tailwind's seven (contracts' `DEFAULT_BLURS`), and a blur it does not list is drawn
+  with Tailwind's value. The canvas draws it as `backdrop-filter: blur()`, the code as
+  `backdrop-blur-*`; the Effects section shows it as a row its + adds.
+  _Avoid_: backdrop blur, background blur (Figma's name, which the import reads).
 - **Utility vocabulary**: Tailwind's utilities as the class writer and every reader of classes
   in the style adapter speak them (style-tailwind-v4's `utilities`): how a class is written (its
   variants, `!`, sign, utility and value, a colour's opacity, an **arbitrary value** and its
@@ -657,8 +664,8 @@ refactor and the board view left.
   every frame with an edge on it, the space to the nearest in a pill, in canvas pixels, in
   `--measure`.
 - **Field**: one of a node's fields that the inspector edits (align,
-  text style, colour, fill, tint, radius, shadow, gap; the gap dragged on the canvas too, by its
-  **spacing bands**), declared once in the web's `node-fields`:
+  text style, colour, fill, tint, radius, shadow, blur behind, gap; the gap dragged on the canvas
+  too, by its **spacing bands**), declared once in the web's `node-fields`:
   how the nodes selected read as one value, what a node without it is drawn with (a text's
   align is `start`), what setting a value writes (`null` takes it off), its undo label and the
   kind of token it offers. An edit lands at the view's breakpoint, where

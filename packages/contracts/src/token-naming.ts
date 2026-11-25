@@ -57,6 +57,11 @@ const TEXT_QUIET = ["typography", "type", "font", "text"];
  */
 const KIND_WORDS: Record<ListedKind, KindWords> = {
   animation: { own: ["animation", "animations", "animate"] },
+  blur: {
+    own: ["backdrop blur", "background blur", "blur", "blurs"],
+    // Figma keeps its blurs among its effect styles, under Effects.
+    quiet: ["effect", "effects"],
+  },
   borderWidth: {
     own: ["border width", "border widths", "stroke width", "stroke", "strokes"],
   },
@@ -157,6 +162,7 @@ const LENGTH_KINDS: readonly ListedKind[] = [
   "fontSize",
   "tracking",
   "radius",
+  "blur",
   "borderWidth",
   "breakpoint",
   "container",

@@ -11,7 +11,10 @@ import {
   type ComponentFile,
   SYSTEM_FROM,
 } from "@ultrapaint/contracts/components";
-import type { DesignSystem } from "@ultrapaint/contracts/design-system";
+import {
+  DEFAULT_BLURS,
+  type DesignSystem,
+} from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { themeSelector } from "@ultrapaint/contracts/themes";
 import { DETAILED_ROLES } from "@ultrapaint/contracts/token-presets";
@@ -71,6 +74,12 @@ export const makeTokenResolver = (
   ds: DesignSystem | null | undefined
 ): TokenResolver => {
   const values = tokenValues(ds);
+  // A blur the design system does not list is drawn with Tailwind's, which its every theme defines.
+  for (const blur of DEFAULT_BLURS) {
+    if (!values.has(blur.name)) {
+      values.set(blur.name, blur.value);
+    }
+  }
   const variable = (name: string) => {
     const fallback = values.get(name);
     return fallback === undefined

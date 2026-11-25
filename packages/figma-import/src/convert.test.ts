@@ -324,6 +324,80 @@ describe("converting a frame", () => {
     expect(root.children[3]?.fill).toBe("$color-primary");
   });
 
+  /** A translucent bar with a background blur of 24, and `child` in it. */
+  const frostedBar = (child?: Record<string, unknown>) => {
+    const f = makeFixture();
+    const bar = f.add(f.page, {
+      effects: [{ radius: 24, type: "BACKGROUND_BLUR", visible: true }],
+      fillPaints: [solid(1, 1, 1, 0.6)],
+      name: "Bar",
+      size: { x: 400, y: 56 },
+      stackMode: "HORIZONTAL",
+      type: "FRAME",
+    });
+    if (child) {
+      f.add(bar, child);
+    }
+    const file = readFig(f.build());
+    const [frame] = file.pages[0]?.frames ?? [];
+    if (!frame) {
+      throw new Error("no frame");
+    }
+    return { file, frame };
+  };
+
+  it("brings a background blur at half Figma's radius", () => {
+    const { file, frame } = frostedBar();
+    const { root, warnings } = convertFrame(file, frame, options());
+    expect(root.backdropBlur).toBe(12);
+    expect(warnings).toEqual([]);
+  });
+
+  it("warns of a layer blur, on a frame or a text, and leaves it out", () => {
+    const layerBlur = [{ radius: 4, type: "FOREGROUND_BLUR", visible: true }];
+    const frame = frostedBar({
+      effects: layerBlur,
+      name: "Smudge",
+      size: { x: 40, y: 40 },
+      stackMode: "HORIZONTAL",
+      type: "FRAME",
+    });
+    const text = frostedBar({
+      effects: layerBlur,
+      fontName: {
+        family: "Inter",
+        postscript: "Inter-Regular",
+        style: "Regular",
+      },
+      fontSize: 16,
+      name: "Hint",
+      size: { x: 40, y: 20 },
+      textData: { characters: "Hint" },
+      type: "TEXT",
+    });
+    expect(convertFrame(frame.file, frame.frame, options()).warnings).toEqual([
+      '"Smudge" is blurred itself (a layer blur), which was left out',
+    ]);
+    expect(convertFrame(text.file, text.frame, options()).warnings).toEqual([
+      '"Hint" is blurred itself (a layer blur), which was left out',
+    ]);
+  });
+
+  it("brings a background blur as the blur token that holds its length", () => {
+    const { file, frame } = frostedBar();
+    const tokens = makeTokenMatcher({
+      blurs: [{ name: "blur-md", value: "0.75rem" }],
+      colors: [],
+      radius: [],
+      shadows: [],
+      spacing: { base: "0.25rem" },
+      typography: { fonts: [], sizes: [], styles: [], weights: [] },
+      version: 1,
+    });
+    const { root } = convertFrame(file, frame, { ...options(), tokens });
+    expect(root.backdropBlur).toBe("$blur-md");
+  });
+
   it("shows a component's definition as a page", () => {
     const file = loginFile();
     const [button] = file.components;

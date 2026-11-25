@@ -1,13 +1,26 @@
 /**
  * The inspector's appearance (opacity and radius), fill, border and effects sections. The border
  * is the section's + while a node has none, and its − once it has; the fill is its layers
- * (`inspector-fill`), and the effects its shadows, a row each.
+ * (`inspector-fill`), and the effects its shadows, a row each, and its blur behind, each added
+ * from the section's + menu.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { shadowListCss, shadowsOf } from "@ultrapaint/design-document/shadow";
 import { isToken } from "@ultrapaint/design-document/tokens";
 import { Minus, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Segmented } from "../components/segmented.tsx";
 import type { StyleOption } from "../components/style-combobox.tsx";
 import { ValueField } from "../components/value-field.tsx";
@@ -261,13 +274,93 @@ const ShadowRow = ({
   </Row>
 );
 
+const BLUR = TOKEN_FIELDS.backdropBlur;
+
+/** An effect the Effects section's + adds. */
+interface AddableEffect {
+  readonly add: () => void;
+  readonly label: string;
+}
+
+/** The Effects section's +: a menu of the effects the nodes can still be given. */
+const AddEffect = ({ effects }: { effects: readonly AddableEffect[] }) => (
+  <DropdownMenu>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <DropdownMenuTrigger
+            render={
+              <Button
+                aria-label="Add effect"
+                className="text-muted-foreground data-popup-open:bg-accent data-popup-open:text-foreground"
+                size="icon-sm"
+                variant="ghost"
+              />
+            }
+          />
+        }
+      >
+        <Plus />
+      </TooltipTrigger>
+      <TooltipContent>Add effect</TooltipContent>
+    </Tooltip>
+    {/* The field an effect adds takes the focus, its list open: the menu gives none back. */}
+    <DropdownMenuContent align="end" finalFocus={false}>
+      {effects.map((effect) => (
+        <DropdownMenuItem key={effect.label} onClick={effect.add}>
+          {effect.label}
+        </DropdownMenuItem>
+      ))}
+    </DropdownMenuContent>
+  </DropdownMenu>
+);
+
+/**
+ * The blur behind: a token of the blurs the design system offers, or a length, and the − that
+ * takes it off; shown while the nodes have one, or its + was pressed, its list open.
+ */
+const BlurRow = ({
+  adding,
+  nodes,
+  onClose,
+}: {
+  adding: boolean;
+  nodes: readonly DesignNode[];
+  onClose: () => void;
+}) => (
+  <Row fields={["backdropBlur"]} label="Blur behind">
+    <div className="flex min-w-0 flex-1 items-center gap-1" data-blur>
+      <NodeValueField
+        autoOpen={adding}
+        field={BLUR}
+        nodes={nodes}
+        placeholder="None"
+      />
+      <SectionAction
+        onClick={() => {
+          onClose();
+          if (nodes.some((n) => BLUR.read(n) !== undefined)) {
+            setField(BLUR, null);
+          }
+        }}
+        tooltip="Remove blur behind"
+      >
+        <Minus />
+      </SectionAction>
+    </div>
+  </Row>
+);
+
 /**
  * The effects: a row per shadow, the one drawn on top first, each a token or CSS with its own −,
- * and a + that adds a shadow after them, its shadows open to pick one. Nodes whose shadows differ
- * show one field reading Mixed, which gives them all one list.
+ * then the blur behind; the + offers a shadow, added after the others with its shadows open, and
+ * the blur behind while it is not shown. Nodes whose shadows differ show one field reading Mixed,
+ * which gives them all one list; their blurs, likewise.
  */
-const ShadowSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
+const EffectsSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
   const [adding, add] = useReveal();
+  const [addingBlur, addBlur] = useReveal();
+  const blurred = addingBlur || sharedField(BLUR, nodes) !== undefined;
   const shared = sharedField(SHADOW, nodes);
   const shadows = typeof shared === "string" ? shadowsOf(shared) : [];
   // `none` is no shadow of a list but the whole of one: a shadow added takes its place.
@@ -280,33 +373,34 @@ const ShadowSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
       ...(value === null ? [] : shadowsOf(String(value))),
       ...shadows.slice(index + 1),
     ]);
+  // A shadow is added after the others, which shadows that differ have none of.
+  const effects: AddableEffect[] = [
+    ...(shared === MIXED ? [] : [{ add: () => add(true), label: "Shadow" }]),
+    ...(blurred ? [] : [{ add: () => addBlur(true), label: "Blur behind" }]),
+  ];
   return (
     <Section
-      action={
-        shared === MIXED ? (
-          <SectionAction
-            onClick={() => setField(SHADOW, null)}
-            tooltip="Remove shadow"
-          >
-            <Minus />
-          </SectionAction>
-        ) : (
-          <SectionAction onClick={() => add(true)} tooltip="Add shadow">
-            <Plus />
-          </SectionAction>
-        )
-      }
+      action={effects.length > 0 ? <AddEffect effects={effects} /> : null}
       title="Effects"
     >
       {shared === MIXED ? (
         <Row fields={["shadow"]} label="Shadow">
-          <div className="flex min-w-0 flex-1" data-shadow="mixed">
+          <div
+            className="flex min-w-0 flex-1 items-center gap-1"
+            data-shadow="mixed"
+          >
             <NodeValueField
               accept={acceptsShadow}
               field={SHADOW}
               nodes={nodes}
               placeholder="None"
             />
+            <SectionAction
+              onClick={() => setField(SHADOW, null)}
+              tooltip="Remove shadow"
+            >
+              <Minus />
+            </SectionAction>
           </div>
         </Row>
       ) : (
@@ -340,6 +434,13 @@ const ShadowSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
           ) : null}
         </>
       )}
+      {blurred ? (
+        <BlurRow
+          adding={addingBlur}
+          nodes={nodes}
+          onClose={() => addBlur(false)}
+        />
+      ) : null}
     </Section>
   );
 };
@@ -353,6 +454,6 @@ export const AppearanceSection = ({
     <LookSection nodes={nodes} />
     <FillSection nodes={nodes} />
     <BorderSection nodes={nodes} />
-    <ShadowSection nodes={nodes} />
+    <EffectsSection nodes={nodes} />
   </>
 );

@@ -87,6 +87,7 @@ const colorAt = (css: string): Point | null => {
 
 /** How each kind with a measure of nearness places a value; the kinds left out have none. */
 const MEASURES: Partial<Record<TokenKind, (css: string) => Point | null>> = {
+  blur: lengthAt,
   borderWidth: lengthAt,
   color: colorAt,
   container: lengthAt,

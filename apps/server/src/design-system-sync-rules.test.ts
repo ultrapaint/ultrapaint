@@ -579,7 +579,7 @@ describe("the code against the design system (ADR 0028)", () => {
 
   it("offers the design none of the code's tokens whose name says no kind: the design system has no list for one", () => {
     const diffs = compareCode(
-      [code("blur-sm", "4px"), code("color-new", "#abc")],
+      [code("z-modal", "50"), code("color-new", "#abc")],
       [],
       null,
       new Set()

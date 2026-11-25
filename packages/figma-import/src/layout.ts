@@ -21,6 +21,7 @@ import {
   resolveGradientGeometry,
 } from "openfig-core";
 import {
+  backgroundBlurOf,
   cssRgba,
   shadowCss,
   solidColor,
@@ -269,6 +270,19 @@ export const frameSize = (node: FigNode): OwnSize => {
   };
 };
 
+/** The blur behind a node: a blur token that holds its length, else its pixels. */
+const backdropBlurOf = (
+  node: FigNode,
+  tokens: TokenMatcher
+): number | string | undefined => {
+  const px = backgroundBlurOf(node.effects);
+  if (px === undefined) {
+    return;
+  }
+  const token = tokens(`${px}px`, "blur");
+  return token.startsWith("$") ? token : px;
+};
+
 /** The box fields every node has, without the ones that are undefined. */
 export const boxOf = (
   node: FigNode,
@@ -278,6 +292,7 @@ export const boxOf = (
 ) =>
   compact({
     ...sizeOf(node, placement, own),
+    backdropBlur: backdropBlurOf(node, tokens),
     border: borderOf(node, tokens),
     fill: fillOf(node, tokens),
     name: node.name || undefined,

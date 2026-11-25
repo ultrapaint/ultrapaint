@@ -1415,6 +1415,41 @@ describe("the tools for documents", () => {
         assert.include(JSON.stringify(format.schema), "typography");
       })
   );
+
+  inAProject(
+    "blurs what is behind a box, a token or a length, as the page's schema says",
+    () =>
+      Effect.gen(function* () {
+        yield* pageAt("Bar", "/bar");
+        const { schema } = yield* tool("get_document_format", {});
+        assert.include(JSON.stringify(schema), "backdropBlur");
+        yield* tool("apply_operations", {
+          ops: [
+            inserted({
+              backdropBlur: "$blur-md",
+              children: [],
+              id: "bar",
+              type: "row",
+            }),
+            inserted({
+              backdropBlur: 10,
+              children: [],
+              id: "sheet",
+              type: "column",
+            }),
+          ],
+          route: "/bar",
+        });
+        const blurOf = (id: string) =>
+          Effect.map(
+            tool("read_page", { node: `/bar#${id}`, route: "/bar" }),
+            ({ document }) =>
+              (document as { backdropBlur?: unknown }).backdropBlur
+          );
+        assert.strictEqual(yield* blurOf("bar"), "$blur-md");
+        assert.strictEqual(yield* blurOf("sheet"), 10);
+      })
+  );
 });
 
 describe("a big page, read as a task gives it", () => {

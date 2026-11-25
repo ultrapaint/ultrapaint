@@ -4,6 +4,10 @@ import { nearestToken } from "./nearest-token.ts";
 
 const ds: DesignSystem = {
   ...emptyDesignSystem(),
+  blurs: [
+    { name: "blur-sm", value: "8px" },
+    { name: "blur-md", value: "12px" },
+  ],
   borderWidths: [{ name: "border-width-thin", value: "1px" }],
   colors: [
     {
@@ -121,7 +125,7 @@ describe("the nearest token to a value", () => {
     expect(nearestName("fontWeight", 550, ds)).toBe("font-weight-normal");
   });
 
-  it("is the radius, font size and border width nearest in pixels, with no limit", () => {
+  it("is the radius, font size, border width and blur nearest in pixels, with no limit", () => {
     expect(nearestName("radius", "7px", ds)).toBe("radius-lg");
     expect(nearestToken("radius", 40, ds)).toMatchObject({
       distance: 32,
@@ -130,6 +134,7 @@ describe("the nearest token to a value", () => {
     expect(nearestName("fontSize", "15.5px", ds)).toBe("text-base");
     expect(nearestName("fontSize", 13, ds)).toBe("text-sm");
     expect(nearestName("borderWidth", 3, ds)).toBe("border-width-thin");
+    expect(nearestName("blur", "11px", ds)).toBe("blur-md");
   });
 
   const radii: DesignSystem = {

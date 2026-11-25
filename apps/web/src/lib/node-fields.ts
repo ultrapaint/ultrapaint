@@ -67,6 +67,12 @@ export const TEXT_STYLE: NodeField<string, TextStyle> = {
 
 /** The fields picked from tokens, by the name their controls give them. */
 export const TOKEN_FIELDS = {
+  backdropBlur: tokenValue(
+    "backdropBlur",
+    "blur behind",
+    "blur",
+    (node) => node.backdropBlur
+  ),
   color: tokenValue(
     "color",
     "colour",
