@@ -134,7 +134,7 @@ const BACKGROUNDS = [
   "background-repeat",
   "background",
 ];
-const PERCENT_ENCODED_RE = /%([0-9A-F]{2})/gi;
+const PERCENT_ENCODED_RE = /%[0-9A-F]{2}/i;
 
 const kebab = (property: string) =>
   property.replace(UPPER_RE, (c) => `-${c.toLowerCase()}`);
@@ -229,9 +229,9 @@ const placedStops = (value: string): string => {
     if (layer.kind === "image") {
       return {
         ...layer,
-        src: layer.src.replace(PERCENT_ENCODED_RE, (_whole, hex: string) =>
-          String.fromCharCode(Number.parseInt(hex, 16))
-        ),
+        src: PERCENT_ENCODED_RE.test(layer.src)
+          ? decodeURIComponent(layer.src)
+          : layer.src,
       };
     }
     if (layer.kind !== "gradient") {

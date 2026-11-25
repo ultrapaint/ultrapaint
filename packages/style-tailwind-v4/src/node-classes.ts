@@ -346,9 +346,12 @@ const BG_SIZES: Record<ImageFit, string> = {
   fill: "bg-size-[100%_100%]",
 };
 
-/** A character as a URL writes it: `(` is `%28`. */
+/** A character as a URL writes it, in UTF-8: `(` is `%28`, a no-break space `%C2%A0`. */
 const percentEncoded = (c: string) =>
-  `%${c.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")}`;
+  Array.from(
+    new TextEncoder().encode(c),
+    (byte) => `%${byte.toString(16).toUpperCase().padStart(2, "0")}`
+  ).join("");
 
 /**
  * A layer with its file as a class can hold it, unquoted: a space, a bracket, a quote or a
