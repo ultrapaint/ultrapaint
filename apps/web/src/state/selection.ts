@@ -347,7 +347,7 @@ const drawnAt = (
  * The app components' files as the editor holds them, the same function while they stay the
  * same: what a layer of an instance is drawn from (ADR 0114).
  */
-const useAppFileOf = (): AppFileOf => {
+export const useAppFileOf = (): AppFileOf => {
   const components = useComponents((s) => s.components);
   return useMemo(
     () => (name: string) => appComponentOf(components, name),

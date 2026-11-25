@@ -25,6 +25,10 @@ import {
   withVisibility,
 } from "@ultrapaint/design-document/breakpoints";
 import {
+  type ColourUsed,
+  recolourOps,
+} from "@ultrapaint/design-document/colours-used";
+import {
   type ElementId,
   newElement,
 } from "@ultrapaint/design-document/factories";
@@ -854,6 +858,31 @@ export const wrapNodes = async (
   if (result) {
     selectLanded(first.doc, first.frame, result.created.slice(0, 1));
   }
+};
+
+/**
+ * Changes a colour the selection uses to `to` everywhere it is used (Colours used): each use where
+ * it is stored, at its breakpoint and on an instance's layer, in one undo step.
+ */
+export const changeColourUsed = (
+  frame: string,
+  used: ColourUsed,
+  to: string
+) => {
+  const { docs } = useDocuments.getState();
+  const { canvas } = useEditor.getState();
+  // A layer's field that is a property is set as the property (ADR 0114), as any edit's is.
+  const ops = throughProperties(
+    recolourOps(used, to),
+    rootOfFrame(docs, canvas, frame),
+    appFileOf
+  );
+  return ops.length > 0
+    ? applyEdits(
+        [{ doc: docOfFrame(frame, canvas), ops }],
+        "Change a colour used"
+      )
+    : Promise.resolve(null);
 };
 
 // ---- At a breakpoint named ----
