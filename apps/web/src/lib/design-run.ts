@@ -4,7 +4,10 @@
  * whose entries a design thread is told to name "Outline" and "Build <section>", and the review
  * rounds the editor adds. Pure, so the card is the same whoever draws it.
  */
-import type { ThreadItem } from "@ultrapaint/contracts/threads";
+import {
+  type ThreadItem,
+  waitsForAnswers,
+} from "@ultrapaint/contracts/threads";
 import { plural } from "@ultrapaint/shared/text";
 
 type PlanItem = Extract<ThreadItem, { kind: "plan" }>;
@@ -43,9 +46,18 @@ export const isRunPlan = (plan: PlanItem): boolean =>
 export const reviewStep = (
   rounds: readonly ReviewItem[],
   /** "Standard · 3 review models": the level when the review hasn't started. */
-  planned: string
+  planned: string,
+  /** A question of the run's last turn waits, which holds the next round (ADR 0151). */
+  waiting = false
 ): RunStep => {
   const last = rounds.at(-1);
+  if (waiting && !last?.end) {
+    return {
+      detail: "Waits for your answers",
+      status: last === undefined ? "pending" : "in_progress",
+      title: "Review",
+    };
+  }
   if (last === undefined) {
     return { detail: planned, status: "pending", title: "Review" };
   }
@@ -66,13 +78,15 @@ export const reviewStep = (
 
 /**
  * The run card's steps, from the run's plan and its review rounds. A run whose last turn was
- * stopped before its sections were all built says where it stopped.
+ * stopped before its sections were all built says where it stopped, and one whose review waits
+ * for the person's answers says so.
  */
 export const runSteps = (
   plan: PlanItem,
   rounds: readonly ReviewItem[],
   planned: string,
-  stopped = false
+  stopped = false,
+  waiting = false
 ): readonly RunStep[] => {
   const outline = plan.entries.filter((e) => OUTLINE_RE.test(e.content));
   const build = plan.entries.filter((e) => BUILD_RE.test(e.content));
@@ -108,8 +122,32 @@ export const runSteps = (
       });
     }
   }
-  steps.push(reviewStep(rounds, planned));
+  steps.push(reviewStep(rounds, planned, waiting));
   return steps;
+};
+
+/**
+ * The run plan whose review waits for the person's answers (ADR 0151): the plan of the run the
+ * thread's last turn belongs to, when that turn ended on a question of its own still unanswered.
+ */
+export const waitingRun = (items: readonly ThreadItem[]): string | null => {
+  if (!waitsForAnswers(items)) {
+    return null;
+  }
+  let plan: string | null = null;
+  for (const item of items) {
+    // A prompt sent into the turn under way is that turn's (ADR 0137): the run goes on.
+    if (
+      item.kind === "user" &&
+      item.review === undefined &&
+      item.steer !== true
+    ) {
+      plan = null;
+    } else if (item.kind === "plan" && isRunPlan(item)) {
+      plan = item.id;
+    }
+  }
+  return plan;
 };
 
 /**

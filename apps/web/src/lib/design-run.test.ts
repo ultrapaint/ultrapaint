@@ -7,6 +7,7 @@ import {
   roundsByPlan,
   runSteps,
   stoppedRuns,
+  waitingRun,
 } from "./design-run.ts";
 import { groupWork } from "./thread-work.ts";
 
@@ -168,6 +169,45 @@ describe("the run card", () => {
       now: "Stopped before Invoices. What was built is on the canvas.",
       status: "stopped",
     });
+  });
+
+  const question = (answers: Record<string, string> | null): ThreadItem => ({
+    answers,
+    at: 0,
+    id: "q1",
+    kind: "question",
+    questions: [{ id: "q", options: [], question: "Keep the sidebar?" }],
+  });
+  const ended: ThreadItem = {
+    at: 0,
+    changedFiles: [],
+    id: "t1",
+    kind: "turn_end",
+    stopReason: "end_turn",
+  };
+
+  it("finds the run whose last turn left a question unanswered, a steer staying in the run", () => {
+    expect(waitingRun([user("u1"), building, question(null), ended])).toBe(
+      "p1"
+    );
+    const steer: ThreadItem = {
+      at: 0,
+      attachments: [],
+      id: "u2",
+      kind: "user",
+      steer: true,
+      text: "Keep the header",
+    };
+    expect(
+      waitingRun([user("u1"), building, steer, question(null), ended])
+    ).toBe("p1");
+    // Answered, or left behind by the person's next prompt, it holds nothing.
+    expect(
+      waitingRun([user("u1"), building, question({ q: "yes" }), ended])
+    ).toBeNull();
+    expect(
+      waitingRun([user("u1"), building, question(null), ended, user("u3")])
+    ).toBeNull();
   });
 
   it("leaves the prompts that carry a round's findings out of the chat", () => {

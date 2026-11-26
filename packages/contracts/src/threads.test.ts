@@ -9,6 +9,8 @@ import {
   startingMode,
   summarise,
   TEXT_ATTACHMENT_LIMIT,
+  type ThreadItem,
+  waitsForAnswers,
   withChunk,
   withNamedChoices,
 } from "./threads.ts";
@@ -191,6 +193,62 @@ describe("summarise", () => {
       ).toEqual({ text: "One thing first", waiting: false });
     }
   );
+});
+
+describe("waitsForAnswers", () => {
+  const at = 0;
+  const prompt = (id: string, review?: string): ThreadItem => ({
+    at,
+    attachments: [],
+    id,
+    kind: "user",
+    text: "A calm settings page",
+    ...(review !== undefined && { review }),
+  });
+  const card = (
+    id: string,
+    settled: Partial<Extract<ThreadItem, { kind: "question" }>> = {}
+  ): ThreadItem => ({
+    answers: null,
+    at,
+    id,
+    kind: "question",
+    questions: [{ id: "q", options: [], question: "Keep the sidebar?" }],
+    ...settled,
+  });
+  const end: ThreadItem = {
+    at,
+    changedFiles: [],
+    id: "end",
+    kind: "turn_end",
+    stopReason: "end_turn",
+  };
+
+  it("holds while the turn just ended left a question of its own unanswered", () => {
+    expect(waitsForAnswers([prompt("1"), card("2"), end])).toBe(true);
+    // Its prompt a round's findings: the question is still that turn's.
+    expect(
+      waitsForAnswers([prompt("1"), prompt("2", "r1"), card("3"), end])
+    ).toBe(true);
+  });
+
+  it("does not while the turn goes on", () => {
+    expect(waitsForAnswers([prompt("1"), card("2")])).toBe(false);
+  });
+
+  it.each([
+    ["answered", { answers: { q: "yes" } }],
+    ["declined", { outcome: "declined" }],
+    ["withdrawn", { outcome: "cancelled" }],
+  ] as const)("does not once the question is %s", (_, settled) => {
+    expect(waitsForAnswers([prompt("1"), card("2", settled), end])).toBe(false);
+  });
+
+  it("does not for a question an earlier turn left, the person having prompted since", () => {
+    expect(
+      waitsForAnswers([prompt("1"), card("2"), end, prompt("3"), end])
+    ).toBe(false);
+  });
 });
 
 describe("a text file attached to a prompt", () => {

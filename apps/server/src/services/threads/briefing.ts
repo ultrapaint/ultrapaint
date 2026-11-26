@@ -184,9 +184,13 @@ export const REVIEW_ANSWERED = `- When your turn ends, the editor has the user's
 /**
  * How a design thread speaks and works in the chat (ADR 0063): an assistant at work on the
  * method, its plan the run card's steps, the editor's review loop answered where the thread is
- * `reviewed`, one question at a time.
+ * `reviewed`, and each decision left for the user asked on a question card before the turn ends,
+ * never in its last message (ADR 0151): the editor's `ask_user`, or the agent's own question tool.
  */
-const designChat = (reviewed: boolean) => `How you work in this chat:
+const designChat = (
+  reviewed: boolean,
+  ways: AgentWays
+) => `How you work in this chat:
 - Before the first node, say your plan once, in at most three sentences: the page, its sections
   and the states each will have. Then work; don't narrate each step.
 - Keep your plan with your plan or todo tool, as "Outline", then one "Build <section>" per
@@ -194,7 +198,8 @@ const designChat = (reviewed: boolean) => `How you work in this chat:
   list into your messages.
 ${reviewed ? REVIEW_ANSWERED : ""}- At the end, say where the result is, each change by its link, at most three things the user
   might not expect, and what you didn't check. No recap of the request, no list of all you did.
-- Ask one question at a time, with its options and the one you suggest first.
+- A decision you leave for the user goes to ${ways.tools ? ways.tools.ask_user : "your own question tool"} before your turn ends,
+  one question each, its options with the one you suggest first. Your last message asks nothing.
 `;
 
 /**
@@ -405,7 +410,7 @@ export class ProjectBriefing extends Context.Service<
 You are working in Ultrapaint, a design tool. The user sees the designs you change, live, on
 its canvas, drawn with Ultrapaint's system components in this design system's tokens and looks.
 ${roleOf(purpose, settings.designsDir, ways)}
-${designs ? `\n${designChat(reviewed)}` : ""}
+${designs ? `\n${designChat(reviewed, ways)}` : ""}
 ${canvasesIn(settings.designsDir)}
 ${PAGES}
 It holds a tree of nodes, each with an id:
@@ -478,11 +483,12 @@ never write it; when styles are missing, send the user to Sync in the Design sys
           return SKILLS_OFF;
         }
         const { settings } = yield* RepoPaths;
+        const ways = agentWays(options.tools);
         return skillsOn(
           skills,
-          agentWays(options.tools),
+          ways,
           settings.designsDir,
-          options.method ? designChat(options.reviewed) : ""
+          options.method ? designChat(options.reviewed, ways) : ""
         );
       });
 

@@ -33,6 +33,7 @@ import {
   type RoundReviewer,
   type Thread,
   type ThreadItem,
+  waitsForAnswers,
 } from "@ultrapaint/contracts/threads";
 import {
   Clock,
@@ -174,6 +175,14 @@ const askedForVariations = (items: readonly ThreadItem[]) => {
   return parsed?._tag === "Request" && parsed.request._tag === "Variations";
 };
 
+/**
+ * Whether the round waits past this turn's end for the next one's, the pages kept: after a turn
+ * of variations, and while a question of the turn waits for the answers, which come first, so
+ * that the round after the turn they begin looks at what they decided (ADR 0151).
+ */
+const waitsPastTurn = (items: readonly ThreadItem[]) =>
+  askedForVariations(items) || waitsForAnswers(items);
+
 /** A round under way: its item, who is in it, and what its reviewers gave so far. */
 interface RoundState {
   readonly found: Found[];
@@ -209,7 +218,8 @@ export class ReviewLoop extends Context.Service<
   {
     /**
      * The round due now for the thread, its pages taken from those waiting; null when its design
-     * isn't to be reviewed now: an implement thread, review off, no page changed, or the run over.
+     * isn't to be reviewed now: an implement thread, review off, no page changed, the run over,
+     * or a question of the turn waiting for the answers (ADR 0151), its pages kept for the next.
      */
     readonly due: (threadId: string) => Effect.Effect<DueRound | null>;
     /**
@@ -417,8 +427,9 @@ export class ReviewLoop extends Context.Service<
           return null;
         }
         const items = yield* store.items(threadId);
-        // After a turn of variations, none starts: what earlier turns changed waits for the next.
-        if (askedForVariations(items)) {
+        // After a turn of variations, or one whose question waits, none starts: what the turns
+        // changed waits for the next.
+        if (waitsPastTurn(items)) {
           return null;
         }
         const run = runOf(items);

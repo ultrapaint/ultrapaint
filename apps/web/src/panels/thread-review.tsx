@@ -43,6 +43,8 @@ export interface RunContext {
   /** The run plans whose last turn the person stopped. */
   readonly stopped: ReadonlySet<string>;
   readonly threadId: string;
+  /** The run plan whose review waits for the person's answers (ADR 0151), null for none. */
+  readonly waitingPlan: string | null;
 }
 
 export const RunContextValue = createContext<RunContext>({
@@ -51,6 +53,7 @@ export const RunContextValue = createContext<RunContext>({
   rounds: new Map(),
   stopped: new Set(),
   threadId: "",
+  waitingPlan: null,
 });
 
 /** Whether a round sits in a run card, which shows it, rather than on its own. */
@@ -241,10 +244,16 @@ export const StepRow = ({
  * A run the person stopped before it was built offers to go on.
  */
 export const RunCard = ({ plan }: { plan: PlanItem }) => {
-  const { busy, planned, rounds, stopped, threadId } =
+  const { busy, planned, rounds, stopped, threadId, waitingPlan } =
     useContext(RunContextValue);
   const runRounds = rounds.get(plan.id) ?? [];
-  const steps = runSteps(plan, runRounds, planned, stopped.has(plan.id));
+  const steps = runSteps(
+    plan,
+    runRounds,
+    planned,
+    stopped.has(plan.id),
+    waitingPlan === plan.id
+  );
   const last = runRounds.at(-1);
   const review = steps.at(-1);
   const goOn = () =>

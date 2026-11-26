@@ -132,3 +132,39 @@ describe("a chat opened", () => {
     expect(button(STARTER)).toBeUndefined();
   });
 });
+
+describe("a design run whose turn left a question", () => {
+  const run = (answers: Record<string, string> | null): ThreadItem[] => [
+    { at: 1, attachments: [], id: "u1", kind: "user", text: "A pricing page" },
+    {
+      at: 2,
+      entries: [
+        { content: "Outline", status: "completed" },
+        { content: "Build Plans", status: "completed" },
+      ],
+      id: "p1",
+      kind: "plan",
+    },
+    {
+      answers,
+      at: 3,
+      id: "q1",
+      kind: "question",
+      questions: [{ id: "q", options: [], question: "Keep the sidebar?" }],
+    },
+    {
+      at: 4,
+      changedFiles: ["designs/pricing.page.json"],
+      id: "e1",
+      kind: "turn_end",
+      stopReason: "end_turn",
+    },
+  ];
+
+  it("says its review waits for the answers, until they are given", async () => {
+    await told(run(null));
+    expect(container.textContent).toContain("Waits for your answers");
+    await told(run({ q: "yes" }));
+    expect(container.textContent).not.toContain("Waits for your answers");
+  });
+});

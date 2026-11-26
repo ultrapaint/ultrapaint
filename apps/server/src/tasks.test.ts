@@ -1175,6 +1175,11 @@ describe("the editor's tools in what an agent is told", () => {
 
   /** What the briefing says of the design skill's terms, by a line with the tools and without. */
   const skillLines = {
+    // A decision for the designer goes on a card, never into the closing message (ADR 0151).
+    asking: [
+      "A decision you leave for the user goes to ask_user before your turn ends",
+      "A decision you leave for the user goes to your own question tool before your turn ends",
+    ],
     components: [
       "A component's documentation is get_component: its props, variants and example",
       "A component's documentation is its line among the components listed below: its props and variants.",
@@ -1357,7 +1362,7 @@ describe("the briefing", () => {
         assert.include(told, reviewer);
         assert.notInclude(untold, reviewer);
         // The rest of how it works in the chat is said either way.
-        assert.include(untold, "Ask one question at a time");
+        assert.include(untold, "Your last message asks nothing.");
       }).pipe(Effect.provide(ProjectTest()), Effect.scoped)
   );
 

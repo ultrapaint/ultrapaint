@@ -133,15 +133,17 @@ const PageRow = ({
 const RunSteps = ({
   parts,
   stopped,
+  waiting,
 }: {
   parts: TurnParts;
   stopped: boolean;
+  waiting: boolean;
 }) => {
   const { planned } = useContext(RunContextValue);
   if (!parts.plan) {
     return null;
   }
-  const steps = runSteps(parts.plan, parts.rounds, planned, stopped);
+  const steps = runSteps(parts.plan, parts.rounds, planned, stopped, waiting);
   return (
     <Section>
       <ol className="flex flex-col gap-1 px-3 py-2.5">
@@ -291,16 +293,18 @@ export const TurnView = ({
 }) => {
   const working = last && running;
   const parts = useMemo(() => turnParts(turn, !working), [turn, working]);
-  const { stopped: stoppedRuns } = useContext(RunContextValue);
+  const { stopped: stoppedRuns, waitingPlan } = useContext(RunContextValue);
   const since = turn.prompt?.at;
   const stopped = parts.stopped ? stopNote(parts.stopped.stopReason) : null;
   const runStopped = parts.plan ? stoppedRuns.has(parts.plan.id) : false;
+  const runWaiting = parts.plan !== undefined && parts.plan.id === waitingPlan;
   const card = (
     <>
       <PageRow parts={parts} running={working} thread={thread} />
-      {/* Progress while the run goes, or where it stopped; once over, the review's line says it. */}
-      {working || runStopped ? (
-        <RunSteps parts={parts} stopped={runStopped} />
+      {/* Progress while the run goes, where it stopped, or what its review waits for; once over,
+          the review's line says it. */}
+      {working || runStopped || runWaiting ? (
+        <RunSteps parts={parts} stopped={runStopped} waiting={runWaiting} />
       ) : null}
       <ReviewSection parts={parts} />
       {parts.asked.length > 0 ? (

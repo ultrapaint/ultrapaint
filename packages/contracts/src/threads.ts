@@ -1041,6 +1041,25 @@ export const answeredInTurn = (
   item: Extract<ThreadItem, { kind: "question" }>
 ) => item.elicitation !== undefined && item.restartedAt === undefined;
 
+/** Whether an item is a question that waits on the user: neither answered, declined nor withdrawn. */
+export const isOpenQuestion = (item: ThreadItem): boolean =>
+  item.kind === "question" &&
+  item.answers === null &&
+  item.outcome === undefined;
+
+/**
+ * Whether the thread's last turn ended on a question of its own that still waits for the answers
+ * (ADR 0151): one asked since the turn's prompt, the person's or a review round's findings. What
+ * holds the design's review round, and what the run card's Review step says it waits for. A
+ * question an earlier turn left holds nothing once the person has prompted since.
+ */
+export const waitsForAnswers = (items: readonly ThreadItem[]): boolean => {
+  const turn = items.slice(
+    items.findLastIndex((i) => i.kind === "user" && i.steer !== true) + 1
+  );
+  return turn.some((i) => i.kind === "turn_end") && turn.some(isOpenQuestion);
+};
+
 /**
  * A thread's last line, whether it waits on the user (a question neither answered, declined nor
  * withdrawn, or a permission undecided) and when its last turn began: the person's last prompt,
@@ -1051,11 +1070,7 @@ export const summarise = (
   items: readonly ThreadItem[]
 ): { since?: number; text: string; waiting: boolean } => {
   const pending = items.findLast(
-    (i) =>
-      (i.kind === "question" &&
-        i.answers === null &&
-        i.outcome === undefined) ||
-      (i.kind === "permission" && i.decision === null)
+    (i) => isOpenQuestion(i) || (i.kind === "permission" && i.decision === null)
   );
   const said = items.findLast((i) => i.kind === "agent" || i.kind === "user");
   const text = textOf(pending ?? said);
