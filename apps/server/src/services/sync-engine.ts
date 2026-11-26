@@ -48,6 +48,8 @@ export interface SideToken {
   readonly values: Readonly<Record<string, string>>;
   /** Where it is in the side: `Colors/Primary/500`, `colors.primary`, `color-primary`. */
   readonly variable: string;
+  /** The code declares it as a plain variable, with no utility class. */
+  readonly variableOnly?: boolean;
 }
 
 /** What a side's token is in the design system, and who said so: `to` its token, null left out. */
@@ -103,6 +105,7 @@ const diffOf = (
     source: value,
     ...(theme && { theme }),
     variable: token.variable,
+    ...(token.variableOnly && { variableOnly: true }),
   };
   if (!match) {
     return { ...common, name: token.name, outcome: "unmatched" };

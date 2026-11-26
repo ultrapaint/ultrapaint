@@ -1,6 +1,9 @@
 /**
  * Tailwind v4's tokens as the code declares them, and written back where they are declared
- * (ADR 0024). A token is a variable of an `@theme` block: `--color-primary: #2563eb`. The common
+ * (ADR 0024, 0152). A token is a variable of an `@theme` block: `--color-primary: #2563eb`, or a
+ * variable with a token's name in a plain root block, `:root { --color-panel: #f5f5f5; }`, which
+ * Tailwind makes no utility of (`variableOnly`). A root block under `@media`, `@supports` or
+ * `@container` makes no token of its own: its value holds only under that condition. The common
  * shadcn arrangement declares it as an alias, `--color-primary: var(--primary)` in `@theme
  * inline`, with the value in `:root` and `.dark`; the value is then read from, and written to,
  * the variable the alias names, once per theme.
@@ -47,6 +50,18 @@ const OTHER_THEME_RE = /\[data-theme=(?:"([^"]+)"|'([^']+)'|([\w-]+))\]/;
 const TAILWIND_IMPORT_RE = /^tailwindcss(\/.*)?$/;
 /** A scope whose variables hold for the whole document: the default theme's. */
 const ROOT_SCOPE_RE = /(^|[\s,])(:root|html|:host)\b/;
+/** The selectors a block that holds for the whole document is written under. */
+const ROOT_SELECTORS = new Set([":root", "html", ":host"]);
+/** A cascade layer around a block: it changes which value wins, not where the value holds. */
+const LAYER_RE = /@layer(?:\s+[\w.-]+)?/g;
+/**
+ * The media query that is the dark theme's, as `DARK_RE` reads it: a theme, not a condition. Only
+ * on its own: `and (min-width: 1024px)` after it is a condition again.
+ */
+const DARK_SCHEME_RE =
+  /@media\s*\(\s*prefers-color-scheme:\s*dark\s*\)(?!\s*(?:and|or|,))/g;
+/** The simple selectors a document's or a theme's block is written with: `:root`, `.dark`, `[…]`. */
+const SIMPLE_SELECTOR_RE = /:root|:host|html|body|\.[\w-]+|\[[^\]]+\]/g;
 
 /** A prelude without its `:not(…)`s: what they name is where the block does not apply. */
 const withoutNegations = (prelude: string): string => {
@@ -265,6 +280,54 @@ const themeKeyOf = (prelude: string): string | null => {
   return isRootScope(prelude) ? "" : null;
 };
 
+/**
+ * The theme a block of plain variables gives values for whatever the page is like (`""` the
+ * default, as `themeKeyOf` names them), or none: a block under `@media`, `@supports` or
+ * `@container`, or one that is not the whole document's (`:root .card`, `.dark .card`), holds
+ * only some of the time or some of the page. `body` is a theme's place (`body.dark`), not the
+ * document's.
+ */
+const plainThemeKeyOf = (prelude: string): string | null => {
+  const unlayered = prelude.replace(LAYER_RE, "");
+  const bare = unlayered.replace(DARK_SCHEME_RE, "").trim();
+  if (bare.includes("@")) {
+    return null;
+  }
+  /** Under `@media (prefers-color-scheme: dark)`, which the replace above took out. */
+  const schemeDark = bare !== unlayered.trim();
+  // A selector list holds wherever one of its selectors does: `:root, .x` is the document's. A
+  // selector counts when it is the document's or a theme's alone, with no descendant: `:root`,
+  // `.dark`, `html[data-theme="dim"]`, not `.dark .card`.
+  const keys = withoutNegations(bare)
+    .split(",")
+    .map((selector): string | null => {
+      const s = selector.trim();
+      const simples: readonly string[] = s.match(SIMPLE_SELECTOR_RE) ?? [];
+      if (s === "" || simples.join("") !== s) {
+        return null;
+      }
+      const named = simples
+        .filter((simple) => !(ROOT_SELECTORS.has(simple) || simple === "body"))
+        .map(themeOf);
+      if (named.includes(null)) {
+        return null;
+      }
+      const [theme] = named;
+      if (theme === undefined) {
+        return simples.includes("body") ? null : "";
+      }
+      return theme;
+    })
+    .filter((key): key is string => key !== null);
+  if (keys.length === 0) {
+    return null;
+  }
+  if (schemeDark) {
+    return "dark";
+  }
+  return keys.find((key) => key !== "") ?? "";
+};
+
 /** A token's name from its variable; null for what is not a token of its own. */
 const tokenNameOf = (variable: string): string | null => {
   const name = variable.slice(2);
@@ -283,6 +346,12 @@ interface Declared {
   readonly companions: Map<string, Declaration>;
   /** The `@theme` declaration of each token, by name; the last one wins, as in CSS. */
   readonly declared: Map<string, Declaration>;
+  /**
+   * The plain variables of the blocks that hold whatever the page is like, by theme (`""` the
+   * default), then by variable: those `scoped` has outside `@media`, `@supports` and `@container`.
+   * A token's name among the default theme's is a token declared outside `@theme`.
+   */
+  readonly plain: Map<string, Map<string, Declaration>>;
   /** The `@theme` resets, `--color-*` of `--color-*: initial`, which take Tailwind's defaults out. */
   readonly resets: string[];
   /** The same resets where they are written: a token added before one would be taken out. */
@@ -322,9 +391,19 @@ const declarationsOf = (files: readonly string[]): Declared => {
     blocks: [],
     companions: new Map(),
     declared: new Map(),
+    plain: new Map(),
     resets: [],
     resetsAt: [],
     scoped: new Map(),
+  };
+  const put = (
+    into: Map<string, Map<string, Declaration>>,
+    key: string,
+    decl: Declaration
+  ) => {
+    const vars = into.get(key) ?? new Map<string, Declaration>();
+    vars.set(decl.name, decl);
+    into.set(key, vars);
   };
   for (const file of files) {
     const text = readFile(file);
@@ -338,9 +417,11 @@ const declarationsOf = (files: readonly string[]): Declared => {
       if (isTheme(decl.prelude)) {
         takeTheme(out, decl);
       } else if (key !== null) {
-        const vars = out.scoped.get(key) ?? new Map<string, Declaration>();
-        vars.set(decl.name, decl);
-        out.scoped.set(key, vars);
+        put(out.scoped, key, decl);
+        const plain = plainThemeKeyOf(decl.prelude);
+        if (plain !== null) {
+          put(out.plain, plain, decl);
+        }
       }
     }
   }
@@ -380,6 +461,41 @@ const defaultsOf = (
   return { tokens, variables: vars };
 };
 
+/**
+ * Where a token's values are in the app, for reading and writing alike (ADR 0152). An unlayered
+ * root declaration of the token's own variable overrides its `@theme` one, which Tailwind writes
+ * into its `theme` layer, alias or not; under `@theme inline` the utilities take the `@theme`
+ * value itself, and it stays the token's.
+ */
+const holderOf = (found: Declared, name: string) => {
+  const decl = found.declared.get(name);
+  const own = decl?.name ?? variableOf(name);
+  const root = found.plain.get("")?.get(own);
+  const rootWins = root !== undefined && !decl?.prelude.includes("inline");
+  const alias = decl && !rootWins ? aliasOf(decl.value) : undefined;
+  // `--color-primary: var(--primary)`: the value is the variable's, theme by theme. Else a theme
+  // may declare the token's variable again, `.dark { --color-primary: … }`.
+  const variable = alias && found.scoped.get("")?.has(alias) ? alias : own;
+  /** The declaration a change of the default value is written to. */
+  const ownTarget = rootWins ? root : decl;
+  const target =
+    variable === own ? ownTarget : found.scoped.get("")?.get(variable);
+  return {
+    /** The declaration the default value is read from. */
+    base:
+      rootWins || variable !== own || root
+        ? target
+        : (found.scoped.get("")?.get(own) ?? decl),
+    /** The blocks a theme's value is read from and written to: the unconditional ones for a root one. */
+    byTheme: rootWins ? found.plain : found.scoped,
+    decl,
+    root,
+    rootWins,
+    target,
+    variable,
+  };
+};
+
 /** What the reading keeps beyond the tokens: what a write needs to find its place. */
 export interface Reading extends Declared {
   /** Every stylesheet read, absolute, in the order Tailwind reads them. */
@@ -395,13 +511,17 @@ export interface Reading extends Declared {
 
 /** Follows the `var()`s of a value through one theme's variables, then the default's. */
 const resolverOf =
-  (found: Declared, defaults: ReadonlyMap<string, string>) =>
+  (
+    found: Declared,
+    defaults: ReadonlyMap<string, string>,
+    by: ReadonlyMap<string, ReadonlyMap<string, Declaration>> = found.scoped
+  ) =>
   (value: string, theme: string): string =>
     resolveVars(value, (variable) => {
       const name = tokenNameOf(variable) ?? "";
       return (
-        found.scoped.get(theme)?.get(variable)?.value ??
-        found.scoped.get("")?.get(variable)?.value ??
+        by.get(theme)?.get(variable)?.value ??
+        by.get("")?.get(variable)?.value ??
         found.declared.get(name)?.value ??
         defaults.get(name)
       );
@@ -427,61 +547,77 @@ export const read = (ctx: DesignSystemContext): Reading => {
     declared.resets
   );
   const resolve = resolverOf(declared, defaults);
+  /** A token declared outside `@theme` follows its `var()`s through the unconditional blocks. */
+  const resolvePlain = resolverOf(declared, defaults, declared.plain);
   const themes = [...declared.scoped.keys()].filter((k) => k !== "");
   const relative = (file: string) => toPosix(path.relative(ctx.root, file));
 
-  /** The value and where it is written, in each theme, of the variable that holds it. */
-  const valuesOf = (variable: string, fallback: Declaration | undefined) => {
+  /** A token's value and where it is written, in each theme, as `holderOf` finds them. */
+  const tokenOf = (name: string): SourceToken => {
+    const { base, byTheme, decl, rootWins, variable } = holderOf(
+      declared,
+      name
+    );
+    const resolveIn = rootWins ? resolvePlain : resolve;
     const origins: Record<string, TokenOrigin> = {};
     const values: Record<string, string> = {};
-    const at = (theme: string, decl: Declaration) => {
-      if (writable.includes(decl.file)) {
+    const at = (theme: string, where: Declaration) => {
+      if (writable.includes(where.file)) {
         origins[theme] = {
-          end: decl.valueEnd,
-          file: relative(decl.file),
-          start: decl.valueStart,
+          end: where.valueEnd,
+          file: relative(where.file),
+          start: where.valueStart,
         };
       }
     };
-    const base = declared.scoped.get("")?.get(variable) ?? fallback;
     if (base) {
       at("", base);
     }
     for (const theme of themes) {
-      const own = declared.scoped.get(theme)?.get(variable);
+      const own = byTheme.get(theme)?.get(variable);
       if (own) {
-        values[theme] = resolve(own.value, theme);
+        values[theme] = resolveIn(own.value, theme);
         at(theme, own);
       }
     }
-    return { base, origins, values };
-  };
-
-  const tokenOf = (name: string, decl: Declaration): SourceToken => {
-    const alias = aliasOf(decl.value);
-    // `--color-primary: var(--primary)`: the value is the variable's, theme by theme. Else a
-    // theme may declare the token's variable again, `.dark { --color-primary: … }`.
-    const variable =
-      alias && declared.scoped.get("")?.has(alias) ? alias : decl.name;
-    const { base, origins, values } = valuesOf(
-      variable,
-      variable === decl.name ? decl : undefined
-    );
     return {
       kind: tokenKindOf(name),
       name,
       ...(Object.keys(origins).length > 0 && { origins }),
       own: true,
-      value: resolve((base ?? decl).value, ""),
+      value: base ? resolveIn(base.value, "") : "",
       ...(Object.keys(values).length > 0 && { values }),
+      ...(decl === undefined && { variableOnly: true }),
     };
   };
 
-  const tokens: SourceToken[] = [...declared.declared].map(([name, decl]) =>
-    tokenOf(name, decl)
-  );
+  const tokens: SourceToken[] = [...declared.declared.keys()].map(tokenOf);
+  const rootVariables =
+    declared.plain.get("") ?? new Map<string, Declaration>();
+  for (const [name, decl] of declared.declared) {
+    const root = rootVariables.get(decl.name);
+    if (root && decl.prelude.includes("inline")) {
+      notes.push(
+        `${name} is declared both in @theme inline (${relative(decl.file)}) and in a plain :root block (${relative(root.file)}). Its utilities draw the @theme inline value, so that is the one read and written; var(${decl.name}) draws the :root one.`
+      );
+    } else if (root) {
+      notes.push(
+        `${name} is declared both in @theme (${relative(decl.file)}) and in a plain :root block (${relative(root.file)}). The :root value is the one the app draws, so it is the one read and written.`
+      );
+    }
+  }
+  /** The tokens declared outside `@theme`: a token's name in a plain root block. */
+  const variableOnly = new Set<string>();
+  for (const variable of rootVariables.keys()) {
+    const name = tokenNameOf(variable);
+    if (!name || tokenKindOf(name) === "other" || declared.declared.has(name)) {
+      continue;
+    }
+    variableOnly.add(name);
+    tokens.push(tokenOf(name));
+  }
   for (const [name, raw] of defaults) {
-    if (!declared.declared.has(name)) {
+    if (!(declared.declared.has(name) || variableOnly.has(name))) {
       tokens.push({
         kind: tokenKindOf(name),
         name,
@@ -636,7 +772,7 @@ export const writeTokens = (
       theme === ""
         ? themeBlockFor(variable)
         : ownBlocks.find(
-            (b) => !isTheme(b.prelude) && themeKeyOf(b.prelude) === theme
+            (b) => !isTheme(b.prelude) && plainThemeKeyOf(b.prelude) === theme
           );
     const file = fileFor(theme, variable);
     if (block) {
@@ -650,27 +786,24 @@ export const writeTokens = (
   /** The variable a change writes, and where this theme's value of it is written now. */
   const targetOf = (change: TokenChange) => {
     const theme = change.theme ?? "";
-    const decl = reading.declared.get(change.name);
-    const alias = decl ? aliasOf(decl.value) : undefined;
-    const variable =
-      alias && reading.scoped.get("")?.has(alias)
-        ? alias
-        : variableOf(change.name);
+    const holder = holderOf(reading, change.name);
+    const { byTheme, decl, root, variable } = holder;
     const target =
-      theme === "" && variable === variableOf(change.name)
-        ? decl
-        : reading.scoped.get(theme)?.get(variable);
-    return { decl, target, theme, variable };
+      theme === "" ? holder.target : byTheme.get(theme)?.get(variable);
+    return { decl, root, target, theme, variable };
   };
 
   // A token changed twice in one theme takes its last change.
   const latest = new Map(changes.map((c) => [`${c.theme ?? ""}|${c.name}`, c]));
   for (const change of latest.values()) {
-    const { decl, target, theme, variable } = targetOf(change);
+    const { decl, root, target, theme, variable } = targetOf(change);
     const { remove, value } = change;
-    const gone = theme === "" ? decl : target;
-    if (remove && writable(gone)) {
-      edits.splice(gone.file, (text) => removal(text, gone));
+    // A token taken out goes from `@theme` and from a plain root block alike.
+    const gone = (theme === "" ? [decl, root] : [target]).filter(writable);
+    if (remove && gone.length > 0) {
+      for (const each of gone) {
+        edits.splice(each.file, (text) => removal(text, each));
+      }
     } else if (!remove && value !== undefined && writable(target)) {
       edits.splice(target.file, () => ({
         end: target.valueEnd,

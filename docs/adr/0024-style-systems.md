@@ -2,6 +2,8 @@
 
 Status: accepted, 2026-10-06. Amends 0011 (framework packages) and 0015 (the design system).
 
+> Amended by [0152](0152-a-token-is-read-where-the-code-declares-it.md), 2026-11-26: a token is also a variable with a token's name in an unconditional root block (`:root { --color-panel: … }`), marked `variableOnly`; declared in both, the root value is the one read and written.
+
 > Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: the scan classifies what the token reader reads, so `/init` and Sync read a stylesheet's themes one way; the framework seam beside the style system goes.
 
 > Amended by [0028](0028-the-design-holds-the-values.md), 2026-10-25: the style system is the

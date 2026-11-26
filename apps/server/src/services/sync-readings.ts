@@ -289,6 +289,7 @@ const codeSide = (
         name: t.name,
         values: Object.fromEntries(values),
         variable: t.name,
+        ...(t.variableOnly && { variableOnly: true }),
       };
     });
   const agreed = oneValue(baseline?.agreed);

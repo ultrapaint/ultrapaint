@@ -9,6 +9,9 @@ export const codeRules = `How the design maps to code (Tailwind v4):
   border-primary; "$radius-lg" is rounded-lg; "$shadow-md" is shadow-md; "$text-lg" is text-lg;
   "$font-weight-semibold" is font-semibold; "$font-sans" is font-sans; "$leading-tight" is
   leading-tight; "$tracking-wide" is tracking-wide; "$spacing-4" is the 4 step (p-4, gap-4).
+- A token the task lists as declared outside @theme (a plain variable in :root) has no utility
+  class: write its variable, bg-(--color-panel) or rounded-(--radius-card), never bg-panel.
+  Moving it into @theme is the developer's call: ask before you do.
 - A number is pixels. Put it on the spacing scale (one step is the design system's spacing base,
   usually 4px: 16 is p-4) and use an arbitrary value only when it is off the scale.
 - page: the page component of the URL it serves. row: flex flex-row. column: flex flex-col. group: a plain

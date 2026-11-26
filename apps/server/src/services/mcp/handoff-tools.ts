@@ -254,6 +254,24 @@ export const HandoffToolsLive = HandoffTools.toLayer(
           ? `Nothing to bring ${done}.`
           : `${plural(written, "token value")} brought ${done}${files.length > 0 ? `: ${files.join(", ")}` : ""}.`,
       ];
+      // What the reading noted of a token brought over, such as its being declared twice
+      // (ADR 0152): a note about one token starts with its name (`TokenSource.notes`).
+      const moved = new Set(
+        comparison.diffs
+          .filter((d) =>
+            names.length > 0
+              ? names.includes(d.name) ||
+                names.includes(baselineKey(d.name, d.theme))
+              : d.outcome === "source-behind"
+          )
+          .map((d) => d.name)
+      );
+      const noted = comparison.notes.filter((line) =>
+        [...moved].some((token) => line.startsWith(`${token} `))
+      );
+      if (direction === "export" && written > 0 && noted.length > 0) {
+        lines.push(...noted);
+      }
       if (left.length > 0) {
         lines.push(
           `Changed on both sides, left for the user: ${left

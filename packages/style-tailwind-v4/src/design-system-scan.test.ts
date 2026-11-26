@@ -292,6 +292,8 @@ describe("scanning a Tailwind v4 design system", () => {
     ]);
     expect(designSystem.shadows).toEqual([
       { name: "shadow-card", value: "0 1px var(--blur) rgb(0 0 0 / 0.1)" },
+      // A token's name in :root is a token, declared outside @theme (ADR 0152).
+      { name: "shadow-color", value: "rgb(0 0 0 / 0.1)" },
     ]);
   });
 

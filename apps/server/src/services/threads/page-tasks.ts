@@ -60,6 +60,7 @@ import {
   taskFailure,
   treeForAgent,
   userAdds,
+  variableOnlyNote,
 } from "./task-text.ts";
 
 const named = (id: string) => JSON.stringify(id);
@@ -73,7 +74,7 @@ const numbered = (steps: readonly (string | null)[]) =>
 
 /** A token waiting for the code, a line: the design's value, the code's, and whether both moved. */
 const waitingLine = (d: TokenDiff) =>
-  `- ${baselineKey(d.name, d.theme)}: design ${d.design ?? "(taken out)"}, code ${d.source ?? "(not declared)"}${d.outcome === "conflict" ? ", changed on both sides" : ""}`;
+  `- ${baselineKey(d.name, d.theme)}: design ${d.design ?? "(taken out)"}, code ${d.source ?? "(not declared)"}${variableOnlyNote(d)}${d.outcome === "conflict" ? ", changed on both sides" : ""}`;
 
 const unknownCanvas = (
   command: string,

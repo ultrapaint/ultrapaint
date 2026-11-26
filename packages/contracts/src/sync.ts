@@ -232,6 +232,11 @@ export const TokenDiff = Schema.Struct({
   theme: Schema.optional(Schema.String),
   /** Where it came from in the source: `Colors/Primary/500`, `colors.primary`. */
   variable: Schema.String,
+  /**
+   * The code declares it as a plain variable, with no utility class (Tailwind's `:root`, outside
+   * `@theme`: `SourceToken.variableOnly`).
+   */
+  variableOnly: Schema.optional(Schema.Boolean),
 });
 export type TokenDiff = typeof TokenDiff.Type;
 
