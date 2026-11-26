@@ -161,6 +161,14 @@ describe("a design run whose turn left a question", () => {
     },
   ];
 
+  it("says nothing waits in a chat whose turns are not reviewed", async () => {
+    // A chat that chose no design skill, its own review not turned on (ADR 0095).
+    act(() => useAgents.setState({ threads: [{ ...thread, skills: [] }] }));
+    await told(run(null));
+    expect(container.textContent).toContain("A pricing page");
+    expect(container.textContent).not.toContain("Waits for your answers");
+  });
+
   it("says its review waits for the answers, until they are given", async () => {
     await told(run(null));
     expect(container.textContent).toContain("Waits for your answers");

@@ -244,6 +244,19 @@ describe("waitsForAnswers", () => {
     expect(waitsForAnswers([prompt("1"), card("2", settled), end])).toBe(false);
   });
 
+  it("does not once the person steers instead of answering, but does for a question after the steer", () => {
+    const steer: ThreadItem = {
+      at,
+      attachments: [],
+      id: "s",
+      kind: "user",
+      steer: true,
+      text: "Make the header bolder",
+    };
+    expect(waitsForAnswers([prompt("1"), card("2"), steer, end])).toBe(false);
+    expect(waitsForAnswers([prompt("1"), steer, card("2"), end])).toBe(true);
+  });
+
   it("does not for a question an earlier turn left, the person having prompted since", () => {
     expect(
       waitsForAnswers([prompt("1"), card("2"), end, prompt("3"), end])
