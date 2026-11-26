@@ -15,6 +15,7 @@ import { DESIGN_TOKENS_FILE } from "../dtcg.ts";
 import type { AskUser } from "../mcp/ask-user.ts";
 import type { EditorTools } from "../mcp/route.ts";
 import type { GetScreenshot } from "../mcp/screenshot.ts";
+import { systemParts } from "./agent-docs.ts";
 import { designSystemSchema, pageSchema } from "./task-text.ts";
 
 /** A tool the editor's MCP server offers, by the name its definition (`Tool.make`) gives it. */
@@ -73,15 +74,22 @@ const SEE_RUNNING_SCREEN = `Where you can see the running application, in a brow
    the screen that serves each page at the widths the page is drawn for, and draw what the code
    leaves to runtime (its data, sizes and states) as the screen shows it`;
 
+/** One part's style at a place of a system component's look, as `ComponentChange` writes it. */
+export const SET_STYLE = `{op:"setStyle", place:{variant:{axis, member}|null, state|null}, slot, style}`;
+
 /**
- * The changes `handoff`'s "change" takes, as `ComponentChange` writes them: what a task that
- * changes a component lists, so the tool's own description stays short (ADR 0122).
+ * The changes `handoff`'s "change" takes of a system component's look, as `ComponentChange`
+ * writes them: what the briefing and a task list, so the tool's own description stays short
+ * (ADR 0122).
  */
+const LOOK_CHANGES = `${SET_STYLE}, {op:"setHidden", part, hidden},
+   {op:"setContent", slot, nodes}, {op:"setItem", item}`;
+
+/** The changes it takes of an app component's properties and slots, and of either's look. */
 const COMPONENT_CHANGES = `an app component's {op:"addProperty", property}, {op:"setProperty", name, default?, members?, targets?},
    {op:"renameProperty", name, to}, {op:"removeProperty", name}, {op:"renameMember", property, member, to},
    {op:"addSlot", slot}, {op:"removeSlot", name}, {op:"defaultSlot", name}; a system component's look
-   {op:"setStyle", place:{variant:{axis, member}|null, state|null}, slot, style}, {op:"setHidden", part, hidden},
-   {op:"setContent", slot, nodes}, {op:"setItem", item}`;
+   ${LOOK_CHANGES}`;
 
 export interface AgentWays {
   /**
@@ -94,6 +102,11 @@ export interface AgentWays {
    * rename follows into every instance (ADR 0122): a step's text.
    */
   readonly changeComponent: string;
+  /**
+   * Changing a system component's look once rather than on each instance (UP-227): the
+   * briefing's paragraph.
+   */
+  readonly changeLook: string;
   /** The briefing's paragraph on changing designs. */
   readonly changingDesigns: string;
   /** How the pages of a canvas are read and changed. */
@@ -148,6 +161,13 @@ const withTools: AgentWays = {
    A property or a member renamed there follows into every instance's props, on the pages and in
    the trees of app components that place it, in the same undo step; written into the file by
    hand, it would leave them behind. An app component's tree is written in its file.`,
+  changeLook: `Change a system component's look once, never on each instance: one change at a time with
+${handoffCall("change")}, target component:<Name> and change one of ${LOOK_CHANGES}.
+${TOOLS.get_component} answers its parts (? those it may leave out), its states and its look: a style is
+the part's whole style at its place (the base, a variant member, a state, or a state in a member),
+so start from what the look has there. A part, a member or a state it lacks is refused with the
+ones it has. A first change starts its file from the default look; each change is one undo step,
+drawn on every instance at once.`,
   changingDesigns: `The "ultrapaint" MCP server is the editor itself: change designs with its tools, validated, shown on
 the canvas at once and undoable by the user, rather than by editing the JSON (a file you write
 must stay valid). Tools name a page by its URL, or its file when it has none; a node reference the
@@ -204,6 +224,11 @@ const withoutTools: AgentWays = {
    renamed: rename it in the props of its instances too, on the pages that place it and in the
    trees of app components that place it, and take it out of them where the code took it out, or
    they break.`,
+  changeLook: `Change a system component's look once, in its file, never on each instance; a field the file
+leaves out keeps the default look's. A look styles only its component's parts (? those it may
+leave out) and states; a file that styles another does not read, and the component is drawn in
+its default look:
+${systemParts()}`,
   changingDesigns:
     "Edit the .page.json files directly and keep them valid; every node needs a unique id.",
   editPages:

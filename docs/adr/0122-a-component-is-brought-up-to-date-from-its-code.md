@@ -3,6 +3,14 @@
 Status: accepted, 2026-11-23. Amends 0115 (components left out of Update from code). Story:
 UP-115.
 
+> Amended 2026-11-26 (UP-227): a look changed through `handoff` is told to every thread with the
+> tools, not only Update from code: the design briefing lists the look's changes, the MCP
+> instructions name `setStyle`, and `get_component` answers a system component's parts, states
+> and look as drawn. The first change to a system component with no file starts its file from
+> the default look in the same undo step. The file check (0041) covers the parts, variant
+> members and states a look styles, for every writer; a change to a look whose file does not
+> read is taken when it adds no problem, so the file is fixed one change at a time.
+
 ## Context
 
 A component's code changes too: a layout component gets a new region, a button a new size, a card

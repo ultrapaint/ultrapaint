@@ -726,6 +726,10 @@ export const LookInspector = ({
   const members = Object.entries(axes).flatMap(([axis, names]) =>
     names.map((member) => ({ axis, member }))
   );
+  // Only the states its look can be given for: the server refuses any other (UP-227).
+  const states = COMPONENT_STATES.filter((s) =>
+    systemComponentOf(name)?.states.includes(s)
+  );
   const pickPlace = (next: LookPlace) =>
     pickOnBoard({
       frame: boardFrameOf({
@@ -794,26 +798,28 @@ export const LookInspector = ({
           ))}
         </NativeSelect>
       </Row>
-      <Row label="State">
-        <NativeSelect
-          aria-label="State"
-          className="min-w-0 flex-1"
-          onChange={(e) =>
-            pickPlace({
-              ...place,
-              state: COMPONENT_STATES.find((s) => s === e.target.value) ?? null,
-            })
-          }
-          size="sm"
-          value={place.state ?? ""}
-        >
-          {[null, ...COMPONENT_STATES].map((s) => (
-            <NativeSelectOption key={s ?? ""} value={s ?? ""}>
-              {stateLabel(s)}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-      </Row>
+      {states.length > 0 ? (
+        <Row label="State">
+          <NativeSelect
+            aria-label="State"
+            className="min-w-0 flex-1"
+            onChange={(e) =>
+              pickPlace({
+                ...place,
+                state: states.find((s) => s === e.target.value) ?? null,
+              })
+            }
+            size="sm"
+            value={place.state ?? ""}
+          >
+            {[null, ...states].map((s) => (
+              <NativeSelectOption key={s ?? ""} value={s ?? ""}>
+                {stateLabel(s)}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </Row>
+      ) : null}
       {editing ? partPicker : null}
     </Section>
   );

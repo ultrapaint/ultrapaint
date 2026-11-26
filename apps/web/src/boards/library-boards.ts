@@ -24,6 +24,7 @@ import { STATE_ATTRIBUTE } from "@ultrapaint/design-document/component-look";
 import { newInstance } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
+import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
 import { label, nameText, nodeCss, RULE } from "./board-nodes.ts";
 import { cellId, pickId } from "./pick.ts";
 import type { Board, Boards } from "./system-boards.ts";
@@ -61,7 +62,10 @@ export const rowAxisOf = (
   );
 };
 
-/** The states a look is drawn in: those it sets, in every member or in one, and the usual three. */
+/**
+ * The states a look is drawn in, of those its component can be given: those it sets, in every
+ * member or in one, and the usual three.
+ */
 const drawnStates = (component: SystemComponentFile): ComponentState[] => {
   const set = new Set<string>(Object.keys(component.states));
   for (const members of Object.values(component.variantStates ?? {})) {
@@ -71,8 +75,12 @@ const drawnStates = (component: SystemComponentFile): ComponentState[] => {
       }
     }
   }
+  // Only the states its look can be given for: the server refuses any other (UP-227).
+  const own = systemComponentOf(component.name)?.states ?? [];
   return COMPONENT_STATES.filter(
-    (s) => set.has(s) || ["hover", "focus", "disabled"].includes(s)
+    (s) =>
+      own.includes(s) &&
+      (set.has(s) || ["hover", "focus", "disabled"].includes(s))
   );
 };
 

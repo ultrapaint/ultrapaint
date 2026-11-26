@@ -3,6 +3,8 @@ import type {
   SystemComponentFile,
 } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import { SYSTEM_COMPONENTS } from "@ultrapaint/system-components/catalogue";
+import { defaultLookOf } from "@ultrapaint/system-components/defaults";
 import { describe, expect, it } from "vitest";
 import {
   changedComponent,
@@ -103,6 +105,52 @@ describe("a component's file", () => {
         []
       )
     ).toBe("the choice tone has plain twice");
+  });
+
+  it("does not read a look that styles a part, a variant member or a state its component lacks (UP-227)", () => {
+    const look = (
+      fields: Partial<SystemComponentFile>
+    ): SystemComponentFile => ({
+      base: { root: { radius: 4 } },
+      name: "Button",
+      origin: "system",
+      states: {},
+      variants: {},
+      version: 1,
+      ...fields,
+    });
+    expect(problemOf(look({}), [])).toBeUndefined();
+    // Written before the check, a known part beside an unknown one: the whole file is refused.
+    expect(
+      problemOf(look({ base: { label: { color: "red" }, root: {} } }), [])
+    ).toBe(
+      "base: Button has no part label; its parts are root, button-spinner"
+    );
+    expect(
+      problemOf(look({ variants: { size: { huge: { root: {} } } } }), [])
+    ).toBe(
+      "variants.size.huge: Button's size has no member huge; its members are md, sm, lg, icon"
+    );
+    expect(problemOf(look({ states: { pressed: { root: {} } } }), [])).toBe(
+      "states.pressed: Button has no state pressed; its states are hover, focus, active, disabled, open"
+    );
+    expect(
+      problemOf(
+        look({
+          variantStates: { variant: { outline: { hover: { icon: {} } } } },
+        }),
+        []
+      )
+    ).toBe(
+      "variantStates.variant.outline.hover: Button has no part icon; its parts are root, button-spinner"
+    );
+  });
+
+  it("reads every system component's default look", () => {
+    for (const { name } of SYSTEM_COMPONENTS) {
+      const start = defaultLookOf(name);
+      expect(start && problemOf(start, []), name).toBeUndefined();
+    }
   });
 });
 
@@ -421,6 +469,69 @@ describe("a change to any component's file", () => {
         style: {},
       })
     ).toEqual({ problem: "Plan is an app component: it has no look" });
+  });
+
+  it("refuses a variant member or a state the component lacks, listing the ones it has (UP-227)", () => {
+    const style = { fill: "red" };
+    expect(
+      changedComponent(BUTTON, {
+        op: "setStyle",
+        place: {
+          state: null,
+          variant: { axis: "variant", member: "tertiary" },
+        },
+        slot: "root",
+        style,
+      })
+    ).toEqual({
+      problem:
+        "Button's variant has no member tertiary; its members are primary, secondary, outline, ghost, destructive, link",
+    });
+    expect(
+      changedComponent(BUTTON, {
+        op: "setStyle",
+        place: { state: null, variant: { axis: "tone", member: "loud" } },
+        slot: "root",
+        style,
+      })
+    ).toEqual({
+      problem: "Button has no variant tone; its variants are size, variant",
+    });
+    expect(
+      changedComponent(BUTTON, {
+        op: "setStyle",
+        place: { state: "checked", variant: null },
+        slot: "root",
+        style,
+      })
+    ).toEqual({
+      problem:
+        "Button has no state checked; its states are hover, focus, active, disabled, open",
+    });
+    const badge: SystemComponentFile = { ...BUTTON, base: {}, name: "Badge" };
+    expect(
+      changedComponent(badge, {
+        op: "setStyle",
+        place: { state: "hover", variant: null },
+        slot: "root",
+        style,
+      })
+    ).toEqual({ problem: "Badge has no state hover; it has none" });
+  });
+
+  it("takes out with an empty style what a file styles that the component lacks", () => {
+    const stray: SystemComponentFile = {
+      ...BUTTON,
+      base: { label: { color: "red" }, root: { radius: 4 } },
+    };
+    expect(
+      changedComponent(stray, {
+        op: "setStyle",
+        place: { state: null, variant: null },
+        slot: "label",
+        style: {},
+      })
+    ).toMatchObject({ base: { root: { radius: 4 } } });
   });
 
   it("takes a note out of either origin, and says when there is none", () => {

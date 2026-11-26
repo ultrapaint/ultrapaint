@@ -1,5 +1,7 @@
 import path from "node:path";
 import { assert, describe, it } from "@effect/vitest";
+import { emptySystemComponent } from "@ultrapaint/contracts/testing/components";
+import { defaultLookOf } from "@ultrapaint/system-components/defaults";
 import {
   Effect,
   Fiber,
@@ -1826,6 +1828,70 @@ describe("the tools for the design system", () => {
         assert.strictEqual(system.document?.path, "DESIGN.md");
         assert.include(system.document?.text ?? "", "colors:\n  primary:");
       })
+  );
+});
+
+describe("a system component's look, read through the tools (UP-227)", () => {
+  inAProject(
+    "lists the parts a look styles, the optional ones marked, its states and its look",
+    () =>
+      Effect.gen(function* () {
+        const card = yield* tool("get_component", { name: "Card" });
+        assert.deepStrictEqual(card.parts, [
+          "root",
+          "card-header",
+          "card-title?",
+          "card-description?",
+          "card-content",
+          "card-footer",
+        ]);
+        const input = yield* tool("get_component", { name: "Input" });
+        assert.deepStrictEqual(input.states, [
+          "hover",
+          "focus",
+          "disabled",
+          "invalid",
+        ]);
+        // With no file, the default look: what a setStyle's style replaces a part's at a place of.
+        assert.deepStrictEqual(
+          (input.look as { base: object }).base,
+          defaultLookOf("Input")?.base
+        );
+      })
+  );
+
+  inAProject(
+    "says how a Select's or a Menu's item shows the product's icon, and no other's",
+    () =>
+      Effect.gen(function* () {
+        for (const name of ["Select", "Menu"]) {
+          const { items } = yield* tool("get_component", { name });
+          assert.include(items, "{ label, image }", name);
+          assert.include(items, "tint", name);
+        }
+        const button = yield* tool("get_component", { name: "Button" });
+        assert.isUndefined(button.items);
+      })
+  );
+
+  toolTest({
+    files: {
+      // Written by hand with a guessed part: it does not read, and the canvas draws the default.
+      "designs/components/Badge.component.json": `${JSON.stringify({
+        ...emptySystemComponent("Badge"),
+        base: { "badge-label": { color: "red" } },
+      })}\n`,
+    },
+  })("names a component's file that does not read, with its problem", () =>
+    Effect.gen(function* () {
+      const listed = yield* tool("list_components", { match: "badge" });
+      assert.deepStrictEqual(listed.problems, [
+        "components/Badge.component.json: base: Badge has no part badge-label; its parts are root",
+      ]);
+      // A list narrowed to others leaves it out.
+      const buttons = yield* tool("list_components", { match: "button" });
+      assert.isUndefined(buttons.problems);
+    })
   );
 });
 

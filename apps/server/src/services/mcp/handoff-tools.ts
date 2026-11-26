@@ -7,9 +7,14 @@
  */
 
 import { ComponentChange } from "@ultrapaint/contracts/components";
-import type { ImplementationItem } from "@ultrapaint/contracts/implementation";
+import {
+  componentNameOf,
+  type ImplementationItem,
+  isComponentTarget,
+} from "@ultrapaint/contracts/implementation";
 import { baselineKey } from "@ultrapaint/contracts/sync";
 import { plural } from "@ultrapaint/shared/text";
+import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { OpenProject } from "../../project.ts";
@@ -34,6 +39,12 @@ import {
 } from "./tool-helpers.ts";
 
 const decodeChange = Schema.decodeUnknownEffect(ComponentChange);
+
+/** The component a target names, `component:Button` or `Button`. */
+const componentNamed = (target: string) => {
+  const where = target.trim();
+  return isComponentTarget(where) ? componentNameOf(where) : where;
+};
 
 const Handoff = Tool.make("handoff", {
   description:
@@ -152,19 +163,38 @@ export const HandoffToolsLive = HandoffTools.toLayer(
     });
 
     /**
-     * One change to a component's file (ADR 0122), made through `ComponentService.change` as the
-     * editor makes it: a property or a member renamed or taken out follows into every
-     * instance's props, in one undo step. A page changes through its own tool.
+     * The component a change names: a system component whether it has a file or not, its first
+     * change starting it (UP-227), else one with a file.
      */
-    const change = Effect.fnUntraced(function* (
-      target: DesignTarget,
-      given: unknown
+    const changedName = Effect.fnUntraced(function* (
+      target: string | undefined,
+      canvas: string | undefined
     ) {
-      if (target._tag !== "Component") {
+      const system = target && systemComponentOf(componentNamed(target));
+      if (system) {
+        return system.name;
+      }
+      const named = yield* targetOf(target, canvas);
+      if (named._tag !== "Component") {
         return yield* missing(
           `a page changes through ${TOOLS.apply_operations}: change takes a component (target component:<Name>)`
         );
       }
+      return named.component.name;
+    });
+
+    /**
+     * One change to a component's file (ADR 0122), made through `ComponentService.change` as the
+     * editor makes it: a property or a member renamed or taken out follows into every
+     * instance's props, in one undo step; a system component with no file has it started from
+     * its default look in that step (UP-227). A page changes through its own tool.
+     */
+    const change = Effect.fnUntraced(function* (
+      target: string | undefined,
+      canvas: string | undefined,
+      given: unknown
+    ) {
+      const name = yield* changedName(target, canvas);
       if (given === undefined) {
         return yield* missing(
           "say the change in change: one {op, …} of the component"
@@ -178,9 +208,17 @@ export const HandoffToolsLive = HandoffTools.toLayer(
             })
         )
       );
-      const { name } = target.component;
-      yield* reported(components((c) => c.change(name, made)));
-      return { text: `Changed ${name}.` };
+      const { file } = yield* reported(components((c) => c.change(name, made)));
+      // A look whose file did not read takes a change that adds no problem: say what is left.
+      const { components: entries } = yield* reported(
+        components((c) => c.list)
+      );
+      const left = entries.find((e) => e.file === file)?.problem;
+      return {
+        text: left
+          ? `Changed ${name}; its file still does not read: ${left}`
+          : `Changed ${name}.`,
+      };
     });
 
     /**
@@ -248,15 +286,15 @@ export const HandoffToolsLive = HandoffTools.toLayer(
         if (action === "export" || action === "import") {
           return yield* tokensTo(action, tokens ?? []);
         }
+        if (action === "change") {
+          return yield* change(target, canvas, given);
+        }
         const named = yield* targetOf(target, canvas);
         if (action === "read") {
           return yield* read(targetId(named));
         }
         if (action === "mark") {
           return yield* mark(targetId(named), files);
-        }
-        if (action === "change") {
-          return yield* change(named, given);
         }
         return yield* note(named, node, text);
       }),

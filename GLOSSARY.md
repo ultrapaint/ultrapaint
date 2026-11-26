@@ -537,15 +537,17 @@ refactor and the board view left.
   `components/<Name>.component.json` in the designs directory in one envelope (its name, origin,
   description, category and behaviour notes) with a body of its origin's: contracts' `components`.
   The only home of a component's description (ADR 0042). The server's **component-files** codec
-  reads, writes and checks a file (names unique among its properties, slots and members) and
+  reads, writes and checks a file (names unique among its properties, slots and members; a system
+  component's look styling only the parts, variant members and states its catalogue entry has) and
   changes it: a **component change** (`ComponentChange`: a property added, set, renamed or taken
   out, a member renamed, a slot added, taken out or made the default, one thing of a system
   component's look — a part's style at a place, an optional part left out, a slot's content, the
   item template — or a note added or taken out) is made by `ComponentService.change` on the file
   as it is in the step, a rename followed into the variants its tree keeps and every instance's
   props (`instanceOps`, of the documents as they are in the step), in one undo step: from the
-  editor, and from an agent through `handoff`'s "change" (ADR 0122). Every write of a component's
-  file reads it inside the step.
+  editor, and from an agent through `handoff`'s "change" (ADR 0122). A system component with no
+  file is changed from its default look, its file started in the same step. Every write of a
+  component's file reads it inside the step.
 - **Catalogue**: what a design can place, the system components then the app components that
   read (system-components' `catalogueOf`, over the component files; ADR 0042): each entry's props,
   variant axes, slots and their layout, and the example a new instance starts with. The server

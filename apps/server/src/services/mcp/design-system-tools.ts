@@ -4,14 +4,22 @@
  */
 import { Json } from "@ultrapaint/contracts/base";
 import { componentLine, typeText } from "@ultrapaint/contracts/catalogue";
+import {
+  SYSTEM_FROM,
+  type SystemComponentFile,
+  systemComponentsIn,
+} from "@ultrapaint/contracts/components";
 import type { DesignFinding } from "@ultrapaint/contracts/design-system";
 import { newInstance } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
+import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
+import { defaultLookOf } from "@ultrapaint/system-components/defaults";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { CodeSide } from "../code-side.ts";
 import { ComponentService } from "../components.ts";
 import { DesignSystemService } from "../design-system.ts";
+import { lookParts } from "../threads/agent-docs.ts";
 import { TOOLS } from "../threads/agent-ways.ts";
 import { makeLookup } from "./lookup.ts";
 import {
@@ -23,6 +31,22 @@ import {
   reported,
   ToolFailure,
 } from "./tool-helpers.ts";
+
+/**
+ * What a Select's or a Menu's item is, and how it shows a picture: the renderer gives the item
+ * template's image node the item's image and keeps the node's other fields (UP-227).
+ */
+const ITEMS =
+  "An item of items is a label or { label, image }. Its image is drawn in the image node of the look's item template (setItem: { tree, label, image }), keeping that node's tint: an icon in the product's colour.";
+
+/** A look's style places: what an agent reads before it sets a part's whole style at one. */
+const drawnLook = (look: SystemComponentFile | undefined) =>
+  look && {
+    base: look.base,
+    states: look.states,
+    variants: look.variants,
+    ...(look.variantStates && { variantStates: look.variantStates }),
+  };
 
 /** A finding of the DESIGN.md linter as one line an agent reads. */
 const findingLine = (f: DesignFinding) =>
@@ -76,8 +100,15 @@ const ListComponents = Tool.make("list_components", {
     /** Narrows the list; leave empty for all of them. */
     match: opt(Schema.String),
   }),
-  /** `Dialog — size: md|sm|lg; props: title; slots: trigger, dialog-content*` (`componentLine`). */
-  success: Schema.Struct({ components: Schema.Array(Schema.String) }),
+  success: Schema.Struct({
+    /** One line each (`componentLine`): `Dialog — size: md|sm|lg; slots: trigger, dialog-content*`. */
+    components: Schema.Array(Schema.String),
+    /**
+     * The components' files that do not read, each with why (UP-227): such a component is left
+     * out, or drawn in its default look, until its file is fixed.
+     */
+    problems: Schema.optional(Schema.Array(Schema.String)),
+  }),
 }).annotateMerge(doing("read"));
 
 const GetComponent = Tool.make("get_component", {
@@ -89,11 +120,26 @@ const GetComponent = Tool.make("get_component", {
     description: Schema.optional(Schema.String),
     /** An instance node that uses it, ready for apply_operations: its `from` says its origin. */
     example: Json,
+    /** A Select's or a Menu's: what an item is, and how it shows a picture. */
+    items: Schema.optional(Schema.String),
+    /**
+     * A system component's look, its file's or the default when it has none (a field a file
+     * leaves out keeps the default's): its parts' style at the base, per variant member, per
+     * state and per state in a member. A setStyle's style is the part's whole style at its place.
+     */
+    look: Schema.optional(Json),
     name: Schema.String,
+    /**
+     * A system component's parts a look styles (`root`, or a `data-slot`), `?` after those it may
+     * leave out.
+     */
+    parts: Schema.optional(Schema.Array(Schema.String)),
     /** Each prop with its type: `size: "md" | "sm"`. */
     props: Schema.Array(Schema.String),
     /** The parts its children fill, by name (`*` the default), and how each lays them out. */
     slots: Schema.Array(Schema.String),
+    /** The states a system component's look can be given for. */
+    states: Schema.optional(Schema.Array(Schema.String)),
     variants: Schema.Record(Schema.String, Schema.Array(Schema.String)),
   }),
 }).annotateMerge(doing("read"));
@@ -109,9 +155,10 @@ export const DesignSystemTools = Toolkit.make(
 export const DesignSystemToolsLive = DesignSystemTools.toLayer(
   Effect.gen(function* () {
     const { project } = yield* makeLookup;
-    const catalogue = reported(
-      project.use(Effect.flatMap(ComponentService, (c) => c.catalogue))
-    );
+    const components = <A>(
+      f: (service: ComponentService["Service"]) => Effect.Effect<A>
+    ) => reported(project.use(Effect.flatMap(ComponentService, f)));
+    const catalogue = components((c) => c.catalogue);
 
     const designSystem = <A, E extends { readonly message: string }>(
       f: (service: DesignSystemService["Service"]) => Effect.Effect<A, E>
@@ -128,11 +175,26 @@ export const DesignSystemToolsLive = DesignSystemTools.toLayer(
           );
         }
         const example = newInstance(component, makeIdGenerator());
+        const system =
+          component.importFrom === SYSTEM_FROM
+            ? systemComponentOf(component.name)
+            : undefined;
+        const file = system
+          ? systemComponentsIn(yield* components((c) => c.components)).find(
+              (c) => c.name === name
+            )
+          : undefined;
         return {
           ...(component.description !== undefined && {
             description: component.description,
           }),
           example: asJson(example),
+          ...(system?.templatedItems && { items: ITEMS }),
+          ...(system && {
+            look: asJson(drawnLook(file ?? defaultLookOf(name))),
+            parts: lookParts(system),
+            states: system.states,
+          }),
           name: component.name,
           props: component.props.map(
             (prop) => `${prop.name}: ${typeText(prop.type)}`
@@ -152,13 +214,17 @@ export const DesignSystemToolsLive = DesignSystemTools.toLayer(
         match,
       }) {
         const needle = match?.toLowerCase();
+        const matches = (name: string) =>
+          !needle || name.toLowerCase().includes(needle);
+        // What does not read is said beside the list, never left for the editor alone (UP-227).
+        const problems = (yield* components((c) => c.list)).components
+          .filter((e) => e.problem !== undefined && matches(e.file))
+          .map((e) => `${e.file}: ${e.problem}`);
         return {
           components: (yield* catalogue)
-            .filter(
-              (component) =>
-                !needle || component.name.toLowerCase().includes(needle)
-            )
+            .filter((component) => matches(component.name))
             .map((component) => componentLine(component, { props: true })),
+          ...(problems.length > 0 && { problems }),
         };
       }),
 

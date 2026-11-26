@@ -1204,6 +1204,43 @@ const DESIGN_SKILL_LINE_RE = /^- Ultrapaint \(([^)]+)\): \S/m;
 
 describe("the briefing", () => {
   test.effect(
+    "tells a design thread how to change a system component's look, with the tools or in its file (UP-227)",
+    () =>
+      Effect.gen(function* () {
+        const briefing = yield* ProjectBriefing;
+        const tools = (yield* briefing.text("design")) ?? "";
+        assert.include(
+          tools,
+          'handoff with action "change", target component:<Name>'
+        );
+        for (const op of ["setStyle", "setHidden", "setContent", "setItem"]) {
+          assert.include(tools, `{op:"${op}"`);
+        }
+        // The ops of an app component's settings are a task's, not the briefing's.
+        assert.notInclude(tools, "renameProperty");
+        assert.include(tools, "starts its file from the default look");
+        // The parts are get_component's to answer: not listed for an agent that can ask.
+        assert.notInclude(tools, "Card: root, card-header");
+
+        const untooled =
+          (yield* briefing.text("design", { tools: false })) ?? "";
+        assert.notInclude(untooled, "setStyle");
+        assert.include(
+          untooled,
+          'origin "system": the look of a system component'
+        );
+        assert.include(
+          untooled,
+          "Card: root, card-header, card-title?, card-description?, card-content, card-footer"
+        );
+        assert.include(
+          untooled,
+          "Button: root, button-spinner; states hover, focus, active, disabled, open"
+        );
+      }).pipe(Effect.provide(ProjectTest()), Effect.scoped)
+  );
+
+  test.effect(
     "tells the design skills to a thread that draws designs, and to no other",
     () =>
       Effect.gen(function* () {

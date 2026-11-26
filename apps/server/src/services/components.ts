@@ -2,9 +2,9 @@
  * The project's components (ADR 0041): `components/<Name>.component.json` in the designs
  * directory, one file per component. A system component's file is its look as the design says it
  * (ADR 0040); one without a file is drawn in its default look (`defaults.ts`), taking its look
- * over starts the file from that default, and removing the file goes back to it. An app
- * component's file is its tree, its properties and its slots, made from nodes of a page or written
- * by an agent, or started empty from the Library (`create`). Every file is read and validated by
+ * over or changing it starts the file from that default, and removing the file goes back to it.
+ * An app component's file is its tree, its properties and its slots, made from nodes of a page or
+ * written by an agent, or started empty from the Library (`create`). Every file is read and validated by
  * the `component-files` codec, whoever writes it, and every write reads the file as it is inside
  * its undo step: what the editor changes of a file (one thing of a look, properties and slots,
  * notes) is changed on it as it is now (`change`), an app component's instances following a
@@ -37,10 +37,7 @@ import { newElement } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { placeLabel } from "@ultrapaint/design-document/look-places";
 import { childrenOf, findPath, idsOf } from "@ultrapaint/design-document/tree";
-import {
-  catalogueOf,
-  systemComponentOf,
-} from "@ultrapaint/system-components/catalogue";
+import { catalogueOf } from "@ultrapaint/system-components/catalogue";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
 import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { EventBus } from "../events.ts";
@@ -51,6 +48,7 @@ import {
   changedComponent,
   componentText,
   instanceOps,
+  problemAddedBy,
   problemOf,
   readComponentFile,
 } from "./component-files.ts";
@@ -156,8 +154,10 @@ export class ComponentService extends Context.Service<
     /**
      * A change to a component's file made on it as it is now: an app component's properties or
      * slots, one thing of a system component's look, a note added (its id made here) or taken
-     * out. A property or a member renamed or taken out follows into the variants its tree keeps
-     * and every instance's props, in every document as it is in the same undo step.
+     * out. A system component with no file is changed from its default look, its file started
+     * in the same undo step. A property or a member renamed or taken out follows into the
+     * variants its tree keeps and every instance's props, in every document as it is in the same
+     * undo step.
      * `alongside` writes other files in that step, before the component's: the design system,
      * for a token made with the change (ADR 0136).
      */
@@ -224,9 +224,15 @@ export class ComponentService extends Context.Service<
         events.publish("components", l)
       );
 
-      /** A component checked among the others; what is wrong with it is refused. */
-      const checked = Effect.fnUntraced(function* (component: ComponentFile) {
-        const problem = problemOf(component, yield* components);
+      /**
+       * A component checked among the others; what is wrong with it is refused, but for what was
+       * wrong already with `before`, the file it was changed from (`problemAddedBy`).
+       */
+      const checked = Effect.fnUntraced(function* (
+        component: ComponentFile,
+        before?: ComponentFile
+      ) {
+        const problem = problemAddedBy(component, before, yield* components);
         if (problem) {
           return yield* new BadRequest({ message: problem });
         }
@@ -295,7 +301,11 @@ export class ComponentService extends Context.Service<
             if (alongside) {
               yield* alongside(step);
             }
-            const changed = yield* checked(yield* next(yield* fileNow(name)));
+            const now = yield* fileNow(name);
+            const changed = yield* checked(
+              yield* next(now),
+              now && "component" in now ? now.component : undefined
+            );
             yield* step.tx.write(repoOf(file), componentText(changed));
             saved = changed;
             return follow && changed.origin === "app"
@@ -321,14 +331,16 @@ export class ComponentService extends Context.Service<
           name,
           labelOf(name, made),
           (now) => {
-            if (!(now && "component" in now)) {
+            // A system component with no file is changed from its default look, which its file
+            // starts from in the same step, as taking the look over starts it (UP-227).
+            const start = now === null ? defaultLookOf(name) : undefined;
+            const file = now && "component" in now ? now.component : start;
+            if (!file) {
               return new NotFound({
-                message: systemComponentOf(name)
-                  ? `${name} has no file: take its look over first`
-                  : `no component ${name}${now ? `: ${now.problem}` : ""}`,
+                message: `no component ${name}${now && "problem" in now ? `: ${now.problem}` : ""}`,
               });
             }
-            const changed = changedComponent(now.component, made, {
+            const changed = changedComponent(file, made, {
               ...(noteId && { noteId }),
             });
             return "problem" in changed

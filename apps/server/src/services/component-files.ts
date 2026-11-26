@@ -29,7 +29,7 @@ import {
 import type { DesignNode, DocOp } from "@ultrapaint/contracts/document";
 import { appComponentCycle } from "@ultrapaint/design-document/app-components";
 import { serialise } from "@ultrapaint/design-document/factories";
-import { withStyle } from "@ultrapaint/design-document/look-places";
+import { styleAt, withStyle } from "@ultrapaint/design-document/look-places";
 import {
   childrenOf,
   findNode,
@@ -148,38 +148,125 @@ const appProblemOf = (component: AppComponentFile): string | undefined => {
   return undefined;
 };
 
+/** `its <what> are a, b`, or that it has none. */
+const theyAre = (what: string, names: readonly string[]) =>
+  names.length > 0 ? `its ${what} are ${names.join(", ")}` : "it has none";
+
+/** A place of a look as a file writes it, whatever its keys: a state's may be any string there. */
+interface PlaceIn {
+  readonly axis?: string;
+  readonly member?: string;
+  readonly state?: string;
+}
+
 /**
- * What is wrong with a system component's look against its catalogue entry, or nothing: it leaves
- * out only optional parts, gives content only to slots, and a template only to a Select's or a
- * Menu's items.
+ * What a look's catalogue entry lacks for it to style `part` at a place, or nothing (UP-227): a
+ * variant axis or member, a state or a part, said with the ones it has. A file's check and `setStyle`
+ * say it in the same words.
  */
-const systemProblemOf = (
+const lackOf = (
+  meta: SystemComponentMeta,
+  { axis, member, state }: PlaceIn,
+  part: string
+): string | undefined => {
+  const { name } = meta;
+  if (axis !== undefined) {
+    const members = meta.variants[axis];
+    if (!members) {
+      return `${name} has no variant ${axis}; ${theyAre("variants", Object.keys(meta.variants))}`;
+    }
+    if (member !== undefined && !members.includes(member)) {
+      return `${name}'s ${axis} has no member ${member}; ${theyAre("members", members)}`;
+    }
+  }
+  if (state !== undefined && !meta.states.includes(state)) {
+    return `${name} has no state ${state}; ${theyAre("states", meta.states)}`;
+  }
+  const parts = meta.slots.map((s) => s.name);
+  return parts.includes(part)
+    ? undefined
+    : `${name} has no part ${part}; ${theyAre("parts", parts)}`;
+};
+
+/** Every place a look styles parts at, with where the file keeps it and the parts it styles. */
+const placesIn = (
+  look: SystemComponentFile
+): {
+  readonly at: string;
+  readonly parts: string[];
+  readonly place: PlaceIn;
+}[] => [
+  { at: "base", parts: Object.keys(look.base), place: {} },
+  ...Object.entries(look.variants).flatMap(([axis, members]) =>
+    Object.entries(members).map(([member, styles]) => ({
+      at: `variants.${axis}.${member}`,
+      parts: Object.keys(styles),
+      place: { axis, member },
+    }))
+  ),
+  ...Object.entries(look.states).map(([state, styles]) => ({
+    at: `states.${state}`,
+    parts: Object.keys(styles),
+    place: { state },
+  })),
+  ...Object.entries(look.variantStates ?? {}).flatMap(([axis, members]) =>
+    Object.entries(members).flatMap(([member, states]) =>
+      Object.entries(states).map(([state, styles]) => ({
+        at: `variantStates.${axis}.${member}.${state}`,
+        parts: Object.keys(styles),
+        place: { axis, member, state },
+      }))
+    )
+  ),
+];
+
+/**
+ * Everything wrong with a system component's look against its catalogue entry, in the file's
+ * order: it styles only the parts, variant members and states it has, leaves out only optional
+ * parts, gives content only to slots, and a template only to a Select's or a Menu's items.
+ */
+const systemProblemsOf = (
   component: SystemComponentFile,
   meta: SystemComponentMeta
-): string | undefined => {
+): string[] => {
+  const problems: string[] = [];
+  for (const { at, parts: styled, place } of placesIn(component)) {
+    // A place it lacks is said once, not once per part.
+    const lacks = styled.flatMap((p) => lackOf(meta, place, p) ?? []);
+    problems.push(...[...new Set(lacks)].map((s) => `${at}: ${s}`));
+  }
   const parts = new Map(meta.slots.map((s) => [s.name, s]));
   const fixed = (component.hidden ?? []).find((p) => !parts.get(p)?.optional);
   if (fixed !== undefined) {
     const optional = meta.slots.filter((s) => s.optional).map((s) => s.name);
-    return `${component.name} cannot leave out ${fixed}: ${optional.length > 0 ? `its optional parts are ${optional.join(", ")}` : "it has no optional part"}`;
+    problems.push(
+      `${component.name} cannot leave out ${fixed}: ${optional.length > 0 ? `its optional parts are ${optional.join(", ")}` : "it has no optional part"}`
+    );
   }
   const notSlot = Object.keys(component.content ?? {}).find(
     (slot) => parts.get(slot)?.holds === undefined
   );
   if (notSlot !== undefined) {
-    return `${component.name} has no slot ${notSlot} to give content: its slots are ${meta.slots.flatMap((s) => (s.holds ? [s.name] : [])).join(", ") || "none"}`;
+    problems.push(
+      `${component.name} has no slot ${notSlot} to give content: its slots are ${meta.slots.flatMap((s) => (s.holds ? [s.name] : [])).join(", ") || "none"}`
+    );
   }
   const { item } = component;
   if (item && !meta.templatedItems) {
-    return `${component.name} has no items to draw with a template: a Select's and a Menu's have`;
+    problems.push(
+      `${component.name} has no items to draw with a template: a Select's and a Menu's have`
+    );
   }
   const ids = item ? idsOf(item.tree) : new Set<string>();
   const unbound = [item?.label, item?.image].find(
     (id) => id !== undefined && !ids.has(id)
   );
-  return unbound === undefined
-    ? undefined
-    : `the item template shows the item in node ${unbound}, which its tree does not have`;
+  if (unbound !== undefined) {
+    problems.push(
+      `the item template shows the item in node ${unbound}, which its tree does not have`
+    );
+  }
+  return problems;
 };
 
 /** What is wrong with a component's file among the others, or nothing. */
@@ -193,7 +280,7 @@ export const problemOf = (
   const system = systemComponentOf(component.name);
   if (component.origin === "system") {
     return system
-      ? systemProblemOf(component, system)
+      ? systemProblemsOf(component, system)[0]
       : `${component.name} is no system component: an app component's file says origin "app"`;
   }
   if (system) {
@@ -214,6 +301,24 @@ export const problemOf = (
   return cycle?.includes(component.name)
     ? `${cycle.join(" places ")}: a component cannot place itself`
     : undefined;
+};
+
+/**
+ * What is wrong with a component's file once a change is made to `before`, the file as it was,
+ * that `before` was not wrong with, or nothing. A look whose file did not read can be changed
+ * one thing at a time, its problems taken out one by one; no change adds one.
+ */
+export const problemAddedBy = (
+  after: ComponentFile,
+  before: ComponentFile | undefined,
+  others: readonly ComponentFile[]
+): string | undefined => {
+  const meta = systemComponentOf(after.name);
+  if (!(meta && after.origin === "system" && before?.origin === "system")) {
+    return problemOf(after, others);
+  }
+  const had = new Set(systemProblemsOf(before, meta));
+  return systemProblemsOf(after, meta).find((p) => !had.has(p));
 };
 
 // ---- The tree ----
@@ -521,6 +626,25 @@ const looked = (
 ): Changed<SystemComponentFile> => {
   if (change.op === "setItem") {
     return withField(file, "item", change.item ?? undefined);
+  }
+  const meta = systemComponentOf(file.name);
+  if (change.op === "setStyle" && meta) {
+    const { place, slot, style } = change;
+    const lack = lackOf(
+      meta,
+      {
+        ...(place.variant && place.variant),
+        ...(place.state !== null && { state: place.state }),
+      },
+      slot
+    );
+    // An empty style takes out what a file styles there that the component lacks: a fix.
+    const takenOut =
+      Object.keys(style).length === 0 &&
+      Object.keys(styleAt(file, place, slot)).length > 0;
+    return lack === undefined || takenOut
+      ? withStyle(file, place, slot, style)
+      : { problem: lack };
   }
   const part = change.op === "setHidden" ? change.part : change.slot;
   const parts = partsOf(file);
