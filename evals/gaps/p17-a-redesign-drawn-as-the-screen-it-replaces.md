@@ -25,6 +25,15 @@ restyled each panel as it stood.
 - "One action has one name, one variant and one place across screens" holds rightly for the
   screens beside it, and pulls the same way on the screen itself.
 
+**More evidence** (usage logs of 2026-11-10 → 25, a client app's dashboard and sign-in). The
+person asked for a bigger change five times: the agent first drew the dashboard as it was, then
+restyled it, then gave two options that kept the navigation, then a "from scratch" canvas that again
+carried over the navigation items, their order and the cards. Asked why, it said "I kept the old
+structure because I carried it over instead of questioning it". Variations of the sidebar drew the
+same pull: "I want more unique versions outside of what you know." At handoff, the redesigns did not
+say which of today's features they dropped (filter chips, a group of finished items, the page title)
+or which drawn parts show when, and the developer had to ask.
+
 **Evidence.** An example in view is copied, and telling the copier not to does not stop it;
 directions planned before drawing make results differ
 (`~/Code/ultrapaint-data/research/2026-11-24-fresh-redesign-anchoring.md`).
