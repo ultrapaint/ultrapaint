@@ -12,7 +12,7 @@ import { McpProtocol, McpSchema, McpServer, Toolkit } from "effect/ai";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 import { CORE_FILE } from "../../skills/index.ts";
 import { canvasesIn, NODES, PAGES } from "../threads/agent-docs.ts";
-import { handoffCall, TOOLS } from "../threads/agent-ways.ts";
+import { handoffCall, SET_STYLE, TOOLS } from "../threads/agent-ways.ts";
 import {
   CallingThread,
   MCP_PATH,
@@ -146,7 +146,9 @@ first, then a part at a time with node), then ${TOOLS.apply_operations}; ${TOOLS
 format, ${TOOLS.get_component} an instance to start from. Call ${TOOLS.focus} before changing nodes, so the user
 sees where you work, and ${TOOLS.get_screenshot} to look at the result. A component's file in components/ is
 written as a file, but its properties, members and slots change with ${handoffCall("change")}, which
-renames them in every instance too. Token values are the design system's, never a stylesheet's. Before designing,
+renames them in every instance too, and so does a system component's look, one part's style at a place
+at a time (${SET_STYLE}; ${TOOLS.get_component} has its parts and its look).
+Token values are the design system's, never a stylesheet's. Before designing,
 read the design skill, the resource ${skillUri(CORE_FILE)}: it names the references it needs.
 To implement a design, ${handoffCall("list")} says what is ready or changed since it was implemented,
 and "read" with its target gives the task, which says the rest. What the code must do that a design

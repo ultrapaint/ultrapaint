@@ -395,6 +395,19 @@ describe("the Library's boards", () => {
     });
   });
 
+  it("draws a column for only the states a component's look can be given for (UP-227)", () => {
+    const states = (name: string) =>
+      ids(
+        libraryBoards(name, catalogue, defaultLookOf).boards[0]
+          ?.root as DesignNode
+      ).filter((id) => id.startsWith("state:"));
+    // A Badge has no states: one column, its default.
+    expect(states("Badge")).toEqual(["state:base"]);
+    // A Menu draws no hover, focus or disabled column it could not take.
+    expect(states("Menu")).not.toContain("state:hover");
+    expect(states("Button")).toContain("state:hover");
+  });
+
   it("draws an app component a board a member of each choice, edited in place on the member", () => {
     const card: AppComponentFile = {
       name: "Plan",

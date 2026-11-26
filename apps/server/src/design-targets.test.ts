@@ -3,11 +3,13 @@ import { APP_FROM } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { emptySystemComponent } from "@ultrapaint/contracts/testing/components";
 import { walk } from "@ultrapaint/design-document/tree";
+import { defaultLookOf } from "@ultrapaint/system-components/defaults";
 import { type Context, Effect } from "effect";
 import { OpenProject, type ProjectServices } from "./project.ts";
 import { CommentsService } from "./services/comments.ts";
 import { ComponentService } from "./services/components.ts";
 import { DocumentService } from "./services/documents.ts";
+import { EditService } from "./services/edit.ts";
 import { ImplementationService } from "./services/implementation.ts";
 import { EditorTools } from "./services/mcp/route.ts";
 import { AgentTasks } from "./services/threads/tasks.ts";
@@ -310,6 +312,223 @@ describe("a design target, named once", () => {
           `no node c_1 in designs/${id}/canvas.json; read it without a node to see its ids`
         );
       })
+    );
+  });
+});
+
+describe("a system component's look, changed through handoff (UP-227)", () => {
+  eachTest(ProjectTest())((it) => {
+    /** The Button as the Library lists it: its file, and what reads of it. */
+    const buttonListed = project(ComponentService, (c) =>
+      Effect.map(c.list, ({ components }) =>
+        components.find((e) => e.file === "components/Button.component.json")
+      )
+    );
+    const SET_HEIGHT = {
+      op: "setStyle",
+      place: { state: null, variant: null },
+      slot: "root",
+      style: { height: 48 },
+    };
+
+    it.effect(
+      "starts a component's file from its default look with its first change, in one undo step",
+      () =>
+        Effect.gen(function* () {
+          assert.isUndefined(yield* buttonListed);
+          // An agent of the editor's thread reads the part's style as drawn, and sets all of it.
+          const { look: drawn } = yield* callTool(
+            EditorTools,
+            "get_component",
+            {
+              name: "Button",
+            }
+          );
+          const { root } = (drawn as { base: { root: object } }).base;
+          const { text } = yield* callTool(
+            EditorTools,
+            "handoff",
+            {
+              action: "change",
+              change: { ...SET_HEIGHT, style: { ...root, height: 48 } },
+              target: "component:Button",
+            },
+            "thread-1"
+          );
+          assert.strictEqual(text, "Changed Button.");
+          const look = (yield* buttonListed)?.component;
+          assert.strictEqual(look?.origin, "system");
+          if (look?.origin !== "system") {
+            return;
+          }
+          const start = defaultLookOf("Button");
+          // The default look, the part's style set over it: the rest as the default has it.
+          assert.deepStrictEqual(look.base.root, {
+            ...start?.base.root,
+            height: 48,
+          });
+          assert.deepStrictEqual(look.variants, start?.variants);
+          const journal = yield* project(EditService, (e) => e.state);
+          assert.strictEqual(journal.undoLabel, "Change Button's look at base");
+        })
+    );
+
+    it.effect(
+      "changes the look every instance is drawn from, and takes it back in one undo step",
+      () =>
+        Effect.gen(function* () {
+          yield* handoff({
+            action: "change",
+            change: SET_HEIGHT,
+            target: "component:Button",
+          });
+          yield* handoff({
+            action: "change",
+            change: { ...SET_HEIGHT, style: { height: 40 } },
+            target: "Button",
+          });
+          // The catalogue every page's instances are drawn from has it.
+          const height = project(ComponentService, (c) =>
+            Effect.map(c.components, (files) => {
+              const button = files.find((f) => f.name === "Button");
+              return button?.origin === "system"
+                ? button.base.root?.height
+                : undefined;
+            })
+          );
+          assert.strictEqual(yield* height, 40);
+          yield* project(EditService, (e) => e.undo);
+          assert.strictEqual(yield* height, 48);
+          // The first change goes in one step, its file with it: the default look again.
+          yield* project(EditService, (e) => e.undo);
+          assert.isUndefined(yield* buttonListed);
+        })
+    );
+
+    it.effect(
+      "refuses a part, a member or a state the component lacks, listing those it has",
+      () =>
+        Effect.gen(function* () {
+          assert.strictEqual(
+            yield* refusal({
+              action: "change",
+              change: { ...SET_HEIGHT, slot: "button-label" },
+              target: "component:Button",
+            }),
+            "Button has no part button-label; its parts are root, button-spinner"
+          );
+          assert.strictEqual(
+            yield* refusal({
+              action: "change",
+              change: {
+                ...SET_HEIGHT,
+                place: { state: null, variant: { axis: "size", member: "xl" } },
+              },
+              target: "component:Button",
+            }),
+            "Button's size has no member xl; its members are md, sm, lg, icon"
+          );
+          assert.strictEqual(
+            yield* refusal({
+              action: "change",
+              change: {
+                ...SET_HEIGHT,
+                place: { state: "hover", variant: null },
+              },
+              target: "component:Badge",
+            }),
+            "Badge has no state hover; it has none"
+          );
+          // Nothing was started for a change refused.
+          assert.isUndefined(yield* buttonListed);
+        })
+    );
+
+    it.effect(
+      "takes a change from an agent outside the editor through the same tool",
+      () =>
+        Effect.gen(function* () {
+          // No calling thread: an agent connected from outside the editor (ADR 0083).
+          const { text: badgeSaid } = yield* callTool(EditorTools, "handoff", {
+            action: "change",
+            change: {
+              op: "setStyle",
+              place: {
+                state: null,
+                variant: { axis: "variant", member: "secondary" },
+              },
+              slot: "root",
+              style: { border: { color: "$color-border", width: 1 } },
+            },
+            target: "component:Badge",
+          });
+          assert.strictEqual(badgeSaid, "Changed Badge.");
+          const badge = yield* project(ComponentService, (c) =>
+            Effect.map(c.components, (files) =>
+              files.find((f) => f.name === "Badge")
+            )
+          );
+          assert.deepStrictEqual(
+            badge?.origin === "system"
+              ? badge.variants.variant?.secondary?.root?.border
+              : undefined,
+            { color: "$color-border", width: 1 }
+          );
+        })
+    );
+  });
+
+  eachTest(
+    ProjectTest({
+      files: {
+        // Written by hand before the check: a known part beside one Button does not have.
+        "designs/components/Button.component.json": `${JSON.stringify({
+          ...emptySystemComponent("Button"),
+          base: { label: { color: "red" }, root: { height: 48 } },
+        })}\n`,
+      },
+    })
+  )((it) => {
+    it.effect(
+      "fixes a look whose file does not read one change at a time, saying what is left",
+      () =>
+        Effect.gen(function* () {
+          assert.strictEqual(
+            yield* handoff({
+              action: "change",
+              change: {
+                op: "setStyle",
+                place: { state: null, variant: null },
+                slot: "root",
+                style: { height: 40 },
+              },
+              target: "component:Button",
+            }),
+            "Changed Button; its file still does not read: base: Button has no part label; its parts are root, button-spinner"
+          );
+          assert.strictEqual(
+            yield* handoff({
+              action: "change",
+              change: {
+                op: "setStyle",
+                place: { state: null, variant: null },
+                slot: "label",
+                style: {},
+              },
+              target: "component:Button",
+            }),
+            "Changed Button."
+          );
+          const button = yield* project(ComponentService, (c) =>
+            Effect.map(c.components, (files) =>
+              files.find((f) => f.name === "Button")
+            )
+          );
+          assert.deepStrictEqual(
+            button?.origin === "system" ? button.base : undefined,
+            { root: { height: 40 } }
+          );
+        })
     );
   });
 });

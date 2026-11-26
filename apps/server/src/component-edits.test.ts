@@ -25,20 +25,6 @@ eachTest(ProjectRpc())(
                 l.components.find((e) => e.component?.name === "Button")
                   ?.component as ComponentFile
             );
-          // Still in its default look: there is no file to set a style in.
-          const refused = yield* Effect.flip(
-            client["components.change"]({
-              change: {
-                op: "setStyle",
-                place: OUTLINE_HOVER,
-                slot: "root",
-                style: { fill: "#ff0000" },
-              },
-              name: "Button",
-            })
-          );
-          assert.include(refused.message, "take its look over first");
-
           yield* client["components.fromDefault"]({ name: "Button" });
           // A note added since the editor read the file stays: the style is set on it as it is.
           yield* client["components.change"]({

@@ -9,6 +9,10 @@ import {
   COMPONENTS_DIR,
   type ComponentOrigin,
 } from "@ultrapaint/contracts/components";
+import {
+  SYSTEM_COMPONENTS,
+  type SystemComponentMeta,
+} from "@ultrapaint/system-components/catalogue";
 
 /** The canvases, and what each holds. */
 export const canvasesIn = (
@@ -65,3 +69,18 @@ export const componentFiles = (
 { "version": 1, "name", "origin": "system" | "app", "description"?, "category"?, "notes"? }, with
 - ${SYSTEM_LOOK}
 - ${APP_COMPONENT}`;
+
+/**
+ * The parts each system component's look styles, `?` those it may leave out, and the states it
+ * can be given for (UP-227): what an agent writing a look's file by hand keeps to, since a file
+ * that styles another does not read.
+ */
+export const systemParts = (): string =>
+  SYSTEM_COMPONENTS.map(
+    (c) =>
+      `- ${c.name}: ${lookParts(c).join(", ")}${c.states.length > 0 ? `; states ${c.states.join(", ")}` : ""}`
+  ).join("\n");
+
+/** A system component's parts a look styles, by name, `?` after those it may leave out. */
+export const lookParts = (meta: SystemComponentMeta): string[] =>
+  meta.slots.map((s) => `${s.name}${s.optional ? "?" : ""}`);

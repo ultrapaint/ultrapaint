@@ -260,16 +260,18 @@ told before.
 ${method ? `\n${method}` : ""}${craftOf(skills)}${termsOf(skills, ways, designsDir)}</ultrapaint-skills>`;
 
 /**
- * The components (ADR 0041): their files, which system components' look the design owns, and the
- * format an agent writes a component's file in.
+ * The components (ADR 0041): their files, which system components' look the design owns, the
+ * format an agent writes a component's file in, and how it changes a look (UP-227).
  */
 const componentsOf = (
   designsDir: string,
-  components: readonly ComponentFile[]
+  components: readonly ComponentFile[],
+  ways: AgentWays
 ) => {
   const looks = components.filter((c) => c.origin === "system");
   return `${componentFiles(designsDir)}
-${looks.length > 0 ? `The design owns the look of ${looks.map((c) => c.name).join(", ")} (change a look in its file, not on each instance).\n` : ""}
+${looks.length > 0 ? `The design owns the look of ${looks.map((c) => c.name).join(", ")}.\n` : ""}${ways.changeLook}
+
 `;
 };
 
@@ -460,7 +462,7 @@ ${components.map((c) => `- ${componentLine(c)}`).join("\n")}`
 
 ${ways.changingDesigns}
 
-${componentsOf(settings.designsDir, files)}Your shell already starts in ${paths.root}, the repository: use paths relative to it, and
+${componentsOf(settings.designsDir, files, ways)}Your shell already starts in ${paths.root}, the repository: use paths relative to it, and
 stay inside it. Changes land on the canvas as you make them, so make them one
 step at a time rather than rewriting a page wholesale. ultrapaint.config.json is the user's:
 never write it; when styles are missing, send the user to Sync in the Design system panel.${dotGitNote(confined, gitRepository)}

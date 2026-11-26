@@ -589,3 +589,42 @@ describe("a new token from a text style's setting", () => {
     ]);
   });
 });
+
+describe("the place picked on a system component's board", () => {
+  /** The states the inspector's State picker offers, by their values. */
+  const statesOffered = () =>
+    [
+      ...(document.querySelector<HTMLSelectElement>(
+        'select[aria-label="State"]'
+      )?.options ?? []),
+    ].map((o) => o.value);
+
+  it("offers only the states the component's look can be given for (UP-227)", () => {
+    const button = defaultLookOf("Button");
+    if (!button) {
+      throw new Error("no Button");
+    }
+    useComponents.setState({ components: [button] });
+    useBoard.setState({ open: { item: "Button", view: "library" } });
+    act(() => mounted.render(<LookInspector meta={undefined} name="Button" />));
+    expect(statesOffered()).toEqual([
+      "",
+      "hover",
+      "focus",
+      "active",
+      "disabled",
+      "open",
+    ]);
+  });
+
+  it("offers no state to a component that has none", () => {
+    const badge = defaultLookOf("Badge");
+    if (!badge) {
+      throw new Error("no Badge");
+    }
+    useComponents.setState({ components: [badge] });
+    useBoard.setState({ open: { item: "Badge", view: "library" } });
+    act(() => mounted.render(<LookInspector meta={undefined} name="Badge" />));
+    expect(statesOffered()).toEqual([]);
+  });
+});
