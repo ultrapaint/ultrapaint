@@ -28,10 +28,10 @@ import {
 import { parseCommand } from "@ultrapaint/contracts/tasks";
 import {
   isModelOption,
+  isReviewed,
   namedChoices,
   type RoundFinding,
   type RoundReviewer,
-  type Thread,
   type ThreadItem,
   waitsForAnswers,
 } from "@ultrapaint/contracts/threads";
@@ -154,16 +154,6 @@ interface Logged {
   readonly round: number;
   readonly threadId: string;
 }
-
-/**
- * Whether a thread's turns are reviewed at all: a design thread whose review, with `settings`
- * its own over the project's, is on. A chat that chose no design skill (ADR 0095) is reviewed
- * only when its own review settings turn the review on.
- */
-const reviewed = (thread: Thread, settings: ReviewSettings) =>
-  (thread.purpose ?? "design") === "design" &&
-  settings.on !== false &&
-  (thread.skills?.length !== 0 || thread.review?.on === true);
 
 /**
  * Whether the thread's last prompt asked for variations: a turn the review never looks at
@@ -421,7 +411,7 @@ export class ReviewLoop extends Context.Service<
           ...reviewSettingsOf(paths.settings.review, thread.review),
           ...(keepFindings === true && { findingsLog: true }),
         };
-        if (!reviewed(thread, settings)) {
+        if (!isReviewed(thread, settings)) {
           // Not reviewed: what it changed is not owed a review later.
           pending.delete(threadId);
           return null;
@@ -477,7 +467,7 @@ export class ReviewLoop extends Context.Service<
         return (
           thread !== undefined &&
           paths !== null &&
-          reviewed(
+          isReviewed(
             thread,
             reviewSettingsOf(paths.settings.review, thread.review)
           )

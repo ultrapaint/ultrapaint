@@ -1041,6 +1041,17 @@ export const answeredInTurn = (
   item: Extract<ThreadItem, { kind: "question" }>
 ) => item.elicitation !== undefined && item.restartedAt === undefined;
 
+/**
+ * Whether a thread's turns are reviewed at all: a design thread whose review, with `settings`
+ * its own over the project's, is on. A chat that chose no design skill (ADR 0095) is reviewed
+ * only when its own review settings turn the review on. What the review loop holds a round for,
+ * and what the run card says waits for the answers (ADR 0151).
+ */
+export const isReviewed = (thread: Thread, settings: ReviewSettings) =>
+  (thread.purpose ?? "design") === "design" &&
+  settings.on !== false &&
+  (thread.skills?.length !== 0 || thread.review?.on === true);
+
 /** Whether an item is a question that waits on the user: neither answered, declined nor withdrawn. */
 export const isOpenQuestion = (item: ThreadItem): boolean =>
   item.kind === "question" &&
@@ -1049,14 +1060,13 @@ export const isOpenQuestion = (item: ThreadItem): boolean =>
 
 /**
  * Whether the thread's last turn ended on a question of its own that still waits for the answers
- * (ADR 0151): one asked since the turn's prompt, the person's or a review round's findings. What
- * holds the design's review round, and what the run card's Review step says it waits for. A
- * question an earlier turn left holds nothing once the person has prompted since.
+ * (ADR 0151): one asked since the last prompt, the person's, a review round's findings or a steer
+ * into the turn. What holds the design's review round, and what the run card's Review step says
+ * it waits for. A question holds nothing once the person has prompted since, a steer included:
+ * they moved on instead of answering.
  */
 export const waitsForAnswers = (items: readonly ThreadItem[]): boolean => {
-  const turn = items.slice(
-    items.findLastIndex((i) => i.kind === "user" && i.steer !== true) + 1
-  );
+  const turn = items.slice(items.findLastIndex((i) => i.kind === "user") + 1);
   return turn.some((i) => i.kind === "turn_end") && turn.some(isOpenQuestion);
 };
 

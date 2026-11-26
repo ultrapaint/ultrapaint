@@ -1,6 +1,7 @@
 import { levelOf, reviewSettingsOf } from "@ultrapaint/contracts/review";
 import {
   isBusy,
+  isReviewed,
   type Thread,
   type ThreadItem,
 } from "@ultrapaint/contracts/threads";
@@ -201,10 +202,10 @@ const useRunContext = (
       rounds: roundsByPlan(items),
       stopped: stoppedRuns(items),
       threadId: thread.id,
-      // With the review off no round is held, so nothing waits for the answers.
-      waitingPlan: level === "off" ? null : waitingRun(items),
+      // A thread whose turns are not reviewed holds no round: nothing waits for the answers.
+      waitingPlan: isReviewed(thread, settings) ? waitingRun(items) : null,
     };
-  }, [items, project, thread.id, thread.review, thread.status]);
+  }, [items, project, thread]);
 };
 
 /**

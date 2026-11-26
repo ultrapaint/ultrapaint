@@ -25,14 +25,14 @@ person asked for "the missing questions" 15 times in 6 threads.
 - **A round waits while the turn's question waits.** A question **waits for the answers** when
   it is neither answered, declined nor withdrawn (contracts' `isOpenQuestion`, the predicate the
   threads list's `summarise` reads too), and it holds the round when it was asked since the
-  turn's prompt, the person's or a round's findings, and the turn has ended
+  last prompt, the person's, a round's findings or a steer into the turn, and the turn has ended
   (`waitsForAnswers`). The review loop's `due` then starts no round, as after a turn of
   variations (ADR 0098), and the pages the turn changed stay waiting. The items are the record:
   they survive a restart, and one predicate serves the list and the loop.
 - **The next turn's end is the next chance.** Answered, the card's answers are the next prompt;
   that turn's end starts the round, which looks at both turns' pages. A card from an earlier turn
-  holds nothing once the person has sent another prompt, typed or a queued one sent now (ADR
-  0137): that turn's end starts the round with both turns' pages, so a card left unanswered never
+  holds nothing once the person has sent another prompt, typed, a queued one sent now, or a
+  steer into the turn under way (ADR 0137): that turn's end starts the round with both turns' pages, so a card left unanswered never
   holds the review for the rest of the thread.
 - **Nothing starts a held round but a turn's end.** Not the time passing, and not a card's state:
   a round started when the designer answers or dismisses a card would prompt an agent on a state
@@ -41,7 +41,9 @@ person asked for "the missing questions" 15 times in 6 threads.
   turn that waits on its questions in the turn is reviewed as before.
 - **The run card says so.** While a question of the run's last turn waits, the run card's Review
   step reads "Waits for your answers" (`reviewStep`, `waitingRun` in web's `design-run.ts`), and
-  the turn card shows the run's steps then, as it does for a run the person stopped. One line in
+  the turn card shows the run's steps then, as it does for a run the person stopped; a thread whose turns are
+  not reviewed (contracts' `isReviewed`, the review loop's own test) shows nothing waiting. One
+  line in
   the existing step, no new control (ADR 0102: the run card's job is where the run stands).
 
 ## Consequences
