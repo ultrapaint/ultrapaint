@@ -35,7 +35,7 @@ import { IconButton } from "../components/icon-button.tsx";
 import { NoFolder } from "../components/no-folder.tsx";
 import { PanelFailed } from "../components/panel.tsx";
 import { PanelLoading } from "../components/splash.tsx";
-import { roundsByPlan, stoppedRuns } from "../lib/design-run.ts";
+import { roundsByPlan, stoppedRuns, waitingRun } from "../lib/design-run.ts";
 import { deleteThread } from "../lib/thread-actions.ts";
 import { splitTurns } from "../lib/thread-turns.ts";
 import { threadView } from "../lib/thread-view.ts";
@@ -201,6 +201,8 @@ const useRunContext = (
       rounds: roundsByPlan(items),
       stopped: stoppedRuns(items),
       threadId: thread.id,
+      // With the review off no round is held, so nothing waits for the answers.
+      waitingPlan: level === "off" ? null : waitingRun(items),
     };
   }, [items, project, thread.id, thread.review, thread.status]);
 };

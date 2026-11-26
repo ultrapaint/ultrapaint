@@ -469,9 +469,12 @@ refactor and the board view left.
   Settings › Review and per design by the **Review chip** in the composer's tray.
 - **Design run**: a design thread's work from the person's prompt to the design approved: its
   plan as **Outline** and **Build** steps and the **review rounds** (`review` items) the editor's
-  review loop adds, shown together as the **run card** (web's `design-run.ts`).
+  review loop adds, shown together as the **run card** (web's `design-run.ts`). A round waits
+  while a question of the turn just ended **waits for the answers** (contracts'
+  `waitsForAnswers`, ADR 0151): the round after the turn they begin looks at both turns' pages.
 - **Turn card**: how a design chat shows a turn (ADR 0095, web's `thread-turns.ts`): the prompt,
-  one card (the page the turn works on, the run's steps while it goes, the review's line, the
+  one card (the page the turn works on, the run's steps while it goes or its review waits for
+  the answers, the review's line, the
   questions it **asked** that no longer wait as one row, ADR 0129, the agent's **steps** folded
   and named in words) and the agent's last message, its **answer**.
   **Show every step** (the person's `everyStep`) shows the transcript as the agent reported it.

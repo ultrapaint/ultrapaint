@@ -15,7 +15,7 @@ import type {
   ScreenshotRequest,
 } from "@ultrapaint/contracts/screenshots";
 import type { Settings } from "@ultrapaint/contracts/settings";
-import type { ThreadItem } from "@ultrapaint/contracts/threads";
+import type { Question, ThreadItem } from "@ultrapaint/contracts/threads";
 import { Effect, FileSystem, Ref, Stream } from "effect";
 import { TestClock } from "effect/testing";
 import { ProfileService } from "./services/profile.ts";
@@ -90,6 +90,8 @@ const answer = (findings: readonly object[], done: boolean) =>
  */
 const designed = Effect.fnUntraced(function* (
   options: {
+    /** Questions the designer leaves on a card before its turn ends, as one that cannot wait. */
+    readonly asking?: readonly Question[];
     readonly file?: string;
     readonly padding?: number;
     readonly purpose?: "implement";
@@ -117,6 +119,10 @@ const designed = Effect.fnUntraced(function* (
     path: path.join(repo, options.file ?? PAGE),
     sessionId: turn.sessionId,
   });
+  const { asking } = options;
+  if (asking) {
+    yield* onThread(threadId, (session) => session.cards.ask(asking));
+  }
   yield* turn.end();
   return { designer, threadId };
 });
@@ -640,6 +646,88 @@ const TOUCHING: RenderedFinding = {
   list: "Files",
   rowHeight: 28,
 };
+
+describe("a question left for the designer (ADR 0151)", () => {
+  const QUESTIONS: readonly Question[] = [
+    {
+      id: "sidebar",
+      options: [
+        { id: "keep", label: "Keep it" },
+        { id: "fold", label: "Fold it" },
+      ],
+      question: "Should the sidebar stay?",
+    },
+  ];
+  const PRICING = "designs/pricing.page.json";
+
+  /** The designer's next turn draws `file`, then ends. */
+  const draws = Effect.fnUntraced(function* (
+    designer: Effect.Success<ReturnType<typeof designed>>["designer"],
+    file: string
+  ) {
+    const { repo } = yield* ThreadFixture;
+    const turn = yield* designer.nextTurn;
+    yield* designer.host.writeTextFile({
+      content: `{ "version": 1, "root": { "id": "c_1", "type": "page", "padding": 16, "children": [] } }\n`,
+      path: path.join(repo, file),
+      sessionId: turn.sessionId,
+    });
+    yield* turn.end();
+    return turn;
+  });
+
+  /** The card the designer's turn left open, once that turn has ended. */
+  const heldCard = Effect.fnUntraced(function* (threadId: string) {
+    const { items } = yield* threadWhen(threadId, turnEnded);
+    const card = items.findLast((i) => i.kind === "question");
+    assert.isDefined(card);
+    return card?.id ?? "";
+  });
+
+  test("holds the round while it waits, and nothing but a turn's end starts it", () =>
+    Effect.gen(function* () {
+      const { threadId } = yield* designed({ asking: QUESTIONS });
+      const card = yield* heldCard(threadId);
+      // Not time, and not the card: one no agent waits on has no decline (ADR 0074, 0125).
+      yield* TestClock.adjust("1 hour");
+      const declined = yield* Effect.flip(
+        onThread(threadId, (s) => s.cards.decline(card))
+      );
+      assert.strictEqual(declined._tag, "NotFound");
+      const { items } = yield* threadWhen(threadId, turnEnded);
+      assert.deepStrictEqual(reviewsOf(items), []);
+      assert.strictEqual(yield* (yield* ScriptedAgents).launched, 1);
+    }));
+
+  test("reviews the turn its answers began, with both turns' pages", () =>
+    Effect.gen(function* () {
+      const { designer, threadId } = yield* designed({ asking: QUESTIONS });
+      const card = yield* heldCard(threadId);
+      yield* onThread(threadId, (s) => s.answer(card, { sidebar: "fold" }));
+      const answering = yield* draws(designer, PRICING);
+      assert.include(answering.texts.join("\n"), "Fold it");
+      const { turn } = yield* nextReviewer;
+      const said = turn.texts.join("\n");
+      assert.include(said, PAGE);
+      assert.include(said, PRICING);
+    }));
+
+  test("holds nothing once the person sends a different prompt: its turn's round has both turns' pages", () =>
+    Effect.gen(function* () {
+      const { designer, threadId } = yield* designed({ asking: QUESTIONS });
+      yield* heldCard(threadId);
+      yield* promptThread({
+        attachments: [],
+        text: "Add a pricing page",
+        threadId,
+      });
+      yield* draws(designer, PRICING);
+      const { turn } = yield* nextReviewer;
+      const said = turn.texts.join("\n");
+      assert.include(said, PAGE);
+      assert.include(said, PRICING);
+    }));
+});
 
 describe("the checks' findings", () => {
   drawnTest(

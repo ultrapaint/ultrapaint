@@ -6,6 +6,10 @@ replaces the editor part of `docs/plans/PLAN-review-loop.md` phase 5. Plan:
 
 > Amended by [0098](0098-anything-has-variations-and-page-variants-fold-into-them.md), 2026-11-16: the review loop never runs on a Variations turn.
 
+> Amended by [0151](0151-a-review-round-waits-for-the-answers.md), 2026-11-26: a round waits
+> while a question of the turn waits for the answers, and the chat's questions go to the question
+> tool before the turn ends, never into its last message.
+
 > Amended by [0066](0066-findings-are-kept-by-the-person-and-triaged-into-gaps.md), 2026-11-06:
 > keeping the findings is the person's choice, in their profile (Settings › Preferences › Keep
 > findings) and for every project, where this kept it in the project's `review` settings; a
