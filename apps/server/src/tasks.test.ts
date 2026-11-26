@@ -290,6 +290,90 @@ describe("tasks, with the editor's MCP server", () => {
 });
 
 /**
+ * A stylesheet that declares color-panel, a design system read from it, and the design's value
+ * of color-panel changed since, so that it waits for the code.
+ */
+const panelChanges = (stylesheet: string) =>
+  Effect.gen(function* () {
+    const { reopen, repo } = yield* ProjectFixture;
+    const fs = yield* FileSystem.FileSystem;
+    yield* fs.makeDirectory(path.join(repo, "styles"), { recursive: true });
+    yield* fs.writeFileString(path.join(repo, "styles/app.css"), stylesheet);
+    yield* reopen({ hostCss: ["../../styles/app.css"] });
+    const project = yield* OpenProject;
+    yield* project.use(
+      Effect.gen(function* () {
+        const ds = yield* DesignSystemService;
+        yield* ds.detect;
+        yield* ds.edit([
+          { name: "color-panel", op: "setValue", value: "#eeeeee" },
+        ]);
+      })
+    );
+  });
+
+describe("a token the code declares outside @theme (ADR 0152)", () => {
+  eachTest(ProjectTest({ mcp: true }))((it) => {
+    it.effect(
+      "gives the code's :root value, and says it has no utility class, where the tasks list it",
+      () =>
+        Effect.gen(function* () {
+          const { repo } = yield* ProjectFixture;
+          const fs = yield* FileSystem.FileSystem;
+          const home = path.join(repo, "designs/home.page.json");
+          yield* fs.writeFileString(
+            home,
+            (yield* fs.readFileString(home)).replace(
+              '"id": "heading",',
+              '"id": "heading",\n          "color": "$color-panel",'
+            )
+          );
+          yield* heardOf("designs/home.page.json");
+          yield* panelChanges(":root {\n  --color-panel: #f5f5f5;\n}\n");
+          const implement = yield* textOf({
+            _tag: "Implement",
+            target: "/home",
+          });
+          assert.include(
+            implement,
+            "- color-panel: design #eeeeee, code #f5f5f5, declared outside @theme, so it has no utility class (moving it into @theme is the developer's call)"
+          );
+          assert.include(implement, "never bg-panel");
+          assert.include(
+            yield* textOf({ _tag: "Sync", source: "code" }),
+            "- color-panel: code #f5f5f5, declared outside @theme, so it has no utility class (moving it into @theme is the developer's call), design #eeeeee"
+          );
+        })
+    );
+
+    it.effect(
+      "exports a token @theme declares too where the app draws it, and says it found two",
+      () =>
+        Effect.gen(function* () {
+          const { repo } = yield* ProjectFixture;
+          const fs = yield* FileSystem.FileSystem;
+          const css = path.join(repo, "styles/app.css");
+          yield* panelChanges(
+            "@theme {\n  --color-panel: #ffffff;\n}\n:root {\n  --color-panel: #f5f5f5;\n}\n"
+          );
+          const { text } = yield* callTool(EditorTools, "handoff", {
+            action: "export",
+          });
+          assert.include(text, "1 token value brought to the code");
+          assert.include(
+            text,
+            "color-panel is declared both in @theme (styles/app.css) and in a plain :root block (styles/app.css)"
+          );
+          assert.strictEqual(
+            yield* fs.readFileString(css),
+            "@theme {\n  --color-panel: #ffffff;\n}\n:root {\n  --color-panel: #eeeeee;\n}\n"
+          );
+        })
+    );
+  });
+});
+
+/**
  * Home, whose heading leads to About, linked to src/home.tsx, which someone changed since; About
  * linked to src/about.tsx, which nobody did; Pricing not linked to its code.
  */

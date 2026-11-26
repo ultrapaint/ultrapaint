@@ -77,7 +77,9 @@ refactor and the board view left.
   field draws each palette (a ramp, `isRamp`, its shades each at a step of their own) as a row of
   its shades' **swatches** under the
   other colours while nothing is typed, the steps lined up across the palettes (`splitPalettes`,
-  ADR 0146).
+  ADR 0146). The code declares a token in Tailwind's `@theme` or, as a **variable-only** token, in a
+  plain root block (`:root { --color-panel: … }`), of which Tailwind makes no utility class
+  (`SourceToken.variableOnly`, ADR 0152).
 - **Token naming**: how a token another tool writes (a Figma variable or style, a Design Tokens
   file's token) becomes one of the design's: its **foreign path** (`Color/Text/Primary`,
   `font.size.sm`) and a **value hint** (what the tool says the value is) give its kind and name

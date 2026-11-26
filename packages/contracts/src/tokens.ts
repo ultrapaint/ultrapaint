@@ -56,13 +56,21 @@ export const SourceToken = Schema.Struct({
   value: Schema.String,
   /** Values in other themes, by theme name. */
   values: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  /**
+   * Declared as a plain variable, outside what makes the style system's utility classes
+   * (Tailwind's `@theme`): it has no class, and the code uses its variable, `bg-(--color-panel)`.
+   */
+  variableOnly: Schema.optional(Schema.Boolean),
 });
 export type SourceToken = typeof SourceToken.Type;
 
 export const TokenSource = Schema.Struct({
   /** The files read, repo-relative. */
   files: Schema.Array(Schema.String),
-  /** What could not be read, in words an agent or a user can follow up on. */
+  /**
+   * What could not be read, in words an agent or a user can follow up on. A note about one token
+   * starts with its name (`color-panel is declared both in @theme …`).
+   */
   notes: Schema.Array(Schema.String),
   /** Themes besides the default the values are given in. */
   themes: Schema.Array(Schema.String),

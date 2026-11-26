@@ -27,6 +27,7 @@ import {
   needsTools,
   taskFailure,
   userAdds,
+  variableOnlyNote,
 } from "./task-text.ts";
 
 const COMMAND = "sync";
@@ -290,7 +291,7 @@ ${userAdds(extra)}</ultrapaint-task>`;
 
   /** A token of the code comparison, a line: its name and theme, the code's value → the design's. */
   const codeLine = (d: TokenDiff) =>
-    `- ${baselineKey(d.name, d.theme)}: code ${d.source ?? "(not declared)"}, design ${d.design ?? "(taken out)"}${d.base === undefined ? "" : `, agreed last ${d.base}`}`;
+    `- ${baselineKey(d.name, d.theme)}: code ${d.source ?? "(not declared)"}${variableOnlyNote(d)}, design ${d.design ?? "(taken out)"}${d.base === undefined ? "" : `, agreed last ${d.base}`}`;
 
   /** `/sync code`'s numbered steps, for what the comparison has waiting on each side. */
   const codeSteps = (waiting: {

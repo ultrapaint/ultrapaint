@@ -92,6 +92,248 @@ describe("reading Tailwind v4 tokens", () => {
   });
 });
 
+describe("reading tokens declared outside @theme", () => {
+  const ROOT_CSS = `@import "tailwindcss";
+
+:root {
+  --color-panel: #f5f5f5;
+  --header-height: 4rem;
+  --primary: #2563eb;
+}
+
+.dark {
+  --color-panel: #18181b;
+}
+`;
+
+  it("reads a token-named variable of a plain :root block, with where it is written, theme by theme", () => {
+    const ctx = project(ROOT_CSS);
+    const panel = byName(ctx, "color-panel");
+    expect(panel).toMatchObject({
+      kind: "color",
+      own: true,
+      value: "#f5f5f5",
+      values: { dark: "#18181b" },
+      variableOnly: true,
+    });
+    const light = panel?.origins?.[""];
+    const dark = panel?.origins?.dark;
+    expect(light?.file).toBe("src/app.css");
+    expect(ROOT_CSS.slice(light?.start, light?.end)).toBe("#f5f5f5");
+    expect(ROOT_CSS.slice(dark?.start, dark?.end)).toBe("#18181b");
+  });
+
+  it("reads a token of a selector list one of whose selectors is the document's", () => {
+    const ctx = project(`@import "tailwindcss";
+:root, [data-theme="light"] {
+  --color-panel: #f5f5f5;
+}
+:root:not(.dark) {
+  --color-line: #e5e5e5;
+}
+:root .card {
+  --color-card: #ffffff;
+}
+`);
+    expect(byName(ctx, "color-panel")?.value).toBe("#f5f5f5");
+    expect(byName(ctx, "color-line")?.value).toBe("#e5e5e5");
+    // A descendant of the root is part of the page, not the document.
+    expect(byName(ctx, "color-card")).toBeUndefined();
+  });
+
+  it("reads a theme's value only from the theme's own block, not a responsive or a descendant one", () => {
+    const css = `@import "tailwindcss";
+:root {
+  --color-panel: #f5f5f5;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-panel: #18181b;
+  }
+}
+@media (prefers-color-scheme: dark) and (min-width: 1024px) {
+  :root {
+    --color-panel: #27272a;
+  }
+}
+.dark .card {
+  --color-panel: #3f3f46;
+}
+`;
+    const ctx = project(css);
+    const panel = byName(ctx, "color-panel");
+    expect(panel?.values).toEqual({ dark: "#18181b" });
+    const dark = panel?.origins?.dark;
+    expect(css.slice(dark?.start, dark?.end)).toBe("#18181b");
+  });
+
+  it("resolves a :root token's var() through the unconditional blocks alone", () => {
+    const ctx = project(`@import "tailwindcss";
+:root {
+  --base: #ffffff;
+  --color-panel: var(--base);
+}
+@media (max-width: 640px) {
+  :root {
+    --base: #000000;
+  }
+}
+`);
+    expect(byName(ctx, "color-panel")?.value).toBe("#ffffff");
+  });
+
+  it("reads the :root declaration of a token over the alias @theme gives it", () => {
+    const ctx = project(`@import "tailwindcss";
+@theme {
+  --color-panel: var(--panel);
+}
+:root {
+  --panel: #ffffff;
+  --color-panel: #f5f5f5;
+}
+`);
+    expect(byName(ctx, "color-panel")?.value).toBe("#f5f5f5");
+  });
+
+  it("reads the @theme inline value of a token :root declares too, the one its utilities draw", () => {
+    const ctx = project(`@import "tailwindcss";
+@theme inline {
+  --color-panel: var(--panel);
+  --color-line: #e5e5e5;
+}
+:root {
+  --panel: #ffffff;
+  --color-panel: #f5f5f5;
+  --color-line: #d4d4d4;
+}
+`);
+    const source = readTokens(ctx);
+    const value = (name: string) =>
+      source.tokens.find((t) => t.name === name)?.value;
+    expect(value("color-panel")).toBe("#ffffff");
+    expect(value("color-line")).toBe("#e5e5e5");
+    expect(source.notes).toContain(
+      "color-line is declared both in @theme inline (src/app.css) and in a plain :root block (src/app.css). Its utilities draw the @theme inline value, so that is the one read and written; var(--color-line) draws the :root one."
+    );
+  });
+
+  it("reads body.dark as the dark theme's block, and body alone as no theme's", () => {
+    const ctx = project(`@import "tailwindcss";
+:root {
+  --color-panel: #f5f5f5;
+}
+body.dark {
+  --color-panel: #18181b;
+}
+body {
+  --color-line: #e5e5e5;
+}
+`);
+    expect(byName(ctx, "color-panel")?.values).toEqual({ dark: "#18181b" });
+    expect(byName(ctx, "color-line")).toBeUndefined();
+  });
+
+  it("makes no token of a variable whose name is no token's", () => {
+    const ctx = project(ROOT_CSS);
+    expect(byName(ctx, "header-height")).toBeUndefined();
+    expect(byName(ctx, "primary")).toBeUndefined();
+  });
+
+  it("reads shadcn's arrangement as before: the @theme alias, its variables no tokens", () => {
+    const ctx = project();
+    const own = readTokens(ctx).tokens.filter((t) => t.own);
+    expect(own.map((t) => t.name).sort()).toEqual([
+      "color-background",
+      "color-brand",
+      "color-primary",
+      "radius-lg",
+    ]);
+    expect(own.some((t) => t.variableOnly)).toBe(false);
+  });
+
+  it("makes no token of a value under a condition, or of one only a theme declares", () => {
+    const ctx = project(`@import "tailwindcss";
+@media (max-width: 640px) {
+  :root {
+    --text-hero: 1rem;
+  }
+}
+@supports (color: oklch(0 0 0)) {
+  :root {
+    --color-accent: oklch(0.7 0.2 40);
+  }
+}
+.dark {
+  --color-night: #000;
+}
+`);
+    for (const name of ["text-hero", "color-accent", "color-night"]) {
+      expect(byName(ctx, name)).toBeUndefined();
+    }
+  });
+
+  it("keeps the base value of a :root token outside a media query that sets it again", () => {
+    const css = `@import "tailwindcss";
+:root {
+  --text-hero: 2rem;
+}
+@media (max-width: 640px) {
+  :root {
+    --text-hero: 1rem;
+  }
+}
+`;
+    const ctx = project(css);
+    const hero = byName(ctx, "text-hero");
+    expect(hero?.value).toBe("2rem");
+    const at = hero?.origins?.[""];
+    expect(css.slice(at?.start, at?.end)).toBe("2rem");
+  });
+
+  it("reads the :root value of a token @theme declares too, which wins in the app, and notes both", () => {
+    const ctx = project(`@import "tailwindcss";
+@theme {
+  --color-panel: #ffffff;
+}
+:root {
+  --color-panel: #f5f5f5;
+}
+`);
+    const source = readTokens(ctx);
+    const panel = source.tokens.find((t) => t.name === "color-panel");
+    expect(panel?.value).toBe("#f5f5f5");
+    expect(panel?.variableOnly).toBeUndefined();
+    expect(source.notes).toEqual([
+      "color-panel is declared both in @theme (src/app.css) and in a plain :root block (src/app.css). The :root value is the one the app draws, so it is the one read and written.",
+    ]);
+  });
+
+  it("lists no Tailwind default a :root block declares again", () => {
+    const ctx = project(`@import "tailwindcss";
+:root {
+  --color-red-500: #ef4444;
+}
+`);
+    mkdirSync(path.join(ctx.root, "node_modules/tailwindcss"), {
+      recursive: true,
+    });
+    writeFileSync(
+      path.join(ctx.root, "node_modules/tailwindcss/package.json"),
+      '{"name":"tailwindcss"}'
+    );
+    writeFileSync(
+      path.join(ctx.root, "node_modules/tailwindcss/theme.css"),
+      "@theme default {\n  --color-red-500: red;\n}"
+    );
+    const reds = readTokens(ctx).tokens.filter(
+      (t) => t.name === "color-red-500"
+    );
+    expect(reds).toEqual([
+      expect.objectContaining({ own: true, value: "#ef4444" }),
+    ]);
+  });
+});
+
 describe("reading a theme that resets Tailwind's defaults", () => {
   it("lists no default the theme resets, and no token declared before the reset", () => {
     const ctx = project(`@import "tailwindcss";
@@ -275,6 +517,125 @@ describe("writing Tailwind v4 tokens back", () => {
     const text = edits[0]?.text ?? "";
     expect(text).toContain("@theme {\n  --color-brand: #2563eb;\n}");
     expect(text).toContain(".dark {\n  --color-brand: #60a5fa;\n}");
+  });
+
+  it("changes a token declared in :root where it is declared, theme by theme, and adds no @theme block", () => {
+    const css = `@import "tailwindcss";
+:root {
+  --color-panel: #f5f5f5;
+}
+.dark {
+  --color-panel: #18181b;
+}
+`;
+    const ctx = project(css);
+    const edits = writeTokens(ctx, [
+      { name: "color-panel", value: "#eeeeee" },
+      { name: "color-panel", theme: "dark", value: "#111111" },
+    ]);
+    expect(edits.map((e) => e.file)).toEqual(["src/app.css"]);
+    expect(edits[0]?.text).toBe(
+      css.replace("#f5f5f5", "#eeeeee").replace("#18181b", "#111111")
+    );
+  });
+
+  it("writes a :root token's theme value in the theme's block, not in one under a condition", () => {
+    const css = `@import "tailwindcss";
+:root {
+  --color-panel: #f5f5f5;
+}
+.dark {
+  --color-panel: #18181b;
+}
+@media (min-width: 1024px) {
+  .dark {
+    --color-panel: #27272a;
+  }
+}
+`;
+    const ctx = project(css);
+    expect(byName(ctx, "color-panel")?.values).toEqual({ dark: "#18181b" });
+    const edits = writeTokens(ctx, [
+      { name: "color-panel", theme: "dark", value: "#111111" },
+    ]);
+    expect(edits[0]?.text).toBe(css.replace("#18181b", "#111111"));
+  });
+
+  it("adds a :root token's theme value to the theme's own block, not to one under a condition", () => {
+    const css = `@import "tailwindcss";
+:root {
+  --color-panel: #f5f5f5;
+}
+@media (min-width: 1024px) {
+  .dark {
+    --color-panel: #27272a;
+  }
+}
+`;
+    const ctx = project(css);
+    const edits = writeTokens(ctx, [
+      { name: "color-panel", theme: "dark", value: "#111111" },
+    ]);
+    expect(edits[0]?.text).toBe(
+      `${css}\n.dark {\n  --color-panel: #111111;\n}\n`
+    );
+  });
+
+  it("changes the @theme inline alias of a token :root declares too, the one its utilities draw", () => {
+    const css = `@import "tailwindcss";
+@theme inline {
+  --color-panel: var(--panel);
+}
+:root {
+  --panel: #ffffff;
+  --color-panel: #f5f5f5;
+}
+`;
+    const ctx = project(css);
+    const edits = writeTokens(ctx, [{ name: "color-panel", value: "#eeeeee" }]);
+    expect(edits[0]?.text).toBe(css.replace("#ffffff", "#eeeeee"));
+  });
+
+  it("changes the :root declaration of a token over the alias @theme gives it", () => {
+    const css = `@import "tailwindcss";
+@theme {
+  --color-panel: var(--panel);
+}
+:root {
+  --panel: #ffffff;
+  --color-panel: #f5f5f5;
+}
+`;
+    const ctx = project(css);
+    const edits = writeTokens(ctx, [{ name: "color-panel", value: "#eeeeee" }]);
+    expect(edits[0]?.text).toBe(css.replace("#f5f5f5", "#eeeeee"));
+  });
+
+  it("takes a token declared in :root out where it is declared", () => {
+    const ctx = project(`@import "tailwindcss";
+:root {
+  --color-panel: #f5f5f5;
+  --header-height: 4rem;
+}
+`);
+    const edits = writeTokens(ctx, [{ name: "color-panel", remove: true }]);
+    expect(edits[0]?.text).toBe(
+      '@import "tailwindcss";\n:root {\n  --header-height: 4rem;\n}\n'
+    );
+  });
+
+  it("changes the :root value of a token @theme declares too, the one the app draws", () => {
+    const css = `@import "tailwindcss";
+@theme {
+  --color-panel: #ffffff;
+}
+:root {
+  --color-panel: #f5f5f5;
+}
+`;
+    const ctx = project(css);
+    const edits = writeTokens(ctx, [{ name: "color-panel", value: "#eeeeee" }]);
+    expect(edits[0]?.text).toBe(css.replace("#f5f5f5", "#eeeeee"));
   });
 
   it("reads back the block it made for a theme named in two words, and writes in it again", () => {

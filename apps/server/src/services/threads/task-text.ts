@@ -9,6 +9,15 @@ import { Schema } from "effect";
 import { compactSchema } from "./compact-schema.ts";
 
 /**
+ * What a token's line adds when the code declares it outside `@theme` (ADR 0152): it has no
+ * utility class, and an export changes it where it is.
+ */
+export const variableOnlyNote = (d: { readonly variableOnly?: boolean }) =>
+  d.variableOnly
+    ? ", declared outside @theme, so it has no utility class (moving it into @theme is the developer's call)"
+    : "";
+
+/**
  * Why a request cannot be a task: what it names is not there, or it needs what this server or
  * project does not have. `message` reads after "but" in a sentence and on its own as a tool's
  * answer (`there is no canvas "nowhere"; the canvases are …`). `next` is what an agent the user
