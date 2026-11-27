@@ -6,7 +6,11 @@
  *   times the gap between the lines of the block below (the core's Spacing: "the gap between
  *   groups is at least 2× the gap within one, measured between the text"; stacked groups of rows
  *   take 3×, or they read as one list). Gaps are measured between lines of text, not boxes: a
- *   row's padding is space within it.
+ *   row's padding is space within it. A box of its own (a border, a shadow or a fill apart from
+ *   what it sits on) is one group, measured edge to edge: its padding is space within it, and its
+ *   edge sets it apart whatever the gap, so it is never measured against its neighbour; nor is
+ *   a block made only of boxes (a list of cards), nor a region of the page (a header band, a
+ *   scrolling panel). The ratio is the whitespace rule for groups that have no edge.
  * - **Dividers centred:** a thin vertical rule's centre is its neighbours' (the tools' line).
  * - **Hover:** what an audit found only with the controls drawn as hovered.
  */
@@ -68,6 +72,59 @@ const gapsOf = (lines: readonly InkLine[]) =>
     return before === undefined ? [] : [line.top - before.bottom];
   });
 
+/**
+ * The blocks under `block` that stand apart by an edge of their own: each box or region, the
+ * outermost of each.
+ */
+const apartIn = (block: LaidBlock): readonly LaidBlock[] =>
+  block.children.flatMap((c) => (c.boxed || c.region ? [c] : apartIn(c)));
+
+/** Whether a line lies within a block's top and bottom. */
+const liesIn = (line: InkLine, b: LaidBlock) =>
+  line.top >= b.top - 0.5 && line.bottom <= b.bottom + 0.5;
+
+/** Lines that overlap made one, top to bottom. */
+const union = (spans: readonly InkLine[]) => {
+  const merged: InkLine[] = [];
+  for (const span of [...spans].sort((a, b) => a.top - b.top)) {
+    const last = merged.at(-1);
+    if (last && span.top < last.bottom) {
+      merged[merged.length - 1] = {
+        bottom: Math.max(last.bottom, span.bottom),
+        top: last.top,
+      };
+    } else {
+      merged.push(span);
+    }
+  }
+  return merged;
+};
+
+/**
+ * A block's lines as a reader sees them: each box or region under it one line from its top edge
+ * to its bottom, the text inside it none of the block's.
+ */
+const inkOf = (block: LaidBlock): readonly InkLine[] => {
+  const apart = apartIn(block);
+  return apart.length === 0
+    ? block.lines
+    : union([
+        ...block.lines.filter((l) => !apart.some((a) => liesIn(l, a))),
+        ...apart.map((a) => ({ bottom: a.bottom, top: a.top })),
+      ]);
+};
+
+/**
+ * Whether a block is set apart by edges, whatever the gap beside it: a box, a region, or a block
+ * made only of such blocks, with no text of its own (a list of cards).
+ */
+const standsApart = (block: LaidBlock): boolean =>
+  block.boxed ||
+  block.region ||
+  (block.children.length > 0 &&
+    block.children.every(standsApart) &&
+    block.lines.every((l) => block.children.some((c) => liesIn(l, c))));
+
 /** A block whose parts sit one under another: a list or a group, whose line gaps mean something. */
 const isColumn = (block: LaidBlock) => {
   const parts = [...block.children].sort((a, b) => a.top - b.top);
@@ -100,10 +157,13 @@ const holdsRows = (block: LaidBlock) => {
 const isRows = (block: LaidBlock) =>
   holdsRows(block) || block.children.some(holdsRows);
 
-/** The gap from a block's last line to the next block's first, when the two are stacked. */
+/**
+ * The gap from a block's last line to the next block's first, a box's edge its line, when the two
+ * are stacked.
+ */
 const gapBetween = (above: LaidBlock | undefined, below: LaidBlock) => {
-  const last = above?.lines.at(-1);
-  const [first] = below.lines;
+  const last = above ? inkOf(above).at(-1) : undefined;
+  const [first] = inkOf(below);
   // Side by side is a row, not a stack.
   return above && last && first && below.top >= above.bottom - 1
     ? first.top - last.bottom
@@ -114,7 +174,9 @@ const gapBetween = (above: LaidBlock | undefined, below: LaidBlock) => {
  * Every pair of stacked blocks whose gap is less than the ratio times the gap between the lines
  * of the block below: `ratios.rows` when the block below is a group of rows, else `ratios.other`
  * (one number is both). A single line closer to the block below than to what is above it is that
- * block's heading (a label over its list, a title over its body), not a group of its own.
+ * block's heading (a label over its list, a title over its body), not a group of its own. A pair
+ * where either block stands apart by its edges (`standsApart`) is not measured, and a box under
+ * a block is one of its lines, edge to edge.
  */
 export const spacingFindings = (
   block: LaidBlock,
@@ -129,7 +191,7 @@ export const spacingFindings = (
     const between = gapBetween(above, below);
     // Lines from blocks side by side (a rail beside a panel) aren't one group's lines.
     const within = isColumn(below)
-      ? median(gapsOf(below.lines).filter((g) => g >= 0))
+      ? median(gapsOf(inkOf(below)).filter((g) => g >= 0))
       : undefined;
     const before = above ? gapBetween(children[i - 2], above) : undefined;
     const heading =
@@ -140,6 +202,8 @@ export const spacingFindings = (
     if (
       above &&
       !heading &&
+      !standsApart(above) &&
+      !standsApart(below) &&
       between !== undefined &&
       between >= 0 &&
       within !== undefined &&

@@ -24,11 +24,39 @@ const block = (
 ): LaidBlock => ({
   bottom: ink.at(-1)?.bottom ?? 0,
   box: boxOf(ink),
+  boxed: false,
   children,
   label,
   lines: ink,
+  region: false,
   top: ink[0]?.top ?? 0,
 });
+
+/** The blocks of `children` under one block, their lines its lines. */
+const groupOf = (label: string, children: readonly LaidBlock[]) =>
+  block(
+    label,
+    children.flatMap((c) => c.lines),
+    children
+  );
+
+/**
+ * A box of its own from `top`, `height` tall, with one line of text centred in it: a bordered or
+ * filled card, a field, a notice.
+ */
+const boxAt = (label: string, top: number, height: number): LaidBlock => {
+  const line = {
+    bottom: top + (height + 18) / 2,
+    top: top + (height - 18) / 2,
+  };
+  return {
+    ...block(label, [line]),
+    bottom: top + height,
+    box: { height, width: 200, x: 0, y: top },
+    boxed: true,
+    top,
+  };
+};
 
 // The Components panel as measured on the redesign: the App group ends at 361, the System group
 // starts 27px lower and its rows are 10px apart.
@@ -115,6 +143,108 @@ describe("measure", () => {
     assert.deepStrictEqual(
       spacingFindings(block("card", [...rail.lines], [rail, side]), 3),
       []
+    );
+  });
+
+  it("takes bordered or filled boxes as groups set apart by their edges: nothing between a block and the cards under it, nor between the cards", () => {
+    // Two lines of intro, then three option cards 60px tall, 12px apart, 24px under the intro.
+    const intro = block("Choose a plan", lines(100, 2, 6));
+    const cards = groupOf(
+      "Plans",
+      [0, 1, 2].map((i) => boxAt(`Plan ${i + 1}`, 166 + i * 72, 60))
+    );
+    assert.deepStrictEqual(
+      spacingFindings(groupOf("Page", [intro, cards])),
+      []
+    );
+  });
+
+  it("measures a text beside a card with what is under them, from the card's edge", () => {
+    const beside = groupOf("Pro", [
+      {
+        ...block("Pro", lines(100, 2, 6)),
+        box: { height: 42, width: 200, x: 0, y: 100 },
+      },
+      {
+        ...boxAt("$12 a month", 100, 60),
+        box: { height: 60, width: 200, x: 220, y: 100 },
+      },
+    ]);
+    // 12px under the card's edge, the paragraph's lines 10px apart: under 2×.
+    const paragraph = block("Billed yearly", lines(172, 3, 10));
+    assert.deepStrictEqual(
+      spacingFindings(groupOf("Plan", [beside, paragraph])).map((f) => [
+        f.above,
+        f.between,
+        f.within,
+      ]),
+      [["Pro", 12, 10]]
+    );
+  });
+
+  it("never measures a page's header band against the content under it", () => {
+    // A filled band of two lines across the top, the content 16px under it.
+    const band = {
+      ...block("Acme", lines(10, 2, 4)),
+      boxed: true,
+      region: true,
+    };
+    const content = block("Settings", lines(66, 4, 10));
+    assert.deepStrictEqual(
+      spacingFindings(groupOf("App", [band, content])),
+      []
+    );
+  });
+
+  it("never measures a scrolling panel against what sits under it", () => {
+    const scrolling = { ...block("Files", lines(100, 5, 10)), region: true };
+    const footer = block("12 files · 3 changed", lines(244, 2, 10));
+    assert.deepStrictEqual(
+      spacingFindings(groupOf("Sidebar", [scrolling, footer])),
+      []
+    );
+  });
+
+  it("reads a notice with the fields it sits on", () => {
+    const notice = {
+      ...boxAt("Your card was declined", 100, 56),
+      lines: lines(110, 2, 2),
+    };
+    const fields = groupOf("Card", [
+      block("Card number", [{ bottom: 186, top: 168 }]),
+      boxAt("1234 5678", 192, 40),
+      block("Expiry", [{ bottom: 266, top: 248 }]),
+      boxAt("MM / YY", 272, 40),
+    ]);
+    assert.deepStrictEqual(
+      spacingFindings(groupOf("Payment", [notice, fields])),
+      []
+    );
+  });
+
+  it("measures a group of labels and fields from the fields' edges: their padding is space within them", () => {
+    // Labels 6px over their fields, 16px under the field above: 6px within.
+    const fieldsAt = (top: number) =>
+      groupOf("Contact", [
+        block("Name", [{ bottom: top + 18, top }]),
+        boxAt("Ada", top + 24, 40),
+        block("Email", [{ bottom: top + 98, top: top + 80 }]),
+        boxAt("ada@example.com", top + 104, 40),
+      ]);
+    const intro = block("Tell us about you", lines(100, 2, 6));
+    // 20px under the intro: over 2× the 6px within, though under 2× the 17px from a label to
+    // its field's text.
+    assert.deepStrictEqual(
+      spacingFindings(groupOf("Form", [intro, fieldsAt(162)])),
+      []
+    );
+    // 10px under it: under 2×.
+    assert.deepStrictEqual(
+      spacingFindings(groupOf("Form", [intro, fieldsAt(152)])).map((f) => [
+        f.between,
+        f.within,
+      ]),
+      [[10, 6]]
     );
   });
 
