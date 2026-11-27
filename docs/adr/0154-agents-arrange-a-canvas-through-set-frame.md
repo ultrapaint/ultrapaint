@@ -25,7 +25,10 @@ frame gesture reached it.
   is drawn, those before it in the call in place, then put where the call says, inside one
   `edit.transaction`. `canvas.json` is written by `updateCanvas` in the server's format, every
   frame the call does not name left as saved. A frame the person placed by hand moves when it is
-  named, and none moves unless named.
+  named, and none moves unless named. A page with no frame saved is drawn after the saved ones,
+  so it would move with a moved frame: a call that moves one saves it where it is drawn, as the
+  editor's own save does (`saveFrames`), and checks moves against it there. A call that only
+  sizes leaves it to follow, as before.
 - **One canvas per call**: the `canvas` given, or the one the first `route` names; every route
   is looked for there. A page of another canvas refuses the call, saying where it is.
 - **The grid.** `x` and `y` go to the nearest line of the canvas's 8 px grid (contracts'

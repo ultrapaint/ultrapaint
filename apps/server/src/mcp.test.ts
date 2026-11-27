@@ -973,6 +973,32 @@ describe("the tools for pages", () => {
     })
   );
 
+  inAProject(
+    "keeps a page with no frame saved where it was drawn when another frame moves",
+    () =>
+      Effect.gen(function* () {
+        yield* pageAt("Plans", "/plans");
+        yield* tool("set_frame", { frames: [{ route: "/home" }] });
+        // Plans has no frame saved: drawn a gap past Home, at 1520.
+        yield* tool("set_frame", {
+          frames: [{ route: "/home", x: 8000, y: 0 }],
+        });
+        assert.deepStrictEqual(
+          (yield* tool("list_pages", {})).pages.find(
+            (p) => p.route === "/plans"
+          )?.frame,
+          { height: 900, width: 1440, x: 1520, y: 0 }
+        );
+        // Where it is drawn is in the way of a move.
+        assert.include(
+          yield* refusal("set_frame", {
+            frames: [{ route: "/home", x: 1600, y: 0 }],
+          }),
+          "designs/home.page.json would lie over designs/plans.page.json"
+        );
+      })
+  );
+
   inAProject("sizes and moves frames in the same call", () =>
     Effect.gen(function* () {
       yield* pageAt("Plans", "/plans");

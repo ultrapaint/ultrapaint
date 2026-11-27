@@ -556,11 +556,21 @@ export const makeCanvasOperations = (
           // The layout as the step reads it, so a frame written since the agent looked is not
           // put back, and one the call does not name stays where it is.
           const layout = yield* canvasIn(tx, canvas);
-          const frames = placeFrames(drawn, layout.frames, placements);
+          // A page with no frame saved is drawn after the saved ones, so it would move with a
+          // frame moved: a call that moves one saves it where it is drawn now, as the editor's
+          // own save does. A call that only sizes leaves it to follow, as before.
+          const pinned =
+            moved.length === 0
+              ? {}
+              : Object.fromEntries(
+                  Object.entries(canvasFrames(drawn, layout.frames)).filter(
+                    ([key]) => !(key in layout.frames)
+                  )
+                );
+          const before = { ...layout.frames, ...pinned };
+          const frames = placeFrames(drawn, before, placements);
           const over = Object.entries(
-            overlapsOf(canvasFrames(drawn, { ...layout.frames, ...frames }), [
-              ...new Set(moved),
-            ])
+            overlapsOf({ ...before, ...frames }, [...new Set(moved)])
           );
           if (over.length > 0) {
             const fileOf = (key: string) =>
@@ -575,7 +585,7 @@ export const makeCanvasOperations = (
           }
           yield* updateCanvas(tx, canvas, (now) => ({
             ...now,
-            frames: { ...now.frames, ...frames },
+            frames: { ...now.frames, ...pinned, ...frames },
           }));
           return frames;
         })
