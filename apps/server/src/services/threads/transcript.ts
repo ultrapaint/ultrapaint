@@ -12,14 +12,15 @@ import type {
   ToolCallContent,
   ToolCallLocation,
 } from "@ultrapaint/acp/acp-agent";
-import type {
-  ConfigOption,
-  ContextUsage,
-  Thread,
-  ThreadItem,
-  ToolContent,
-  ToolLocation,
-  TurnUsage,
+import {
+  type ConfigOption,
+  type ContextUsage,
+  editorToolOf,
+  type Thread,
+  type ThreadItem,
+  type ToolContent,
+  type ToolLocation,
+  type TurnUsage,
 } from "@ultrapaint/contracts/threads";
 import { Predicate } from "effect";
 
@@ -293,11 +294,21 @@ type ToolUpdate = Extract<
   { sessionUpdate: "tool_call" | "tool_call_update" }
 >;
 
+/** Whether a call is the editor's `set_frame` giving a frame a place: an x or a y in its input. */
+const movesAFrame = (title: string, input: unknown) =>
+  editorToolOf(title) === "set_frame" &&
+  Predicate.isObject(input) &&
+  Array.isArray(input.frames) &&
+  input.frames.some(
+    (frame) => Predicate.isObject(frame) && ("x" in frame || "y" in frame)
+  );
+
 const toolItem = (
   u: ToolUpdate,
   ctx: ProjectionContext,
   fallback: { status: "pending" | "in_progress"; title: string }
 ): ThreadItem => ({
+  ...(movesAFrame(u.title ?? fallback.title, u.rawInput) && { arranges: true }),
   at: ctx.now,
   content: (u.content ?? []).map((c) => toolContent(c, ctx)),
   id: `tool_${u.toolCallId}`,
@@ -328,6 +339,10 @@ const projectToolUpdate = (
         i.kind === "tool"
           ? {
               ...i,
+              // The input grows as it streams in: the last that came says.
+              ...(u.rawInput !== undefined && {
+                arranges: movesAFrame(u.title ?? i.title, u.rawInput),
+              }),
               content: u.content
                 ? u.content.map((c) => toolContent(c, ctx))
                 : i.content,

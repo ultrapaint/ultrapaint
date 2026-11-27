@@ -15,6 +15,17 @@ import {
 /** Room between two frames on a canvas, and between a page's frame and its views. */
 export const FRAME_GAP = 80;
 
+/**
+ * One cell of the canvas's grid, in canvas pixels: what the editor snaps to and draws, and what a
+ * frame an agent places is rounded to.
+ */
+export const GRID = 8;
+
+/** The line of the grid nearest to `value`. */
+export const onGrid = (value: number, grid = GRID) =>
+  // `|| 0`: a value just left of zero would land on -0.
+  Math.round(value / grid) * grid || 0;
+
 /** A box on the canvas, in the canvas's own coordinates. */
 export interface Box {
   readonly height: number;
@@ -47,12 +58,63 @@ export const frameRight = (frame: FrameLayout) =>
 export const frameBottom = (frame: FrameLayout) =>
   Math.max(...boxesOf(frame).map((b) => b.y + b.height));
 
+/** The box a frame takes on the canvas with its views. */
+export const boundsOf = (frame: FrameLayout): Box => {
+  const boxes = boxesOf(frame);
+  const x = Math.min(...boxes.map((b) => b.x));
+  const y = Math.min(...boxes.map((b) => b.y));
+  return {
+    height: frameBottom(frame) - y,
+    width: frameRight(frame) - x,
+    x,
+    y,
+  };
+};
+
 /** Whether two boxes are closer than the gap: one placed there would crowd the other. */
 const crowds = (a: Box, b: Box) =>
   a.x < b.x + b.width + FRAME_GAP &&
   b.x < a.x + a.width + FRAME_GAP &&
   a.y < b.y + b.height + FRAME_GAP &&
   b.y < a.y + a.height + FRAME_GAP;
+
+/** Whether two boxes share some of the canvas; boxes that only touch do not. */
+const intersects = (a: Box, b: Box) =>
+  a.x < b.x + b.width &&
+  b.x < a.x + a.width &&
+  a.y < b.y + b.height &&
+  b.y < a.y + a.height;
+
+/**
+ * The frames each moved frame lies over, where every frame is: a frame or one of its views over
+ * another frame or one of that frame's views. Frames closer than `FRAME_GAP` without touching are
+ * not over each other, as a person may place them by hand. A moved frame with nothing under it
+ * has no key.
+ */
+export const overlapsOf = (
+  frames: Frames,
+  moved: readonly string[]
+): Record<string, string[]> => {
+  const over: Record<string, string[]> = {};
+  for (const key of moved) {
+    const frame = frames[key];
+    if (!frame) {
+      continue;
+    }
+    const mine = boxesOf(frame);
+    const under = Object.entries(frames)
+      .filter(
+        ([other, f]) =>
+          other !== key &&
+          boxesOf(f).some((box) => mine.some((m) => intersects(m, box)))
+      )
+      .map(([other]) => other);
+    if (under.length > 0) {
+      over[key] = under;
+    }
+  }
+  return over;
+};
 
 /**
  * A new frame on a canvas: at the top, to the right of every frame and its views, so it lands on

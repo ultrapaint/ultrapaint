@@ -395,9 +395,7 @@ export const cutSheet = Effect.fn("cutSheet")(function* (
   };
   visit(Predicate.isObject(page) ? page.root : undefined);
   yield* session.tool("set_frame", {
-    height: 900,
-    route: "/components",
-    width: 1440,
+    frames: [{ height: 900, route: "/components", width: 1440 }],
   });
   yield* fs.makeDirectory(path.join(dir, COMPONENTS_DIR), { recursive: true });
   const problems: string[] = [];

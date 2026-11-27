@@ -4,8 +4,9 @@
  * the zoom are gone rather than a grey wash, and the sets cross-fade instead of jumping; where
  * sets meet, their lines add up, so the coarser lines read stronger.
  */
+
+import { GRID } from "@ultrapaint/contracts/canvas-layout";
 import type { CSSProperties } from "react";
-import { GRID } from "./snap.ts";
 
 /** The spacing of each set of lines, in canvas pixels. */
 const LEVELS = [GRID, GRID * 8, GRID * 64];

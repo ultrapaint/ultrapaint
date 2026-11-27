@@ -251,7 +251,10 @@ refactor and the board view left.
 - **Canvas layout**: where frames go on a canvas, with one gap (contracts' `canvas-layout`): a
   new frame past every frame and its views, a copy or a state beside its page when nothing
   is there, a page the layout does not place yet where the editor draws it, a new view beside its
-  page and the view's name.
+  page and the view's name; the canvas's **grid** (`GRID`, 8 px, `onGrid`), a frame's **bounds**
+  (the box it takes with its views, `boundsOf`), and the frames a moved one lies over
+  (`overlapsOf`). An agent **arranges** a canvas with `set_frame`: the frames of one call sized
+  and placed in one undo step, a move onto another frame refused (ADR 0154).
 - **History**: Ultrapaint's own record of how the design files changed (ADR 0087), git or not:
   a list of **points**, each the designs right after the person's edits, an agent's **turn**,
   files changed from **outside**, or a **restore**, kept in the `history` namespace of the tool's

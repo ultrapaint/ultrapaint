@@ -5,9 +5,11 @@
  */
 
 import {
+  canvasFrames,
   drawnFrame,
-  type FrameSize,
   familyOf,
+  onGrid,
+  overlapsOf,
   sizeFrame,
 } from "@ultrapaint/contracts/canvas-layout";
 import { BadRequest, Conflict, NotFound } from "@ultrapaint/contracts/errors";
@@ -29,7 +31,7 @@ import { canvasText } from "./canvas-files.ts";
 import type { CommentsService } from "./comments.ts";
 import { COMMENTS_FILE } from "./comments-file.ts";
 import type { EditTransaction } from "./edit.ts";
-import type { CopyTarget } from "./pages.ts";
+import type { CopyTarget, FramePlacement } from "./pages.ts";
 import { makePageMoves } from "./pages-moves.ts";
 import type { PagesReading } from "./pages-reading.ts";
 import { copyVariationsFile } from "./variations-file.ts";
@@ -501,50 +503,93 @@ export const makeCanvasOperations = (
     );
   });
 
-  const setFrame = Effect.fn("PagesService.setFrame")(function* (
+  /**
+   * The frames of the pages `drawn` sized and placed as asked, in order, over `saved`: each from
+   * where the editor draws it with those before it in place, sized, then at the grid's line
+   * nearest to the position given, if one is.
+   */
+  const placeFrames = (
+    drawn: readonly string[],
+    saved: Readonly<Record<string, FrameLayout>>,
+    placements: readonly FramePlacement[]
+  ) => {
+    const frames: Record<string, FrameLayout> = {};
+    for (const { path: key, size, x, y } of placements) {
+      const sized = sizeFrame(
+        drawnFrame(drawn, { ...saved, ...frames }, key),
+        size
+      );
+      frames[key] = {
+        ...sized,
+        x: x === undefined ? sized.x : onGrid(x),
+        y: y === undefined ? sized.y : onGrid(y),
+      };
+    }
+    return frames;
+  };
+
+  const arrangeFrames = Effect.fn("PagesService.arrangeFrames")(function* (
     canvas: string,
-    pagePath: string,
-    size: FrameSize
+    placements: readonly FramePlacement[]
   ) {
-    const sized = yield* edit.transaction("Size a page", (tx) =>
-      Effect.gen(function* () {
-        const all = yield* list;
-        const page = all.pages.find(
-          (p) => p.canvas === canvas && p.path === pagePath
-        );
-        if (!page) {
-          return yield* new NotFound({
-            message: `page not found: ${pagePath}`,
-          });
-        }
-        yield* tx.name(`Size ${page.name}`);
-        const drawn = all.pages
-          .filter((p) => p.canvas === canvas)
-          .map((p) => p.path);
-        // The layout as it is now, so nothing written since is put back. A page with no
-        // frame saved yet is sized where the editor draws it.
-        let frame = sizeFrame(drawnFrame(drawn, {}, pagePath), size);
-        yield* updateCanvas(tx, canvas, (layout) => {
-          frame = sizeFrame(drawnFrame(drawn, layout.frames, pagePath), size);
-          return {
-            ...layout,
-            frames: { ...layout.frames, [pagePath]: frame },
-          };
-        });
-        return frame;
-      })
+    const moved = placements
+      .filter((p) => p.x !== undefined || p.y !== undefined)
+      .map((p) => p.path);
+    return yield* edit.transaction(
+      moved.length > 0 ? "Arrange the canvas" : "Size pages",
+      (tx) =>
+        Effect.gen(function* () {
+          const all = yield* list;
+          const pages = all.pages.filter((p) => p.canvas === canvas);
+          const drawn = pages.map((p) => p.path);
+          const missingPage = placements.find((p) => !drawn.includes(p.path));
+          if (missingPage) {
+            return yield* new NotFound({
+              message: `page not found: ${missingPage.path}`,
+            });
+          }
+          const [sized] = placements;
+          if (moved.length === 0 && placements.length === 1 && sized) {
+            const page = pages.find((p) => p.path === sized.path);
+            yield* tx.name(`Size ${page?.name ?? sized.path}`);
+          }
+          // The layout as the step reads it, so a frame written since the agent looked is not
+          // put back, and one the call does not name stays where it is.
+          const layout = yield* canvasIn(tx, canvas);
+          const frames = placeFrames(drawn, layout.frames, placements);
+          const over = Object.entries(
+            overlapsOf(canvasFrames(drawn, { ...layout.frames, ...frames }), [
+              ...new Set(moved),
+            ])
+          );
+          if (over.length > 0) {
+            const fileOf = (key: string) =>
+              pages.find((p) => p.path === key)?.file ?? key;
+            const said = over.map(
+              ([key, under]) =>
+                `${fileOf(key)} would lie over ${under.map(fileOf).join(", ")}`
+            );
+            return yield* new BadRequest({
+              message: `nothing moved: ${said.join("; ")}`,
+            });
+          }
+          yield* updateCanvas(tx, canvas, (now) => ({
+            ...now,
+            frames: { ...now.frames, ...frames },
+          }));
+          return frames;
+        })
     );
-    return sized;
   });
 
   return {
+    arrangeFrames,
     copyTo,
     createCanvas,
     deleteCanvas,
     duplicateCanvas,
     renameCanvas,
     reorderCanvases,
-    setFrame,
     setHome,
     writeFrames,
   };

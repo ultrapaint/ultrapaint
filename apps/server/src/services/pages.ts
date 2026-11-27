@@ -23,6 +23,14 @@ export type CopyTarget =
   | { readonly canvas: string }
   | { readonly name: string };
 
+/** A frame sized and placed in a call: its page's path, its size, and where it goes if it moves. */
+export interface FramePlacement {
+  readonly path: string;
+  readonly size: FrameSize;
+  readonly x?: number | undefined;
+  readonly y?: number | undefined;
+}
+
 /** What a new page is called, and the URL it serves if any. */
 export interface NewPage {
   readonly name: string;
@@ -39,6 +47,18 @@ export interface NewPage {
 export class PagesService extends Context.Service<
   PagesService,
   {
+    /**
+     * Sizes and places frames of one canvas, in order, as one undo step: a frame is sized where
+     * it is, or where the editor draws it when it has none saved yet (`canvas-layout`'s
+     * `sizeFrame`), and one given a position goes to the grid's line nearest to it. A call that
+     * moves a frame onto another frame or its views is refused, nothing written; every frame it
+     * does not name, and whatever else the layout holds, stays as it is. Answers with the frames
+     * named, by path.
+     */
+    readonly arrangeFrames: (
+      canvas: string,
+      frames: readonly FramePlacement[]
+    ) => Effect.Effect<Record<string, FrameLayout>, PagesFailure>;
     readonly create: (
       canvas: string,
       page: NewPage,
@@ -100,16 +120,6 @@ export class PagesService extends Context.Service<
       id: string,
       name: string
     ) => Effect.Effect<Page, PagesFailure>;
-    /**
-     * Sizes one page's frame where it is, or where the editor draws it when it has none saved
-     * yet (`canvas-layout`'s `sizeFrame`); every other frame, and whatever else the layout
-     * holds, stays as it is at that moment. Answers with the frame.
-     */
-    readonly setFrame: (
-      canvas: string,
-      pagePath: string,
-      size: FrameSize
-    ) => Effect.Effect<FrameLayout, PagesFailure>;
     /** The URL the canvas's prototype opens on, which a page of it must serve. */
     readonly setHome: (
       id: string,
@@ -145,13 +155,13 @@ export class PagesService extends Context.Service<
       // inside its step, under the journal's lock: two at once run one after the other.
       const { canvasFile, list, readCanvas, updateCanvas } = reading;
       const {
+        arrangeFrames,
         copyTo,
         createCanvas,
         deleteCanvas,
         duplicateCanvas,
         renameCanvas,
         reorderCanvases,
-        setFrame,
         setHome,
         writeFrames,
       } = makeCanvasOperations(reading, comments);
@@ -168,6 +178,7 @@ export class PagesService extends Context.Service<
       yield* watchDesigns(reading);
 
       return PagesService.of({
+        arrangeFrames,
         canvasFile,
         copyTo,
         create,
@@ -183,7 +194,6 @@ export class PagesService extends Context.Service<
         rename,
         renameCanvas,
         reorderCanvases,
-        setFrame,
         setHome,
         setRoute,
         updateCanvas,

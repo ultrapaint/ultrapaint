@@ -312,9 +312,7 @@ const photograph = Effect.fn("photograph")(function* (
     const shoot = (height: number) =>
       Effect.gen(function* () {
         const framed = yield* session.tool("set_frame", {
-          height,
-          route,
-          width: viewport.width,
+          frames: [{ height, route, width: viewport.width }],
         });
         if (framed.isError) {
           return yield* new EvalsError({
@@ -403,9 +401,13 @@ const recordAddedText = Effect.fn("recordAddedText")(function* (
   const page = yield* readPageFile(path.join(session.root, options.file));
   const added = addedTexts(pageTexts(page), options.brief);
   yield* session.tool("set_frame", {
-    height: options.viewport.height,
-    route: options.route,
-    width: options.viewport.width,
+    frames: [
+      {
+        height: options.viewport.height,
+        route: options.route,
+        width: options.viewport.width,
+      },
+    ],
   });
   const pictures = new Map<string, string>();
   for (const parent of [...new Set(added.map((a) => a.parent))].slice(
@@ -493,9 +495,7 @@ const reviewIO = (
         }
         const route = at.pageFor(viewport);
         yield* session.tool("set_frame", {
-          height: viewport.height,
-          route,
-          width: viewport.width,
+          frames: [{ height: viewport.height, route, width: viewport.width }],
         });
         const shot = yield* session.tool("get_screenshot", {
           node,

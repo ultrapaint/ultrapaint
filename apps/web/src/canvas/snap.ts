@@ -2,10 +2,8 @@
  * Where something placed on the canvas lands: on the grid when it is shown, against the edges of
  * the frames around it when it is not. Pure, so the rules are tested without a canvas.
  */
+import { GRID, onGrid } from "@ultrapaint/contracts/canvas-layout";
 import type { FrameLayout } from "@ultrapaint/contracts/pages";
-
-/** One cell of the grid, in canvas pixels. */
-export const GRID = 8;
 
 interface Point {
   x: number;
@@ -20,13 +18,10 @@ interface Box extends Point {
 /** The corner a resize drags; the opposite one stays where it was. */
 type Corner = "nw" | "ne" | "sw" | "se";
 
-// `|| 0`: a point just left of zero would land on -0.
-const toGrid = (v: number, grid: number) => Math.round(v / grid) * grid || 0;
-
 /** The point on the grid nearest to `p`. */
 export const snapPoint = (p: Point, grid = GRID): Point => ({
-  x: toGrid(p.x, grid),
-  y: toGrid(p.y, grid),
+  x: onGrid(p.x, grid),
+  y: onGrid(p.y, grid),
 });
 
 /**
@@ -35,7 +30,7 @@ export const snapPoint = (p: Point, grid = GRID): Point => ({
  */
 const snapEdge = (moving: number, fixed: number, min: number, grid: number) => {
   const dir = moving < fixed ? -1 : 1;
-  let edge = toGrid(moving, grid);
+  let edge = onGrid(moving, grid);
   while ((edge - fixed) * dir < min) {
     edge += dir * grid;
   }

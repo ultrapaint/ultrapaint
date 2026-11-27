@@ -719,6 +719,11 @@ export const ThreadItem = Schema.Union([
     text: Schema.String,
   }),
   Schema.Struct({
+    /**
+     * The call is the editor's `set_frame` moving a frame, read from its input: the turn card
+     * says it arranges the canvas, not that it sizes a page. Absent or false for any other call.
+     */
+    arranges: Schema.optional(Schema.Boolean),
     at: Schema.Number,
     content: Schema.Array(ToolContent),
     id: Schema.String,
@@ -882,6 +887,17 @@ const EDITOR_MCP_CALL_RE = new RegExp(
  */
 export const isEditorMcpCall = (title: string | undefined): boolean =>
   title !== undefined && EDITOR_MCP_CALL_RE.test(title);
+
+/** An editor call's title, the tool's name after the server's (`list_pages`). */
+const EDITOR_TOOL_RE = new RegExp(
+  `(?:(?:^|_)mcp__${EDITOR_MCP_SERVER}__|^mcp\\.${EDITOR_MCP_SERVER}\\.)([\\w-]+)`
+);
+
+/** The editor tool a call's title names (`list_pages`); undefined for a call of any other tool. */
+export const editorToolOf = (title: string | undefined): string | undefined => {
+  const found = title === undefined ? null : EDITOR_TOOL_RE.exec(title);
+  return found === null ? undefined : found[1];
+};
 
 /** What an agent outside the editor needs to reach its MCP server. */
 export const McpConnection = Schema.Struct({
