@@ -164,9 +164,9 @@ whole repository. The design is what the UI looks like and which states it has; 
 the code's. Token values are the design's: to bring one the code does not have yet over, ${ways.exportTokens("named")}; never the other way without asking. When a design is implemented, ${ways.markImplemented("the page, or component:<Name>")}`
     : `This thread designs: its work is the design, in ${designsDir}. It may write the rest of the
 repository too (the application's code, its docs, its configuration) when the user asks for it.
-The design is what the UI looks like and which states it has (an empty, loading or error state is
-a page of its own, orders@empty.page.json); what it does — data, permissions, validation, what a
-button calls — is the code's. When the user asks for behaviour and not for its code,
+The design is what the UI looks like and which states it has; what it does — data, permissions,
+validation, what a button calls — is the code's. An empty, loading or error state is a page of its own
+beside the loaded one, named for its state (Orders, empty): ${ways.drawState}. When the user asks for behaviour and not for its code,
 ${ways.noteBehaviour}, and tell them it goes to the code when the design is implemented (the
 Implement button). Token values are the design's: change them in the design system, never in a
 stylesheet.`;

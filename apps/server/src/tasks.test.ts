@@ -5,6 +5,7 @@ import {
   type AppComponentFile,
 } from "@ultrapaint/contracts/components";
 import { commandOf, type TaskRequest } from "@ultrapaint/contracts/tasks";
+import type { ThreadPurpose } from "@ultrapaint/contracts/threads";
 import { DETAILED_ROLES } from "@ultrapaint/contracts/token-presets";
 import {
   LOOK_PRESETS,
@@ -1224,6 +1225,15 @@ const NEVER_WRITE_RE =
 const SAY_SO_RE =
   /no\s+tool can do what was asked, say so in your reply, naming what, and leave the files as they are/;
 const READ_ONE_RE = /read one when a tool's answer is\s+not enough/;
+/**
+ * A state's page by its file, `orders@empty.page.json` or `<name>@<state>.page.json`: only the
+ * editor's New state makes one (ADR 0030), and one an agent writes is a variation the tools
+ * refuse (ADR 0098), so no text an agent reads names one (UP-233).
+ */
+const STATE_FILE_RE = /[^\s`'"(]*@[^\s.`'"]+\.page\.json/g;
+/** What the design briefing says a state is: a page of its own beside its screen, named for it. */
+const STATE_PAGE_RE =
+  /an empty, loading or error state is a page of its own\s+beside the loaded one,\s+named for its state\s+\(Orders, empty\)/i;
 
 /**
  * The clauses of a text that tell an agent to write a design file or to change one in its file,
@@ -1409,6 +1419,16 @@ describe("the editor's tools in what an agent is told", () => {
         .map((phrase) => `${r.of} says ${phrase}`)
     );
 
+  /** The briefing for one purpose. */
+  const briefingOf = (read: readonly Read[], purpose: ThreadPurpose) =>
+    read.find((r) => r.of === `the ${purpose} briefing`)?.text ?? "";
+
+  /** Every state's file a text names, by what names it (UP-233). */
+  const stateFilesIn = (read: readonly Pick<Read, "of" | "text">[]) =>
+    read.flatMap((r) =>
+      (r.text.match(STATE_FILE_RE) ?? []).map((f) => `${r.of}: ${f}`)
+    );
+
   /** The briefings' text, where the design skills are told. */
   const briefings = (read: readonly Read[]) =>
     read
@@ -1491,6 +1511,44 @@ describe("the editor's tools in what an agent is told", () => {
           }
         })
     );
+
+    it.effect(
+      "names no state's file in any task, briefing or the MCP server's instructions (UP-233)",
+      () =>
+        Effect.gen(function* () {
+          const before = yield* everything;
+          yield* everythingThere;
+          const after = yield* everything;
+          const instructions = {
+            of: "the MCP server's instructions",
+            text: MCP_INSTRUCTIONS,
+          };
+          assert.deepStrictEqual(
+            stateFilesIn([...before, ...after, instructions]),
+            []
+          );
+          // What agents were told before, each caught.
+          for (const told of [
+            "a page of its own, orders@empty.page.json",
+            "orders@empty.page.json is the orders page in its empty state",
+          ]) {
+            assert.isNotNull(told.match(STATE_FILE_RE), told);
+          }
+        })
+    );
+
+    it.effect(
+      "tells an agent to draw a state as a page of its own, made with duplicate_page and rename_page (UP-233)",
+      () =>
+        Effect.gen(function* () {
+          const design = briefingOf(yield* everything, "design");
+          assert.match(design, STATE_PAGE_RE);
+          for (const text of [design, MCP_INSTRUCTIONS]) {
+            assert.include(text, "duplicate_page copies the page beside it");
+            assert.include(text, "rename_page names it for its state");
+          }
+        })
+    );
   });
 
   eachTest(project(false))((it) => {
@@ -1538,6 +1596,27 @@ describe("the editor's tools in what an agent is told", () => {
           );
           assert.isNotEmpty(writesDesignFiles(briefings(read)));
           assert.notInclude(briefings(read), "never write a *.page.json");
+        })
+    );
+
+    it.effect(
+      "names no state's file to an agent without the tools (UP-233)",
+      () =>
+        Effect.gen(function* () {
+          const before = yield* everything;
+          yield* everythingThere;
+          const after = yield* everything;
+          assert.deepStrictEqual(stateFilesIn([...before, ...after]), []);
+        })
+    );
+
+    it.effect(
+      "tells an agent without the tools to draw a state as a page file of its own (UP-233)",
+      () =>
+        Effect.gen(function* () {
+          const design = briefingOf(yield* everything, "design");
+          assert.match(design, STATE_PAGE_RE);
+          assert.include(design, "orders-empty.page.json in its folder");
         })
     );
   });

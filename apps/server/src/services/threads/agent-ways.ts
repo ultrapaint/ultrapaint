@@ -84,6 +84,15 @@ export const ONLY_THROUGH_TOOLS = `never write a *.page.json, *.component.json o
 by hand or with a script, not even to fix one; read one when a tool's answer is not enough. When no
 tool can do what was asked, say so in your reply, naming what, and leave the files as they are.`;
 
+/**
+ * How an agent with the tools draws a state (UP-233): a page of its own beside its screen, as the
+ * design skill's `references/states.md` says, never a state's file (`orders@empty.page.json`),
+ * which only the editor's New state makes (ADR 0030) and the tools refuse as a variation (ADR
+ * 0098). The briefing and the MCP server's instructions both say it, in these words.
+ */
+export const DRAW_STATE = `${TOOLS.duplicate_page} copies the page beside it, node ids kept and no URL,
+and ${TOOLS.rename_page} names it for its state`;
+
 /** One part's style at a place of a system component's look, as `ComponentChange` writes it. */
 export const SET_STYLE = `{op:"setStyle", place:{variant:{axis, member}|null, state|null}, slot, style}`;
 
@@ -127,6 +136,11 @@ export interface AgentWays {
    * writing a design file (UP-232).
    */
   readonly changingDesigns: string;
+  /**
+   * Making a state's page beside its screen, named for its state (UP-233): a clause after a
+   * colon.
+   */
+  readonly drawState: string;
   /** How the pages of a canvas are read and changed. */
   readonly editPages: (canvas: string) => string;
   /** Bringing the design's values of tokens into the code: a clause, its verb first. */
@@ -207,6 +221,7 @@ nodes, pass their ids to ${TOOLS.focus} with a few words as action, so the user 
 after, look with ${TOOLS.get_screenshot} and fix what is off. ${TOOLS.read_page} reads a big page an outline
 first (depth) and a part at a time (node). A decision that is the user's goes to ${TOOLS.ask_user}: its
 result is their answers, unless it says they were shown, when you end your turn.`,
+  drawState: DRAW_STATE,
   editPages: (
     canvas
   ) => `Through the ultrapaint MCP server, always passing canvas: ${canvas}: ${TOOLS.read_page} and
@@ -268,6 +283,8 @@ its default look:
 ${systemParts()}`,
   changingDesigns:
     "Edit the .page.json files directly and keep them valid; every node needs a unique id.",
+  drawState:
+    "copy the page's file to orders-empty.page.json in its folder, and draw the state there",
   editPages:
     () => `Edit the files above directly; the editor validates each one and reports what is wrong. The
 page format: ${pageSchema()}`,

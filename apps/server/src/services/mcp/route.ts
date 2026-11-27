@@ -13,6 +13,7 @@ import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 import { CORE_FILE } from "../../skills/index.ts";
 import { canvasesIn, NODES, PAGES } from "../threads/agent-docs.ts";
 import {
+  DRAW_STATE,
   handoffCall,
   ONLY_THROUGH_TOOLS,
   SET_STYLE,
@@ -149,7 +150,7 @@ ${NODES}
 Change designs only through these tools: ${ONLY_THROUGH_TOOLS}
 ${TOOLS.read_page} (a big page an outline first, then a part at a time with node), then
 ${TOOLS.apply_operations}; ${TOOLS.set_frame} sizes and moves frames; ${TOOLS.get_document_format} has the whole
-format, ${TOOLS.get_component} an instance to start from. Call ${TOOLS.focus} before changing nodes, so the user
+format, ${TOOLS.get_component} an instance to start from. For a state, ${DRAW_STATE} (Orders, empty). Call ${TOOLS.focus} before changing nodes, so the user
 sees where you work, and ${TOOLS.get_screenshot} to look at the result. An app component's tree is read and
 changed the same way, route component:<Name>: every instance draws it, so change it only when the user
 asked for every instance, else that instance's layers; makeComponent makes one of a page's nodes. Its

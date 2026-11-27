@@ -186,7 +186,8 @@ refactor and the board view left.
   the **breakpoint** of the view it is made in. The breakpoint a frame is at is the one its width
   falls in, a node on the canvas's its own fixed width (the web's `frameBreakpoint`). A page's **family** is its base page with its
   **page states** (`orders@empty.page.json`), which are named after it and move and go with it
-  (`familyOf`); the name after a page file's `@` is its **suffix** (shared's `suffixOf`). Another way to draw a page is one of its **variations**: a **page variant**
+  (`familyOf`), and which only the editor's New state makes: an agent draws a state as a page of its
+  own beside the page, named for the state ("Orders, empty", UP-233); the name after a page file's `@` is its **suffix** (shared's `suffixOf`). Another way to draw a page is one of its **variations**: a **page variant**
   (`pricing@bold.page.json`, ADR 0019) is one from before ADR 0098, read as a variation and folded
   into its page's variations (the server's `page-variants.ts`). _Avoid_ "variant" or "state" alone where a component's could
   be meant: a component has **variants** and **interaction states** of its own.
