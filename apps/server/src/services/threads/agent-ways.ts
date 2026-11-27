@@ -74,6 +74,15 @@ const SEE_RUNNING_SCREEN = `Where you can see the running application, in a brow
    the screen that serves each page at the widths the page is drawn for, and draw what the code
    leaves to runtime (its data, sizes and states) as the screen shows it`;
 
+/**
+ * The rule for an agent with the tools (UP-232): designs change only through them, a design file
+ * is read but never written, and what no tool can do is said, never scripted. The briefing and
+ * the MCP server's instructions both say it, in these words.
+ */
+export const ONLY_THROUGH_TOOLS = `never write a *.page.json, *.component.json or canvas.json yourself,
+by hand or with a script, not even to fix one; read one when a tool's answer is not enough. When no
+tool can do what was asked, say so in your reply, naming what, and leave the files as they are.`;
+
 /** One part's style at a place of a system component's look, as `ComponentChange` writes it. */
 export const SET_STYLE = `{op:"setStyle", place:{variant:{axis, member}|null, state|null}, slot, style}`;
 
@@ -112,7 +121,10 @@ export interface AgentWays {
    * briefing's paragraph.
    */
   readonly changeLook: string;
-  /** The briefing's paragraph on changing designs. */
+  /**
+   * The briefing's paragraph on changing designs: with the tools, only through them, never by
+   * writing a design file (UP-232).
+   */
   readonly changingDesigns: string;
   /** How the pages of a canvas are read and changed. */
   readonly editPages: (canvas: string) => string;
@@ -170,9 +182,8 @@ then make it one there with {op:"makeComponent", ids, name}.
    change at a time with ${handoffCall("change")}, target the component as listed and change one of
    ${COMPONENT_CHANGES}.
    A property or a member renamed there follows into every instance's props, on the pages and in
-   the trees of app components that place it, in the same undo step; written into the file by
-   hand, it would leave them behind. An app component's tree changes with ${TOOLS.read_page} and
-   ${TOOLS.apply_operations}, route component:<Name>.`,
+   the trees of app components that place it, in the same undo step. An app component's tree
+   changes with ${TOOLS.read_page} and ${TOOLS.apply_operations}, route component:<Name>.`,
   changeLook: `Change a system component's look once, never on each instance: one change at a time with
 ${handoffCall("change")}, target component:<Name> and change one of ${LOOK_CHANGES}.
 ${TOOLS.get_component} answers its parts (? those it may leave out), its states and its look: a style is
@@ -180,10 +191,12 @@ the part's whole style at its place (the base, a variant member, a state, or a s
 so start from what the look has there. A part, a member or a state it lacks is refused with the
 ones it has. A first change starts its file from the default look; each change is one undo step,
 drawn on every instance at once.`,
-  changingDesigns: `The "ultrapaint" MCP server is the editor itself: change designs with its tools, validated, shown on
-the canvas at once and undoable by the user, rather than by editing the JSON (a file you write
-must stay valid). Tools name a page by its URL, or its file when it has none; a node reference the
-user pastes (/orders#c_8x2k1q, drafts.page.json#c_8x2k1q) is a page and a node id. Before changing
+  changingDesigns: `The "ultrapaint" MCP server is the editor itself: change designs only through its tools, validated,
+shown on the canvas at once and undoable by the user, and ${ONLY_THROUGH_TOOLS}
+${TOOLS.set_frame} sizes and moves frames, ${TOOLS.apply_operations} changes a page's tree or an app component's, and
+${handoffCall("change")} a component's properties and a system component's look. Tools name a page by
+its URL, or its file when it has none; a node reference the user pastes (/orders#c_8x2k1q,
+drafts.page.json#c_8x2k1q) is a page and a node id. Before changing
 nodes, pass their ids to ${TOOLS.focus} with a few words as action, so the user watches you work;
 after, look with ${TOOLS.get_screenshot} and fix what is off. ${TOOLS.read_page} reads a big page an outline
 first (depth) and a part at a time (node). A decision that is the user's goes to ${TOOLS.ask_user}: its

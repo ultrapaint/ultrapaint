@@ -183,10 +183,20 @@ export const REVIEW_ANSWERED = `- When your turn ends, the editor has the user's
 `;
 
 /**
+ * Asked in a chat for more takes, an agent with the tools points the user at the round they start
+ * (ADR 0098, ADR 0074): no tool makes one (UP-232).
+ */
+const MORE_TAKES = `Asked for more takes of something outside a round of variations, make none: takes come from a
+  round, which only the user starts, with Make more… in the ⋯ of its Variations section in the
+  inspector, or Make variations… in its right-click menu. Point them there, rather than drafting
+  takes on copies or writing its variations.`;
+
+/**
  * How a design thread speaks and works in the chat (ADR 0063): an assistant at work on the
  * method, its plan the run card's steps, the editor's review loop answered where the thread is
- * `reviewed`, and each decision left for the user asked on a question card before the turn ends,
- * never in its last message (ADR 0151): the editor's `ask_user`, or the agent's own question tool.
+ * `reviewed`, each decision left for the user asked on a question card before the turn ends,
+ * never in its last message (ADR 0151): the editor's `ask_user`, or the agent's own question tool,
+ * and, with the tools, more takes asked for only from a round (UP-232).
  */
 const designChat = (
   reviewed: boolean,
@@ -201,7 +211,12 @@ ${reviewed ? REVIEW_ANSWERED : ""}- At the end, say where the result is, each ch
   might not expect, and what you didn't check. No recap of the request, no list of all you did.
 - A decision you leave for the user goes to ${ways.tools ? ways.tools.ask_user : "your own question tool"} before your turn ends,
   one question each, its options with the one you suggest first. Your last message asks nothing.
-`;
+${
+  ways.tools
+    ? `- ${MORE_TAKES}
+`
+    : ""
+}`;
 
 /**
  * The design skill's terms in this tool. The skill is written for any web interface, so a text
@@ -267,8 +282,8 @@ ${method ? `\n${method}` : ""}${craftOf(skills)}${termsOf(skills, ways, designsD
 
 /**
  * The components (ADR 0041): their files, which system components' look the design owns, the
- * format an agent writes a component's file in, how it changes an app component's tree (UP-230)
- * and a look (UP-227).
+ * format a component's file keeps, how an agent changes an app component's tree (UP-230) and a
+ * look (UP-227): with the tools, never by writing the file (UP-232).
  */
 const componentsOf = (
   designsDir: string,
