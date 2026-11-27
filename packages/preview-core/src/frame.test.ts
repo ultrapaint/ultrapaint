@@ -69,6 +69,8 @@ describe("a frame's body", () => {
     const style = getComputedStyle(body);
     expect(style.display).toBe("grid");
     expect(style.minHeight).toBe("100%");
+    // Its root's row is the frame's height at least, whatever the page opens after it.
+    expect(style.gridTemplateRows).toBe("minmax(100cqh, 1fr)");
   });
 
   it("is its content's size in a frame drawn at its content's size", () => {
