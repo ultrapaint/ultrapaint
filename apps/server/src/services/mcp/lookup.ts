@@ -1,3 +1,8 @@
+import {
+  COMPONENT_DOC_PREFIX,
+  componentDocOf,
+  componentFileOf,
+} from "@ultrapaint/contracts/components";
 import type { Page } from "@ultrapaint/contracts/pages";
 import {
   targetOfRef,
@@ -7,8 +12,10 @@ import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { parseEditorLink, parseNodeRef } from "@ultrapaint/shared/node-ref";
 import { humanise } from "@ultrapaint/shared/path";
 import { suffixOf } from "@ultrapaint/shared/route";
+import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
 import { Effect } from "effect";
 import { OpenProject } from "../../project.ts";
+import { ComponentService } from "../components.ts";
 import { DocumentService } from "../documents.ts";
 import { IN_CANVAS_RE, pageMissed, pageTargetNamed } from "../page-names.ts";
 import { PagesService } from "../pages.ts";
@@ -16,12 +23,16 @@ import { RepoPaths } from "../repo-paths.ts";
 import { VariationRounds } from "../variation-rounds.ts";
 import { missing, reported } from "./tool-helpers.ts";
 
-/** Where a tool works: a page, or the nodes beside a canvas's pages, maybe one node of either. */
+/**
+ * Where a tool works: a page, or the nodes beside a canvas's pages, maybe one node of either; for
+ * the tools that edit a tree, an app component's too (UP-230).
+ */
 export interface Where {
+  /** The canvas; `""` for an app component's tree, which is no canvas's. */
   readonly canvas: string;
-  /** The document: the page's id, or the canvas's own (`canvasDocOf`). */
+  /** The document: the page's id, the canvas's own (`canvasDocOf`), or `component:<Name>`. */
   readonly doc: string;
-  /** Its file, repository-relative: the page's, or the canvas's `canvas.json`. */
+  /** Its file, repository-relative: the page's, the canvas's `canvas.json`, the component's. */
   readonly file: string;
   /** A node id, never a reference: the one `node` or the name's reference says. */
   readonly nodeId?: string;
@@ -45,8 +56,32 @@ export interface Given {
   readonly route?: string | undefined;
 }
 
-/** The node id a reference such as `/home#c_1` stands for; any other text as it is. */
-export const nodeIdOf = (text: string) => parseNodeRef(text)?.nodeId ?? text;
+/** An app component's tree as a tool names it, maybe one node of it: `component:AppShell#nav`. */
+const COMPONENT_REF_RE = new RegExp(
+  String.raw`^${COMPONENT_DOC_PREFIX}([^\s#]+)(?:#([\w-]+))?$`
+);
+
+/** The app component and maybe the node `component:<Name>` or `component:<Name>#id` names. */
+export const componentRefOf = (text: string) => {
+  // Typed by hand: the linter otherwise takes the match for non-null.
+  const found: RegExpExecArray | null = COMPONENT_REF_RE.exec(text.trim());
+  if (found === null) {
+    return null;
+  }
+  const [, name = "", nodeId] = found;
+  return { name, nodeId };
+};
+
+/** What a tool's `route` names, or else its `node` when that is a reference. */
+const namedBy = ({ node, route }: Given) =>
+  route ??
+  (node !== undefined && (parseNodeRef(node) ?? componentRefOf(node))
+    ? node
+    : undefined);
+
+/** The node id a reference such as `/home#c_1` or `component:Nav#c_1` stands for; any other text as it is. */
+export const nodeIdOf = (text: string) =>
+  parseNodeRef(text)?.nodeId ?? componentRefOf(text)?.nodeId ?? text;
 
 /**
  * How a tool finds what an agent names: a canvas, where to work (`where`: a page or the nodes
@@ -96,6 +131,45 @@ export const makeLookup = Effect.gen(function* () {
       file: paths.relative(
         `${paths.designsDir}/${id === "" ? "" : `${id}/`}canvas.json`
       ),
+      page: null,
+      ...(nodeId !== undefined && { nodeId }),
+    } satisfies Where;
+  });
+
+  /**
+   * An app component's tree, maybe one node of it (UP-230). A system component has no tree, and
+   * a file that does not read cannot be edited: each is refused with why.
+   */
+  const treeOf = Effect.fnUntraced(function* (
+    name: string,
+    nodeId: string | undefined
+  ) {
+    if (systemComponentOf(name)) {
+      return yield* missing(
+        `${name} is a system component, which has no tree: change its look with handoff's change, target component:${name}`
+      );
+    }
+    const { components } = yield* reported(
+      project.use(Effect.flatMap(ComponentService, (c) => c.list))
+    );
+    const file = componentFileOf(name);
+    const entry = components.find((e) => e.file === file);
+    if (entry?.problem !== undefined) {
+      return yield* missing(`${file} does not read: ${entry.problem}`);
+    }
+    if (entry?.component?.origin !== "app") {
+      const apps = components.flatMap((e) =>
+        e.component?.origin === "app" ? [e.component.name] : []
+      );
+      return yield* missing(
+        `no app component ${name}; ${apps.length > 0 ? `the app components are ${apps.join(", ")}` : "make one of a page's nodes with makeComponent"}`
+      );
+    }
+    const paths = yield* reported(project.use(RepoPaths));
+    return {
+      canvas: "",
+      doc: componentDocOf(name),
+      file: paths.relative(`${paths.designsDir}/${file}`),
       page: null,
       ...(nodeId !== undefined && { nodeId }),
     } satisfies Where;
@@ -190,23 +264,24 @@ export const makeLookup = Effect.gen(function* () {
    * node beside the pages (`canvas#c_1`). `node` names a node by id or by reference, and its
    * reference names the page too when `route` does not. `loose: true` is the nodes beside the
    * pages of the canvas named, or of the page's. A miss says it as a design target's does, the
-   * pages listed.
+   * pages listed. `component:<Name>` (`component:Nav#c_1`) is an app component's tree, for the
+   * tools that edit a tree (`treeWhere`); the others refuse it with why.
    */
-  const whereIn = Effect.fnUntraced(function* ({
-    canvas,
-    loose,
-    node,
-    route,
-  }: Given) {
+  const whereIn = Effect.fnUntraced(function* (given: Given) {
+    const { canvas, loose, node } = given;
     const nodeId = node === undefined ? undefined : nodeIdOf(node);
-    const named =
-      route ?? (node !== undefined && parseNodeRef(node) ? node : undefined);
+    const named = namedBy(given);
     if (named === undefined) {
       return loose
         ? yield* beside(canvas, nodeId)
         : yield* missing(
             "say which page with `route`, or pass `loose: true` for the nodes beside the pages"
           );
+    }
+    if (componentRefOf(named) !== null) {
+      return yield* missing(
+        `${named} is an app component's tree, which read_page and apply_operations work on; to see it drawn, name a page that places it`
+      );
     }
     const copy = yield* copyAt(named, nodeId);
     if (copy !== null) {
@@ -224,6 +299,16 @@ export const makeLookup = Effect.gen(function* () {
 
   // Its answers widened to `Where`, which a working copy's `takeOf` is part of.
   const where = (given: Given) => Effect.map(whereIn(given), (at): Where => at);
+
+  /** `where`, or an app component's tree (UP-230): for the tools that read and edit a tree. */
+  const treeWhere = (given: Given) => {
+    const named = namedBy(given);
+    const tree = named === undefined ? null : componentRefOf(named);
+    const { node } = given;
+    return tree === null
+      ? where(given)
+      : treeOf(tree.name, node === undefined ? tree.nodeId : nodeIdOf(node));
+  };
 
   /** A page by `where`'s rule, for a tool that works on pages only, and the take it is of. */
   const pageWhere = Effect.fnUntraced(function* (
@@ -258,6 +343,7 @@ export const makeLookup = Effect.gen(function* () {
     pagesService,
     pageWhere,
     project,
+    treeWhere,
     where,
   };
 });

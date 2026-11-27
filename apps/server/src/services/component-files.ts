@@ -389,6 +389,27 @@ export const withTree = (
   };
 };
 
+/**
+ * A slot, or a node a property sets, whose node an edit of the tree took out (`withTree` lets it
+ * go with its node), said with the way to take it out instead; nothing when every one is kept.
+ */
+export const partDroppedBy = (
+  tree: DesignNode,
+  file: AppComponentFile
+): string | undefined => {
+  const ids = idsOf(tree);
+  const slot = file.slots.find((s) => !ids.has(s.node));
+  const [target] = file.properties.flatMap((p) =>
+    (p.targets ?? []).flatMap((t) => (ids.has(t.node) ? [] : [{ p, t }]))
+  );
+  const lost = slot
+    ? `the slot ${slot.name} is node ${slot.node}`
+    : target && `the property ${target.p.name} sets node ${target.t.node}`;
+  return lost
+    ? `${lost}, which the edit takes out: take that out with handoff's change first`
+    : undefined;
+};
+
 type Fields = Record<string, unknown>;
 
 /** A tree with the variant keys of every node's `at` renamed, or taken out where `rename` says null. */

@@ -98,6 +98,11 @@ export interface AgentWays {
    */
   readonly askUser: string;
   /**
+   * Reading and changing an app component's tree, and making one of a page's nodes (UP-230): the
+   * briefing's paragraph; nothing without the tools, where the tree is written in its file.
+   */
+  readonly changeAppComponent: string;
+  /**
    * Changing a component's properties, members and slots, or a system component's look, so that a
    * rename follows into every instance (ADR 0122): a step's text.
    */
@@ -155,12 +160,19 @@ export interface AgentWays {
 
 const withTools: AgentWays = {
   askUser: `with ${TOOLS.ask_user}`,
+  changeAppComponent: `Read an app component's tree with ${TOOLS.read_page} and change it with ${TOOLS.apply_operations} as a page's,
+route component:<Name> (a node of it: component:<Name>#id). It is the main component, which every
+instance draws: change it only when the user asked for the change everywhere, else the layers of the
+instance they mean. A part shared by pages that is no component yet: build it on a page that uses it,
+then make it one there with {op:"makeComponent", ids, name}.
+`,
   changeComponent: `Change an app component's properties, members and slots, and a system component's look, one
    change at a time with ${handoffCall("change")}, target the component as listed and change one of
    ${COMPONENT_CHANGES}.
    A property or a member renamed there follows into every instance's props, on the pages and in
    the trees of app components that place it, in the same undo step; written into the file by
-   hand, it would leave them behind. An app component's tree is written in its file.`,
+   hand, it would leave them behind. An app component's tree changes with ${TOOLS.read_page} and
+   ${TOOLS.apply_operations}, route component:<Name>.`,
   changeLook: `Change a system component's look once, never on each instance: one change at a time with
 ${handoffCall("change")}, target component:<Name> and change one of ${LOOK_CHANGES}.
 ${TOOLS.get_component} answers its parts (? those it may leave out), its states and its look: a style is
@@ -220,6 +232,7 @@ ${TOOLS.read_design_system}, ${TOOLS.list_components} and ${TOOLS.get_component}
 
 const withoutTools: AgentWays = {
   askUser: "in your reply, ending your turn for the answers",
+  changeAppComponent: "",
   changeComponent: `Write each component's file directly, and keep it valid. A property or a member the code
    renamed: rename it in the props of its instances too, on the pages that place it and in the
    trees of app components that place it, and take it out of them where the code took it out, or

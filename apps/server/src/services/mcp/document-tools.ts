@@ -1,7 +1,8 @@
 /**
- * The tools that read and change design documents: a page or the loose nodes beside the pages,
- * the format they are written in, the operations that change them as the editor does, one undo
- * step at a time, and the focus that shows the user where an agent works.
+ * The tools that read and change design documents: a page, the loose nodes beside the pages or
+ * an app component's tree (UP-230), the format they are written in, the operations that change
+ * them as the editor does, one undo step at a time, and the focus that shows the user where an
+ * agent works.
  */
 import { Json } from "@ultrapaint/contracts/base";
 import type { Catalogue } from "@ultrapaint/contracts/catalogue";
@@ -18,6 +19,7 @@ import {
   canvasDocOf,
   childrenOf,
   findNode,
+  idsOf,
   walk,
 } from "@ultrapaint/design-document/tree";
 import { valueMatcher } from "@ultrapaint/design-document/value-matches";
@@ -36,7 +38,7 @@ import {
   treeForAgent,
 } from "../threads/task-text.ts";
 import { CallingThread } from "./access.ts";
-import { makeLookup, nodeIdOf } from "./lookup.ts";
+import { makeLookup, nodeIdOf, type Where } from "./lookup.ts";
 import {
   AnyObject,
   asJson,
@@ -49,6 +51,17 @@ import {
 } from "./tool-helpers.ts";
 
 const decodeOps = Schema.decodeUnknownEffect(Schema.Array(DocOp));
+
+/**
+ * Sibling nodes of a page made an app component, an instance of it in their place, as the
+ * editor's Make component does (UP-230): a call of its own, which is its own undo step.
+ */
+const MakeComponent = Schema.Struct({
+  ids: Schema.NonEmptyArray(Schema.String),
+  name: Schema.String,
+  op: Schema.Literal("makeComponent"),
+});
+const decodeMake = Schema.decodeUnknownEffect(MakeComponent);
 
 /** A field that names a node: a reference read as its node's id, anything else as it is. */
 const idIn = (value: unknown): unknown =>
@@ -157,7 +170,7 @@ const GetDocumentFormat = Tool.make("get_document_format", {
 }).annotateMerge(doing("read"));
 
 const ApplyOperations = Tool.make("apply_operations", {
-  description: `Change a page (loose: true the nodes beside the pages) as one undo step. ops in order, ids or node references:
+  description: `Change a page (loose: true the nodes beside it; component:<Name> an app component's tree) as one undo step. ops in order, ids or node references:
 {op:"insert", parent, index?, node}: parent null at the top; node may leave out ids
 {op:"remove", id}
 {op:"move", id, parent, index?}: index among siblings without it
@@ -166,8 +179,9 @@ const ApplyOperations = Tool.make("apply_operations", {
 (both take at:"md", from that breakpoint up)
 {op:"wrap", ids, type:"row"|"column"|"group"}, {op:"unwrap", id}, {op:"duplicate", id}
 {op:"replace", ids, node}: node where the siblings were
-"inst/layer" is a layer of an app instance: update, setProps, remove (hides) change that instance alone, as its overrides
-Inserting into an instance showing "text" makes the text its first child. Numbers are pixels, "$name" a token, else CSS. Size an instance with width, height, padding, never className. expectedHash (from read_page) refuses a changed page. "warnings": fills with no room. "copies": new ids of the nodes a duplicate made, or an insert or replace whose ids were taken; "ignored": fields that did nothing, and why.`,
+{op:"makeComponent", ids, name}, alone: siblings made an app component, an instance in their place
+"inst/layer" is a layer of an app instance: update, setProps, remove (hides) override that instance alone
+Inserting into an instance showing "text" makes the text its first child. Numbers are pixels, "$name" a token, else CSS. Size an instance with width, height, padding, never className. expectedHash (read_page's) refuses a changed page. "copies": new ids of a duplicate, or of nodes put in whose ids were taken.`,
   failure: ToolFailure,
   parameters: Schema.Struct({
     /** Needed only when the project has several canvases. */
@@ -273,7 +287,84 @@ const breakpointsNamedIn = (ops: readonly DocOp[]): string[] => [
 export const DocumentToolsLive = DocumentTools.toLayer(
   Effect.gen(function* () {
     const events = yield* EventBus;
-    const { canvasOf, documents, pagesOf, project, where } = yield* makeLookup;
+    const { canvasOf, documents, pagesOf, project, treeWhere, where } =
+      yield* makeLookup;
+
+    /** Shows the calling thread's work on the nodes it changed; a take's on its thing (ADR 0098). */
+    const showEdited = Effect.fnUntraced(function* (
+      { doc, takeOf }: Where,
+      nodeIds: readonly string[],
+      label: string | undefined
+    ) {
+      const threadId = yield* Effect.service(CallingThread);
+      if (threadId) {
+        yield* events.publish("agent.edited", {
+          ...(takeOf === undefined
+            ? { doc, nodeIds }
+            : { doc: takeOf.doc, nodeIds: [takeOf.node] }),
+          threadId,
+          ...(label !== undefined && { label }),
+        });
+      }
+    });
+
+    /**
+     * `makeComponent`: the page's sibling nodes made an app component through the editor's own
+     * Make component (`makeApp`), in a call of its own. Answers with the instance put in their
+     * place.
+     */
+    const makeComponent = Effect.fnUntraced(function* (
+      at: Where,
+      raw: readonly unknown[],
+      expectedHash: string | undefined
+    ) {
+      if (raw.length !== 1) {
+        return yield* missing(
+          "makeComponent is its own undo step: send it alone, and the other operations in another call"
+        );
+      }
+      const made = yield* decodeMake(raw[0]).pipe(
+        Effect.mapError(
+          (error) =>
+            new ToolFailure({
+              message: `the operations are not valid: ${error.message}`,
+            })
+        )
+      );
+      if (at.page === null) {
+        return yield* missing(
+          "makeComponent makes a component of a page's nodes: name the page with route"
+        );
+      }
+      // A take's working copy may be thrown away: the component it made would stay, placed nowhere.
+      if (at.takeOf !== undefined) {
+        return yield* missing(
+          "makeComponent works on a page, not a take's working copy: make the component once the take is in"
+        );
+      }
+      const before = yield* documents((d) => d.get(at.doc));
+      if (expectedHash !== undefined && expectedHash !== before.hash) {
+        return yield* missing(
+          `${at.file} changed since you last saw it; read it again`
+        );
+      }
+      yield* reported(
+        project.use(
+          Effect.flatMap(ComponentService, (c) =>
+            c.makeApp(at.doc, made.ids, made.name)
+          )
+        )
+      );
+      // makeApp answers the component, as the editor's request does: the instance is the node
+      // the page did not have.
+      const after = yield* documents((d) => d.get(at.doc));
+      const had = before.root ? idsOf(before.root) : new Set<string>();
+      const created = after.root
+        ? [...idsOf(after.root)].filter((id) => !had.has(id))
+        : [];
+      yield* showEdited(at, created, undefined);
+      return { created, hash: after.hash };
+    });
 
     /**
      * Refuses a breakpoint the design system does not have: the code has no prefix for it.
@@ -412,12 +503,18 @@ export const DocumentToolsLive = DocumentTools.toLayer(
         ops,
         route,
       }) {
-        const { doc, takeOf } = yield* where({ canvas, loose, route });
+        const at = yield* treeWhere({ canvas, loose, route });
+        const { doc } = at;
         // A node an agent writes may leave its ids out; they are made before the ops are read.
         // Node references the user pasted stand for their node ids.
         const raw = (JSON.parse(JSON.stringify(ops)) as unknown[]).map(
           nodeRefsToIds
         );
+        if (
+          raw.some((op) => Predicate.isObject(op) && op.op === "makeComponent")
+        ) {
+          return yield* makeComponent(at, raw, expectedHash);
+        }
         for (const op of raw) {
           if (op && typeof op === "object" && "node" in op) {
             fillIds({ nodes: [(op as { node: unknown }).node] });
@@ -433,33 +530,32 @@ export const DocumentToolsLive = DocumentTools.toLayer(
         );
         const breakpoints = yield* knownBreakpoints(decoded);
         const given = asWritten(decoded, raw);
+        // An agent's edit of a component keeps its slots and the nodes its properties set:
+        // taking one out is handoff's change's, which follows into every instance.
         const result = yield* documents((d) =>
-          d.apply({
-            edits: [
-              {
-                doc,
-                ops: given,
-                ...(expectedHash !== undefined && { expectedHash }),
-              },
-            ],
-            ...(label !== undefined && { label }),
-          })
+          d.apply(
+            {
+              edits: [
+                {
+                  doc,
+                  ops: given,
+                  ...(expectedHash !== undefined && { expectedHash }),
+                },
+              ],
+              ...(label !== undefined && { label }),
+            },
+            undefined,
+            { keepParts: true }
+          )
         );
         const after = yield* documents((d) => d.get(doc));
         // The work is the calling thread's: the canvas shows it on the nodes it changed.
-        const threadId = yield* Effect.service(CallingThread);
-        if (threadId && after.root) {
-          // A take's work shows on its thing, never on its working copy (ADR 0098).
-          yield* events.publish("agent.edited", {
-            ...(takeOf === undefined
-              ? {
-                  doc,
-                  nodeIds: touchedBy(decoded, result.created, after.root),
-                }
-              : { doc: takeOf.doc, nodeIds: [takeOf.node] }),
-            threadId,
-            ...(label !== undefined && { label }),
-          });
+        if (after.root) {
+          yield* showEdited(
+            at,
+            touchedBy(decoded, result.created, after.root),
+            label
+          );
         }
         // What the call set that did nothing, then the fills on the page with no room.
         const { ignored, warnings } = after.root
@@ -563,7 +659,7 @@ export const DocumentToolsLive = DocumentTools.toLayer(
               }),
           };
         };
-        const { doc, file, nodeId } = yield* where({ canvas, node, route });
+        const { doc, file, nodeId } = yield* treeWhere({ canvas, node, route });
         const state = yield* documents((d) => d.get(doc));
         if (state.problem !== undefined) {
           return yield* missing(

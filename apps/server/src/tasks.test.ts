@@ -1330,6 +1330,36 @@ describe("the briefing", () => {
   );
 
   test.effect(
+    "tells an agent to change an app component's tree with the tools, only when asked for every instance, and in its file without them (UP-230)",
+    () =>
+      Effect.gen(function* () {
+        const briefing = yield* ProjectBriefing;
+        const tools = (yield* briefing.text("design")) ?? "";
+        assert.include(tools, "route component:<Name> (a node of it");
+        assert.include(
+          tools,
+          "change it only when the user asked for the change everywhere, else the layers of the\ninstance they mean"
+        );
+        assert.include(tools, "build it on a page that uses it");
+        assert.include(tools, '{op:"makeComponent", ids, name}');
+        // An agent outside the editor reads the same, when it connects.
+        assert.include(MCP_INSTRUCTIONS, "route component:<Name>");
+        assert.include(MCP_INSTRUCTIONS, "makeComponent");
+        for (const text of [tools, MCP_INSTRUCTIONS]) {
+          assert.notInclude(text, "is written in its file");
+          assert.notInclude(text, "is\nwritten as a file");
+        }
+
+        // Without the tools, the tree is written in its file, in the format it is told.
+        const untooled =
+          (yield* briefing.text("design", { tools: false })) ?? "";
+        assert.include(untooled, `origin "app": the project's own component`);
+        assert.notInclude(untooled, "component:<Name> (a node of it");
+        assert.notInclude(untooled, "makeComponent");
+      }).pipe(Effect.provide(ProjectTest()), Effect.scoped)
+  );
+
+  test.effect(
     "tells the design skills to a thread that draws designs, and to no other",
     () =>
       Effect.gen(function* () {
