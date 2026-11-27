@@ -659,6 +659,10 @@ refactor and the board view left.
 - **Preview**: what draws the editor's frames (preview-core's `Preview`): the frames, a renderer
   mounted through the core's seam `RenderToCanvas` (the React renderer, or the scripted one of the
   tests), the system components. Nothing of the repository's runs in it.
+- **Stalled preview**: the editors' preview once a picture went unanswered after it had drawn one
+  (`Screenshots`, `PreviewState`): still asked, but waited for 5 seconds, not 30, and the agent
+  told to have the person reload the editor, until a picture is drawn again. Before its first
+  picture it is _starting_, and an unanswered request says it may be.
 - **The design's look**: the project's components and the stylesheet drawn from them and the
   design system (`designCss`), set once on the preview (`setLook`, which `followLook` keeps
   current) and shared by every frame; a board's own `css` is the only other stylesheet a frame
