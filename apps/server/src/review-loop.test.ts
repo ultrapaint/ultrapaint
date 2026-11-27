@@ -260,7 +260,7 @@ describe("a design's review", () => {
       const asked = fixing.texts.join("\n");
       assert.include(asked, "Uneven gap");
       assert.include(asked, "Loud title");
-      assert.include(asked, "Declined: <the finding's title> — <your reason>");
+      assert.include(asked, "Declined: <the finding's number> — <your reason>");
       const sent = yield* threadWhen(threadId, (t) => t.status === "running");
       const [round] = reviewsOf(sent.items);
       const prompt = sent.items.findLast((i) => i.kind === "user");
@@ -754,7 +754,7 @@ describe("the checks' findings", () => {
         );
         assert.include(
           told,
-          "4. **13px spacing off the system** (c_1 (`padding`); a check's, spacing): off the system: 13px spacing, 1 place"
+          "4. **Hand-set spacing 13px on c_1** (c_1 (`padding`); a check's, spacing): off the system: 13px spacing, 1 place"
         );
       }).pipe(Effect.scoped)
   );
@@ -935,7 +935,7 @@ describe("the checks' findings", () => {
         yield* reviewing.turn.end();
         const told = (yield* designer.nextTurn).texts.join("\n");
         assert.include(told, "1. **Uneven gap**");
-        assert.include(told, "2. **13px spacing off the system**");
+        assert.include(told, "2. **Hand-set spacing 13px on c_1**");
         assert.notInclude(told, "3. ");
       }).pipe(Effect.scoped)
   );

@@ -34,8 +34,8 @@ describe("the checks' findings for the designer", () => {
     expect(
       found.map((f) => [f.check, f.finding.title, f.finding.severity])
     ).toEqual([
-      ["off-system", "6px spacing off the system", "minor"],
-      ["off-system", "13px spacing off the system", "minor"],
+      ["off-system", "Hand-set spacing 6px on Row 1 and others", "minor"],
+      ["off-system", "Hand-set spacing 13px on Title", "minor"],
     ]);
     const [six] = found;
     expect(six?.finding.problem).toBe(
@@ -79,7 +79,7 @@ describe("the checks' findings for the designer", () => {
     ]);
     expect(found.map((f) => [f.finding.title, f.finding.where])).toEqual([
       [
-        "13px spacing off the system",
+        "Hand-set spacing 13px on Title and others",
         "Title (`padding.top`), Card (`padding.top`)",
       ],
     ]);
@@ -149,6 +149,184 @@ describe("the checks' findings for the designer", () => {
     );
     expect(found.map((f) => f.finding.where)).toEqual([
       "the rows of “Invoices”, on 2 pages (/settings/billing, /account/billing)",
+    ]);
+  });
+
+  it("title a value off the system by its kind, its value as it reads and its first element", () => {
+    const found = checkFindings([
+      {
+        checks: {
+          offSystem: [
+            {
+              field: "fill",
+              kind: "color",
+              layer: "gradient",
+              node: "Hero",
+              value: "rgba(12, 10, 40, 0.6)",
+            },
+            {
+              field: "font",
+              kind: "font",
+              node: "Heading",
+              value:
+                '"Instrument Sans", "Helvetica Neue", system-ui, sans-serif',
+            },
+            ...["Plan", "Plan", "Footer"].map((node) => ({
+              field: "color",
+              kind: "color" as const,
+              node,
+              value: "color-mix(in oklab, #1f2937 80%, transparent)",
+            })),
+          ],
+          rendered: [],
+        },
+        file: "designs/home.page.json",
+      },
+    ]);
+    expect(found.map((f) => f.finding.title)).toEqual([
+      "Hand-set colour color-mix(…) on Plan and others",
+      "Hand-set colour rgba(12, 10, 40, 0.6) in a gradient on Hero",
+      'Hand-set font "Instrument Sans"… on Heading',
+    ]);
+  });
+
+  it("keep a title near 60 characters, its element taking what is left", () => {
+    const [found] = checkFindings([
+      {
+        checks: {
+          offSystem: ["Pricing section heading", "Pricing section body"].map(
+            (node) => ({
+              field: "fill",
+              kind: "color" as const,
+              layer: "gradient" as const,
+              node,
+              value: "rgba(255, 255, 255, 0.08)",
+            })
+          ),
+          rendered: [],
+        },
+        file: "designs/home.page.json",
+      },
+    ]);
+    expect(found?.finding.title).toBe(
+      "Hand-set colour rgba(…) in a gradient on Pricing… and others"
+    );
+  });
+
+  it("put the whole value in the problem, and the fill layer it is in", () => {
+    const font = '"Instrument Sans", "Helvetica Neue", system-ui, sans-serif';
+    const found = checkFindings([
+      {
+        checks: {
+          offSystem: [
+            { field: "font", kind: "font", node: "Heading", value: font },
+            {
+              field: "fill",
+              kind: "color",
+              layer: "colour",
+              node: "Band",
+              value: "#fafafa",
+            },
+          ],
+          rendered: [],
+        },
+        file: "designs/home.page.json",
+      },
+    ]);
+    expect(found.map((f) => f.finding.problem)).toEqual([
+      `off the system: ${font} font, 1 place, set by hand where the design system has a token.`,
+      "off the system: #fafafa colour as a fill layer, 1 place, set by hand where the design system has a token.",
+    ]);
+  });
+
+  it("keep each value's own title where two shorten alike", () => {
+    const found = checkFindings([
+      {
+        checks: {
+          offSystem: ["#1f2937 80%", "#1f2937 60%"].map((mix) => ({
+            field: "color",
+            kind: "color" as const,
+            node: "Plan",
+            value: `color-mix(in oklab, ${mix}, transparent)`,
+          })),
+          rendered: [],
+        },
+        file: "designs/home.page.json",
+      },
+    ]);
+    expect(found.map((f) => f.finding.title)).toEqual([
+      "Hand-set colour color-mix(in oklab, #1f2937 80%, transparent) on Plan",
+      "Hand-set colour color-mix(in oklab, #1f2937 60%, transparent) on Plan",
+    ]);
+  });
+
+  it("title groups set too close by their labels cut at a word, whole in the problem", () => {
+    const found = checkFindings([
+      {
+        checks: {
+          offSystem: [],
+          rendered: [
+            {
+              above: "Choose the plan that fits your growing…",
+              below: "Two plans",
+              between: 10,
+              box: { height: 50, width: 400, x: 0, y: 0 },
+              kind: "groups-apart",
+              ratio: 2,
+              within: 8,
+            },
+          ],
+        },
+        file: "designs/home.page.json",
+      },
+    ]);
+    expect(found.map((f) => f.finding.title)).toEqual([
+      "“Two plans” too close to “Choose the plan that fits…”",
+    ]);
+    expect(found[0]?.finding.problem).toContain(
+      "between “Choose the plan that fits your growing…” and “Two plans”"
+    );
+  });
+
+  it("name each page as the canvas names it, the home page too", () => {
+    const weight = {
+      field: "weight",
+      kind: "weight" as const,
+      node: "Title",
+      value: 550,
+    };
+    const found = checkFindings(
+      [
+        { file: "designs/index.page.json", name: "Home", route: "/" },
+        { file: "designs/about.page.json", name: "About", route: "/about" },
+      ].map((page) => ({
+        checks: { offSystem: [weight], rendered: [] },
+        ...page,
+      }))
+    );
+    expect(found.map((f) => f.finding.where)).toEqual([
+      "Title (`weight`) on Home, Title (`weight`) on About, on 2 pages",
+    ]);
+  });
+
+  it("name the home page by its route where the canvas's name is not known", () => {
+    const weight = {
+      field: "weight",
+      kind: "weight" as const,
+      node: "Title",
+      value: 550,
+    };
+    const found = checkFindings(
+      [
+        { file: "designs/index.page.json", route: "/" },
+        { file: "designs/about.page.json", route: "/about" },
+      ].map((page) => ({
+        checks: { offSystem: [weight], rendered: [] },
+        ...page,
+      }))
+    );
+    expect(found.map((f) => f.finding.where)).toEqual([
+      "Title (`weight`) on /, Title (`weight`) on about, on 2 pages",
     ]);
   });
 

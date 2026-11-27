@@ -26,6 +26,8 @@ export interface PageView {
   /** Its design document, compact JSON. */
   readonly document: string;
   readonly file: string;
+  /** What the canvas calls it (`Page.name`), as the checks' findings name it: the editor lists it. */
+  readonly name?: string | undefined;
   /** Its picture as the editor draws it (PNG, base64), or why there is none. */
   readonly picture:
     | { readonly data: string; readonly kind: "png" }
@@ -175,7 +177,7 @@ export const findingsPrompt = (
       : []),
     ...(listed.length > 0
       ? [
-          "End your reply with one line for each finding you declined, and none for those you fixed:\nDeclined: <the finding's title> — <your reason>",
+          "End your reply with one line for each finding you declined, by its number, and none for those you fixed:\nDeclined: <the finding's number> — <your reason>",
         ]
       : []),
   ].join("\n\n");

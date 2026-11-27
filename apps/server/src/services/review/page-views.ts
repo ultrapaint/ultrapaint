@@ -38,7 +38,7 @@ const decodePage = Schema.decodeUnknownEffect(PageDocument);
 const UNMEASURED: readonly RenderedFinding[] = [];
 
 /** A page's picture, or why it has none, and what the editor measured on the page it drew. */
-type Drawn = Pick<PageView, "picture" | "route"> & {
+type Drawn = Pick<PageView, "name" | "picture" | "route"> & {
   readonly rendered: readonly RenderedFinding[];
 };
 
@@ -64,7 +64,10 @@ export const makePageViews = Effect.fnUntraced(function* () {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
-  /** A page's URL and its picture, as the editor draws it; a page the editor doesn't list has none. */
+  /**
+   * A page's name, its URL and its picture, as the editor lists and draws it; a page the editor
+   * doesn't list has none.
+   */
   const drawn = (file: string) =>
     project
       .use(
@@ -77,7 +80,12 @@ export const makePageViews = Effect.fnUntraced(function* () {
           }
           const state = yield* documents.get(page.id);
           if (!state.root) {
-            return { picture: null, rendered: UNMEASURED, route: page.route };
+            return {
+              name: page.name,
+              picture: null,
+              rendered: UNMEASURED,
+              route: page.route,
+            };
           }
           const layout = yield* pages.readCanvas(page.canvas);
           const frame = layout.frames[page.path] ?? presetSize.desktop;
@@ -90,6 +98,7 @@ export const makePageViews = Effect.fnUntraced(function* () {
             width: frame.width,
           });
           return {
+            name: page.name,
             picture: Buffer.from(png).toString("base64"),
             rendered: findings,
             route: page.route,
@@ -118,8 +127,9 @@ export const makePageViews = Effect.fnUntraced(function* () {
       };
       return failed;
     }
-    const { picture, rendered, route } = result.success;
+    const { name, picture, rendered, route } = result.success;
     const view: Drawn = {
+      name,
       picture:
         picture === null
           ? { kind: "none", why: "the editor couldn't draw it." }

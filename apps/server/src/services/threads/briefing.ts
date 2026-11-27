@@ -177,8 +177,9 @@ stylesheet.`;
  */
 export const REVIEW_ANSWERED = `- When your turn ends, the editor has the user's review models look at what you made and sends
   you their findings: they are the design skill's "a reviewer that sends you findings". Fix each,
-  or decline it with its reason, and end that reply with one line per declined finding:
-  "Declined: <title> — <reason>". The editor runs the review: don't start one of your own.
+  or decline it with its reason, and end that reply with one line per declined finding, by its
+  number: "Declined: <number> — <reason>". The editor runs the review: don't start one of your
+  own.
 `;
 
 /**
