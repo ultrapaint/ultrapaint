@@ -141,6 +141,107 @@ describe("a root given as an element or a shadow root", () => {
   });
 });
 
+describe("a block's own edges", () => {
+  /** An app shell drawn in a frame of the editor, 600px wide: its band, a card and a panel. */
+  const shell = () => {
+    const host = shownAt({ height: 400, width: 600, x: 0, y: 0 });
+    document.body.append(host);
+    const frame = host.attachShadow({ mode: "open" });
+    // A filled band across the top: the app's name over where you are, 8px over the content.
+    const band = shownAt(
+      { height: 48, width: 600, x: 0, y: 0 },
+      "",
+      "background-color:#111827"
+    );
+    band.append(
+      shownAt({ height: 18, width: 200, x: 16, y: 4 }, "Acme"),
+      shownAt({ height: 18, width: 200, x: 16, y: 26 }, "Settings › Billing")
+    );
+    // A bordered card around one line, then a list of rows 10px apart.
+    const card = shownAt(
+      { height: 40, width: 400, x: 16, y: 56 },
+      "",
+      "border:1px solid #e5e7eb"
+    );
+    card.append(shownAt({ height: 18, width: 300, x: 32, y: 67 }, "Pro plan"));
+    const rows = listOf(rowsAt(16, 106, 3, 10), 16);
+    const content = shownAt({ height: 154, width: 600, x: 0, y: 56 });
+    content.append(card, rows);
+    // A panel that scrolls on its own, 10px under the content. happy-dom computes no longhand of
+    // `overflow` and lays nothing out: `overflow-y` and the height scrolled are given as a
+    // browser would give them.
+    const panel = shownAt(
+      { height: 80, width: 600, x: 0, y: 220 },
+      "",
+      "overflow-y:auto"
+    );
+    Object.defineProperty(panel, "scrollHeight", { value: 240 });
+    Object.defineProperty(panel, "clientHeight", { value: 80 });
+    panel.append(...rowsAt(0, 220, 2, 10));
+    frame.append(band, content, panel);
+    return frame;
+  };
+
+  it("marks which blocks are boxes and which start a region, a box around one line kept whole", () => {
+    const { block } = layoutInBrowser(shell());
+    const [band, content, panel] = block?.children ?? [];
+    assert.deepStrictEqual(
+      [band, content, panel, ...(content?.children ?? [])].map((b) => [
+        b?.label,
+        b?.boxed,
+        b?.region,
+      ]),
+      [
+        ["Acme", true, true],
+        ["Pro plan", false, false],
+        ["Row 220-1", false, true],
+        ["Pro plan", true, false],
+        ["Row 106-1", false, false],
+      ]
+    );
+  });
+
+  it("is measured as regions: nothing across the band, the content and the panel", () => {
+    const { block } = layoutInBrowser(shell());
+    assert.deepStrictEqual(block ? spacingFindings(block) : [], []);
+  });
+
+  it("takes no edge from a divider under a row, a shadow that draws nothing, a panel with nothing to scroll or the editor's fill around the frame", () => {
+    // The editor around the frame is dark; the page in it is white.
+    const editor = shownAt(
+      { height: 400, width: 600, x: 0, y: 0 },
+      "",
+      "background-color:#1f2937"
+    );
+    const host = shownAt({ height: 400, width: 600, x: 0, y: 0 });
+    editor.append(host);
+    document.body.append(editor);
+    const frame = host.attachShadow({ mode: "open" });
+    const at = (y: number, text: string, style: string) => {
+      const el = shownAt({ height: 40, width: 400, x: 0, y }, "", style);
+      el.append(shownAt({ height: 18, width: 300, x: 8, y: y + 11 }, text));
+      return el;
+    };
+    frame.append(
+      at(0, "Divided", "border-bottom:1px solid #e5e7eb"),
+      at(50, "Shadow at rest", "box-shadow:0 0 0 0 rgba(0, 0, 0, 0)"),
+      at(100, "Nothing to scroll", "overflow-y:auto"),
+      // happy-dom computes no colour: white is given as a browser would compute it.
+      at(150, "White on the page", "background-color:rgb(255, 255, 255)")
+    );
+    const { block } = layoutInBrowser(frame);
+    assert.deepStrictEqual(
+      block?.children.map((b) => [b.label, b.boxed, b.region]),
+      [
+        ["Divided", false, false],
+        ["Shadow at rest", false, false],
+        ["Nothing to scroll", false, false],
+        ["White on the page", false, false],
+      ]
+    );
+  });
+});
+
 describe("a text cut on purpose", () => {
   /**
    * A text of 300px of words in a 200px box, drawn with `style`. happy-dom computes no longhand

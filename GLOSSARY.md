@@ -442,6 +442,11 @@ refactor and the board view left.
   `design-checks` (`in-page.ts` runs in the page, `findings.ts` reads what it gave). The lab runs
   them with `pnpm evals measure`, and the editor on the page it draws for the review (ADR 0081);
   a check reaches an agent only once its false alarms were counted on sections a person rated.
+  The groups' check reads a block that is **boxed** (a border on every side, a shadow, or a fill
+  apart from what it sits on) or starts a **region** (it scrolls on its own, is fixed or sticky,
+  or is a filled or bordered band across the page at its parent's top or bottom), and a block made
+  only of such blocks, as set apart by its edges, and measures it against no neighbour
+  (`LaidBlock`, UP-219).
 - **Check's finding**: a finding a check measured, not one a review model judged (ADR 0081;
   contracts' `CheckKind`, the server's `review/check-findings.ts`): groups set too close and
   rounded or filled rows touching, measured by the editor on the page it draws for the review,

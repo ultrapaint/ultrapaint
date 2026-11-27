@@ -39,16 +39,28 @@ export interface InkLine {
 /**
  * An element as `measure` reads it: the lines of text it shows (its own and its children's,
  * merged where they share a line), its box, and the children that show text. A wrapper with one
- * such child and no text of its own is that child.
+ * such child and no text of its own is that child, unless it is boxed or starts a region.
  */
 export interface LaidBlock {
   readonly bottom: number;
   /** Its box, from the root's top left corner. */
   readonly box: Box;
+  /**
+   * Whether it is a box of its own: a border of 1px or more, a shadow, or a fill that differs
+   * from what it sits on. A reader sees a box as one group, set apart by its edge.
+   */
+  readonly boxed: boolean;
   readonly children: readonly LaidBlock[];
   /** Its first words, to name it in a finding. */
   readonly label: string;
   readonly lines: readonly InkLine[];
+  /**
+   * Whether it starts a region of the page: it scrolls on its own, is fixed or sticky, or is a
+   * band across its parent's width with its own fill or border at the parent's top or bottom (a
+   * header, a nav bar, a footer). Page documents carry no landmarks, so regions are read from
+   * computed style and geometry.
+   */
+  readonly region: boolean;
   readonly top: number;
 }
 
@@ -136,6 +148,145 @@ export const layoutInBrowser = (root: CheckRoot) => {
     }
     return `${cut}…`;
   };
+  /** The element `at` sits in: its parent, or across a shadow boundary, its host. */
+  const parentOf = (at: Element): Element | null => {
+    if (at.parentElement) {
+      return at.parentElement;
+    }
+    const tree = at.getRootNode();
+    return tree instanceof ShadowRoot ? tree.host : null;
+  };
+  /** The measured root as an element: a shadow root's host. */
+  const rootHost = rootEl instanceof ShadowRoot ? rootEl.host : rootEl;
+  /** Whether a computed colour shows: set, and not transparent nor of alpha 0. */
+  const shows = (css: string) => {
+    const bare = css.replace(/\s/g, "");
+    return (
+      bare !== "" &&
+      bare !== "transparent" &&
+      !bare.endsWith(",0)") &&
+      !bare.endsWith("/0)")
+    );
+  };
+  /** Whether a computed background image is drawn: a gradient or a picture. */
+  const pictured = (css: string) =>
+    css !== "" && css !== "none" && css !== "initial";
+  /**
+   * The fill an element sits on: the nearest one up to the measured root, a picture's as none,
+   * else white. What is outside the root (the editor around a frame) is not the page's.
+   */
+  const fillUnder = (el: Element) => {
+    for (
+      let at = parentOf(el);
+      at;
+      at = at === rootHost ? null : parentOf(at)
+    ) {
+      const style = getComputedStyle(at);
+      if (pictured(style.backgroundImage)) {
+        return "picture";
+      }
+      if (shows(style.backgroundColor)) {
+        return style.backgroundColor;
+      }
+    }
+    return "rgb(255, 255, 255)";
+  };
+  const SIDES = ["Top", "Right", "Bottom", "Left"] as const;
+  /** Whether an element draws a border of 1px or more on a side. */
+  const borderOn = (style: CSSStyleDeclaration, side: (typeof SIDES)[number]) =>
+    (Number.parseFloat(style[`border${side}Width`]) || 0) >= 1 &&
+    !["", "none", "hidden"].includes(style[`border${side}Style`]) &&
+    shows(style[`border${side}Color`]);
+  /** Whether an element is filled apart from what it sits on. */
+  const filled = (el: Element, style: CSSStyleDeclaration) =>
+    pictured(style.backgroundImage) ||
+    (shows(style.backgroundColor) && style.backgroundColor !== fillUnder(el));
+  /**
+   * Whether a computed shadow is drawn: one of its layers has a colour that shows and a length
+   * that is not 0 (`0 0 0 0 transparent`, as a utility at rest writes, draws nothing).
+   */
+  const shadowed = (css: string) => {
+    /** `text` cut at each `sep` outside parentheses. */
+    const splitOutside = (text: string, sep: string) => {
+      const parts = [""];
+      let depth = 0;
+      for (const c of text) {
+        if (c === "(") {
+          depth += 1;
+        } else if (c === ")") {
+          depth -= 1;
+        }
+        if (c === sep && depth === 0) {
+          parts.push("");
+        } else {
+          parts[parts.length - 1] += c;
+        }
+      }
+      return parts.map((part) => part.trim()).filter((part) => part !== "");
+    };
+    return (
+      css !== "none" &&
+      splitOutside(css, ",").some((layer) => {
+        const words = splitOutside(layer, " ");
+        const isLength = (w: string) =>
+          w === "0" ||
+          (w.endsWith("px") && !Number.isNaN(Number.parseFloat(w)));
+        const colour = words.find((w) => !isLength(w) && w !== "inset");
+        return (
+          words.some((w) => isLength(w) && Number.parseFloat(w) !== 0) &&
+          (colour === undefined || shows(colour))
+        );
+      })
+    );
+  };
+  const SCROLLS = ["auto", "scroll"];
+  /** Whether an element scrolls on its own: its overflow scrolls, and its content overflows. */
+  const scrolls = (el: Element, style: CSSStyleDeclaration) =>
+    (SCROLLS.includes(style.overflowY) &&
+      el.scrollHeight > el.clientHeight + 1) ||
+    (SCROLLS.includes(style.overflowX) && el.scrollWidth > el.clientWidth + 1);
+  /**
+   * Whether an element starts a region: it scrolls on its own, is fixed or sticky, or is a band
+   * across the whole measured page at its parent's top or bottom with an edge of its own
+   * (`edged`): a header, a nav bar, a footer, not a divided row at the end of its list.
+   */
+  const startsRegion = (
+    el: Element,
+    style: CSSStyleDeclaration,
+    edged: boolean
+  ) => {
+    if (
+      scrolls(el, style) ||
+      style.position === "fixed" ||
+      style.position === "sticky"
+    ) {
+      return true;
+    }
+    const parent = parentOf(el);
+    if (!(edged && parent)) {
+      return false;
+    }
+    const r = el.getBoundingClientRect();
+    const p = parent.getBoundingClientRect();
+    return (
+      r.width >= origin.width - 1 &&
+      (Math.abs(r.top - p.top) <= 1 || Math.abs(r.bottom - p.bottom) <= 1)
+    );
+  };
+  /**
+   * An element's edges: whether it is a box (a border on every side, a fill apart from what it
+   * sits on, or a shadow), and whether it starts a region, where a border on one side counts.
+   */
+  const edgesOf = (el: Element) => {
+    const style = getComputedStyle(el);
+    const fill = filled(el, style);
+    const boxed =
+      fill ||
+      SIDES.every((side) => borderOn(style, side)) ||
+      shadowed(style.boxShadow);
+    const edged = fill || SIDES.some((side) => borderOn(style, side));
+    return { boxed, region: startsRegion(el, style, edged) };
+  };
   const walk = (el: Element | ShadowRoot): LaidBlock | null => {
     if (el instanceof Element && !shown(el)) {
       return null;
@@ -152,14 +303,23 @@ export const layoutInBrowser = (root: CheckRoot) => {
     if (lines.length === 0) {
       return null;
     }
+    const { boxed, region } =
+      el instanceof Element ? edgesOf(el) : { boxed: false, region: false };
     const [only] = children;
-    if (children.length === 1 && own.length === 0 && only) {
+    if (
+      children.length === 1 &&
+      own.length === 0 &&
+      only &&
+      !boxed &&
+      !region
+    ) {
       return only;
     }
     const box = el instanceof ShadowRoot ? origin : el.getBoundingClientRect();
     return {
       bottom: box.bottom - origin.top,
       box: boxOf(box),
+      boxed,
       children,
       label: firstLineOf(
         (el instanceof HTMLElement ? el.innerText : undefined) ??
@@ -167,6 +327,7 @@ export const layoutInBrowser = (root: CheckRoot) => {
           ""
       ),
       lines,
+      region,
       top: box.top - origin.top,
     };
   };

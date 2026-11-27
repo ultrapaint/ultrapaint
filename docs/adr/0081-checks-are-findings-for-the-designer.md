@@ -104,3 +104,15 @@ detector results shown first "anchor judgment".
   `off-system` only (`SENT_CHECKS`, `check-findings.ts`); the editor still measures the kind, so
   putting it back is a server change once a rating deck of the fixed check passes at 80%, the
   logged declines planted as known negatives (§4).
+- **The groups' check reads edges** (UP-219). Its misfires were bordered option cards measured as
+  one list by their text, a header band against the content under it, and a notice against the
+  fields it is about. `layoutInBrowser` now marks a block **boxed** (a border of 1px or more on
+  every side, a shadow that draws, or a fill apart from what it sits on inside the measured root)
+  and one that starts a **region** (it scrolls on its own, is fixed or sticky, or is a filled or
+  bordered band across the page at its parent's top or bottom), and keeps such a block whole when
+  it wraps one child. A divider under a row is not a box. `spacingFindings` measures a box under a
+  block as one of its lines, edge to edge, and never measures a pair where either block stands
+  apart by edges: a box, a region, or a block made only of boxes. The ratio stays the whitespace
+  rule for groups with no edge, and still flags the Components panel (g02). The lab's `measure`
+  and `recall --inputs checks` run the same functions. The kind stays off the designer's list
+  until its rating deck.
