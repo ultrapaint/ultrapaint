@@ -24,6 +24,36 @@ const FRAME = "specimen";
 const WIDTH = 1200;
 const HEIGHT = 900;
 
+/*
+ * How long each step of a picture may take. Together they stay under the server's 30 seconds
+ * (`Screenshots`), so an editor that cannot draw a picture says so before the server gives up on
+ * it, and the server tells an editor that failed from one that stopped answering. The capture
+ * waits on steps of html-to-image that may never settle: a frame of a tab in the background, an
+ * image the browser cannot decode, a resource that never answers.
+ */
+const DEFAULTS_MS = 5000;
+const RENDER_MS = 8000;
+const CAPTURE_MS = 15_000;
+
+/** What `step` gives, or `late` once `ms` have passed without it. */
+const within = <T, L>(step: Promise<T>, ms: number, late: L) =>
+  new Promise<T | L>((resolve, reject) => {
+    const timer = setTimeout(() => resolve(late), ms);
+    step.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+
+/** What a step past its time gives. */
+const LATE = Symbol("late");
+
 let queue: Promise<unknown> = Promise.resolve();
 let holder: HTMLElement | null = null;
 
@@ -133,6 +163,31 @@ const measured = (
   }
 };
 
+/** A canvas's defaults: one whose defaults are not read in time draws in the stylesheet's own. */
+const defaultsWithin = (canvas: string) =>
+  within(defaultsOf(canvas), DEFAULTS_MS, undefined).catch(() => undefined);
+
+/**
+ * The frame captured, or a failure that says it was not in time. A frame whose capture is stuck
+ * is not used again (`close`): the next picture opens one anew.
+ */
+const captureWithin = async (nodeId: string | undefined, close: () => void) => {
+  const picture = await within(
+    frameOf(FRAME).screenshot(nodeId),
+    CAPTURE_MS,
+    LATE
+  );
+  if (picture !== LATE) {
+    return picture;
+  }
+  close();
+  throw new Error(
+    document.visibilityState === "hidden"
+      ? "the preview could not draw it in time: the editor's tab is in the background, where the browser draws nothing; ask the person to bring the editor to the front"
+      : "the preview could not draw it in time"
+  );
+};
+
 /** The node drawn in the frame nobody sees, captured, and measured when `measure` says so. */
 const draw = (
   node: DesignNode,
@@ -141,18 +196,12 @@ const draw = (
   measure: boolean
 ): Promise<MeasuredPicture> => {
   const task = queue.then(async (): Promise<MeasuredPicture> => {
-    const { host } = open(
+    const { close, host } = open(
       options.canvas ?? "",
       options.width ?? WIDTH,
       options.height ?? HEIGHT
     );
-    // A canvas whose defaults cannot be read is drawn in the stylesheet's own.
-    let defaults: PageDefaults | undefined;
-    try {
-      defaults = await defaultsOf(options.canvas ?? "");
-    } catch {
-      defaults = undefined;
-    }
+    const defaults = await defaultsWithin(options.canvas ?? "");
     // As the page is at the window's width: its breakpoints' values (ADR 0036).
     const breakpoints = breakpointsOf(designSystem);
     const at = breakpointAt(breakpoints, options.width ?? WIDTH)?.name;
@@ -163,11 +212,13 @@ const draw = (
       mode: options.mode ?? "fit",
       root: resolveAtBreakpoint(node, breakpoints, at ?? null),
     });
-    if (!(await rendered(id, 8000))) {
+    // A frame that has not drawn in time is not used again: the next picture opens one anew.
+    if (!(await rendered(id, RENDER_MS))) {
+      close();
       return { picture: null };
     }
     await settle();
-    const picture = await frameOf(FRAME).screenshot(options.nodeId);
+    const picture = await captureWithin(options.nodeId, close);
     const findings = measure && picture !== null ? measured(host) : undefined;
     return findings === undefined ? { picture } : { findings, picture };
   });
@@ -176,7 +227,10 @@ const draw = (
   return task;
 };
 
-/** A PNG of the node as the preview draws it, or null when it could not be drawn. */
+/**
+ * A PNG of the node as the preview draws it, or null when it could not be drawn. A capture that
+ * takes too long fails, saying so, and the picture after it is drawn in a frame opened anew.
+ */
 export const drawSpecimen = (
   node: DesignNode,
   designSystem: DesignSystem | null,

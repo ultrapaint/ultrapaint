@@ -6,7 +6,12 @@ import type {
   Preview,
 } from "@ultrapaint/preview-core/preview";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { drawMeasuredSpecimen, drawSpecimen, pictureKey } from "./specimens.ts";
+import {
+  drawMeasuredSpecimen,
+  drawSpecimen,
+  pictureKey,
+  provideCanvasDefaults,
+} from "./specimens.ts";
 
 /** The preview the specimens draw with, the one a test gives. */
 let preview: Preview | null = null;
@@ -23,10 +28,20 @@ vi.mock("./rendered-checks.ts", () => ({
   renderedChecks: () => checks(),
 }));
 
-/** A preview whose frame draws on its own turn, as React does, and is captured as `picture`. */
-const fakePreview = (picture: string | null) => {
+/**
+ * A preview whose frame draws on its own turn, as React does, and is captured as `picture`: each
+ * capture as `captures` says, in turn, once they run out as `picture`. The first `silent` renders
+ * never say they drew.
+ */
+const fakePreview = (
+  picture: string | null,
+  captures: (() => Promise<string | null>)[] = [],
+  silent = 0
+) => {
+  let unheard = silent;
   const drawn: unknown[] = [];
   const mounted: string[] = [];
+  const unmounted: string[] = [];
   const value = {
     mountFrame: (
       _host: HTMLElement,
@@ -36,18 +51,27 @@ const fakePreview = (picture: string | null) => {
       return {
         render: (request: { renderId: number; root: unknown }) => {
           drawn.push(request.root);
+          if (unheard > 0) {
+            unheard -= 1;
+            return;
+          }
           queueMicrotask(() => options.events.rendered?.(request.renderId));
         },
-        screenshot: () => Promise.resolve(picture),
+        screenshot: () => captures.shift()?.() ?? Promise.resolve(picture),
         show: () => undefined,
         skeleton: () => undefined,
-        unmount: () => undefined,
+        unmount: () => {
+          unmounted.push(options.canvas);
+        },
         watchRects: () => undefined,
       } as unknown as FrameRuntime;
     },
   } as unknown as Preview;
-  return { drawn, mounted, value };
+  return { drawn, mounted, unmounted, value };
 };
+
+/** A step of a picture that never settles. */
+const never = <T>() => new Promise<T>(() => undefined);
 
 const node: DesignNode = {
   id: "n",
@@ -70,6 +94,7 @@ beforeEach(() => {
       shadowRoot: {},
       style: {},
     }),
+    visibilityState: "visible",
   });
   vi.stubGlobal("requestAnimationFrame", (cb: () => void) =>
     // fake clock: a frame is a timer of the fake clock set above.
@@ -78,6 +103,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  provideCanvasDefaults(() => Promise.resolve(undefined));
   vi.useRealTimers();
   vi.unstubAllGlobals();
   checks = () => [];
@@ -95,6 +121,53 @@ describe("drawSpecimen", () => {
     expect(fake.drawn).toHaveLength(2);
     // One frame for the canvas, kept for the next picture.
     expect(fake.mounted).toEqual(["a"]);
+  });
+
+  it("fails alone a picture whose capture never settles: the next is drawn in a frame opened anew", async () => {
+    const fake = fakePreview("data:image/png;base64,AA", [never]);
+    preview = fake.value;
+    const stuck = drawSpecimen(node, null, { canvas: "s" });
+    const next = drawSpecimen({ ...node, id: "m" }, null, { canvas: "s" });
+    const stuckFails = expect(stuck).rejects.toThrow(
+      "could not draw it in time"
+    );
+    await vi.advanceTimersByTimeAsync(16_000);
+    await stuckFails;
+    await expect(next).resolves.toBe("data:image/png;base64,AA");
+    // The frame the stuck picture was taken in is not used again.
+    expect(fake.unmounted).toEqual(["s"]);
+    expect(fake.mounted).toEqual(["s", "s"]);
+  });
+
+  it("gives no picture of a frame that does not draw in time, and draws the next in a frame opened anew", async () => {
+    const fake = fakePreview("data:image/png;base64,AA", [], 1);
+    preview = fake.value;
+    const late = drawSpecimen(node, null, { canvas: "r" });
+    const next = drawSpecimen({ ...node, id: "m" }, null, { canvas: "r" });
+    await vi.advanceTimersByTimeAsync(8200);
+    await expect(late).resolves.toBeNull();
+    await expect(next).resolves.toBe("data:image/png;base64,AA");
+    expect(fake.mounted).toEqual(["r", "r"]);
+  });
+
+  it("says a picture is not drawn in time in a tab in the background, and what helps", async () => {
+    preview = fakePreview("data:image/png;base64,AA", [never]).value;
+    vi.stubGlobal("document", { ...document, visibilityState: "hidden" });
+    const stuck = drawSpecimen(node, null, { canvas: "h" });
+    const fails = expect(stuck).rejects.toThrow(
+      "bring the editor to the front"
+    );
+    await vi.advanceTimersByTimeAsync(16_000);
+    await fails;
+  });
+
+  it("draws in the stylesheet's own defaults a canvas whose defaults are not read in time", async () => {
+    const fake = fakePreview("data:image/png;base64,AA");
+    preview = fake.value;
+    provideCanvasDefaults(never);
+    const drawn = drawSpecimen(node, null, { canvas: "d" });
+    await vi.advanceTimersByTimeAsync(5200);
+    await expect(drawn).resolves.toBe("data:image/png;base64,AA");
   });
 
   it("takes a picture of what the frame shows already, without waiting for it to draw again", async () => {

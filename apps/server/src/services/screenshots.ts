@@ -5,6 +5,12 @@
  * the design's look, its components and design system. So a picture is asked of every editor that is
  * open, and the first to draw it answers. An editor that cannot (its preview is not running)
  * says why, and the request fails only once every editor asked has said so.
+ *
+ * An editor that does not answer at all has a preview that is still starting, before any picture
+ * was drawn, or one that stopped drawing, after one was. Stopped, it is still asked, so one that
+ * recovered answers, but it is waited for only a few seconds until a picture is drawn again: a
+ * review of many pages then loses seconds, not minutes, and the agent learns at once to ask the
+ * person to reload the editor.
  */
 import type {
   RenderedFinding,
@@ -14,6 +20,7 @@ import type {
 import {
   Context,
   Deferred,
+  Duration,
   Effect,
   Layer,
   Schema,
@@ -24,7 +31,7 @@ import { EventBus } from "../events.ts";
 import { makeId } from "../ids.ts";
 import { PNG_DATA_URL } from "../png-text.ts";
 
-class ScreenshotFailure extends Schema.TaggedError<ScreenshotFailure>()(
+export class ScreenshotFailure extends Schema.TaggedError<ScreenshotFailure>()(
   "ScreenshotFailure",
   { message: Schema.String }
 ) {}
@@ -34,6 +41,21 @@ export interface CheckedPicture {
   readonly findings: readonly RenderedFinding[];
   readonly png: Uint8Array;
 }
+
+/**
+ * What the editors' preview is doing, as the answers show: starting, until it draws a picture;
+ * drawing; or stalled, once a request went unanswered after it drew, until it draws again.
+ */
+type PreviewState = "starting" | "drawing" | "stalled";
+
+/** How long a picture is waited for: from a preview that draws, or may still be starting. */
+const WAIT_SECONDS = 30;
+/** From a preview that stopped drawing, long enough for one that recovered to answer. */
+const STALLED_WAIT_SECONDS = 5;
+
+const STARTING = `the editor did not draw it in ${WAIT_SECONDS} seconds; its preview may still be starting`;
+const STALLED =
+  "the editor's preview has stopped drawing pictures; ask the person to reload the editor";
 
 interface Pending {
   readonly deferred: Deferred.Deferred<CheckedPicture, ScreenshotFailure>;
@@ -70,11 +92,16 @@ export class Screenshots extends Context.Service<
       const events = yield* EventBus;
       const pending = new Map<string, Pending>();
       const editors = yield* SubscriptionRef.make(0);
+      /** Since an editor last started listening: one reloaded may be starting again. */
+      let preview: PreviewState = "starting";
 
       const requests = Stream.unwrap(
         Effect.as(
           Effect.acquireRelease(
-            SubscriptionRef.update(editors, (n) => n + 1),
+            Effect.gen(function* () {
+              preview = "starting";
+              yield* SubscriptionRef.update(editors, (n) => n + 1);
+            }),
             () => SubscriptionRef.update(editors, (n) => n - 1)
           ),
           events.follow("screenshot")
@@ -100,14 +127,17 @@ export class Screenshots extends Context.Service<
         yield* events.publish("screenshot", { ...request, requestId });
         return yield* Deferred.await(deferred).pipe(
           Effect.timeoutOrElse({
-            duration: "30 seconds",
+            duration: Duration.seconds(
+              preview === "stalled" ? STALLED_WAIT_SECONDS : WAIT_SECONDS
+            ),
             orElse: () =>
-              Effect.fail(
-                new ScreenshotFailure({
-                  message:
-                    "the editor did not draw it in 30 seconds; its preview may still be starting",
-                })
-              ),
+              Effect.gen(function* () {
+                if (preview === "starting") {
+                  return yield* new ScreenshotFailure({ message: STARTING });
+                }
+                preview = "stalled";
+                return yield* new ScreenshotFailure({ message: STALLED });
+              }),
           }),
           Effect.ensuring(Effect.sync(() => pending.delete(requestId)))
         );
@@ -131,15 +161,17 @@ export class Screenshots extends Context.Service<
         problem,
         requestId,
       }: ScreenshotResult) {
+        const png = dataUrl?.startsWith(PNG_DATA_URL) ? dataUrl : undefined;
+        // Drawn, even too late for whoever asked: the preview draws again.
+        if (png !== undefined) {
+          preview = "drawing";
+        }
         const entry = pending.get(requestId);
         if (!entry) {
           return;
         }
-        if (dataUrl?.startsWith(PNG_DATA_URL)) {
-          const bytes = Buffer.from(
-            dataUrl.slice(PNG_DATA_URL.length),
-            "base64"
-          );
+        if (png !== undefined) {
+          const bytes = Buffer.from(png.slice(PNG_DATA_URL.length), "base64");
           yield* Deferred.succeed(entry.deferred, {
             findings: findings ?? [],
             png: new Uint8Array(bytes),

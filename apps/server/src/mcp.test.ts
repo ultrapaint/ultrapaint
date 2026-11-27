@@ -9,10 +9,13 @@ import {
   FileSystem,
   type Layer,
   Option,
+  Queue,
+  Ref,
   type Scope,
   Stream,
 } from "effect";
 import { McpSchema } from "effect/ai";
+import { TestClock } from "effect/testing";
 import { EventBus } from "./events.ts";
 import {
   OpenProject,
@@ -2356,6 +2359,62 @@ describe("get_screenshot", () => {
           },
           { mode: "page", root: "page", width: 390 }
         );
+      })
+  );
+});
+
+describe("get_screenshot, once the preview stopped drawing", () => {
+  inAProject(
+    "gives as its error that the preview stopped and the person can reload the editor",
+    () =>
+      Effect.gen(function* () {
+        const screenshots = yield* Screenshots;
+        const events = yield* EventBus;
+        const png =
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+        // This test is the editor: it draws the first picture, and then no more.
+        const heard = yield* Queue.unbounded<string>();
+        const asked = yield* Ref.make(0);
+        const following = yield* Effect.forkChild(
+          Stream.runHead(
+            Stream.filter(events.followed, (e) => e === "screenshot")
+          ),
+          { startImmediately: true }
+        );
+        yield* Effect.forkScoped(
+          screenshots.requests.pipe(
+            Stream.runForEach(({ requestId }) =>
+              Effect.gen(function* () {
+                if ((yield* Ref.getAndUpdate(asked, (n) => n + 1)) === 0) {
+                  yield* screenshots.deliver({
+                    dataUrl: `data:image/png;base64,${png}`,
+                    requestId,
+                  });
+                }
+                yield* Queue.offer(heard, requestId);
+              })
+            )
+          )
+        );
+        yield* Fiber.join(following);
+        const drawn = yield* callRawTool(GetScreenshot, { route: "/home" });
+        assert.isTrue(
+          drawn instanceof McpSchema.CallToolResult && drawn.isError === false
+        );
+        const call = yield* Effect.forkChild(
+          callRawTool(GetScreenshot, { route: "/home" }),
+          { startImmediately: true }
+        );
+        // Once the editor heard it, the request waits on the clock alone.
+        yield* Queue.take(heard);
+        yield* Queue.take(heard);
+        yield* TestClock.adjust("30 seconds");
+        const said = yield* Fiber.join(call);
+        assert.isTrue(
+          said instanceof McpSchema.CallToolResult && said.isError === true
+        );
+        assert.include(textOf(said), "stopped drawing pictures");
+        assert.include(textOf(said), "reload the editor");
       })
   );
 });
