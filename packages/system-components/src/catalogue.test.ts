@@ -11,6 +11,17 @@ import { describe, expect, it } from "vitest";
 import { catalogueOf } from "./catalogue.ts";
 import { lookOf } from "./defaults.ts";
 
+/** Badge's built-in members (UP-252): the neutral three, the destructive, the three statuses. */
+const BADGE_MEMBERS = [
+  "default",
+  "secondary",
+  "outline",
+  "destructive",
+  "warning",
+  "success",
+  "info",
+];
+
 const PLAN: AppComponentFile = {
   category: "Marketing",
   name: "Plan",
@@ -173,26 +184,14 @@ describe("the catalogue", () => {
     it("offers a member the look adds to an axis after the catalogue's, in the axis and its prop", () => {
       const entry = entryOf(badge({ variant: { add: ["neutral-strong"] } }));
       expect(entry?.variants).toEqual({
-        variant: [
-          "default",
-          "secondary",
-          "outline",
-          "destructive",
-          "neutral-strong",
-        ],
+        variant: [...BADGE_MEMBERS, "neutral-strong"],
       });
       expect(entry?.props.find((p) => p.name === "variant")).toEqual({
         defaultValue: "default",
         name: "variant",
         type: {
           kind: "enum",
-          members: [
-            "default",
-            "secondary",
-            "outline",
-            "destructive",
-            "neutral-strong",
-          ],
+          members: [...BADGE_MEMBERS, "neutral-strong"],
         },
       });
     });
@@ -201,7 +200,7 @@ describe("the catalogue", () => {
       const entry = entryOf(badge({ shape: { add: ["default", "pill"] } }));
       expect(entry?.variants).toEqual({
         shape: ["default", "pill"],
-        variant: ["default", "secondary", "outline", "destructive"],
+        variant: BADGE_MEMBERS,
       });
       expect(entry?.props.at(-1)).toEqual({
         defaultValue: "default",
@@ -217,6 +216,9 @@ describe("the catalogue", () => {
       expect(entry?.variants.variant).toEqual([
         "secondary",
         "destructive",
+        "warning",
+        "success",
+        "info",
         "neutral",
       ]);
       expect(entry?.example).toEqual({ variant: "secondary" });
@@ -254,5 +256,41 @@ describe("the catalogue", () => {
         metaOf(catalogueOf([]), { component: "Badge", from: SYSTEM_FROM })
       );
     });
+  });
+});
+
+describe("Badge's built-in members (UP-252)", () => {
+  const badge = metaOf(catalogueOf([]), {
+    component: "Badge",
+    from: SYSTEM_FROM,
+  });
+
+  it("offers seven, the statuses after the destructive, in the axis and its Variant field", () => {
+    expect(badge?.variants).toEqual({ variant: BADGE_MEMBERS });
+    expect(badge?.props).toEqual([
+      {
+        defaultValue: "default",
+        name: "variant",
+        type: { kind: "enum", members: BADGE_MEMBERS },
+      },
+    ]);
+  });
+
+  it("writes a status badge as code in the product's member", () => {
+    const placed: DesignNode = {
+      component: "Badge",
+      from: SYSTEM_FROM,
+      id: "b",
+      props: { variant: "warning" },
+      text: "Overdue",
+      type: "instance",
+    };
+    expect(
+      toCode(placed, { classes: () => [] }, { catalogue: catalogueOf([]) })
+    ).toBe(
+      `import { Badge } from "@/components/ui/badge";
+
+<Badge variant="warning">Overdue</Badge>`
+    );
   });
 });

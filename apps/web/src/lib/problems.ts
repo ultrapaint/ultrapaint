@@ -1,7 +1,8 @@
 /**
  * Problems (ADR 0106), worked out from what the editor reads: what the design system's files and
- * the sync say needs fixing, and the instances of a variant member a look takes out (ADR 0161),
- * in one list the rail opens in either mode. DESIGN.md's linter (`@google/design.md`) speaks for its own
+ * the sync say needs fixing, the instances of a variant member a look takes out (ADR 0161),
+ * and the status roles a placed member draws with that the design system lacks (ADR 0162), in
+ * one list the rail opens in either mode. DESIGN.md's linter (`@google/design.md`) speaks for its own
  * tools, so its findings are said again here in Ultrapaint's words, each with what it costs and
  * the raw message kept for the agent asked to fix it. Information is not a problem; a waiting sync
  * step is, and the Sync is where it is answered.
@@ -14,6 +15,7 @@ import type {
 } from "@ultrapaint/contracts/design-system";
 import type { SyncPlan, SyncStep } from "@ultrapaint/contracts/sync";
 import { plural } from "@ultrapaint/shared/text";
+import type { MemberLackingRoles } from "./missing-roles.ts";
 import type { RemovedMember } from "./removed-members.ts";
 
 /** Where a problem is read from: the group it is listed in. */
@@ -270,12 +272,49 @@ export interface ProblemsInput {
   /** The designs directory, repository-relative: where the design system's two files are. */
   readonly designsDir: string;
   readonly document: DesignDocument | null;
+  /** The status roles each placed member needs that the design system lacks (`missingRolesOf`). */
+  readonly missingRoles?: readonly MemberLackingRoles[];
   readonly notes: readonly string[];
   readonly plan: SyncPlan | null;
   readonly problem: string | undefined;
   /** The instances of each member a look takes out (`removedMembersOf`). */
   readonly removedMembers?: readonly RemovedMember[];
 }
+
+/** Names in code, joined as a sentence says them: `a`, `b` and `c`. */
+const namesInCode = (names: readonly string[], and = "and") => {
+  const quoted = names.map(code);
+  return quoted.length < 2
+    ? (quoted[0] ?? "")
+    : `${quoted.slice(0, -1).join(", ")} ${and} ${quoted.at(-1)}`;
+};
+
+/**
+ * A placed member whose status roles the design system lacks (ADR 0162): it draws in
+ * Ultrapaint's default for them meanwhile, and an agent adds them with the product's colours, each
+ * with what it is for (ADR 0054).
+ */
+const missingRolesProblem = (
+  missing: MemberLackingRoles,
+  designsDir: string
+): Problem => {
+  const { component, instances, member, places, roles } = missing;
+  const one = instances === 1;
+  const oneRole = roles.length === 1;
+  // How many draw in the default, and where: said alike to the person and to the agent.
+  const drawn = `${plural(instances, `${component} instance`)} on ${places.join(", ")} ${one ? "draws" : "draw"}`;
+  return {
+    brief: `${component}'s ${member} draws with ${roles.join(" and ")}, which the design system lacks: ${drawn} in Ultrapaint's default for ${oneRole ? "it" : "them"}. Add ${oneRole ? "it" : "each"} as a colour of the product, saying what it is for.`,
+    detail: `The design system has no ${namesInCode(roles, "or")}, so ${drawn} in Ultrapaint’s default. Add ${oneRole ? "it" : "them"} with your product’s colours.`,
+    file: { at: null, path: `${designsDir}/design-system.json` },
+    fix: "agent",
+    // The roles named: one added or another needed is a new problem.
+    id: `design-system.json:roles:${component}.${missing.axis}.${member}:${roles.join(",")}`,
+    severity: "warning",
+    source: "design-system.json",
+    title: `${code(member)} ${component}${one ? "" : "s"} ${one ? "uses" : "use"} Ultrapaint’s colours`,
+  };
+};
 
 /**
  * A member a look takes out that instances still have (ADR 0161): they keep drawing, and are
@@ -361,6 +400,11 @@ export const problemsOf = (input: ProblemsInput): readonly Problem[] => {
       title: said,
     });
   }
+  all.push(
+    ...(input.missingRoles ?? []).map((m) =>
+      missingRolesProblem(m, input.designsDir)
+    )
+  );
   all.push(...documentProblems(input.document));
   all.push(
     ...(input.removedMembers ?? []).map((r) =>

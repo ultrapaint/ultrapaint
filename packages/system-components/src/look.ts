@@ -31,6 +31,24 @@ const RING = t("color-ring");
 const RADIUS_LG = t("radius-lg");
 
 /**
+ * The status roles Badge's `warning`, `success` and `info` draw with (ADR 0162), each a fill and
+ * the text on it at 4.5:1 or more in both themes: a design system without them draws them in
+ * these, and the editor's Problems names the ones a placed member needs.
+ */
+export const STATUS_COLORS: readonly {
+  readonly dark: string;
+  readonly light: string;
+  readonly name: string;
+}[] = [
+  { dark: "#fbbf24", light: "#f59e0b", name: "color-warning" },
+  { dark: "#451a03", light: "#451a03", name: "color-warning-foreground" },
+  { dark: "#22c55e", light: "#15803d", name: "color-success" },
+  { dark: "#052e16", light: "#ffffff", name: "color-success-foreground" },
+  { dark: "#60a5fa", light: "#2563eb", name: "color-info" },
+  { dark: "#172554", light: "#ffffff", name: "color-info-foreground" },
+];
+
+/**
  * The colours every design draws with until it says otherwise, in the light theme and the dark:
  * the neutral palette, which Design system's Color board draws for a project without a design
  * system (ADR 0045).
@@ -52,6 +70,7 @@ export const NEUTRAL_COLORS: readonly {
   { dark: "#fafafa", light: "#18181b", name: "color-accent-foreground" },
   { dark: "#ef4444", light: "#dc2626", name: "color-destructive" },
   { dark: "#fafafa", light: "#ffffff", name: "color-destructive-foreground" },
+  ...STATUS_COLORS,
   { dark: "#27272a", light: "#e4e4e7", name: "color-border" },
   { dark: "#3f3f46", light: "#e4e4e7", name: "color-input" },
   { dark: "#71717a", light: "#a1a1aa", name: "color-ring" },

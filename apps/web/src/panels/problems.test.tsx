@@ -3,6 +3,7 @@ import "../testing/fake-browser.ts";
 import type {
   DesignDocument,
   DesignFinding,
+  DesignSystem,
 } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { defaultSettings } from "@ultrapaint/contracts/settings";
@@ -394,6 +395,9 @@ describe("an instance of a variant member its look takes out (ADR 0161)", () => 
       "default",
       "secondary",
       "destructive",
+      "warning",
+      "success",
+      "info",
     ]);
     act(() => options.find((o) => o.textContent === "secondary")?.click());
     await act(() => fakeApi.requested("documents.apply"));
@@ -411,5 +415,124 @@ describe("an instance of a variant member its look takes out (ADR 0161)", () => 
       ],
       label: "Move Badge's outline to secondary",
     });
+  });
+});
+
+describe("a status member placed where the design system lacks its roles (UP-252)", () => {
+  const initialComponents = useComponents.getState();
+  const initialDocuments = useDocuments.getState();
+  afterEach(() => {
+    useComponents.setState(initialComponents, true);
+    useDocuments.setState(initialDocuments, true);
+  });
+
+  const badge = (id: string, variant: string): DesignNode =>
+    ({
+      component: "Badge",
+      from: "@ultrapaint/system",
+      id,
+      props: { variant },
+      text: id,
+      type: "instance",
+    }) as DesignNode;
+
+  /** A design system with these colours and nothing else. */
+  const systemWith = (...names: string[]) =>
+    ({
+      colors: [
+        {
+          name: "Semantic",
+          tokens: names.map((name) => ({ name, value: "#123456" })),
+        },
+      ],
+      radius: [],
+      shadows: [],
+      spacing: { base: "0.25rem" },
+      typography: { fonts: [], sizes: [], styles: [], weights: [] },
+      version: 1,
+    }) as unknown as DesignSystem;
+
+  const placed = (designSystem: DesignSystem | null) => {
+    useComponents.setState({ components: [] });
+    useDocuments.setState({
+      docs: {
+        "home.page.json": {
+          doc: "home.page.json",
+          hash: "h",
+          root: {
+            children: [
+              badge("late", "warning"),
+              badge("overdue", "warning"),
+              badge("done", "success"),
+              badge("new", "destructive"),
+            ],
+            id: "home",
+            type: "page",
+          } as DesignNode,
+        },
+      },
+    });
+    useProject.setState({
+      info: { configured: true, storage: { mode: "managed" } },
+      pages: [
+        {
+          canvas: "main",
+          file: "designs/home.page.json",
+          id: "home.page.json",
+          name: "Home",
+          path: "home.page.json",
+          route: "/",
+        },
+      ],
+    });
+    useDesignSystem.setState({ designSystem });
+    panelWith([]);
+  };
+
+  const listed = () =>
+    [
+      ...container.querySelectorAll(
+        'section[aria-label="design-system.json"] li'
+      ),
+    ].map((li) => li.getAttribute("aria-label"));
+
+  it("names the roles each placed status member lacks, a member at a time", () => {
+    placed(systemWith("color-primary", "color-success"));
+    expect(listed()).toEqual([
+      "warning Badges use Ultrapaint’s colours",
+      "success Badge uses Ultrapaint’s colours",
+    ]);
+    expect(container.textContent).toContain(
+      "The design system has no color-warning or color-warning-foreground, so 2 Badge instances on Home draw in Ultrapaint’s default."
+    );
+    // A role it has is not named; destructive is no status, and not counted.
+    expect(container.textContent).toContain(
+      "The design system has no color-success-foreground, so 1 Badge instance on Home draws in Ultrapaint’s default."
+    );
+  });
+
+  it("drafts a chat that has an agent add the roles a member lacks", () => {
+    placed(systemWith("color-primary", "color-success"));
+    act(() => button("Fix with agent")[0]?.click());
+    expect(vi.mocked(startPrompt).mock.calls[0]?.[0]).toContain(
+      "Badge's warning draws with color-warning and color-warning-foreground, which the design system lacks"
+    );
+  });
+
+  it("names none where the design system has the roles", () => {
+    placed(
+      systemWith(
+        "color-warning",
+        "color-warning-foreground",
+        "color-success",
+        "color-success-foreground"
+      )
+    );
+    expect(listed()).toEqual([]);
+  });
+
+  it("names none for a project with no design system, drawn in the default look", () => {
+    placed(null);
+    expect(listed()).toEqual([]);
   });
 });

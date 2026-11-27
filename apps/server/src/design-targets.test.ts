@@ -582,7 +582,15 @@ describe("a system component's own variant members, changed through handoff (ADR
           });
           assert.deepStrictEqual((yield* badgeEntry)?.variants, {
             shape: ["default", "pill"],
-            variant: ["default", "secondary", "destructive", "neutral-strong"],
+            variant: [
+              "default",
+              "secondary",
+              "destructive",
+              "warning",
+              "success",
+              "info",
+              "neutral-strong",
+            ],
           });
           yield* project(EditService, (e) => e.undo);
           assert.deepStrictEqual((yield* badgeEntry)?.variants.shape, [
@@ -648,7 +656,7 @@ describe("a system component's own variant members, changed through handoff (ADR
               change: { axis: "variant", member: "pill", op: "removeMember" },
               target: "component:Badge",
             }),
-            "Badge's variant offers no member pill; its members are default, secondary, outline, destructive"
+            "Badge's variant offers no member pill; its members are default, secondary, outline, destructive, warning, success, info"
           );
           // A style sent with a field that is no style field is refused, not read without it.
           assert.match(

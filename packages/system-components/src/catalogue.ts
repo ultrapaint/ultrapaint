@@ -109,6 +109,17 @@ const BUTTON_VARIANTS = [
 ] as const;
 const SIZES = ["md", "sm", "lg"] as const;
 
+/** A badge's members: the neutral three, the destructive, and the three statuses (ADR 0162). */
+const BADGE_VARIANTS = [
+  "default",
+  "secondary",
+  "outline",
+  "destructive",
+  "warning",
+  "success",
+  "info",
+] as const;
+
 export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
   {
     category: "Actions",
@@ -135,15 +146,13 @@ export const SYSTEM_COMPONENTS: readonly SystemComponentMeta[] = [
     description: "A short label: a status, a count, a tag.",
     example: { variant: "default" },
     name: "Badge",
-    props: [
-      choice("variant", ["default", "secondary", "outline", "destructive"]),
-    ],
+    props: [choice("variant", BADGE_VARIANTS)],
     slots: [
       { holds: "default", label: "Badge", layout: "row", name: ROOT_SLOT },
     ],
     states: [],
     text: "Badge",
-    variants: { variant: ["default", "secondary", "outline", "destructive"] },
+    variants: { variant: BADGE_VARIANTS },
   },
   {
     category: "Display",

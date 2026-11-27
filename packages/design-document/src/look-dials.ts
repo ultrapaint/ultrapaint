@@ -237,6 +237,28 @@ const colorsOf = (dials: LookDials): Token[] => {
       "Deleting and errors"
     ),
     token("color-destructive-foreground", white),
+    // The statuses Badge draws (ADR 0162): amber under dark text, green and blue under white.
+    token(
+      "color-warning",
+      "oklch(0.77 0.16 70)",
+      "oklch(0.84 0.16 84)",
+      "What needs a look soon"
+    ),
+    token("color-warning-foreground", "oklch(0.28 0.07 46)"),
+    token(
+      "color-success",
+      "oklch(0.5 0.13 150)",
+      "oklch(0.52 0.13 150)",
+      "Done and healthy states"
+    ),
+    token("color-success-foreground", white),
+    token(
+      "color-info",
+      "oklch(0.52 0.2 262)",
+      "oklch(0.55 0.19 262)",
+      "Notices and what is new"
+    ),
+    token("color-info-foreground", white),
     token(
       "color-border",
       g(dials.surfaces === "borders" ? 0.89 : 0.92),
@@ -277,6 +299,7 @@ const detailedColorsOf = (dials: LookDials, roles: readonly Token[]) => {
         token("text-color-inverse", "oklch(1 0 0)"),
         like(roles, "color-primary", "text-color-brand"),
         like(roles, "color-destructive", "text-color-danger"),
+        like(roles, "color-warning-foreground", "text-color-warning-inverse"),
       ],
     },
     {
@@ -289,6 +312,9 @@ const detailedColorsOf = (dials: LookDials, roles: readonly Token[]) => {
         like(roles, "color-accent", "background-color-neutral-hovered"),
         like(roles, "color-primary", "background-color-brand-bold"),
         like(roles, "color-destructive", "background-color-danger-bold"),
+        like(roles, "color-warning", "background-color-warning-bold"),
+        like(roles, "color-success", "background-color-success-bold"),
+        like(roles, "color-info", "background-color-information-bold"),
         token(
           "background-color-danger-subtle",
           "oklch(0.97 0.02 27)",
