@@ -1034,6 +1034,42 @@ describe("tasks, without the editor's MCP server", () => {
   });
 });
 
+const WHITESPACE_RE = /\s+/g;
+/** Where a clause ends: a stop, a semicolon, a colon or a comma before a space, a bracket or a dash. */
+const CLAUSE_END_RE = /[.;:,](?:\s|$)|[()]|\s—\s/;
+/** A verb that writes a file. */
+const WRITE_VERB_RE =
+  /\b(?:write|writes|wrote|written|writing|rewrite|rewrites|rewriting|edit|edits|editing|modify|modifying|update|updating|save|saving)\b/i;
+/** A design file, by its kind or as the texts call one, or the way it is written around the tools. */
+const DESIGN_FILE_RE =
+  /\.(?:page|component|variations)\.json|canvas\.json|\bthe JSON\b|\b(?:a|its|the|each|component's) file\b|\bby hand\b|\bwith a script\b/i;
+/** A change made in a file: "change a look in its file". */
+const IN_FILE_RE = /\b(?:in|into) (?:its|the|a|each)(?: \S+)? file\b/i;
+/** A clause that says never, rather than telling to. */
+const NEGATED_RE = /\b(?:never|not|rather than|don't)\b/i;
+/** The rule an agent with the tools reads, naming the three kinds of design file (UP-232). */
+const NEVER_WRITE_RE =
+  /never write a \*\.page\.json, \*\.component\.json or\s+canvas\.json\s+yourself/i;
+const SAY_SO_RE =
+  /no\s+tool can do what was asked, say so in your reply, naming what, and leave the files as they are/;
+const READ_ONE_RE = /read one when a tool's answer is\s+not enough/;
+
+/**
+ * The clauses of a text that tell an agent to write a design file or to change one in its file,
+ * but for those that say never, not or rather than: what an agent with the tools must read none
+ * of (UP-232).
+ */
+const writesDesignFiles = (text: string) =>
+  text
+    .replaceAll(WHITESPACE_RE, " ")
+    .split(CLAUSE_END_RE)
+    .filter(
+      (clause) =>
+        !NEGATED_RE.test(clause) &&
+        (IN_FILE_RE.test(clause) ||
+          (WRITE_VERB_RE.test(clause) && DESIGN_FILE_RE.test(clause)))
+    );
+
 describe("the editor's tools in what an agent is told", () => {
   /** Requests of every kind: one left out does not compile. */
   const requests: {
@@ -1252,6 +1288,38 @@ describe("the editor's tools in what an agent is told", () => {
         }
       })
     );
+
+    it.effect(
+      "tells an agent to write no design file, in any task, briefing or the MCP server's instructions (UP-232)",
+      () =>
+        Effect.gen(function* () {
+          const before = yield* everything;
+          yield* everythingThere;
+          const after = yield* everything;
+          const instructions = {
+            of: "the MCP server's instructions",
+            text: MCP_INSTRUCTIONS,
+          };
+          assert.deepStrictEqual(
+            [...before, ...after, instructions].flatMap((r) =>
+              writesDesignFiles(r.text).map((s) => `${r.of}: ${s}`)
+            ),
+            []
+          );
+          // What agents with the tools were told before, each caught.
+          for (const told of [
+            "change designs with its tools, rather than by editing the JSON (a file you write must stay valid).",
+            "A component's file in components/ is written as a file.",
+            "An app component's tree is written in its file.",
+            "Change a look in its file, not on each instance.",
+            "in the same undo step; written into the file by hand, it would leave them behind.",
+            "Update the Button.component.json to match.",
+            "Fix it by rewriting canvas.json with a script.",
+          ]) {
+            assert.isNotEmpty(writesDesignFiles(told), told);
+          }
+        })
+    );
   });
 
   eachTest(project(false))((it) => {
@@ -1284,6 +1352,22 @@ describe("the editor's tools in what an agent is told", () => {
           assert.include(briefings(after), withoutTools);
         }
       })
+    );
+
+    it.effect(
+      "tells an agent without the tools to write the design files (UP-232)",
+      () =>
+        Effect.gen(function* () {
+          yield* everythingThere;
+          const read = yield* everything;
+          // The briefings tell it to edit the page files directly, and keep them valid.
+          assert.include(
+            briefings(read),
+            "Edit the .page.json files directly and keep them valid"
+          );
+          assert.isNotEmpty(writesDesignFiles(briefings(read)));
+          assert.notInclude(briefings(read), "never write a *.page.json");
+        })
     );
   });
 });
@@ -1356,6 +1440,50 @@ describe("the briefing", () => {
         assert.include(untooled, `origin "app": the project's own component`);
         assert.notInclude(untooled, "component:<Name> (a node of it");
         assert.notInclude(untooled, "makeComponent");
+      }).pipe(Effect.provide(ProjectTest()), Effect.scoped)
+  );
+
+  test.effect(
+    "tells an agent with the tools, in the briefing and the MCP server's instructions, to change designs only through them and say what none can do (UP-232)",
+    () =>
+      Effect.gen(function* () {
+        const briefing = yield* ProjectBriefing;
+        const design = (yield* briefing.text("design")) ?? "";
+        const implement = (yield* briefing.text("implement")) ?? "";
+        for (const text of [design, implement, MCP_INSTRUCTIONS]) {
+          // The rule, naming the three kinds of design file, even to fix one.
+          assert.match(text, NEVER_WRITE_RE);
+          assert.include(text, "not even to fix one");
+          // Reading one stays allowed.
+          assert.match(text, READ_ONE_RE);
+          // A gap is said, not scripted.
+          assert.match(text, SAY_SO_RE);
+          // How to do what agents scripted: frames, a tree, a look.
+          assert.include(text, "set_frame");
+          assert.include(text, "apply_operations");
+          assert.include(text, 'handoff with action "change"');
+        }
+      }).pipe(Effect.provide(ProjectTest()), Effect.scoped)
+  );
+
+  test.effect(
+    "points a design thread asked for more takes at the round the user starts, with Make more… (UP-232)",
+    () =>
+      Effect.gen(function* () {
+        const briefing = yield* ProjectBriefing;
+        const design = (yield* briefing.text("design")) ?? "";
+        assert.include(design, "Make more… in the ⋯ of its Variations section");
+        assert.include(design, "Make variations… in its right-click menu");
+        assert.include(design, "only the user starts");
+        // A thread that implements is asked for no takes; one without the tools makes no round.
+        assert.notInclude(
+          (yield* briefing.text("implement")) ?? "",
+          "Make more…"
+        );
+        assert.notInclude(
+          (yield* briefing.text("design", { tools: false })) ?? "",
+          "Make more…"
+        );
       }).pipe(Effect.provide(ProjectTest()), Effect.scoped)
   );
 
