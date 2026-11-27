@@ -52,8 +52,9 @@ export class PagesService extends Context.Service<
      * it is, or where the editor draws it when it has none saved yet (`canvas-layout`'s
      * `sizeFrame`), and one given a position goes to the grid's line nearest to it. A call that
      * moves a frame onto another frame or its views is refused, nothing written; every frame it
-     * does not name, and whatever else the layout holds, stays as it is. Answers with the frames
-     * named, by path.
+     * does not name, and whatever else the layout holds, stays as it is: a call that moves a
+     * frame saves a page with no frame saved where it is drawn. Answers with the frames named,
+     * by path.
      */
     readonly arrangeFrames: (
       canvas: string,
