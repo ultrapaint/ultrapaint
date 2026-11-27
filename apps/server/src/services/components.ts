@@ -446,18 +446,19 @@ export class ComponentService extends Context.Service<
             ],
             label: `Make ${name} an app component`,
           },
-          ({ tx }) =>
-            Effect.as(
-              Effect.all(
-                [
-                  checked(component),
-                  notTaken(name),
-                  tx.write(repoOf(file), componentText(component)),
-                ],
-                { discard: true }
-              ),
-              undefined
-            )
+          (step) =>
+            Effect.gen(function* () {
+              // The page as the step holds it, before the component's file is written: an edit
+              // landed since the nodes were read refuses the step with nothing written.
+              if ((yield* step.get(page)).hash !== hash) {
+                return yield* new Stale({
+                  message: `${page} changed since you last saw it; reloading`,
+                });
+              }
+              yield* checked(component);
+              yield* notTaken(name);
+              yield* step.tx.write(repoOf(file), componentText(component));
+            })
         );
         yield* publish;
         return { component, file, instance: instance.id };
