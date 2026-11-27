@@ -32,6 +32,7 @@ import { EventBus } from "../../events.ts";
 import { ComponentService } from "../components.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { DocumentService } from "../documents.ts";
+import { refusedAt } from "../refused-at.ts";
 import { ProjectStyleSystem } from "../style-system.ts";
 import {
   designSystemSchema,
@@ -64,6 +65,12 @@ const MakeComponent = Schema.Struct({
   op: Schema.Literal("makeComponent"),
 });
 const decodeMake = Schema.decodeUnknownEffect(MakeComponent);
+
+/** The operations' refusal, each placed by the operation's place in `ops` and its node's id. */
+const refusedOps = (raw: readonly unknown[]) => (error: Schema.SchemaError) =>
+  new ToolFailure({
+    message: `the operations are not valid: ${refusedAt(error, raw, "ops")}`,
+  });
 
 /** A field that names a node: a reference read as its node's id, anything else as it is. */
 const idIn = (value: unknown): unknown =>
@@ -552,12 +559,7 @@ export const DocumentToolsLive = DocumentTools.toLayer(
           }
         }
         const decoded = yield* decodeOps(raw).pipe(
-          Effect.mapError(
-            (error) =>
-              new ToolFailure({
-                message: `the operations are not valid: ${error.message}`,
-              })
-          )
+          Effect.mapError(refusedOps(raw))
         );
         const breakpoints = yield* knownBreakpoints(decoded);
         const given = asWritten(decoded, raw);

@@ -1377,6 +1377,54 @@ describe("the tools for documents", () => {
   );
 
   inAProject(
+    "says what a refused width takes, naming the operation and the node by its id (UP-242)",
+    () =>
+      Effect.gen(function* () {
+        const { created } = yield* tool("apply_operations", {
+          ops: [inserted({ role: "heading", text: "Plans", type: "text" })],
+          route: "/home",
+        });
+        const [heading = ""] = created;
+        const inserting = yield* refusal("apply_operations", {
+          ops: [
+            inserted({ role: "paragraph", text: "Lede", type: "text" }),
+            inserted({
+              children: [
+                {
+                  children: [],
+                  id: "band",
+                  name: "Band",
+                  type: "column",
+                  width: "$container-3xl",
+                },
+              ],
+              id: "hero",
+              type: "column",
+            }),
+          ],
+          route: "/home",
+        });
+        for (const said of [
+          'width takes pixels (a number), "fill" or "hug"',
+          "maxWidth",
+          'at ops[1] (insert), node "band" ("Band"), width',
+        ]) {
+          assert.include(inserting, said);
+        }
+        assert.notInclude(inserting, '["children"]');
+        const updating = yield* refusal("apply_operations", {
+          ops: [{ id: heading, op: "update", set: { width: "50%" } }],
+          route: "/home",
+        });
+        assert.include(updating, "maxWidth");
+        assert.include(updating, `at node "${heading}", width`);
+        // Said once, though more than one kind of node refuses it.
+        assert.lengthOf(updating.split("width takes"), 2);
+        assert.notInclude(updating, '["root"]');
+      })
+  );
+
+  inAProject(
     "writes a text's runs, gives them back as written, and says the format of one (ADR 0163)",
     () =>
       Effect.gen(function* () {

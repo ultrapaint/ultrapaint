@@ -77,6 +77,7 @@ import { DesignFiles } from "./design-files.ts";
 import { decodePage, messageOf, parseDocument } from "./document-file.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { PagesService } from "./pages.ts";
+import { refusedAt } from "./refused-at.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import {
   setsStillDrawn,
@@ -514,9 +515,14 @@ export class DocumentService extends Context.Service<
           new BadRequest({
             message: `the result is not a valid document: ${error.message}`,
           });
+        /** A decode's refusal of `input`, placed by node id and field as the agent wrote them. */
+        const refused = (input: unknown) => (error: Schema.SchemaError) =>
+          invalid({ message: refusedAt(error, input) });
         const canvas = canvasOfDoc(doc);
         if (componentOfDoc(doc) !== null) {
-          const tree = yield* decodeNode(edited).pipe(Effect.mapError(invalid));
+          const tree = yield* decodeNode(edited).pipe(
+            Effect.mapError(refused(edited))
+          );
           const read = readComponentFile(loaded.text ?? "");
           if (!("component" in read && read.component.origin === "app")) {
             return yield* invalid({
@@ -531,10 +537,10 @@ export class DocumentService extends Context.Service<
             )
           );
         } else if (canvas === null) {
-          const document = yield* decodePage({
-            root: edited,
-            version: DOCUMENT_VERSION,
-          }).pipe(Effect.mapError(invalid));
+          const page = { root: edited, version: DOCUMENT_VERSION };
+          const document = yield* decodePage(page).pipe(
+            Effect.mapError(refused(page))
+          );
           const text = serialiseDocument(document);
           keepParsed(`page:${hashContent(text)}`, {
             filled: false,
@@ -542,8 +548,9 @@ export class DocumentService extends Context.Service<
           });
           yield* tx.write(yield* fileOf(doc), text);
         } else {
-          const nodes = yield* decodeNodes(childrenOf(edited)).pipe(
-            Effect.mapError(invalid)
+          const loose = childrenOf(edited);
+          const nodes = yield* decodeNodes(loose).pipe(
+            Effect.mapError(refused(loose))
           );
           yield* pages.updateCanvas(tx, canvas, (layout) => ({
             ...layout,
