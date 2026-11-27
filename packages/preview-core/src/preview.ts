@@ -9,9 +9,10 @@
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { ComponentFile } from "@ultrapaint/contracts/components";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
-import type { DesignNode } from "@ultrapaint/contracts/document";
+import type { DesignNode, TextRun } from "@ultrapaint/contracts/document";
 import type { PageDefaults } from "@ultrapaint/contracts/pages";
 import type { RenderMode } from "@ultrapaint/contracts/preview";
+import type { WordsRange } from "@ultrapaint/design-document/text-runs";
 
 /** Attribute the renderer writes on every node it draws: the node's id in the document. */
 export const NODE_ATTRIBUTE = "data-ed-node";
@@ -154,6 +155,15 @@ export interface FrameRect {
 /** What a frame tells the editor (ADR 0034): called directly, in the editor's own page. */
 export interface FrameEvents {
   readonly error?: (error: PageError) => void;
+  /**
+   * Words of the text edited in place were selected and ⌘K pressed (ADR 0163): the edit is
+   * committed, and the editor asks where they lead. `start` and `end` count the text's words;
+   * `anchor` is where they are drawn, in the editor's page's pixels.
+   */
+  readonly linkWords?: (
+    nodeId: string,
+    words: WordsRange & { readonly anchor: FrameRect }
+  ) => void;
   /** A node with a link was pressed; the frame does not move. */
   readonly navigateTo?: (route: string, replace: boolean) => void;
   /** A click while the frame takes input: the nodes under it, outermost first. */
@@ -167,8 +177,15 @@ export interface FrameEvents {
     readonly height: number;
     readonly width: number;
   }) => void;
-  /** An inline text edit was committed. */
-  readonly textCommit?: (nodeId: string, text: string) => void;
+  /**
+   * An inline text edit was committed: its words, and its runs (ADR 0163) when the edit changed
+   * them or the text has them, null once none is left.
+   */
+  readonly textCommit?: (
+    nodeId: string,
+    text: string,
+    runs?: readonly TextRun[] | null
+  ) => void;
   /** The text being edited in place, from its start; null as the edit ends, however it ends. */
   readonly textEditing?: (nodeId: string | null) => void;
 }

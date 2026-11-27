@@ -9,12 +9,23 @@
  */
 
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
+import type { TextRun } from "@ultrapaint/contracts/document";
 import { themeWord } from "@ultrapaint/contracts/themes";
 import {
   makeStyleContext,
   pageDefaultsStyle,
   type StyleContext,
 } from "@ultrapaint/design-document/css";
+import {
+  hasRuns,
+  runsOf,
+  setOverRuns,
+  settleRuns,
+  spliceOf,
+  spliceRuns,
+  underlinedThrough,
+} from "@ultrapaint/design-document/text-runs";
+import { findNode, sameJson } from "@ultrapaint/design-document/tree";
 import { toCanvas, toPng } from "html-to-image";
 import {
   chainAt,
@@ -45,6 +56,7 @@ import {
   setComponentsCss,
   setDesignCss,
 } from "./styles.ts";
+import { drawRuns, rangeOf, selectedIn, selectWords } from "./words.ts";
 
 const SKELETON_ATTRIBUTE = "data-ed-skeleton";
 /** A frame's host, marked with the frame's name. */
@@ -475,6 +487,8 @@ const mountFrame = (
     if (editing) {
       if (e.type === "keydown") {
         editKey(e as KeyboardEvent);
+      } else if (e.type === "input") {
+        editInput();
       }
       const { target } = e;
       if (target instanceof Node && editing?.el.contains(target)) {
@@ -556,15 +570,91 @@ const mountFrame = (
   };
 
   let editing: {
-    el: HTMLElement;
-    nodeId: string;
-    onBlur: () => void;
-    original: string;
+    /** What the element held as drawn, given back when the edit is left as it was. */
+    readonly drawn: readonly Node[];
+    readonly el: HTMLElement;
+    /** The runs it was drawn with (ADR 0163); null for a plain text. */
+    readonly drawnRuns: readonly TextRun[] | null;
+    readonly nodeId: string;
+    readonly onBlur: () => void;
+    readonly original: string;
     /** The element's own inline outline, given back when the edit ends. */
-    outline: string;
+    readonly outline: string;
     /** Gives the text back the cut to its lines the edit lifted. */
-    recut: () => void;
+    readonly recut: () => void;
+    /** Its runs as the edit has changed them; null for a plain text nothing gave runs. */
+    runs: TextRun[] | null;
+    /** Its words as the last edit left them, which the next is told from. */
+    words: string;
   } | null = null;
+
+  /**
+   * An edit the browser made to the words, mapped onto the runs from what it changed and where
+   * the caret is, never from the elements it left them in (ADR 0163).
+   */
+  const editInput = () => {
+    if (!editing) {
+      return;
+    }
+    const after = editing.el.textContent ?? "";
+    if (after === editing.words) {
+      return;
+    }
+    if (editing.runs) {
+      const caret = selectedIn(editing.el, shadow)?.end;
+      const { inserted, removed, start } = spliceOf(
+        editing.words,
+        after,
+        caret
+      );
+      editing.runs = spliceRuns(editing.runs, start, removed, inserted);
+    }
+    editing.words = after;
+  };
+
+  /** The words selected in the text edited, once something is: none for a bare caret. */
+  const wordsSelected = () => {
+    if (!editing) {
+      return null;
+    }
+    editInput();
+    const words = selectedIn(editing.el, shadow);
+    return words && words.start < words.end ? words : null;
+  };
+
+  /** ⌘U: the words selected underlined, or no longer when every one of them is. */
+  const underlineSelected = () => {
+    const words = wordsSelected();
+    if (!(editing && words)) {
+      return;
+    }
+    const runs = editing.runs ?? [{ text: editing.words }];
+    editing.runs = setOverRuns(runs, words, {
+      underline: underlinedThrough(runs, words) ? null : true,
+    });
+    drawRuns(editing.el, editing.runs);
+    selectWords(editing.el, words);
+  };
+
+  /** ⌘K: what was typed kept, and the editor asked where the words selected lead. */
+  const linkSelected = () => {
+    const words = wordsSelected();
+    if (!(editing && words)) {
+      return;
+    }
+    const drawnAt = rangeOf(editing.el, words).getBoundingClientRect();
+    const { nodeId } = editing;
+    finishTextEdit(true);
+    events.linkWords?.(nodeId, {
+      anchor: {
+        height: drawnAt.height,
+        width: drawnAt.width,
+        x: drawnAt.x,
+        y: drawnAt.y,
+      },
+      ...words,
+    });
+  };
 
   /**
    * Takes the browser's highlight (its text selection) out of the frame: outside an edit nothing
@@ -596,7 +686,18 @@ const mountFrame = (
     if (!editing) {
       return;
     }
-    const { el, nodeId, onBlur, original, outline, recut } = editing;
+    editInput();
+    const {
+      drawn,
+      el,
+      drawnRuns,
+      nodeId,
+      onBlur,
+      original,
+      outline,
+      recut,
+      runs,
+    } = editing;
     el.removeEventListener("blur", onBlur);
     editing = null;
     setInert();
@@ -607,8 +708,17 @@ const mountFrame = (
     el.style.outline = outline;
     recut();
     const text = el.textContent ?? "";
-    if (commit && text !== original) {
-      events.textCommit?.(nodeId, text);
+    const settled = runs === null ? undefined : settleRuns(runs);
+    const runsChanged = settled !== undefined && !sameJson(settled, drawnRuns);
+    if (commit && (text !== original || runsChanged)) {
+      // A text with runs, or given some, says them: its words alone would take them off.
+      if (settled === undefined) {
+        events.textCommit?.(nodeId, text);
+      } else {
+        events.textCommit?.(nodeId, text, settled);
+      }
+    } else if (drawnRuns) {
+      el.replaceChildren(...drawn);
     } else {
       el.textContent = original;
     }
@@ -616,7 +726,14 @@ const mountFrame = (
   };
 
   const editKey = (e: KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    const shortcut = (e.metaKey || e.ctrlKey) && !e.altKey;
+    if (shortcut && e.key.toLowerCase() === "u") {
+      e.preventDefault();
+      underlineSelected();
+    } else if (shortcut && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      linkSelected();
+    } else if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       finishTextEdit(true);
     } else if (e.key === "Escape") {
@@ -627,7 +744,10 @@ const mountFrame = (
 
   const startTextEdit = (nodeId: string) => {
     const el = elementsOf(nodeId, shadow)[0] as HTMLElement | undefined;
-    if (!el || directText(el) === null) {
+    const node = last?.root ? findNode(last.root, nodeId) : null;
+    // A text with runs holds an element for each that links or is underlined (ADR 0163).
+    const drawnRuns = node !== null && hasRuns(node) ? runsOf(node) : null;
+    if (!el || (directText(el) === null && drawnRuns === null)) {
       return;
     }
     if (editing) {
@@ -635,12 +755,16 @@ const mountFrame = (
     }
     const onBlur = () => finishTextEdit(true);
     editing = {
+      drawn: drawnRuns ? [...el.childNodes].map((n) => n.cloneNode(true)) : [],
+      drawnRuns,
       el,
       nodeId,
       onBlur,
       original: el.textContent ?? "",
       outline: el.style.outline,
       recut: liftCut(el),
+      runs: drawnRuns ? [...drawnRuns] : null,
+      words: el.textContent ?? "",
     };
     setInert();
     showShown();

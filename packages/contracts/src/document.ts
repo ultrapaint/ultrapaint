@@ -112,6 +112,23 @@ export const TextLines = Schema.Union([
 ]);
 export type TextLines = typeof TextLines.Type;
 
+/**
+ * A stretch of a text's words with a link or an underline of its own (ADR 0163). A run with
+ * neither is plain words.
+ */
+export interface TextRun {
+  /** Where its words lead when pressed in the prototype, as a node's `link` does. */
+  readonly link?: string | undefined;
+  readonly text: string;
+  readonly underline?: boolean | undefined;
+}
+
+export const TextRun: Schema.Codec<TextRun> = Schema.Struct({
+  link: Schema.optional(Schema.String),
+  text: Schema.String,
+  underline: Schema.optional(Schema.Boolean),
+});
+
 export const ImageFit = Schema.Literals(["cover", "contain", "fill"]);
 export type ImageFit = typeof ImageFit.Type;
 
@@ -187,6 +204,7 @@ type Fixed =
   | "locked"
   | "name"
   | "role"
+  | "runs"
   | "slot"
   | "type"
   | "x"
@@ -247,6 +265,11 @@ export interface TextNode extends BoxFields {
   /** 1 cuts the text to one line with an ellipsis, 2 or more clamp it; every line when absent. */
   readonly lines?: TextLines | undefined;
   readonly role: "heading" | "paragraph";
+  /**
+   * Its words in runs, for a link or an underline on some of them (ADR 0163): `text` is their
+   * words joined, and they win when the two differ. The same at every breakpoint.
+   */
+  readonly runs?: readonly TextRun[] | undefined;
   /** A font size token (`"$text-lg"`, which brings its line height) or a length. */
   readonly size?: Length | undefined;
   readonly text: string;
@@ -480,6 +503,12 @@ const TextNodeSchema = Schema.Struct({
     Schema.Int.check(Schema.isBetween({ maximum: 6, minimum: 1 }))
   ),
   role: Schema.Literals(["heading", "paragraph"]),
+  runs: Schema.optional(
+    Schema.Array(TextRun).annotate({
+      description:
+        'Its words in order, for a link or an underline on some of them: [{"text": "Accept the "}, {"text": "terms", "link": "terms.page.json", "underline": true}]. text becomes their words joined; text set alone takes the runs off. A run links only in a text without a link, the same at every breakpoint.',
+    })
+  ),
   text: Schema.String,
   type: Schema.Literal("text"),
 });

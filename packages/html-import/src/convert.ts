@@ -9,9 +9,17 @@
  * happy-dom's.
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
-import type { DesignNode, ImageFit } from "@ultrapaint/contracts/document";
+import type {
+  DesignNode,
+  ImageFit,
+  TextRun,
+} from "@ultrapaint/contracts/document";
 import type { ClassReader } from "@ultrapaint/contracts/node-style";
 import { type IdGenerator, idPrefix } from "@ultrapaint/design-document/ids";
+import {
+  type RunFields,
+  settleRuns,
+} from "@ultrapaint/design-document/text-runs";
 import {
   type ElementStyle,
   isAbsolute,
@@ -102,13 +110,23 @@ const INLINE = new Set([
 ]);
 /** Inline elements that format nothing, so flattening them loses nothing. */
 const PLAIN_INLINE = new Set(["br", "span", "wbr"]);
+/** Inline elements a text keeps as runs of its words (ADR 0163): a link, an underline. */
+const RUN_INLINE = new Set(["a", "ins", "u"]);
+const UNDERLINE_RE = /\bunderline\b/;
+/** A link a run does not keep: one that runs code. */
+const SCRIPT_LINK_RE = /^\s*javascript:/i;
+/** What an underline's longhands hold when they say nothing more than the underline. */
+const DECORATION_DEFAULTS: Readonly<Record<string, readonly string[]>> = {
+  textDecorationColor: ["currentcolor", "currentColor"],
+  textDecorationStyle: ["solid"],
+  textDecorationThickness: ["auto"],
+};
 /** Shown to screen readers alone, as Tailwind's utility writes it. */
 const SCREEN_READER_ONLY = "sr-only";
 const FITS: readonly ImageFit[] = ["cover", "contain", "fill"];
 const HEADING_RE = /^h([1-6])$/;
 const SPACE_RE = /[ \t\n\r\f]+/g;
-const DOUBLE_SPACE_RE = / {2,}/g;
-const LINE_SPACES_RE = / *\n */g;
+const EDGE_SPACE_RE = /^\s$/;
 const NUMBER_RE = /^-?\d*\.?\d+$/;
 
 /** Text settings, which a text takes from the elements around it as CSS inherits them. */
@@ -130,11 +148,50 @@ interface Converted {
   readonly top: number;
 }
 
-/** The words of a run of the markup, and whether flattening them lost formatting. */
+/** The words of a run of the markup, their runs, and whether flattening them lost formatting. */
 interface Words {
   readonly flattened: boolean;
+  /** Its words with their links and underlines; null when none has either. */
+  readonly runs: TextRun[] | null;
   readonly words: string;
 }
+
+/** A character of the words, with the link and underline of the elements it is in. */
+interface RunChar {
+  readonly char: string;
+  /** What the elements it is in set. */
+  readonly sets: RunFields;
+}
+
+/** Whether an element's style draws a line under its words. */
+const underlines = (own: ElementStyle) =>
+  UNDERLINE_RE.test(String(own.textDecorationLine ?? own.textDecoration ?? ""));
+
+/** Whether an element's style sets more than an underline a run keeps. */
+const stylesBeyondUnderline = (own: ElementStyle) =>
+  Object.entries(own).some(
+    ([name, value]) =>
+      name !== "textDecoration" &&
+      name !== "textDecorationLine" &&
+      !DECORATION_DEFAULTS[name]?.includes(String(value))
+  );
+
+/** What the words inside an element set: what is around it, and its link or underline. */
+const fieldsWithin = (
+  element: Element,
+  own: ElementStyle,
+  around: RunFields
+): RunFields => {
+  const tag = tagOf(element);
+  const href = tag === "a" ? element.getAttribute("href")?.trim() : undefined;
+  return {
+    ...around,
+    ...(href && !SCRIPT_LINK_RE.test(href) && { link: href }),
+    ...((tag === "u" || tag === "ins" || underlines(own)) && {
+      underline: true,
+    }),
+  };
+};
 
 const compact = <T extends object>(value: T): T =>
   Object.fromEntries(
@@ -202,38 +259,74 @@ export const convertHtml = (
   const holdsOnlyWords = (element: Element): boolean =>
     [...element.childNodes].every((child) => !isElement(child) || flows(child));
 
-  /** The words of a run, its spaces collapsed as a browser shows them, `br` a new line. */
-  const wordsOf = (nodes: readonly ChildNode[]): Words => {
-    const parts: string[] = [];
+  /**
+   * The words of a run, its spaces collapsed as a browser shows them, `br` a new line, each with
+   * the link and the underline of the elements it is in (ADR 0163). Any other formatting is lost.
+   */
+  const wordsOf = (
+    nodes: readonly ChildNode[],
+    /** What the element holding them sets: a link or an underline of the whole text. */
+    around: RunFields = {}
+  ): Words => {
+    const chars: RunChar[] = [];
     let flattened = false;
-    const walk = (node: ChildNode) => {
+    /** A character as a browser shows it: no space after a space or a line's edge. */
+    const put = (char: string, sets: RunFields) => {
+      const last = chars.at(-1)?.char;
+      if (
+        char === " " &&
+        (last === undefined || last === " " || last === "\n")
+      ) {
+        return;
+      }
+      if (char === "\n") {
+        while (chars.at(-1)?.char === " ") {
+          chars.pop();
+        }
+        if (chars.length === 0) {
+          return;
+        }
+      }
+      chars.push({ char, sets });
+    };
+    const walk = (node: ChildNode, sets: RunFields) => {
       if (node.nodeType === TEXT) {
-        parts.push((node.textContent ?? "").replace(SPACE_RE, " "));
+        for (const char of (node.textContent ?? "").replace(SPACE_RE, " ")) {
+          put(char, sets);
+        }
         return;
       }
       if (!(isElement(node) && shown(node))) {
         return;
       }
-      if (tagOf(node) === "br") {
-        parts.push("\n");
+      const tag = tagOf(node);
+      if (tag === "br") {
+        put("\n", sets);
         return;
       }
-      // Its own style is lost in the text, as a bold or a link is.
+      const own = style(node);
+      const here = fieldsWithin(node, own, sets);
+      // Its own style is lost in the text, as a bold is; a link and an underline are runs.
       flattened ||=
-        !PLAIN_INLINE.has(tagOf(node)) || Object.keys(style(node)).length > 0;
+        !(PLAIN_INLINE.has(tag) || RUN_INLINE.has(tag)) ||
+        stylesBeyondUnderline(own);
       for (const child of node.childNodes) {
-        walk(child);
+        walk(child, here);
       }
     };
     for (const node of nodes) {
-      walk(node);
+      walk(node, around);
     }
-    const words = parts
-      .join("")
-      .replace(DOUBLE_SPACE_RE, " ")
-      .replace(LINE_SPACES_RE, "\n")
-      .trim();
-    return { flattened, words };
+    // Any space at either end is left out, a non-breaking one too, as the words are trimmed.
+    const first = chars.findIndex((c) => !EDGE_SPACE_RE.test(c.char));
+    const last = chars.findLastIndex((c) => !EDGE_SPACE_RE.test(c.char));
+    const kept = first === -1 ? [] : chars.slice(first, last + 1);
+    return {
+      flattened,
+      // One run a character: settling them joins the neighbours that set the same.
+      runs: settleRuns(kept.map(({ char, sets }) => ({ text: char, ...sets }))),
+      words: kept.map((c) => c.char).join(""),
+    };
   };
 
   /** The settings a text inherits from an element, its own over those around it. */
@@ -248,7 +341,7 @@ export const convertHtml = (
   };
 
   const textNode = (
-    { flattened, words }: Words,
+    { flattened, runs, words }: Words,
     settings: ElementStyle,
     box: BoxFields | Record<string, never>,
     tag: string
@@ -265,6 +358,7 @@ export const convertHtml = (
       level: heading === undefined ? undefined : Number(heading),
       role:
         heading === undefined ? ("paragraph" as const) : ("heading" as const),
+      runs: runs ?? undefined,
       text: words,
       type: "text" as const,
     });
@@ -469,7 +563,7 @@ export const convertHtml = (
     const words =
       isFlex(own) || isGrid(own) || !holdsOnlyWords(element)
         ? null
-        : wordsOf([...element.childNodes]);
+        : wordsOf([...element.childNodes], fieldsWithin(element, own, {}));
     if (words === null || words.words === "") {
       return placed(own, containerNode(element, own, settings, parent, depth));
     }

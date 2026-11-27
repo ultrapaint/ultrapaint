@@ -33,6 +33,7 @@ import type {
 import { variationsFileOf } from "@ultrapaint/contracts/variations";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { applyOps } from "@ultrapaint/design-document/ops";
+import { asSet, hasRuns } from "@ultrapaint/design-document/text-runs";
 import {
   canvasRoot,
   childrenOf,
@@ -71,7 +72,10 @@ interface Arrival {
 /** What a link becomes, or undefined to leave it. */
 type LinkMap = (link: string) => string | undefined;
 
-/** The operations that rewrite the links of a tree's nodes as `map` says. */
+/**
+ * The operations that rewrite the links of a tree's nodes as `map` says, a text's runs' links
+ * among them (ADR 0163).
+ */
 const linkOps = (root: DesignNode, map: LinkMap): DocOp[] => {
   const ops: DocOp[] = [];
   const visit = (node: DesignNode) => {
@@ -79,6 +83,19 @@ const linkOps = (root: DesignNode, map: LinkMap): DocOp[] => {
     const next = typeof link === "string" ? map(link) : undefined;
     if (next !== undefined && next !== link) {
       ops.push({ id: node.id, op: "update", set: { link: next } });
+    }
+    if (hasRuns(node)) {
+      const runs = node.runs.map((run) => {
+        const to = run.link === undefined ? undefined : map(run.link);
+        return to === undefined ? run : { ...run, link: to };
+      });
+      if (runs.some((run, i) => run !== node.runs[i])) {
+        ops.push({
+          id: node.id,
+          op: "update",
+          set: asSet({ runs, text: node.text }),
+        });
+      }
     }
     for (const child of childrenOf(node)) {
       visit(child);

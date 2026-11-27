@@ -553,6 +553,7 @@ describe("a frame's events handed on", () => {
     const calls: string[] = [];
     const every: Handed = {
       error: () => calls.push("error"),
+      linkWords: () => calls.push("linkWords"),
       navigateTo: () => calls.push("navigateTo"),
       pressed: () => calls.push("pressed"),
       ready: () => calls.push("ready"),
@@ -564,6 +565,11 @@ describe("a frame's events handed on", () => {
     };
     const handed = m.forwardTo(() => every);
     handed.error({ message: "m" });
+    handed.linkWords("n", {
+      anchor: { height: 1, width: 1, x: 0, y: 0 },
+      end: 1,
+      start: 0,
+    });
     handed.navigateTo("/", false);
     handed.pressed([]);
     handed.ready();

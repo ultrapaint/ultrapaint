@@ -1,6 +1,5 @@
-import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
-import { linksIn } from "@ultrapaint/shared/link";
+import { linkedNodeIds } from "@ultrapaint/shared/link";
 import { MousePointerClick } from "lucide-react";
 import { useEffect, useState } from "react";
 import { create } from "zustand";
@@ -58,10 +57,6 @@ export const onPrototypePress = (
   }
 };
 
-/** Every linked node of a document's tree, none while it is not read yet. */
-const linkedIn = (root: DesignNode | null | undefined): string[] =>
-  linksIn(root).map((link) => link.nodeId);
-
 /**
  * The parts of the page on screen that lead somewhere, drawn over the prototype at its scale:
  * always when they are asked for, for a moment after a press that led nowhere. The preview
@@ -83,7 +78,7 @@ export const HotspotLayer = ({
   useEffect(() => {
     // Watched from now on, by the frame open now and the one opened after a reload.
     const frame = frameOf(frameId);
-    frame.watchRects(linkedIn(root));
+    frame.watchRects(linkedNodeIds(root));
     const off = frame.listen({ rects: setRects });
     return () => {
       off();
@@ -95,7 +90,7 @@ export const HotspotLayer = ({
     return null;
   }
   // What was measured for the page shown before stays until the preview measures again.
-  const current = new Set(linkedIn(root));
+  const current = new Set(linkedNodeIds(root));
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0">
       {Object.entries(rects)

@@ -1,3 +1,5 @@
+import type { DesignNode } from "@ultrapaint/contracts/document";
+import { runLinks } from "@ultrapaint/design-document/text-runs";
 import { BACK_LINK, linkTargetOf } from "@ultrapaint/shared/link";
 import { TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -9,6 +11,20 @@ import { promptDialog } from "./dialogs.tsx";
 import { OptionSelect, type SelectOption } from "./option-select.tsx";
 
 const NOWHERE = "";
+
+/**
+ * Whether some of these nodes' words link (ADR 0163): such a text leads nowhere as a whole, and
+ * offering it a link would put one anchor in another.
+ */
+export const wordsLinkIn = (nodes: readonly DesignNode[]) =>
+  nodes.some((node) => runLinks(node).length > 0);
+
+/** What "Goes to" says of a text whose words link, in place of a link for the whole of it. */
+export const WordsLinkNote = () => (
+  <p className="font-body-small text-muted-foreground">
+    Its words link: select them in the text and press ⌘K.
+  </p>
+);
 /** The option that asks for a URL of the canvas or another site. */
 const OTHER = "\u0000other";
 

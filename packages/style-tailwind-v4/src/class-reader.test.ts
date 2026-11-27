@@ -55,6 +55,15 @@ describe("reading an element's classes", () => {
     });
   });
 
+  it("reads an underline and its reset", () => {
+    expect(read("underline").declarations).toEqual({
+      textDecorationLine: "underline",
+    });
+    expect(read("no-underline").declarations).toEqual({
+      textDecorationLine: "none",
+    });
+  });
+
   it("reads a utility's own namespace before every colour's", () => {
     expect(read("bg-subtle text-primary border-primary").declarations).toEqual({
       background: "$background-color-subtle",

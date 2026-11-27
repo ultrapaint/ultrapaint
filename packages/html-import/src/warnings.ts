@@ -33,8 +33,8 @@ export const WARNINGS = {
     "children positioned absolutely put in the flow",
   ],
   inline: [
-    "inline formatting (bold, italic, links) flattened into its text",
-    "texts' inline formatting (bold, italic, links) flattened",
+    "inline formatting (bold, italic, a colour) flattened into its text",
+    "texts' inline formatting (bold, italic, a colour) flattened",
   ],
   media: [
     "a canvas, video or frame left out",

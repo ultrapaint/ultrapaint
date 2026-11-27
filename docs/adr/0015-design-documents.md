@@ -3,6 +3,9 @@
 Status: accepted, 2026-09-25. Supersedes 0002, 0003, 0007's snippet insertion and the TSX
 verdict of [the storage checkpoint](../decisions/storage-format.md). Amends 0011, 0012 and 0014. Amended 2026-11-10 by [0075](0075-a-page-is-its-own-container-and-the-prototype-shows-routes.md): a page's root is the screen's own container, a column or a row.
 
+> Amended 2026-11-27 by [0163](0163-a-text-holds-runs-that-link-or-underline.md): a text holds
+> runs of its words that link or are underlined, the first rich text in the format.
+
 > Amended 2026-11-10: the undo state says which history was dropped and why
 > (`invalidated: { history, reason }`), and the editor says it on that control's tooltip
 > ("Nothing to undo: … changed outside the editor"); Redo's tooltip names what it redoes, as

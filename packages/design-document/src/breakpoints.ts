@@ -241,6 +241,7 @@ export const FIXED_FIELDS: ReadonlySet<string> = new Set([
   "locked",
   "name",
   "role",
+  "runs",
   "slot",
   "x",
   "y",

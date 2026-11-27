@@ -9,6 +9,7 @@ import type { DesignNode } from "@ultrapaint/contracts/document";
 import { isBound } from "@ultrapaint/contracts/implementation";
 import type { ViewportPreset } from "@ultrapaint/contracts/pages";
 import type { CodeFormat } from "@ultrapaint/contracts/rpc";
+import { runLinks } from "@ultrapaint/design-document/text-runs";
 import {
   isContainer,
   nodeKind,
@@ -217,10 +218,15 @@ export interface NodeFacts {
 
 /**
  * Where a node can lead in the prototype: a page, back, a URL or another site, or nowhere. Only
- * a node in a page has one: one beside the pages is never in the prototype.
+ * a node in a page has one: one beside the pages is never in the prototype, and a text whose
+ * words link (ADR 0163) leads nowhere as a whole.
  */
 const linkEntries = (f: NodeFacts): Entry<NodeAction> | false => {
-  if (!hasPrototypeLinks(f.frame) || f.node.type === "page") {
+  if (
+    !hasPrototypeLinks(f.frame) ||
+    f.node.type === "page" ||
+    runLinks(f.node).length > 0
+  ) {
     return false;
   }
   const { link } = f.node;

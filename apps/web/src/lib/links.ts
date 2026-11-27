@@ -5,7 +5,7 @@
 import type { Page } from "@ultrapaint/contracts/pages";
 import {
   isBrokenLink,
-  linksIn,
+  linkedNodeIds,
   linkTargetOf,
   pageOfLink,
 } from "@ultrapaint/shared/link";
@@ -123,5 +123,5 @@ export const linkedNodesOf = (doc: string | null): string[] => {
   if (doc === null) {
     return [];
   }
-  return linksIn(useDocuments.getState().docs[doc]?.root).map((l) => l.nodeId);
+  return linkedNodeIds(useDocuments.getState().docs[doc]?.root);
 };

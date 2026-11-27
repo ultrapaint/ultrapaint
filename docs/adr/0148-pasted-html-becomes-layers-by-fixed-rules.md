@@ -1,7 +1,10 @@
 # ADR 0148: Pasted HTML becomes layers by fixed rules
 
 Status: accepted, 2026-11-25. Follows 0016 (a Figma frame is imported by fixed rules) and 0024
-(the style system reads and writes classes).
+(the style system reads and writes classes). Amended 2026-11-27 by
+[0163](0163-a-text-holds-runs-that-link-or-underline.md): an inline link and an underline are
+kept as the text's runs, and are not warned; bold, italic and other inline styles are still
+flattened.
 
 ## Context
 

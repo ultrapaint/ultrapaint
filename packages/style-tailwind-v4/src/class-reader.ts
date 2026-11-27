@@ -414,6 +414,8 @@ const rulesOf = (theme: Theme): Record<string, Rule> => {
   for (const [use, utility] of Object.entries(KEYWORD_UTILITIES)) {
     add(use, keyword(utility));
   }
+  add("underline", bare({ textDecorationLine: "underline" }));
+  add("no-underline", bare({ textDecorationLine: "none" }));
 
   // `flex` is a display bare and a flex's direction, wrap or growth with a value.
   add("flex", (value) =>

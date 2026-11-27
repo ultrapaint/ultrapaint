@@ -1376,6 +1376,61 @@ describe("the tools for documents", () => {
       })
   );
 
+  inAProject(
+    "writes a text's runs, gives them back as written, and says the format of one (ADR 0163)",
+    () =>
+      Effect.gen(function* () {
+        const runs = [
+          { text: "By signing up you accept the " },
+          { link: "terms.page.json", text: "terms", underline: true },
+        ];
+        const { created } = yield* tool("apply_operations", {
+          ops: [
+            inserted({
+              id: "legal",
+              role: "paragraph",
+              runs,
+              text: "",
+              type: "text",
+            }),
+          ],
+          route: "/home",
+        });
+        assert.deepStrictEqual(created, ["legal"]);
+        const read = yield* tool("read_page", {
+          node: "legal",
+          route: "/home",
+        });
+        assert.deepInclude(read.document as object, {
+          runs,
+          text: "By signing up you accept the terms",
+        });
+        // The schema an agent reads says how a run is written.
+        const format = yield* tool("get_document_format", {});
+        assert.include(JSON.stringify(format.schema), '"runs"');
+        assert.include(format.rules, "runs:");
+        // Its words set alone take the runs off, and the answer says so.
+        const { warnings } = yield* tool("apply_operations", {
+          ops: [{ id: "legal", op: "update", set: { text: "Accept" } }],
+          route: "/home",
+        });
+        assert.include(
+          (warnings ?? []).join("\n"),
+          "legal: text set alone took off its runs"
+        );
+        assert.include(
+          yield* refusal("apply_operations", {
+            ops: [
+              { id: "legal", op: "update", set: { link: "home.page.json" } },
+              { id: "legal", op: "update", set: { runs } },
+            ],
+            route: "/home",
+          }),
+          "links as a whole"
+        );
+      })
+  );
+
   /** A group holding one text, put on the home page through the tools. */
   const cardOnHome = tool("apply_operations", {
     ops: [

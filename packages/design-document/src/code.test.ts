@@ -373,6 +373,46 @@ describe("a link", () => {
   });
 });
 
+describe("a text's runs", () => {
+  const legal: DesignNode = {
+    id: "legal",
+    role: "paragraph",
+    runs: [
+      { text: "By signing up you accept the " },
+      { link: "terms.page.json", text: "terms", underline: true },
+      { text: " & the " },
+      { text: "rules", underline: true },
+      { text: "." },
+    ],
+    size: 14,
+    text: "By signing up you accept the terms & the rules.",
+    type: "text",
+  };
+  const hrefOf = (link: string) =>
+    link === "terms.page.json" ? "/terms" : link;
+
+  it("are written inside the text's element, a link as an anchor and an underline as the style system's class", () => {
+    expect(toCode(legal, writer, { hrefOf })).toBe(
+      `<p className="fontSize:14">By signing up you accept the <a href="/terms" className="textDecorationLine:underline">terms</a> & the <span className="textDecorationLine:underline">rules</span>.</p>`
+    );
+    expect(toHtml(legal, writer, { hrefOf })).toBe(
+      `<p class="fontSize:14">By signing up you accept the <a href="/terms" class="textDecorationLine:underline">terms</a> &amp; the <span class="textDecorationLine:underline">rules</span>.</p>`
+    );
+  });
+
+  it("leave a run's link out of a text that links as a whole: an anchor holds no other", () => {
+    const linked = { ...legal, link: "home.page.json" } as DesignNode;
+    expect(toHtml(linked, { classes: () => [] })).toBe(
+      `<a href="home.page.json">
+  <p>By signing up you accept the terms &amp; the rules.</p>
+</a>`
+    );
+    expect(toHtml(linked, writer)).toContain(
+      `<span class="textDecorationLine:underline">terms</span>`
+    );
+  });
+});
+
 describe("pageComponentName", () => {
   it("names a page after its route", () => {
     expect(pageComponentName("/")).toBe("HomePage");

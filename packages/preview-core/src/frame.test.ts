@@ -270,6 +270,201 @@ describe("a text edited in place", () => {
   });
 });
 
+/** The words from `start` to `end` of `el` selected, as a drag over them leaves them. */
+const selectOffsets = (el: Node, start: number, end = start) => {
+  const at = (offset: number): [Node, number] => {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let seen = 0;
+    let last: Node = el;
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const length = n.textContent?.length ?? 0;
+      if (offset <= seen + length) {
+        return [n, offset - seen];
+      }
+      seen += length;
+      last = n;
+    }
+    return [last, last.textContent?.length ?? 0];
+  };
+  highlight((range) => {
+    range.setStart(...at(start));
+    range.setEnd(...at(end));
+  });
+};
+
+/** Typing in place: the DOM as the browser leaves it, the caret after what was typed, then `input`. */
+const typed = (el: HTMLElement, change: () => void, caret: number) => {
+  change();
+  selectOffsets(el, caret);
+  el.dispatchEvent(new InputEvent("input", { bubbles: true, composed: true }));
+};
+
+const shortcut = (el: HTMLElement, letter: string) =>
+  el.dispatchEvent(
+    new KeyboardEvent("keydown", {
+      bubbles: true,
+      composed: true,
+      key: letter,
+      metaKey: true,
+    })
+  );
+
+const enter = (el: HTMLElement) =>
+  el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+
+describe("a text's runs, edited in place (ADR 0163)", () => {
+  const RUNS = [
+    { text: "By signing up you accept the " },
+    { link: "terms.page.json", text: "terms of use" },
+  ];
+  /** A frame holding a text whose last words link, drawn as the renderer draws runs. */
+  const framedRuns = () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const textCommit = vi.fn();
+    const linkWords = vi.fn();
+    const textEditing = vi.fn();
+    const runtime = preview.mountFrame(host, {
+      canvas: "canvas",
+      events: { linkWords, textCommit, textEditing },
+      frame: "a",
+      shown: {},
+    });
+    opened.push(runtime);
+    const body = host.shadowRoot?.querySelector(
+      `[${BODY_ATTRIBUTE}]`
+    ) as HTMLElement;
+    const words = document.createElement("p");
+    page(() => {
+      words.setAttribute(NODE_ATTRIBUTE, "legal");
+      const link = document.createElement("a");
+      link.textContent = "terms of use";
+      words.replaceChildren("By signing up you accept the ", link);
+      body.replaceChildren(words);
+    });
+    runtime.render({
+      designSystem: null,
+      mode: "page",
+      renderId: 1,
+      root: {
+        children: [
+          {
+            id: "legal",
+            role: "paragraph",
+            runs: RUNS,
+            text: "By signing up you accept the terms of use",
+            type: "text",
+          },
+        ],
+        id: "root",
+        type: "page",
+      },
+    });
+    return { linkWords, runtime, textCommit, textEditing, words };
+  };
+
+  it("keeps a link on its words when they are edited inside", () => {
+    const { runtime, textCommit, words } = framedRuns();
+    runtime.editText("legal");
+    const link = words.querySelector("a") as HTMLElement;
+    typed(
+      words,
+      () => {
+        link.textContent = "terms of service";
+      },
+      45
+    );
+    enter(words);
+    expect(textCommit).toHaveBeenCalledWith(
+      "legal",
+      "By signing up you accept the terms of service",
+      [
+        { text: "By signing up you accept the " },
+        { link: "terms.page.json", text: "terms of service" },
+      ]
+    );
+  });
+
+  it("takes a run off once its words are all deleted, and is a plain text again", () => {
+    const { runtime, textCommit, words } = framedRuns();
+    runtime.editText("legal");
+    typed(
+      words,
+      () => {
+        words.replaceChildren("By signing up you accept");
+      },
+      24
+    );
+    enter(words);
+    expect(textCommit).toHaveBeenCalledWith(
+      "legal",
+      "By signing up you accept",
+      null
+    );
+  });
+
+  it("underlines the words selected on ⌘U, shown as it is typed", () => {
+    const { runtime, textCommit, words } = framedRuns();
+    runtime.editText("legal");
+    selectOffsets(words, 3, 13);
+    shortcut(words, "u");
+    const underlined = [...words.querySelectorAll("*")].filter(
+      (el) => (el as HTMLElement).style.textDecorationLine === "underline"
+    );
+    expect(underlined.map((el) => el.textContent)).toEqual(["signing up"]);
+    enter(words);
+    expect(textCommit).toHaveBeenCalledWith(
+      "legal",
+      "By signing up you accept the terms of use",
+      [
+        { text: "By " },
+        { text: "signing up", underline: true },
+        { text: " you accept the " },
+        { link: "terms.page.json", text: "terms of use" },
+      ]
+    );
+  });
+
+  it("asks the editor for a link on the words selected on ⌘K, keeping what was typed", () => {
+    const { linkWords, runtime, textCommit, textEditing, words } = framedRuns();
+    runtime.editText("legal");
+    typed(
+      words,
+      () => {
+        (words.firstChild as Text).data = "By signing up, you accept the ";
+      },
+      14
+    );
+    selectOffsets(words, 3, 13);
+    shortcut(words, "k");
+    expect(textCommit).toHaveBeenCalledWith(
+      "legal",
+      "By signing up, you accept the terms of use",
+      [
+        { text: "By signing up, you accept the " },
+        { link: "terms.page.json", text: "terms of use" },
+      ]
+    );
+    expect(linkWords).toHaveBeenCalledWith(
+      "legal",
+      expect.objectContaining({ end: 13, start: 3 })
+    );
+    expect(textEditing).toHaveBeenLastCalledWith(null);
+  });
+
+  it("underlines a plain text's words on ⌘U, which then has runs", () => {
+    const { runtime, textCommit, title } = framedText();
+    runtime.editText("t");
+    selectOffsets(title, 3, 8);
+    shortcut(title, "u");
+    enter(title);
+    expect(textCommit).toHaveBeenCalledWith("t", "IT Admin", [
+      { text: "IT " },
+      { text: "Admin", underline: true },
+    ]);
+  });
+});
+
 describe("a frame's page selected in as it runs", () => {
   it("leaves no highlight once the frame is a picture again", () => {
     const { runtime, title } = framedText({ interactive: true });

@@ -43,6 +43,9 @@ export const codeRules = `How the design maps to code (Tailwind v4):
   case: uppercase, lowercase. textWrap: text-balance, text-nowrap. lines 1: truncate; 2 or
   more: line-clamp-2 and so on. Their defaults at a breakpoint: normal-case, text-wrap, and for
   lines "all" line-clamp-none with whitespace-normal and text-clip.
+- runs: the text's words in order, written inside its element as they are spaced: a plain run
+  its words, a run's link an anchor (the router's link) around its words, underline the
+  underline class (a span when it does not link).
 - instance: the component \`component\` imported from \`from\`, with \`props\` as its props and
   \`text\` or \`children\` as its children. Its size, padding, fill, border, radius and shadow
   are classes in the component's own className, as the canvas draws them; a component that
