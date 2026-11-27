@@ -445,7 +445,8 @@ refactor and the board view left.
   rounded or filled rows touching, measured by the editor on the page it draws for the review,
   and the values a page's document sets **off the system**, one finding a kind of value. It goes
   to the designer after the reviewers' findings, marked as a check's, and never to a review
-  model; it is minor, never holds back approval, and is declined as any finding is. The checks
+  model; it is minor, never holds back approval, and is declined by the designer alone, never
+  asked of the person (ADR 0157). The checks
   read what changed since each page's **before**: its tree before the first of the turns since
   the thread's last round that changed it, read from the designs' history (the server's
   `review/turn-befores.ts`). A check's finding keeps its
@@ -487,6 +488,13 @@ refactor and the board view left.
   review loop adds, shown together as the **run card** (web's `design-run.ts`). A round waits
   while a question of the turn just ended **waits for the answers** (contracts'
   `waitsForAnswers`, ADR 0151): the round after the turn they begin looks at both turns' pages.
+- **Decline**: a finding the designer leaves unfixed, with its reason, written at the end of its
+  reply (`Declined: <number> — <reason>`; the server's `declinedOf`, `Decline`). A review model's
+  finding it would decline while declining it leaves on the page what the finding says is wrong
+  is **asked**: put to the person on the question tool before the reply ends, the designer's call
+  first ("Keep it as it is") and the fix second (ADR 0157). One the person keeps is **decided by**
+  them (contracts' `DecidedBy`, written `Declined by the user:`), on the round's finding and in
+  the findings log; any other decline, a check's always, is the designer's.
 - **Turn card**: how a design chat shows a turn (ADR 0095, web's `thread-turns.ts`): the prompt,
   one card (the page the turn works on, the run's steps while it goes or its review waits for
   the answers, the review's line, the

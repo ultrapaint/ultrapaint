@@ -173,13 +173,19 @@ stylesheet.`;
 
 /**
  * What a design thread is told of the editor's review loop (ADR 0063), when its turns are
- * reviewed: the design skill's "a reviewer that sends you findings" (ADR 0110), told only then.
+ * reviewed: the design skill's "a reviewer that sends you findings" (ADR 0110), told only then. A
+ * decline that leaves what a review model's finding says is wrong is put to the user first, on
+ * the question tool as this agent knows it (ADR 0157).
  */
-export const REVIEW_ANSWERED = `- When your turn ends, the editor has the user's review models look at what you made and sends
+export const reviewAnswered = (
+  ways: AgentWays
+) => `- When your turn ends, the editor has the user's review models look at what you made and sends
   you their findings: they are the design skill's "a reviewer that sends you findings". Fix each,
-  or decline it with its reason, and end that reply with one line per declined finding, by its
-  number: "Declined: <number> — <reason>". The editor runs the review: don't start one of your
-  own.
+  or decline it with its reason. A review model's finding you would decline while it leaves on the
+  page what the finding says is wrong goes to ${ways.questionTool} first, one question per finding,
+  your call as the first option. End that reply with one line per declined finding, by its
+  number: "Declined: <number> — <reason>", or "Declined by the user: <number> — <reason>" for one
+  the user kept. The editor runs the review: don't start one of your own.
 `;
 
 /**
@@ -207,9 +213,9 @@ const designChat = (
 - Keep your plan with your plan or todo tool, as "Outline", then one "Build <section>" per
   section, ticked off as you go: the chat shows it as the run's progress, so never write the
   list into your messages.
-${reviewed ? REVIEW_ANSWERED : ""}- At the end, say where the result is, each change by its link, at most three things the user
+${reviewed ? reviewAnswered(ways) : ""}- At the end, say where the result is, each change by its link, at most three things the user
   might not expect, and what you didn't check. No recap of the request, no list of all you did.
-- A decision you leave for the user goes to ${ways.tools ? ways.tools.ask_user : "your own question tool"} before your turn ends,
+- A decision you leave for the user goes to ${ways.questionTool} before your turn ends,
   one question each, its options with the one you suggest first. Your last message asks nothing.
 ${
   ways.tools
@@ -224,7 +230,7 @@ ${
  * model's fields. What an agent may have beyond files and a reply, the skill names once as a
  * capability ("Where you work": a question tool, a view at a width…) and here, in its words, is
  * what the editor gives for each; "another agent" is the agent's own, and the reviewer is the
- * review loop, told where it runs (`REVIEW_ANSWERED`).
+ * review loop, told where it runs (`reviewAnswered`).
  */
 export const skillTerms = (
   ways: AgentWays,

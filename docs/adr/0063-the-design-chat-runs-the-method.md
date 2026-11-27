@@ -10,6 +10,10 @@ replaces the editor part of `docs/plans/PLAN-review-loop.md` phase 5. Plan:
 > while a question of the turn waits for the answers, and the chat's questions go to the question
 > tool before the turn ends, never into its last message.
 
+> Amended by [0157](0157-the-person-decides-a-decline-the-page-shows.md), 2026-11-27: a review
+> model's finding the designer would decline while the page keeps what it says is wrong is put
+> to the person on the question tool first, and the reply says who decided each decline.
+
 > Amended by [0066](0066-findings-are-kept-by-the-person-and-triaged-into-gaps.md), 2026-11-06:
 > keeping the findings is the person's choice, in their profile (Settings › Preferences › Keep
 > findings) and for every project, where this kept it in the project's `review` settings; a

@@ -162,6 +162,12 @@ export interface AgentWays {
   readonly noteBehaviour: string;
   /** What Define, proposing a design system, works with. */
   readonly proposeWith: string;
+  /**
+   * The design chat's question tool, by the name the agent knows it (ADR 0151): where it asks a
+   * decision that is the user's before its turn ends, a decline of a review's finding among them
+   * (ADR 0157).
+   */
+  readonly questionTool: string;
   /** Where the design system is read, with DESIGN.md: a clause, "it" the design system. */
   readonly readDesignSystem: (designsDir: string) => string;
   /**
@@ -244,6 +250,7 @@ ${TOOLS.read_design_system}, ${TOOLS.list_components} and ${TOOLS.get_component}
     `mark it implemented: call ${handoffCall("mark")}, target ${target} and files, every repository file you wrote or changed for it. The editor then knows which code implements it, and tells the next implementation what changed.`,
   noteBehaviour: `write it down with ${handoffCall("note")}: on the node it belongs to, or on a component (target component:<Name>, node a part)`,
   proposeWith: `${TOOLS.scan_design_system} has what the theme declares; ${TOOLS.ask_user} puts a card of questions to the user; ${TOOLS.write_design_system} saves the result.`,
+  questionTool: TOOLS.ask_user,
   readDesignSystem: () =>
     `${TOOLS.read_design_system} returns it with DESIGN.md`,
   readTheme: (
@@ -304,6 +311,7 @@ page format: ${pageSchema()}`,
   noteBehaviour: "write it down as a comment on the node",
   proposeWith:
     "Without the editor's MCP server, read the code yourself, ask in the thread and write the files by hand.",
+  questionTool: "your own question tool",
   readDesignSystem: (designsDir) =>
     `it is ${designsDir}/${DESIGN_SYSTEM_FILE}, every token's value in ${designsDir}/${DESIGN_TOKENS_FILE}, and ${DESIGN_MD_FILE} at the root of the repository`,
   readTheme: (stylesheets, before) =>

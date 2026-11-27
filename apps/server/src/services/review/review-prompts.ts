@@ -136,7 +136,9 @@ export const reviewerPrompt = (
  * A round's findings, as the designer is asked to fix or decline each, with what the review
  * models still want of the pages where it isn't in a finding. The checks' findings come after the
  * reviewers', each marked as a check's (ADR 0081); with none of the reviewers', the review is over
- * and the checks' are all there is.
+ * and the checks' are all there is. A review model's finding it would decline while it leaves what
+ * the finding says is wrong is put to the user first, on `questionTool`, and one the user kept is
+ * written as theirs; a check's is never asked (ADR 0157).
  */
 export const findingsPrompt = (
   pages: readonly {
@@ -144,7 +146,9 @@ export const findingsPrompt = (
     readonly route?: string | undefined;
   }[],
   findings: readonly RoundFinding[],
-  left: readonly string[]
+  left: readonly string[],
+  /** The question tool as the designer knows it (`AgentWays.questionTool`). */
+  questionTool: string
 ) => {
   const listed = findings.map((f, i) =>
     f.check === undefined
@@ -170,6 +174,11 @@ export const findingsPrompt = (
           listed.join("\n"),
         ]
       : []),
+    ...(reviewed
+      ? [
+          `A review model's finding you would decline is the user's to decide when declining it leaves on the page what the finding says is wrong. Before you end your reply, ask them with ${questionTool}, one question per finding, the worst first and at most four a call: your call first, as "Keep it as it is: <your reason>", then the fix. Fix what they choose to fix, or do what they wrote instead. Decline without asking only what changes nothing they see: a finding the design already meets, or one about something the request ruled out in its own words.${checked ? " A check's finding is never asked: decline it yourself." : ""}`,
+        ]
+      : []),
     ...(left.length > 0
       ? [
           `They haven't approved it yet:\n${left.map((l) => `- ${l}`).join("\n")}`,
@@ -177,7 +186,11 @@ export const findingsPrompt = (
       : []),
     ...(listed.length > 0
       ? [
-          "End your reply with one line for each finding you declined, by its number, and none for those you fixed:\nDeclined: <the finding's number> — <your reason>",
+          `End your reply with one line for each finding you declined, by its number, and none for those you fixed:\nDeclined: <the finding's number> — <your reason>${
+            reviewed
+              ? `\nDeclined by the user: <the finding's number> — <the reason>\nThe second for a decline the user kept when you asked. One they didn't answer, or that you couldn't wait on, is the first, and your reply says they haven't answered.`
+              : ""
+          }`,
         ]
       : []),
   ].join("\n\n");

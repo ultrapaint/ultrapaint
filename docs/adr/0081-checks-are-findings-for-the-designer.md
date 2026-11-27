@@ -3,7 +3,9 @@
 Status: accepted, 2026-11-23, built with UP-75 (see "As built"). Amended by
 [0156](0156-a-checks-decline-holds-until-its-node-changes.md): a decline holds in the thread
 until its node changes, the checks read what the turns changed, and the values off the system are
-one finding a kind. Proposed 2026-11-11 by the design lab. Amends [0061](0061-designs-are-checked-before-they-are-reviewed.md), whose third layer
+one finding a kind. Amended by [0157](0157-the-person-decides-a-decline-the-page-shows.md): a
+review model's finding the designer would decline is put to the person first; a check's is still
+declined alone, never asked. Proposed 2026-11-11 by the design lab. Amends [0061](0061-designs-are-checked-before-they-are-reviewed.md), whose third layer
 gave the review models the checks' results as facts. In the lab, `recall` counts both ways
 already (`--inputs checks`).
 
