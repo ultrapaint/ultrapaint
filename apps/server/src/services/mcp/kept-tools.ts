@@ -3,7 +3,8 @@
  * (`~/.ultrapaint/mcp-tools.json`, ADR 0083). `ultrapaint mcp` started in a folder with no project
  * offers them, a hub's folder among them: an agent is given the tools before any call has named
  * its project, by a folder or a link. Any server's list will do: the tools are the same for every
- * project of the same version.
+ * project of the same version. Beside them, the instructions a server gives at `initialize`, which
+ * the command gives in a project's folder before that project's server has started (ADR 0164).
  */
 import {
   Effect,
@@ -16,22 +17,22 @@ import {
 } from "effect";
 import { makeWriteAtomic } from "../../atomic-write.ts";
 import { ServerConfig } from "../../config.ts";
-import { eventMessages, RelayUnreachable } from "../../mcp-relay.ts";
+import { eventMessages, KeptTools, RelayUnreachable } from "../../mcp-relay.ts";
 import { McpAccess } from "./access.ts";
+import { MCP_INSTRUCTIONS } from "./route.ts";
 
 export const KEPT_TOOLS_FILE = "mcp-tools.json";
+
+/** The kept file: the tools a server listed, and what it says at `initialize`. */
+const KeptToolsFile = Schema.fromJsonString(KeptTools);
+export const decodeKeptTools = Schema.decodeUnknownOption(KeptToolsFile);
 
 /** The revision the server is asked in: stateless, a request needing no session. */
 const STATELESS = "2026-07-28";
 
-const Listed = Schema.fromJsonString(
-  Schema.Struct({
-    result: Schema.Struct({ tools: Schema.Array(Schema.Unknown) }),
-  })
-);
+/** The server's answer to `tools/list`, whose tools are kept. */
+const Listed = Schema.fromJsonString(Schema.Struct({ result: KeptTools }));
 const decodeListed = Schema.decodeUnknownOption(Listed);
-const Raw = Schema.fromJsonString(Schema.Struct({ result: Schema.Unknown }));
-const decodeRaw = Schema.decodeUnknownOption(Raw);
 
 /** Once the server answers: its tools listed, as an agent is given them, and kept. */
 export const KeepToolList = Layer.effectDiscard(
@@ -88,15 +89,22 @@ export const KeepToolList = Layer.effectDiscard(
       const listed = answers.find((answer) =>
         Option.isSome(decodeListed(answer))
       );
-      const raw = Option.flatMap(Option.fromNullishOr(listed), decodeRaw);
-      if (Option.isNone(raw)) {
+      const decoded = Option.flatMap(
+        Option.fromNullishOr(listed),
+        decodeListed
+      );
+      if (Option.isNone(decoded)) {
         return yield* Effect.logWarning(
           "the MCP tools could not be listed to keep"
         );
       }
+      const kept = {
+        instructions: MCP_INSTRUCTIONS,
+        tools: decoded.value.result.tools,
+      };
       yield* writeAtomic(
         path.join(userDir, KEPT_TOOLS_FILE),
-        `${JSON.stringify(raw.value.result)}\n`
+        `${JSON.stringify(kept)}\n`
       );
     });
     // A list not kept costs only an agent in a folder with no project, which goes without tools.

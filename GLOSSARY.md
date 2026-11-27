@@ -567,7 +567,8 @@ refactor and the board view left.
   a project through **`ultrapaint mcp`**, a stdio command it starts, or a hub starts for it: the
   folder it works in, which every tool takes as `cwd` (or a project named by an editor link),
   says which project, and the command passes the messages to that project's server's `/mcp` with
-  the project's token (ADR 0083). It asks
+  the project's token (ADR 0083); with no server running there, `initialize` it answers itself, as
+  that server would, and starts the server meanwhile (ADR 0164). It asks
   `get_context` for the **editor selection** (`EditorSelection`): what the editor last said is
   selected (`editor.select`), each node by its reference and name.
   **Connect** (Settings › Connections, `OutsideAgents`) registers Claude Code or Codex by running

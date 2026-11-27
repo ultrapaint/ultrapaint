@@ -28,6 +28,7 @@ import {
   Stdio,
   Stream,
 } from "effect";
+import { McpProtocol } from "effect/ai";
 import { Command, Flag } from "effect/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import product from "../../../package.json" with { type: "json" };
@@ -35,17 +36,24 @@ import {
   errorAnswer,
   FOLDER_ARG,
   folderOf,
+  type KeptTools,
   linkedProject,
   type McpTarget,
   makeRelay,
   type RelayMessage,
   RelayNoProject,
   RelayUnreachable,
+  type Way,
   withFolder,
 } from "./mcp-relay.ts";
 import { liveRun } from "./run-file.ts";
 import { MCP_PATH } from "./services/mcp/access.ts";
-import { KEPT_TOOLS_FILE } from "./services/mcp/kept-tools.ts";
+import { decodeKeptTools, KEPT_TOOLS_FILE } from "./services/mcp/kept-tools.ts";
+import {
+  MCP_INSTRUCTIONS,
+  MCP_PROTOCOLS,
+  MCP_SERVER_INFO,
+} from "./services/mcp/route.ts";
 import { resolveStorage, userDirFlag } from "./storage-resolve.ts";
 
 /**
@@ -70,8 +78,55 @@ const Request = Schema.fromJsonString(
   })
 );
 const decodeRequest = Schema.decodeUnknownOption(Request);
-/** The tools a server listed, as kept: any JSON. */
-const Kept = Schema.fromJsonString(Schema.Unknown);
+
+/** The revisions a server agrees at `initialize`: the stateless one has none. */
+const SESSION_REVISIONS = MCP_PROTOCOLS.filter(
+  (protocol) => protocol.runtime._tag === "Stateful"
+).map((protocol) => protocol.protocolVersion);
+
+/**
+ * What the project's server says it can do at `initialize`, as it says it: the relay's own answer
+ * is held to the server's by a test (`mcp-relay.test.ts`).
+ */
+const SERVER_CAPABILITIES = {
+  completions: {},
+  logging: {},
+  prompts: { listChanged: true },
+  resources: { listChanged: true, subscribe: false },
+  tools: { listChanged: true },
+};
+
+/**
+ * The relay's own answer to `initialize` in a project's folder (ADR 0164), as that project's
+ * server gives it: the revision it would agree, what it can do, and its instructions, the kept
+ * ones when a server left them.
+ */
+export const answerInitialize = (
+  line: string,
+  /** What a server said at `initialize` last, kept beside its tools; the build's own before. */
+  instructions: string | undefined
+) => {
+  const request = Option.getOrUndefined(decodeRequest(line));
+  const offered = request?.params?.protocolVersion;
+  const agreed =
+    SESSION_REVISIONS.find((revision) => revision === offered) ??
+    SESSION_REVISIONS[0];
+  const { description, ...named } = MCP_SERVER_INFO;
+  return JSON.stringify({
+    id: request?.id ?? null,
+    jsonrpc: "2.0",
+    result: {
+      capabilities: SERVER_CAPABILITIES,
+      instructions: instructions ?? MCP_INSTRUCTIONS,
+      protocolVersion: agreed,
+      // 2025-06-18 has no description for a server.
+      serverInfo:
+        agreed === McpProtocol.v2025_06_18.protocolVersion
+          ? named
+          : MCP_SERVER_INFO,
+    },
+  });
+};
 
 /**
  * With no project to send it to (a folder with none, and no link naming one yet), a message is
@@ -83,7 +138,7 @@ export const answerWithoutProject = (
   line: string,
   why: string,
   /** The tools a server listed last, kept in the user's directory; nothing before any did. */
-  tools: unknown
+  tools: KeptTools | undefined
 ) => {
   const request = decodeRequest(line);
   if (Option.isNone(request)) {
@@ -106,7 +161,7 @@ export const answerWithoutProject = (
     case "ping":
       return result({});
     case "tools/list":
-      return result(withFolder(tools ?? { tools: [] }));
+      return result(withFolder({ tools: tools?.tools ?? [] }));
     case "resources/list":
       return result({ resources: [] });
     case "prompts/list":
@@ -248,18 +303,32 @@ export const makeLocator = Effect.fnUntraced(function* (
     return target;
   });
 
-  return (again: boolean) =>
-    finding
-      .withPermits(1)(
-        Effect.gen(function* () {
-          if (again) {
-            yield* Ref.set(known, Option.none());
-          }
-          const cached = yield* Ref.get(known);
-          return Option.isSome(cached) ? cached.value : yield* find;
-        })
-      )
-      .pipe(Effect.provideContext(services));
+  const way: Way = {
+    reach: (again) =>
+      finding
+        .withPermits(1)(
+          Effect.gen(function* () {
+            if (again) {
+              yield* Ref.set(known, Option.none());
+            }
+            const cached = yield* Ref.get(known);
+            return Option.isSome(cached) ? cached.value : yield* find;
+          })
+        )
+        .pipe(Effect.provideContext(services)),
+    // Read anew, and not behind a start in progress, which takes as long as the start does.
+    running: Effect.gen(function* () {
+      const run = yield* liveRun(project.stateDir);
+      if (Option.isNone(run)) {
+        return Option.none<McpTarget>();
+      }
+      return Option.some({
+        token: yield* tokenOf,
+        url: `${run.value.url}${MCP_PATH}`,
+      });
+    }).pipe(Effect.provideContext(services)),
+  };
+  return way;
 });
 
 /**
@@ -366,10 +435,7 @@ const relayStdio = Effect.fnUntraced(function* (
     started: cwd,
   });
   /** Each project's way to its server, made once. */
-  const locators = new Map<
-    string,
-    (again: boolean) => Effect.Effect<McpTarget, RelayUnreachable>
-  >();
+  const locators = new Map<string, Way>();
   const making = yield* Semaphore.make(1);
   const locatorFor = (dir: string) =>
     making.withPermits(1)(
@@ -398,25 +464,33 @@ const relayStdio = Effect.fnUntraced(function* (
   const services = yield* Effect.context<
     ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem | Path.Path
   >();
-  const locate = (again: boolean, message: RelayMessage) =>
-    Effect.gen(function* () {
-      const locator = yield* locatorFor(yield* routing(message));
-      return yield* locator(again);
-    }).pipe(Effect.provideContext(services));
+  const locate = (message: RelayMessage) =>
+    Effect.flatMap(routing(message), locatorFor).pipe(
+      Effect.provideContext(services)
+    );
 
   const keptTools = fs.readFileString(toolsFile).pipe(
-    Effect.map((text) => Schema.decodeUnknownOption(Kept)(text)),
-    Effect.map(Option.getOrUndefined),
+    Effect.map((text) => Option.getOrUndefined(decodeKeptTools(text))),
     Effect.orElseSucceed(() => undefined)
   );
   const { handle } = yield* makeRelay({
+    answerInitialize: (text) =>
+      Effect.map(keptTools, (kept) =>
+        answerInitialize(text, kept?.instructions)
+      ),
+    keptTools,
     locate,
     say,
-    toolsListed: (result) =>
-      fs.makeDirectory(here.userDir, { recursive: true }).pipe(
-        Effect.andThen(
-          fs.writeFileString(toolsFile, `${JSON.stringify(result)}\n`)
-        ),
+    toolsListed: (listed) =>
+      Effect.gen(function* () {
+        // A server the relay did not say `initialize` to (a stateless agent's) said no
+        // instructions: the kept ones stay.
+        const instructions =
+          listed.instructions ?? (yield* keptTools)?.instructions;
+        const kept: KeptTools = { ...listed, instructions };
+        yield* fs.makeDirectory(here.userDir, { recursive: true });
+        yield* fs.writeFileString(toolsFile, `${JSON.stringify(kept)}\n`);
+      }).pipe(
         // A list not kept is only a list the next folder without a project goes without.
         Effect.ignore
       ),

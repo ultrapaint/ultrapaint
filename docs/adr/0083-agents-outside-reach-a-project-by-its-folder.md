@@ -2,7 +2,8 @@
 
 Status: accepted, 2026-11-12. Amends 0014 (how an agent outside the editor connects) and 0031
 (a server the app did not start). How the command gets on the PATH on macOS: amended by
-0088. Settings run the registration with Connect: amended by 0144.
+0088. Settings run the registration with Connect: amended by 0144. `initialize` answered by the
+command itself while the server starts: amended by 0164.
 
 ## Context
 

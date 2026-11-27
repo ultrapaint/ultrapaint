@@ -164,22 +164,35 @@ and "read" with its target gives the task, which says the rest. What the code mu
 cannot show (a permission, a validation, a call) is written down with "note", on a page's node or a
 component (target component:Button, node a part).`;
 
+/**
+ * Who the server says it is when an agent connects; `ultrapaint mcp` says the same when it answers
+ * `initialize` itself, before the project's server has started (ADR 0164).
+ */
+export const MCP_SERVER_INFO = {
+  description:
+    "The Ultrapaint editor: the project's pages, routes and components.",
+  name: EDITOR_MCP_SERVER,
+  version: "0.1.0",
+} as const;
+
+/**
+ * The revisions the server speaks, the stateless one first. Codex speaks it only behind a flag
+ * that is off by default and otherwise asks for 2025-06-18, so the two before it stay until that
+ * changes.
+ */
+export const MCP_PROTOCOLS = [
+  McpProtocol.v2026_07_28,
+  McpProtocol.v2025_11_25,
+  McpProtocol.v2025_06_18,
+] as const;
+
 export const McpRoute = Layer.mergeAll(Tools, SkillResources, TaskPrompts).pipe(
   Layer.provide(
     McpServer.layerHttp({
-      description:
-        "The Ultrapaint editor: the project's pages, routes and components.",
+      ...MCP_SERVER_INFO,
       instructions: MCP_INSTRUCTIONS,
-      name: EDITOR_MCP_SERVER,
       path: MCP_PATH,
-      // The stateless revision first. Codex speaks it only behind a flag that is off by default
-      // and otherwise asks for 2025-06-18, so the two before it stay until that changes.
-      protocols: [
-        McpProtocol.v2026_07_28,
-        McpProtocol.v2025_11_25,
-        McpProtocol.v2025_06_18,
-      ],
-      version: "0.1.0",
+      protocols: [...MCP_PROTOCOLS],
     }).pipe(Layer.provide(TokenGate.layer))
   )
 );
