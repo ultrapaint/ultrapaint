@@ -43,6 +43,11 @@ img[data-ed-skeleton] { opacity: 0.35; }
  * of its size and contains what is fixed inside it; a node on the canvas (`fit`) is as big as
  * what it draws.
  *
+ * A page frame's body is a grid of one cell, as tall as the frame at least and taller with its
+ * content: the root fills the cell, so its height is definite and a percentage height under it
+ * (an app shell's `h-full`) resolves, which a body and a root with only a minimum height never
+ * gave. What the page opens in the body, after the root, takes rows of its own below.
+ *
  * The reset is a layer of its own, the frames' first: every later rule on the page's root (the
  * system components' layer, the design's tokens) wins over it as it would over the browser's defaults.
  */
@@ -63,9 +68,13 @@ const BASE_CSS = `
   contain: layout style;
   container: none;
 }
-[${BODY_ATTRIBUTE}] { display: block; min-height: 100%; }
-:host([data-ed-fit]) [${BODY_ATTRIBUTE}] { min-height: 0; }
-#root { min-height: 100%; }
+[${BODY_ATTRIBUTE}] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 1fr;
+  min-height: 100%;
+}
+:host([data-ed-fit]) [${BODY_ATTRIBUTE}] { display: block; min-height: 0; }
 :host([data-ed-still]) *, :host([data-ed-still]) *::before, :host([data-ed-still]) *::after {
   transition: none !important;
   animation-duration: 0s !important;

@@ -712,6 +712,21 @@ export default function PricingPage() {
     );
   });
 
+  it("writes an app shell's heights for the window, which the canvas draws for the frame", () => {
+    const shell: DesignNode = {
+      children: [
+        { children: [], id: "side", minHeight: "100vh", type: "column" },
+      ],
+      direction: "row",
+      height: "fill",
+      id: "root",
+      type: "page",
+    };
+    const code = toCode(shell, ds, { component: "Shell" });
+    expect(code).toContain('<div className="flex min-h-screen h-full">');
+    expect(code).toContain('<div className="flex flex-col min-h-screen" />');
+  });
+
   it("writes a node below the page as its markup alone", () => {
     const hero = page.children[0] as DesignNode;
     expect(

@@ -60,6 +60,33 @@ const key = (target: EventTarget) =>
     new KeyboardEvent("keydown", { bubbles: true, composed: true, key: "/" })
   );
 
+describe("a frame's body", () => {
+  // happy-dom lays nothing out: a grid's one cell is what makes the root's height definite, so a
+  // percentage height under it resolves, while the body still grows with its content.
+  it("gives its root the frame's height at least, a height a percentage under it resolves against", () => {
+    const { body, draw } = open("a", "light");
+    draw(() => undefined);
+    const style = getComputedStyle(body);
+    expect(style.display).toBe("grid");
+    expect(style.minHeight).toBe("100%");
+  });
+
+  it("is its content's size in a frame drawn at its content's size", () => {
+    const { body, runtime } = open("a", "light");
+    page(() => undefined);
+    runtime.render({
+      defaults: { theme: "light" },
+      designSystem: null,
+      mode: "fit",
+      renderId: 1,
+      root: null,
+    });
+    const style = getComputedStyle(body);
+    expect(style.display).toBe("block");
+    expect(style.minHeight).toBe("0");
+  });
+});
+
 describe("a frame's host", () => {
   it("is marked drawn once its page has drawn", () => {
     const { draw, host } = open("a", "light");

@@ -714,7 +714,11 @@ const SCREEN_OF: Record<Drawing["mode"], string> = {
   page: "100cqh",
 };
 
-/** A design system's style context with the screen of each way of drawing, made once. */
+/**
+ * A design system's style context with the screen of each way of drawing, made once. In a page
+ * frame a viewport length is the frame's too; drawn at its content's size, a node keeps it as
+ * written.
+ */
 const screenStyles = new WeakMap<
   StyleContext,
   Record<Drawing["mode"], StyleContext>
@@ -728,7 +732,7 @@ const stylesFor = (
   if (!known) {
     known = {
       fit: { ...styles, screen: SCREEN_OF.fit },
-      page: { ...styles, screen: SCREEN_OF.page },
+      page: { ...styles, screen: SCREEN_OF.page, viewport: "frame" },
     };
     screenStyles.set(styles, known);
   }

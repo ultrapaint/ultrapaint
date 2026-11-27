@@ -74,6 +74,7 @@ const draw = async (
       readonly enclosing?: readonly string[];
       readonly instance: string;
     };
+    readonly mode?: "fit" | "page";
   } = {}
 ) => {
   const canvas = document.createElement("div");
@@ -108,7 +109,7 @@ const draw = async (
       ...(extra.isolate && { isolate: extra.isolate }),
       components: extra.components ?? [],
       designSystem: extra.designSystem ?? null,
-      mode: "page",
+      mode: extra.mode ?? "page",
       renderId: 1,
       root,
     });
@@ -574,6 +575,29 @@ describe("a page in its frame", () => {
     // A minimum shorter than the frame leaves no strip under the page.
     await redraw(page({ minHeight: 1024 }));
     expect(at("root")?.style.minHeight).toBe("max(1024px, 100cqh)");
+  });
+
+  it("draws a viewport length against the frame, the page's window (ADR 0034)", async () => {
+    const { at } = await draw(
+      page({
+        children: [
+          { children: [], id: "sidebar", minHeight: "100vh", type: "column" },
+        ],
+        direction: "row",
+        minHeight: "100dvh",
+      })
+    );
+    expect(at("sidebar")?.style.minHeight).toBe("100cqh");
+    // In a phone frame under a taller window, the page ends at its frame.
+    expect(at("root")?.style.minHeight).toBe("max(100cqh, 100cqh)");
+  });
+
+  it("keeps a viewport length as written where a node is drawn at its content's size", async () => {
+    const { at } = await draw(
+      { children: [], id: "card", minHeight: "50vh", type: "column" },
+      { mode: "fit" }
+    );
+    expect(at("card")?.style.minHeight).toBe("50vh");
   });
 });
 
