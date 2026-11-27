@@ -8,10 +8,10 @@ import type {
 import type { ClassWriter } from "@ultrapaint/contracts/node-style";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import type {
-  FileEdit,
   StyleSystemId,
   TokenChange,
   TokenSource,
+  TokenWriting,
 } from "@ultrapaint/contracts/tokens";
 
 export interface DesignSystemContext {
@@ -145,11 +145,12 @@ export interface StyleSystem {
   /** What the application's code uses, for the design-system setup (ADR 0023). */
   readonly usage: UsageReader;
   /**
-   * The files as the changes leave them, only those that change. A change to a token that is
-   * not declared adds it where new tokens go.
+   * The files as the changes leave them, only those that change, and what each change does
+   * there: nothing is written yet, so the same call is the export's dry run. A change to a
+   * token that is not declared adds it where new tokens go.
    */
   readonly writeTokens: (
     ctx: DesignSystemContext,
     changes: readonly TokenChange[]
-  ) => readonly FileEdit[];
+  ) => TokenWriting;
 }

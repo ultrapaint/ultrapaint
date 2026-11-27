@@ -34,30 +34,58 @@ type Picks = Readonly<Record<string, TokenDecision["take"]>>;
 
 const keyOf = (d: TokenDiff) => baselineKey(d.name, d.theme);
 
-/** A token, its value on each side. */
-const Row = ({ diff }: { diff: TokenDiff }) => (
-  <li className="flex min-w-0 items-center gap-1.5 py-0.5">
-    <CutText className="truncate font-body-small">
-      {diff.theme ? `${diff.name} (${diff.theme})` : diff.name}
-    </CutText>
-    <span className="ml-auto flex shrink-0 items-center gap-1 font-body-small text-muted-foreground">
-      {[diff.source ?? "none", diff.design ?? "none"].map((value, i) => (
-        <span
-          className="flex items-center gap-1"
-          key={i === 0 ? "code" : "design"}
-        >
-          {i === 1 ? "→ " : ""}
-          {diff.kind === "color" && value !== "none" ? (
-            <span
-              className="size-3 rounded-sm border"
-              style={{ background: value }}
-            />
-          ) : null}
-          {value}
-        </span>
-      ))}
-    </span>
-  </li>
+/** Where an export writes a token's value, from the writer's dry run (ADR 0158). */
+const whereOf = (write: TokenDiff["write"]): string | null => {
+  if (write?.file === undefined || write.does === "none") {
+    return null;
+  }
+  if (write.does === "add") {
+    return `added to ${write.file}`;
+  }
+  return write.does === "remove"
+    ? `taken out of ${write.file}`
+    : `in ${write.file}`;
+};
+
+/** A token, its value on each side, and where an export writes it. */
+const Row = ({ diff }: { diff: TokenDiff }) => {
+  const where = whereOf(diff.write);
+  return (
+    <li className="flex min-w-0 flex-col py-0.5">
+      <div className="flex min-w-0 items-center gap-1.5">
+        <CutText className="truncate font-body-small">
+          {diff.theme ? `${diff.name} (${diff.theme})` : diff.name}
+        </CutText>
+        <Values diff={diff} />
+      </div>
+      {where ? (
+        <CutText className="truncate font-body-small text-muted-foreground">
+          {where}
+        </CutText>
+      ) : null}
+    </li>
+  );
+};
+
+/** A token's value in the code, then the design's. */
+const Values = ({ diff }: { diff: TokenDiff }) => (
+  <span className="ml-auto flex shrink-0 items-center gap-1 font-body-small text-muted-foreground">
+    {[diff.source ?? "none", diff.design ?? "none"].map((value, i) => (
+      <span
+        className="flex items-center gap-1"
+        key={i === 0 ? "code" : "design"}
+      >
+        {i === 1 ? "→ " : ""}
+        {diff.kind === "color" && value !== "none" ? (
+          <span
+            className="size-3 rounded-sm border"
+            style={{ background: value }}
+          />
+        ) : null}
+        {value}
+      </span>
+    ))}
+  </span>
 );
 
 const List = ({

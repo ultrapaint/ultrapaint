@@ -46,7 +46,7 @@ import {
   settledKeys,
 } from "./sync-engine.ts";
 import { caseOf, codeCounts, driftOf, planOf, summaryOf } from "./sync-plan.ts";
-import { figmaBaselineOf, syncSides } from "./sync-sides.ts";
+import { figmaBaselineOf, syncSides, type Written } from "./sync-sides.ts";
 
 const STYLESHEET_RE = /\.css$/;
 
@@ -114,10 +114,7 @@ export class DesignSystemSyncService extends Context.Service<
       decisions: readonly TokenDecision[],
       only?: "export" | "import",
       tokens?: readonly string[]
-    ) => Effect.Effect<
-      { readonly files: readonly string[]; readonly written: number },
-      NotConfigured | BadRequest
-    >;
+    ) => Effect.Effect<Written, NotConfigured | BadRequest>;
     /**
      * Says what a source's tokens are in the design system, by where they are in the source;
      * what cannot be matched as asked is said in `problems`. The code's are matched by name.

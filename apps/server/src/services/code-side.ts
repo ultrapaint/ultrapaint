@@ -13,8 +13,16 @@ import {
   type DesignSystem,
 } from "@ultrapaint/contracts/design-system";
 import { BadRequest } from "@ultrapaint/contracts/errors";
-import type { TokenComparison } from "@ultrapaint/contracts/sync";
-import type { SourceToken, TokenChange } from "@ultrapaint/contracts/tokens";
+import {
+  baselineKey,
+  type TokenComparison,
+  type TokenDiff,
+} from "@ultrapaint/contracts/sync";
+import type {
+  SourceToken,
+  TokenChange,
+  TokenWrite,
+} from "@ultrapaint/contracts/tokens";
 import type { DesignSystemScan } from "@ultrapaint/framework-api/node";
 import {
   Clock,
@@ -33,6 +41,7 @@ import { agreeOn, baselineMover } from "./design-system-files.ts";
 import { EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { ProjectStyleSystem } from "./style-system.ts";
+import { changesOf } from "./sync-engine.ts";
 import { codeAgreement, compareCode, designTokensOf } from "./sync-readings.ts";
 
 /** The tokens the code declares, as the style system reads them. */
@@ -47,6 +56,12 @@ interface CodeTokens {
 
 /** The code's tokens against the design's; `read` says whether any stylesheet was read. */
 type CodeComparison = TokenComparison & { readonly read: boolean };
+
+/** Token changes written to the code: the files changed, and what each change did there. */
+interface CodeWritten {
+  readonly files: readonly string[];
+  readonly writes: readonly TokenWrite[];
+}
 
 const nothingRead: CodeTokens = {
   byName: new Map(),
@@ -89,12 +104,12 @@ export class CodeSide extends Context.Service<
     readonly write: (
       changes: readonly TokenChange[],
       against: DesignSystem | null
-    ) => Effect.Effect<{ readonly files: readonly string[] }, BadRequest>;
+    ) => Effect.Effect<CodeWritten, BadRequest>;
     /** The changes written to the code as well when it follows the design (`codeTokens: auto`). */
     readonly follow: (
       changes: readonly TokenChange[],
       against: DesignSystem
-    ) => Effect.Effect<{ readonly files: readonly string[] }, BadRequest>;
+    ) => Effect.Effect<CodeWritten, BadRequest>;
   }
 >()("ultrapaint/server/CodeSide") {
   static readonly layer = Layer.effect(
@@ -139,24 +154,58 @@ export class CodeSide extends Context.Service<
 
       const moveBaseline = baselineMover(edit, systemRel);
 
+      /**
+       * What exporting each token that waits for the code would write, beside it: the style
+       * system's writer, run without writing (ADR 0158).
+       */
+      const withWrites = (diffs: readonly TokenDiff[]) => {
+        const behind = diffs.filter((d) => d.outcome === "source-behind");
+        if (behind.length === 0) {
+          return Effect.succeed(diffs);
+        }
+        const { toSource } = changesOf(behind, [], "export");
+        return Effect.try(
+          () => styleSystem.writeTokens(context, toSource).writes
+        ).pipe(
+          Effect.map((planned) => {
+            const byKey = new Map(
+              planned.map((w) => [baselineKey(w.name, w.theme), w])
+            );
+            return diffs.map((d) => {
+              const what =
+                d.outcome === "source-behind"
+                  ? byKey.get(baselineKey(d.name, d.theme))
+                  : undefined;
+              return what ? { ...d, write: what } : d;
+            });
+          }),
+          // A stylesheet that cannot be read now leaves the list without where each value goes;
+          // the export itself says why it cannot write.
+          Effect.orElseSucceed(() => diffs)
+        );
+      };
+
       const comparison = (ds: DesignSystem) =>
-        Effect.map(tokens, (code): CodeComparison => {
+        Effect.gen(function* () {
+          const code = yield* tokens;
           const design = designTokensOf(ds);
           const [only] = code.files;
           return {
             baseline: ds.codeSync !== undefined,
-            diffs: compareCode(
-              code.tokens,
-              design,
-              ds.codeSync ?? null,
-              new Set(ds.omitted ?? [])
+            diffs: yield* withWrites(
+              compareCode(
+                code.tokens,
+                design,
+                ds.codeSync ?? null,
+                new Set(ds.omitted ?? [])
+              )
             ),
             file: code.files.length === 1 && only ? only : "the code",
             notes: [...code.notes],
             read: code.files.length > 0,
             source: "code",
             targets: design.map((t) => ({ kind: t.kind, name: t.name })),
-          };
+          } satisfies CodeComparison;
         });
 
       const readOptional = (file: string) =>
@@ -184,13 +233,14 @@ export class CodeSide extends Context.Service<
         changes: readonly TokenChange[],
         against: DesignSystem | null
       ) {
-        const edits = yield* Effect.try({
+        const writing = yield* Effect.try({
           catch: (error) =>
             new BadRequest({
               message: `the stylesheets could not be written: ${String(error)}`,
             }),
           try: () => styleSystem.writeTokens(context, changes),
         });
+        const { edits, writes: made } = writing;
         const root = path.resolve(paths.root);
         const files: { readonly abs: string; readonly text: string }[] = [];
         for (const written of edits) {
@@ -244,7 +294,7 @@ export class CodeSide extends Context.Service<
           }
           yield* PubSub.publish(changed, undefined);
         }
-        return { files: edits.map((e) => e.file) };
+        return { files: edits.map((e) => e.file), writes: made };
       });
 
       const write = Effect.fn("CodeSide.write")(
@@ -258,7 +308,7 @@ export class CodeSide extends Context.Service<
         follow: (changes, against) =>
           paths.settings.codeTokens === "auto" && changes.length > 0
             ? write(changes, against)
-            : Effect.succeed({ files: [] }),
+            : Effect.succeed({ files: [], writes: [] }),
         refresh: cache.clear.pipe(
           Effect.andThen(PubSub.publish(changed, undefined))
         ),

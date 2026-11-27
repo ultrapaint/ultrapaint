@@ -24,6 +24,7 @@ import type {
   TokenDiff,
   TokenSourceKind,
 } from "@ultrapaint/contracts/sync";
+import type { TokenWrite } from "@ultrapaint/contracts/tokens";
 import {
   applyEdits,
   editsOf,
@@ -63,8 +64,10 @@ import {
   matchKeyOf,
 } from "./sync-readings.ts";
 
-interface Written {
+export interface Written {
   readonly files: readonly string[];
+  /** What each change written to the code did there (ADR 0158); none for another side. */
+  readonly writes?: readonly TokenWrite[];
   readonly written: number;
 }
 
@@ -153,9 +156,10 @@ const codeAdapter: SideAdapter = {
           const written =
             toSource.length > 0
               ? yield* code.write(toSource, (yield* service.get).designSystem)
-              : { files: nothing };
+              : { files: nothing, writes: [] };
           return {
             files: [...new Set([...taken.files, ...written.files])],
+            writes: written.writes,
             written: toSource.length + toDesign.length,
           };
         }),

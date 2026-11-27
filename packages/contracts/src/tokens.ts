@@ -97,3 +97,28 @@ export const FileEdit = Schema.Struct({
   text: Schema.String,
 });
 export type FileEdit = typeof FileEdit.Type;
+
+/**
+ * What writing one token change does to the code (ADR 0158): changes a declaration where it is,
+ * adds one, takes one out, or leaves the code as it is, its value the change's already.
+ */
+export const TokenWrite = Schema.Struct({
+  does: Schema.Literals(["change", "add", "remove", "none"]),
+  /** Where, repo-relative and posix; left out when no stylesheet holds or takes it. */
+  file: Schema.optional(Schema.String),
+  /** The value as the code wrote it before; left out for one added. */
+  from: Schema.optional(Schema.String),
+  name: Schema.String,
+  /** Left out for the default theme. */
+  theme: Schema.optional(Schema.String),
+  /** The value as written now; left out when nothing is written, or one is taken out. */
+  to: Schema.optional(Schema.String),
+});
+export type TokenWrite = typeof TokenWrite.Type;
+
+/** Token changes written: the files they leave changed, and what each change did. */
+export interface TokenWriting {
+  readonly edits: readonly FileEdit[];
+  /** One for each change, in the order given; a token changed twice in a theme, once. */
+  readonly writes: readonly TokenWrite[];
+}

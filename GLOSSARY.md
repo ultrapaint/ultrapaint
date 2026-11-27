@@ -103,7 +103,9 @@ refactor and the board view left.
   side, with what each side is to it in `sync-readings`; a **side adapter** (`sync-sides`) says
   how one side is read, matched and kept. Each side owns what it knows: the **code side**
   (`CodeSide`) the code's tokens, read once for every caller, its stylesheets written all or
-  nothing, its agreement and the preview's CSS; `DesignMd` the document, its **mirror** of the
+  nothing, its agreement and the preview's CSS. Its **export** writes the design's values in the
+  stylesheets' own form, each change a **token write** (`TokenWrite`: changed, added, taken out
+  or left as it was, ADR 0158), which a dry run shows in Sync's list before Export; `DesignMd` the document, its **mirror** of the
   tokens, its baseline and its lint (a pure `lintDocument`); `FigmaBaseline` Figma's baseline while there is no design
   system. The **target tokens** a side is matched to are the design's, else the code's own. The
   **sync plan** (`sync-plan`) is the steps that bring the design system and the code together;

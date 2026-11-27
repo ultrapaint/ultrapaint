@@ -2,11 +2,13 @@
  * Tailwind v4's tokens as the code declares them, and written back where they are declared
  * (ADR 0024, 0152). A token is a variable of an `@theme` block: `--color-primary: #2563eb`, or a
  * variable with a token's name in a plain root block, `:root { --color-panel: #f5f5f5; }`, which
- * Tailwind makes no utility of (`variableOnly`). A root block under `@media`, `@supports` or
- * `@container` makes no token of its own: its value holds only under that condition. The common
- * shadcn arrangement declares it as an alias, `--color-primary: var(--primary)` in `@theme
+ * Tailwind makes no utility of (`variableOnly`). A block under `@media`, `@supports` or
+ * `@container` is that condition's override (ADR 0158): it makes no token, gives none its base
+ * value or a theme's, and is never written by an export. The common shadcn arrangement declares
+ * a token as an alias of its own per-theme variable, `--color-primary: var(--primary)` in `@theme
  * inline`, with the value in `:root` and `.dark`; the value is then read from, and written to,
- * the variable the alias names, once per theme.
+ * the variable the alias names, once per theme. An alias of a variable other declarations share,
+ * a palette step, is read through but never written through.
  *
  * Reading follows the stylesheets the preview imports, and their imports, as Tailwind does;
  * Tailwind's own `theme.css` gives the defaults, which are listed but never written. Which theme
@@ -20,13 +22,15 @@ import {
   tokenKindOf,
   variableOf,
 } from "@ultrapaint/contracts/token-table";
-import { resolveVars } from "@ultrapaint/contracts/token-value";
+import { resolveVars, sameValue } from "@ultrapaint/contracts/token-value";
 import type {
   FileEdit,
   SourceToken,
   TokenChange,
   TokenOrigin,
   TokenSource,
+  TokenWrite,
+  TokenWriting,
 } from "@ultrapaint/contracts/tokens";
 import type { DesignSystemContext } from "@ultrapaint/framework-api/node";
 import { toPosix } from "@ultrapaint/shared/path";
@@ -48,8 +52,8 @@ const DARK_RE =
 /** A theme's name in quotes is any text (`"dark mode"`, as `selectorOf` writes it); bare, one word. */
 const OTHER_THEME_RE = /\[data-theme=(?:"([^"]+)"|'([^']+)'|([\w-]+))\]/;
 const TAILWIND_IMPORT_RE = /^tailwindcss(\/.*)?$/;
-/** A scope whose variables hold for the whole document: the default theme's. */
-const ROOT_SCOPE_RE = /(^|[\s,])(:root|html|:host)\b/;
+/** The variables a value names: `--gray-200` of `var(--gray-200)`. */
+const VAR_NAME_RE = /var\(\s*(--[\w-]+)/g;
 /** The selectors a block that holds for the whole document is written under. */
 const ROOT_SELECTORS = new Set([":root", "html", ":host"]);
 /** A cascade layer around a block: it changes which value wins, not where the value holds. */
@@ -93,12 +97,6 @@ export const themeOf = (prelude: string): string | null => {
   const name = named?.[1] ?? named?.[2] ?? named?.[3];
   return name && name !== "light" ? name : null;
 };
-
-/**
- * Whether a block that is no theme's gives the default theme its values: `:root`, `html` or
- * `:host`, not a class such as `.dark-blue` that only some of the page has.
- */
-const isRootScope = (prelude: string): boolean => ROOT_SCOPE_RE.test(prelude);
 
 /** The stylesheet a package exports under `sub` (its main one when `sub` is empty). */
 const packageEntry = (root: string, sub: readonly string[]): string | null => {
@@ -186,7 +184,14 @@ const readFile = (file: string): string | null => {
 };
 
 export interface Collected {
-  /** Files read, in order. */
+  /**
+   * The same files in the order their rules apply: what a stylesheet imports before the
+   * stylesheet itself, as CSS puts an `@import`ed sheet where the `@import` stands.
+   */
+  readonly cascade: string[];
+  /**
+   * Files read, in the order the stylesheets name them: an entry, then what it imports.
+   */
   readonly files: string[];
   /** Whether `tailwindcss` itself was imported, which brings its default theme. */
   tailwind: boolean;
@@ -200,6 +205,7 @@ export const collect = (
   anchorDir: string
 ): Collected => {
   const out: Collected = {
+    cascade: [],
     files: [],
     tailwind: false,
     tailwindTheme: null,
@@ -231,6 +237,7 @@ export const collect = (
         visit(target);
       }
     }
+    out.cascade.push(file);
   };
   for (const entry of entries) {
     visit(entry);
@@ -270,15 +277,6 @@ const customPropertiesOf = (file: string, text: string) => {
 };
 
 const isTheme = (prelude: string) => prelude.includes("@theme");
-
-/** The theme a block of plain variables gives values for: `""` for the default, or none. */
-const themeKeyOf = (prelude: string): string | null => {
-  const named = themeOf(prelude);
-  if (named) {
-    return named;
-  }
-  return isRootScope(prelude) ? "" : null;
-};
 
 /**
  * The theme a block of plain variables gives values for whatever the page is like (`""` the
@@ -341,6 +339,8 @@ const tokenNameOf = (variable: string): string | null => {
 
 /** The declarations of the stylesheets, sorted into what reading and writing need. */
 interface Declared {
+  /** Every custom property declared, in every block, in the order read. */
+  readonly all: Declaration[];
   readonly blocks: Block[];
   /** The `@theme` declarations of what belongs to a token, `--text-sm--line-height`, by variable. */
   readonly companions: Map<string, Declaration>;
@@ -348,16 +348,15 @@ interface Declared {
   readonly declared: Map<string, Declaration>;
   /**
    * The plain variables of the blocks that hold whatever the page is like, by theme (`""` the
-   * default), then by variable: those `scoped` has outside `@media`, `@supports` and `@container`.
-   * A token's name among the default theme's is a token declared outside `@theme`.
+   * default), then by variable: none under `@media`, `@supports` or `@container`, or of part of
+   * the page (`:root .card`). A token's name among the default theme's is a token declared
+   * outside `@theme`.
    */
   readonly plain: Map<string, Map<string, Declaration>>;
   /** The `@theme` resets, `--color-*` of `--color-*: initial`, which take Tailwind's defaults out. */
   readonly resets: string[];
   /** The same resets where they are written: a token added before one would be taken out. */
   readonly resetsAt: Declaration[];
-  /** Plain variables by theme (`""` the default), then by variable. */
-  readonly scoped: Map<string, Map<string, Declaration>>;
 }
 
 /** A `@theme` declaration taken in: a token, or a reset of the tokens declared before it. */
@@ -388,22 +387,18 @@ const takeTheme = (out: Declared, decl: Declaration) => {
 
 const declarationsOf = (files: readonly string[]): Declared => {
   const out: Declared = {
+    all: [],
     blocks: [],
     companions: new Map(),
     declared: new Map(),
     plain: new Map(),
     resets: [],
     resetsAt: [],
-    scoped: new Map(),
   };
-  const put = (
-    into: Map<string, Map<string, Declaration>>,
-    key: string,
-    decl: Declaration
-  ) => {
-    const vars = into.get(key) ?? new Map<string, Declaration>();
+  const put = (key: string, decl: Declaration) => {
+    const vars = out.plain.get(key) ?? new Map<string, Declaration>();
     vars.set(decl.name, decl);
-    into.set(key, vars);
+    out.plain.set(key, vars);
   };
   for (const file of files) {
     const text = readFile(file);
@@ -412,16 +407,13 @@ const declarationsOf = (files: readonly string[]): Declared => {
     }
     const parsed = customPropertiesOf(file, text);
     out.blocks.push(...parsed.blocks);
+    out.all.push(...parsed.declarations);
     for (const decl of parsed.declarations) {
-      const key = themeKeyOf(decl.prelude);
+      const key = isTheme(decl.prelude) ? null : plainThemeKeyOf(decl.prelude);
       if (isTheme(decl.prelude)) {
         takeTheme(out, decl);
       } else if (key !== null) {
-        put(out.scoped, key, decl);
-        const plain = plainThemeKeyOf(decl.prelude);
-        if (plain !== null) {
-          put(out.plain, plain, decl);
-        }
+        put(key, decl);
       }
     }
   }
@@ -465,43 +457,42 @@ const defaultsOf = (
  * Where a token's values are in the app, for reading and writing alike (ADR 0152). An unlayered
  * root declaration of the token's own variable overrides its `@theme` one, which Tailwind writes
  * into its `theme` layer, alias or not; under `@theme inline` the utilities take the `@theme`
- * value itself, and it stays the token's.
+ * value itself, and it stays the token's. A theme's value is in the theme's own block, never in
+ * one under a condition (ADR 0158).
  */
 const holderOf = (found: Declared, name: string) => {
   const decl = found.declared.get(name);
   const own = decl?.name ?? variableOf(name);
-  const root = found.plain.get("")?.get(own);
+  const document = found.plain.get("");
+  const root = document?.get(own);
   const rootWins = root !== undefined && !decl?.prelude.includes("inline");
   const alias = decl && !rootWins ? aliasOf(decl.value) : undefined;
   // `--color-primary: var(--primary)`: the value is the variable's, theme by theme. Else a theme
   // may declare the token's variable again, `.dark { --color-primary: … }`.
-  const variable = alias && found.scoped.get("")?.has(alias) ? alias : own;
-  /** The declaration a change of the default value is written to. */
+  const variable = alias && document?.has(alias) ? alias : own;
   const ownTarget = rootWins ? root : decl;
-  const target =
-    variable === own ? ownTarget : found.scoped.get("")?.get(variable);
   return {
-    /** The declaration the default value is read from. */
-    base:
-      rootWins || variable !== own || root
-        ? target
-        : (found.scoped.get("")?.get(own) ?? decl),
-    /** The blocks a theme's value is read from and written to: the unconditional ones for a root one. */
-    byTheme: rootWins ? found.plain : found.scoped,
     decl,
+    own,
     root,
-    rootWins,
-    target,
+    /** The declaration the default value is read from, and a change of it written to. */
+    target: variable === own ? ownTarget : document?.get(variable),
     variable,
   };
 };
 
 /** What the reading keeps beyond the tokens: what a write needs to find its place. */
 export interface Reading extends Declared {
-  /** Every stylesheet read, absolute, in the order Tailwind reads them. */
+  /** Every stylesheet read, absolute, in the order their rules apply (`Collected.cascade`). */
+  readonly cascade: readonly string[];
+  /** Tailwind's own theme variables, less what the resets take out. */
+  readonly defaultVariables: ReadonlyMap<string, string>;
+  /** Every stylesheet read, absolute, an entry before what it imports. */
   readonly files: readonly string[];
   /** A font size's line height (`--text-sm--line-height`), the value it ends at; none without. */
   readonly lineHeightOf: (name: string) => string | undefined;
+  /** A value with its `var()`s followed in a theme, as the tokens' values are. */
+  readonly resolve: (value: string, theme: string) => string;
   readonly source: TokenSource;
   /** Whether the stylesheets import `tailwindcss`, which brings its default theme. */
   readonly tailwind: boolean;
@@ -509,19 +500,18 @@ export interface Reading extends Declared {
   readonly writable: string[];
 }
 
-/** Follows the `var()`s of a value through one theme's variables, then the default's. */
+/**
+ * Follows the `var()`s of a value through one theme's unconditional variables, then the
+ * default's, then the tokens'.
+ */
 const resolverOf =
-  (
-    found: Declared,
-    defaults: ReadonlyMap<string, string>,
-    by: ReadonlyMap<string, ReadonlyMap<string, Declaration>> = found.scoped
-  ) =>
+  (found: Declared, defaults: ReadonlyMap<string, string>) =>
   (value: string, theme: string): string =>
     resolveVars(value, (variable) => {
       const name = tokenNameOf(variable) ?? "";
       return (
-        by.get(theme)?.get(variable)?.value ??
-        by.get("")?.get(variable)?.value ??
+        found.plain.get(theme)?.get(variable)?.value ??
+        found.plain.get("")?.get(variable)?.value ??
         found.declared.get(name)?.value ??
         defaults.get(name)
       );
@@ -541,24 +531,18 @@ export const read = (ctx: DesignSystemContext): Reading => {
     (file) =>
       !NODE_MODULES_RE.test(file) && path.resolve(file).startsWith(inside)
   );
-  const declared = declarationsOf(found.files);
+  const declared = declarationsOf(found.cascade);
   const { tokens: defaults, variables: defaultVariables } = defaultsOf(
     found.tailwindTheme,
     declared.resets
   );
   const resolve = resolverOf(declared, defaults);
-  /** A token declared outside `@theme` follows its `var()`s through the unconditional blocks. */
-  const resolvePlain = resolverOf(declared, defaults, declared.plain);
-  const themes = [...declared.scoped.keys()].filter((k) => k !== "");
+  const themes = [...declared.plain.keys()].filter((k) => k !== "");
   const relative = (file: string) => toPosix(path.relative(ctx.root, file));
 
   /** A token's value and where it is written, in each theme, as `holderOf` finds them. */
   const tokenOf = (name: string): SourceToken => {
-    const { base, byTheme, decl, rootWins, variable } = holderOf(
-      declared,
-      name
-    );
-    const resolveIn = rootWins ? resolvePlain : resolve;
+    const { decl, target: base, variable } = holderOf(declared, name);
     const origins: Record<string, TokenOrigin> = {};
     const values: Record<string, string> = {};
     const at = (theme: string, where: Declaration) => {
@@ -574,9 +558,9 @@ export const read = (ctx: DesignSystemContext): Reading => {
       at("", base);
     }
     for (const theme of themes) {
-      const own = byTheme.get(theme)?.get(variable);
+      const own = declared.plain.get(theme)?.get(variable);
       if (own) {
-        values[theme] = resolveIn(own.value, theme);
+        values[theme] = resolve(own.value, theme);
         at(theme, own);
       }
     }
@@ -585,7 +569,7 @@ export const read = (ctx: DesignSystemContext): Reading => {
       name,
       ...(Object.keys(origins).length > 0 && { origins }),
       own: true,
-      value: base ? resolveIn(base.value, "") : "",
+      value: base ? resolve(base.value, "") : "",
       ...(Object.keys(values).length > 0 && { values }),
       ...(decl === undefined && { variableOnly: true }),
     };
@@ -628,6 +612,8 @@ export const read = (ctx: DesignSystemContext): Reading => {
   }
   return {
     ...declared,
+    cascade: found.cascade,
+    defaultVariables,
     files: found.files,
     lineHeightOf: (name) => {
       const variable = `${variableOf(name)}--line-height`;
@@ -636,6 +622,7 @@ export const read = (ctx: DesignSystemContext): Reading => {
         defaultVariables.get(variable);
       return raw === undefined ? undefined : resolve(raw, "");
     },
+    resolve,
     source: { files: found.files.map(relative), notes, themes, tokens },
     tailwind: found.tailwind,
     writable,
@@ -656,14 +643,19 @@ interface Splice {
 const selectorOf = (theme: string) =>
   theme === "dark" ? ".dark" : `[data-theme="${theme}"]`;
 
-/** Where a declaration goes in a block: on a line of its own before the `}`, indented. */
-const insertion = (text: string, block: Block, line: string): Splice => {
+/** Where declarations go in a block: each on a line of its own before the `}`, indented. */
+const insertion = (
+  text: string,
+  block: Block,
+  lines: readonly string[]
+): Splice => {
   const lineStart = text.lastIndexOf("\n", block.close - 1) + 1;
   if (text.slice(lineStart, block.close).trim() === "") {
     // The `}` is on a line of its own.
-    return { end: lineStart, start: lineStart, text: `  ${line}\n` };
+    const added = lines.map((line) => `  ${line}\n`).join("");
+    return { end: lineStart, start: lineStart, text: added };
   }
-  return { end: block.close, start: block.close, text: ` ${line} ` };
+  return { end: block.close, start: block.close, text: ` ${lines.join(" ")} ` };
 };
 
 /** The whole line a declaration is on, when it is alone on it; else just the declaration. */
@@ -720,19 +712,95 @@ const editor = (root: string) => {
   };
 };
 
+/** How many of a reading's own tokens each writable stylesheet declares, `@theme` or `:root`. */
+const tokensIn = (reading: Reading): Map<string, number> => {
+  const counts = new Map<string, number>();
+  const count = (decl: Declaration) =>
+    counts.set(decl.file, (counts.get(decl.file) ?? 0) + 1);
+  for (const decl of reading.declared.values()) {
+    count(decl);
+  }
+  for (const [variable, decl] of reading.plain.get("") ?? []) {
+    const name = tokenNameOf(variable);
+    if (name && tokenKindOf(name) !== "other") {
+      count(decl);
+    }
+  }
+  return counts;
+};
+
+/** The declarations that name each variable in their value, by the variable they name. */
+const referrersOf = (reading: Reading): Map<string, Set<string>> => {
+  const out = new Map<string, Set<string>>();
+  for (const decl of reading.all) {
+    for (const match of decl.value.matchAll(VAR_NAME_RE)) {
+      const named = match[1] as string;
+      out.set(named, (out.get(named) ?? new Set()).add(decl.name));
+    }
+  }
+  return out;
+};
+
+/** The length of the start two names share: how near two steps of a palette are. */
+const sharedStart = (a: string, b: string) => {
+  let n = 0;
+  while (n < a.length && a[n] === b[n]) {
+    n += 1;
+  }
+  return n;
+};
+
+/** What a change did, its file absolute until the writer makes it the repository's. */
+const writeOf = (
+  change: TokenChange,
+  does: TokenWrite["does"],
+  file: string | undefined,
+  was: Declaration | undefined,
+  to: string | undefined
+): TokenWrite => ({
+  does,
+  ...(file !== undefined && { file }),
+  ...(was && does !== "add" && { from: was.value }),
+  name: change.name,
+  ...(change.theme !== undefined && { theme: change.theme }),
+  ...(to !== undefined && { to }),
+});
+
+/**
+ * The files as the changes leave them, and what each change does (ADR 0158). A change writes
+ * nothing where the code's value is the change's already. An alias keeps its form: pointed at
+ * another declared variable of its kind that holds the new value, or else given the value in
+ * place, never written through when other declarations share the variable it names. A token the
+ * code declares nowhere it can write is added with the others, one block per theme, in the
+ * stylesheet that declares most of the project's tokens.
+ */
 export const writeTokens = (
   ctx: DesignSystemContext,
   changes: readonly TokenChange[]
-): FileEdit[] => {
+): TokenWriting => {
   const reading = read(ctx);
   const edits = editor(ctx.root);
+  const relative = (file: string) => toPosix(path.relative(ctx.root, file));
   const writable = (decl: Declaration | undefined): decl is Declaration =>
     decl !== undefined && reading.writable.includes(decl.file);
   const ownBlocks = reading.blocks.filter((b) =>
     reading.writable.includes(b.file)
   );
-  const [firstFile] = reading.writable;
-  const rank = (file: string) => reading.files.indexOf(file);
+  const rank = (file: string) => reading.cascade.indexOf(file);
+  const counts = tokensIn(reading);
+  /** The stylesheet the project's tokens are declared in: the one that declares most of them. */
+  const tokensFile = reading.writable.reduce<string | undefined>(
+    (best, file) =>
+      best === undefined || (counts.get(file) ?? 0) > (counts.get(best) ?? 0)
+        ? file
+        : best,
+    undefined
+  );
+  const tokensFileFirst = (blocks: readonly Block[]) => [
+    ...blocks.filter((b) => b.file === tokensFile),
+    ...blocks.filter((b) => b.file !== tokensFile),
+  ];
+  const referrers = referrersOf(reading);
   /** The last `@theme` reset that would take `variable` out, as Tailwind reads them in order. */
   const lastResetOf = (variable: string) =>
     reading.resetsAt.findLast((r) => resetCovers(r.name, variable));
@@ -740,7 +808,8 @@ export const writeTokens = (
   /**
    * The `@theme` block a new token goes into: one written after the last reset that covers it
    * (`--color-*: initial` in a later block would take it out again), a plain one rather than an
-   * `inline` one. A token added before the `}` of the reset's own block comes after it.
+   * `inline` one, in the project's tokens' stylesheet. A token added before the `}` of the
+   * reset's own block comes after it.
    */
   const themeBlockFor = (variable: string) => {
     const reset = lastResetOf(variable);
@@ -748,71 +817,185 @@ export const writeTokens = (
       reset === undefined ||
       rank(b.file) > rank(reset.file) ||
       (b.file === reset.file && b.close > reset.declStart);
-    const candidates = ownBlocks.filter((b) => isTheme(b.prelude) && after(b));
+    const candidates = ownBlocks.filter(
+      (b) => b.file === tokensFile && isTheme(b.prelude) && after(b)
+    );
     return (
       candidates.find((b) => !b.prelude.includes("inline")) ?? candidates[0]
     );
   };
 
-  /** The stylesheet a block made for a new token is added to the end of. */
+  /** The stylesheet a block made for new tokens is added to the end of. */
   const fileFor = (theme: string, variable: string) => {
     const reset = theme === "" ? lastResetOf(variable) : undefined;
-    if (reset === undefined) {
-      return firstFile;
+    if (reset === undefined || tokensFile === undefined) {
+      return tokensFile;
     }
-    return (
-      reading.writable.find((file) => rank(file) >= rank(reset.file)) ??
-      firstFile
-    );
+    return rank(tokensFile) >= rank(reset.file)
+      ? tokensFile
+      : (reading.writable.find((file) => rank(file) >= rank(reset.file)) ??
+          tokensFile);
   };
 
-  /** Adds a declaration of `variable` to a theme's block, or a block made for it. */
+  /** Declarations to add, gathered so that each block takes them at once. */
+  const added = new Map<
+    string,
+    { block?: Block; file: string; lines: string[]; selector: string }
+  >();
+  /** Adds a declaration of `variable` to a theme's block, or a block made for it; its file. */
   const add = (theme: string, variable: string, line: string) => {
     const block =
       theme === ""
         ? themeBlockFor(variable)
-        : ownBlocks.find(
+        : tokensFileFirst(ownBlocks).find(
             (b) => !isTheme(b.prelude) && plainThemeKeyOf(b.prelude) === theme
           );
-    const file = fileFor(theme, variable);
-    if (block) {
-      edits.splice(block.file, (text) => insertion(text, block, line));
-    } else if (file) {
-      const selector = theme === "" ? "@theme" : selectorOf(theme);
-      edits.append(file, `\n${selector} {\n  ${line}\n}\n`);
+    const file = block?.file ?? fileFor(theme, variable);
+    if (file === undefined) {
+      return;
     }
+    const selector = theme === "" ? "@theme" : selectorOf(theme);
+    const key = block ? `${block.file}@${block.close}` : `${file}|${selector}`;
+    const into = added.get(key) ?? { block, file, lines: [], selector };
+    into.lines.push(line);
+    added.set(key, into);
+    return file;
   };
 
-  /** The variable a change writes, and where this theme's value of it is written now. */
-  const targetOf = (change: TokenChange) => {
+  /**
+   * Whether a variable a token aliases is the token's own, written through as shadcn's
+   * `--primary` of `--color-primary` is: no other declaration names it, and it is named after the
+   * token or a theme sets it again. A palette step other tokens share is not.
+   */
+  const ownedBy = (name: string, own: string, variable: string) => {
+    const shared = [...(referrers.get(variable) ?? [])].some((r) => r !== own);
+    const named = name.endsWith(`-${variable.slice(2)}`);
+    const perTheme = [...reading.plain].some(
+      ([theme, vars]) => theme !== "" && vars.has(variable)
+    );
+    return !shared && (named || perTheme);
+  };
+
+  /**
+   * The value written in place of an alias: another declared variable of the same kind that
+   * comes to `value` in the theme, the nearest in name to the one it names now; else the value.
+   */
+  const aliasFor = (
+    own: string,
+    aliased: string,
+    value: string,
+    theme: string
+  ) => {
+    const kindOf = (variable: string) =>
+      tokenKindOf(tokenNameOf(variable) ?? "");
+    const kind = kindOf(aliased);
+    const declared = new Set([
+      ...[...reading.declared.values()].map((d) => d.name),
+      ...(reading.plain.get("")?.keys() ?? []),
+      ...reading.defaultVariables.keys(),
+    ]);
+    const holding = [...declared].filter(
+      (variable) =>
+        variable !== own &&
+        !variable.slice(2).includes("--") &&
+        kindOf(variable) === kind &&
+        sameValue(reading.resolve(`var(${variable})`, theme), value)
+    );
+    const [nearest] = holding.sort(
+      (a, b) => sharedStart(b, aliased) - sharedStart(a, aliased)
+    );
+    return nearest ? `var(${nearest})` : value;
+  };
+
+  /** Writes a value in place of a declaration's, keeping an alias an alias. */
+  const replace = (
+    change: TokenChange,
+    at: Declaration,
+    own: string,
+    value: string
+  ) => {
+    const theme = change.theme ?? "";
+    const aliased = aliasOf(at.value);
+    const text = aliased ? aliasFor(own, aliased, value, theme) : value;
+    edits.splice(at.file, () => ({
+      end: at.valueEnd,
+      start: at.valueStart,
+      text,
+    }));
+    return text;
+  };
+
+  /** A change's token as `holderOf` finds it, and where its theme's value is now. */
+  const placeOf = (change: TokenChange) => {
     const theme = change.theme ?? "";
     const holder = holderOf(reading, change.name);
-    const { byTheme, decl, root, variable } = holder;
-    const target =
-      theme === "" ? holder.target : byTheme.get(theme)?.get(variable);
-    return { decl, root, target, theme, variable };
+    const now =
+      theme === ""
+        ? holder.target
+        : reading.plain.get(theme)?.get(holder.variable);
+    return { ...holder, now, theme };
+  };
+
+  /** A token taken out, from `@theme` and from a plain root block alike. */
+  const removeChange = (change: TokenChange): TokenWrite => {
+    const { decl, now, root, theme } = placeOf(change);
+    const gone = (theme === "" ? [decl, root] : [now]).filter(writable);
+    for (const each of gone) {
+      edits.splice(each.file, (text) => removal(text, each));
+    }
+    const was = gone[0] ?? now;
+    const does = gone.length > 0 ? "remove" : "none";
+    return writeOf(change, does, was?.file, was, undefined);
+  };
+
+  /** A token's value written: nowhere when it is the code's already, else in place or added. */
+  const setChange = (change: TokenChange, value: string): TokenWrite => {
+    const { decl, now, own, theme, variable } = placeOf(change);
+    if (now && sameValue(reading.resolve(now.value, theme), value)) {
+      return writeOf(change, "none", now.file, now, undefined);
+    }
+    // Through the alias only into a variable that is the token's own; else at the token itself.
+    const through = variable === own || ownedBy(change.name, own, variable);
+    const itself = theme === "" ? decl : reading.plain.get(theme)?.get(own);
+    const at = through ? now : itself;
+    if (writable(at)) {
+      const to = replace(change, at, own, value);
+      return writeOf(change, "change", at.file, at, to);
+    }
+    const name = through ? variable : own;
+    const file = add(theme, name, `${name}: ${value};`);
+    return writeOf(
+      change,
+      file === undefined ? "none" : "add",
+      file,
+      at,
+      value
+    );
+  };
+
+  /** Writes one change, and says what it did. */
+  const writeChange = (change: TokenChange): TokenWrite | null => {
+    if (change.remove) {
+      return removeChange(change);
+    }
+    return change.value === undefined ? null : setChange(change, change.value);
   };
 
   // A token changed twice in one theme takes its last change.
   const latest = new Map(changes.map((c) => [`${c.theme ?? ""}|${c.name}`, c]));
-  for (const change of latest.values()) {
-    const { decl, root, target, theme, variable } = targetOf(change);
-    const { remove, value } = change;
-    // A token taken out goes from `@theme` and from a plain root block alike.
-    const gone = (theme === "" ? [decl, root] : [target]).filter(writable);
-    if (remove && gone.length > 0) {
-      for (const each of gone) {
-        edits.splice(each.file, (text) => removal(text, each));
-      }
-    } else if (!remove && value !== undefined && writable(target)) {
-      edits.splice(target.file, () => ({
-        end: target.valueEnd,
-        start: target.valueStart,
-        text: value,
-      }));
-    } else if (!remove && value !== undefined) {
-      add(theme, variable, `${variable}: ${value};`);
+  const writes = [...latest.values()]
+    .map(writeChange)
+    .filter((w): w is TokenWrite => w !== null)
+    .map((w) => (w.file === undefined ? w : { ...w, file: relative(w.file) }));
+  for (const { block, file, lines, selector } of added.values()) {
+    if (block) {
+      edits.splice(block.file, (text) => insertion(text, block, lines));
+    } else {
+      edits.append(
+        file,
+        `\n${selector} {\n${lines.map((line) => `  ${line}\n`).join("")}}\n`
+      );
     }
   }
-  return edits.done();
+  return { edits: edits.done(), writes };
 };

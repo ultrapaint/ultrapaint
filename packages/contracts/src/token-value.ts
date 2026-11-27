@@ -833,6 +833,15 @@ const nextVar = (text: string, from: number): number => {
   return at;
 };
 
+/**
+ * A value put in place of a `var()` and the text after it run together when the stylesheet wrote
+ * them side by side, as a minified one does (`var(--d,.2s)var(--e,ease-out)`): CSS keeps them two
+ * tokens, the text needs a space between them. Only where both sides are a word, a number or a
+ * function's end; punctuation (`,`, `*`, `/`) already keeps them apart.
+ */
+const ENDS_A_WORD_RE = /[\w.%)]$/;
+const STARTS_A_WORD_RE = /^[\w.#-]/;
+
 /** How long a value followed through its variables may grow before the rest is left as written. */
 const MAX_RESOLVED = 10_000;
 
@@ -883,6 +892,13 @@ const followVars = (
     let cyclic = false;
     let left = false;
     let from = 0;
+    /** Whether `out` ends with a value put in place of a `var()`. */
+    let substituted = false;
+    /** Text after a substituted value, a space before it where the two would run together. */
+    const after = (next: string) =>
+      substituted && ENDS_A_WORD_RE.test(out) && STARTS_A_WORD_RE.test(next)
+        ? ` ${next}`
+        : next;
     let at = nextVar(text, 0);
     let ref = at === -1 ? null : referenceAt(text, at);
     while (ref) {
@@ -891,13 +907,20 @@ const followVars = (
       cyclic ||= followed.cyclic;
       const fits = out.length + followed.out.length <= MAX_RESOLVED;
       left ||= followed.left || !fits;
-      out += text.slice(from, at) + (fits ? followed.out : written);
+      const between = text.slice(from, at);
+      const put = fits ? followed.out : written;
+      out += between === "" ? after(put) : after(between) + put;
+      substituted = put !== "" || (substituted && between === "");
       from = ref.close + 1;
       at = nextVar(text, from);
       ref = at === -1 ? null : referenceAt(text, at);
     }
     // A `var(` that does not close is left as written.
-    return { cyclic, left: left || at !== -1, out: out + text.slice(from) };
+    return {
+      cyclic,
+      left: left || at !== -1,
+      out: out + after(text.slice(from)),
+    };
   };
   return walk(value, new Set());
 };

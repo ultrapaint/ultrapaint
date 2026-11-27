@@ -280,6 +280,20 @@ describe("following var()", () => {
     expect(out.length).toBeLessThanOrEqual(10_000);
   });
 
+  it("keeps the parts of a shorthand apart where a minified stylesheet writes its var()s side by side", () => {
+    expect(
+      resolveVars(
+        "accordion-down var(--tw-animation-duration,var(--tw-duration,.2s))var(--tw-ease,ease-out)var(--tw-animation-delay,0s)",
+        () => undefined
+      )
+    ).toBe("accordion-down .2s ease-out 0s");
+    expect(resolve("var(--known)solid")).toBe("1px solid");
+    // What already stands apart, or is joined by punctuation, is left as written.
+    expect(resolve("var(--known), var(--known)")).toBe("1px, 1px");
+    expect(resolve("calc(var(--known)*2)")).toBe("calc(1px*2)");
+    expect(resolve("var(--unknown,)var(--known)")).toBe("1px");
+  });
+
   it("goes deeper than a fixed number of steps", () => {
     const chain = new Map(
       Array.from({ length: 30 }, (_, i) => [`--v${i}`, `var(--v${i + 1})`])
