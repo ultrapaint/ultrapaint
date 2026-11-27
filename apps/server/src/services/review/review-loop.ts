@@ -77,6 +77,7 @@ import {
   keptOnSecondLook,
   listedInRound,
   REVIEW_TIMEOUT,
+  type RequestPrompt,
   type ReviewItem,
   reviewerResult,
   roundEndOf,
@@ -109,8 +110,8 @@ export interface DueRound {
   readonly pages: readonly string[];
   /** The run's rounds so far, as the verdict reads them. */
   readonly previous: readonly Round[];
-  /** What the person asked, which the reviewers keep to. */
-  readonly request: string;
+  /** What the person asked, their prompts since the brief, which the reviewers keep to (ADR 0159). */
+  readonly request: readonly RequestPrompt[];
   readonly settings: ReviewSettings;
   /**
    * When the thread's last round started (0 before any): the turns that ended after it are the
@@ -222,8 +223,8 @@ interface Review {
   readonly projectName: string;
   /** The question tool as the designer knows it, which its findings name (ADR 0157). */
   readonly questionTool: string;
-  /** What the person asked, which every round's prompt keeps to. */
-  readonly request: string;
+  /** What the person asked, which every round's prompt keeps to (ADR 0159). */
+  readonly request: readonly RequestPrompt[];
   readonly root: string;
   readonly settings: ReviewSettings;
   readonly threadId: string;

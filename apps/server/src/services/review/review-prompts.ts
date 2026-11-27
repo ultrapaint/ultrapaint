@@ -1,8 +1,9 @@
 /**
  * What the review loop says (ADR 0063): to a review model, its role, the skill's rules (ADR 0077),
- * the person's request and the pages as it is shown them; to the designer, a round's findings to fix or decline. How a
- * review judges is the skill's (its review job and `references/review.md`, ADR 0111), told as the
- * lab's `told` reviewers are told it (`toldRules`); the answer's shape is the lab's
+ * the person's request (what they said since the brief, ADR 0159) and the pages as it is shown
+ * them; to the designer, a round's findings to fix or decline. How a review judges is the
+ * skill's (its review job and `references/review.md`, ADR 0111), told as the lab's `told`
+ * reviewers are told it (`toldRules`); the answer's shape is the lab's
  * (`evals/prompts/review-section.md`, `evals/src/section-review.ts`), so the editor and the lab
  * review a design alike.
  */
@@ -15,6 +16,11 @@ import {
 import type { RoundFinding } from "@ultrapaint/contracts/threads";
 import { coreText, skillFiles } from "../../skills/index.ts";
 import type { PageChecks } from "./check-findings.ts";
+import {
+  newestPromptOf,
+  type RequestPrompt,
+  shownRequest,
+} from "./review-rounds.ts";
 
 /** A page as a review model is shown it. */
 export interface PageView {
@@ -91,19 +97,52 @@ ${
     : "Another review model looked first and found nothing the designer had to fix. Give back only blockers."
 } Judge it as the skill's review says of a second look. \`signOff.done\` is true when you give back nothing.`;
 
+/**
+ * What the person asked, as a review model is told it (ADR 0159): a thread of one prompt as it
+ * always was; else what they said in order, each prompt in a `<prompt>` and their answers to the
+ * designer's questions in an `<answers>`, the newest prompt marked as this turn's, and the oldest
+ * left out past the cap counted.
+ */
+const askedOf = (request: readonly RequestPrompt[]): string => {
+  const { leftOut, prompts } = shownRequest(request);
+  const [only] = prompts;
+  if (prompts.length <= 1 && leftOut === 0) {
+    return `## What the person asked\n\n<request>\n${only?.text || "(nothing said)"}\n</request>`;
+  }
+  const newest = newestPromptOf(prompts);
+  const tagged = prompts.map((p, i) => {
+    const tag = p.answers ? "answers" : "prompt";
+    const mark = i === newest ? ' turn="this"' : "";
+    return `<${tag}${mark}>\n${p.text}\n</${tag}>`;
+  });
+  const left =
+    leftOut === 0
+      ? []
+      : [
+          leftOut === 1
+            ? "(The oldest of what they said is left out.)"
+            : `(The ${leftOut} oldest of what they said are left out.)`,
+        ];
+  return `## What the person asked
+
+What they said in this thread, oldest first: each \`<prompt>\` a prompt of theirs, each \`<answers>\` their answers to the designer's questions, which are theirs to choose. A later prompt changes an earlier one where the two differ, and the rest of the earlier ones still hold. The prompt marked \`turn="this"\` is what this turn was asked to do.
+
+<request>
+${[...left, ...tagged].join("\n")}
+</request>`;
+};
+
 /** What a review model is given: its role, the request, and each page's picture and document. */
 export const reviewerPrompt = (
-  request: string,
+  /** What the person said since the thread's brief, oldest first (`requestOf`). */
+  request: readonly RequestPrompt[],
   pages: readonly PageView[],
   /** On a second look, the findings it checks; absent on a first. */
   open?: readonly RoundFinding[]
 ): ContentBlock[] => [
   { text: REVIEWER_ROLE, type: "text" },
   { text: REVIEWER_RULES, type: "text" },
-  {
-    text: `## What the person asked\n\n<request>\n${request.trim() || "(nothing said)"}\n</request>`,
-    type: "text",
-  },
+  { text: askedOf(request), type: "text" },
   ...pages.flatMap((page): ContentBlock[] => [
     {
       text: `## The page ${pageName(page)}\n\n${
