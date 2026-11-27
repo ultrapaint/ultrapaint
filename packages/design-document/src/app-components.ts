@@ -399,16 +399,20 @@ const appComponentsPlaced = (root: DesignNode): Set<string> => {
 
 /**
  * A way round through the app components, when there is one: `["Card", "Row", "Card"]` for a Card
- * that places a Row that places a Card. Such a component would draw itself forever.
+ * that places a Row that places a Card. Such a component would draw itself forever. `through`: only
+ * a way round that component, whatever other one there is.
  */
 export const appComponentCycle = (
-  files: readonly AppComponentFile[]
+  files: readonly AppComponentFile[],
+  through?: string
 ): readonly string[] | null => {
   const byName = new Map(files.map((f) => [f.name, f]));
   const done = new Set<string>();
   const visit = (name: string, path: readonly string[]): string[] | null => {
     if (path.includes(name)) {
-      return [...path.slice(path.indexOf(name)), name];
+      return through === undefined || name === through
+        ? [...path.slice(path.indexOf(name)), name]
+        : null;
     }
     if (done.has(name)) {
       return null;
@@ -426,6 +430,9 @@ export const appComponentCycle = (
     return null;
   };
   for (const file of files) {
+    if (through !== undefined && file.name !== through) {
+      continue;
+    }
     const cycle = visit(file.name, []);
     if (cycle) {
       return cycle;

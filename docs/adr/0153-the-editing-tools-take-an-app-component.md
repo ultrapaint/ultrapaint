@@ -26,14 +26,15 @@ editor's undo (UP-230).
   with its problem. Every other tool that takes a route refuses `component:<Name>` and says to
   name a page that places it: `focus` and `get_screenshot` on a component's board are not built.
 - **An edit of an app component's tree is refused when it leaves the file wrong among the others
-  where it was not** (`problemOf`: placing itself, through another or not), for the editor's
-  edits too. **An agent's edit keeps the slots and the nodes the properties set**
+  where it was not** (`problemOf`: placing itself, through another or not, however many other
+  components place themselves), for the editor's edits too. **An agent's edit keeps the slots and the nodes the properties set**
   (`ApplyOptions.keepParts`): one that takes such a node out is refused, naming the slot or the
   property, where the editor's own edit lets them go with their node (`withTree`). Taking a slot
   or a property out is `handoff`'s `change`, which follows into every instance.
 - **Making a component is an operation, `{op:"makeComponent", ids, name}`**, on a page, through
   the editor's Make component (`ComponentService.makeApp`): the sibling nodes become the
-  component's tree and an instance takes their place; `created` answers its id. It is sent alone
+  component's tree and an instance takes their place; `created` answers its id. It is written on
+  the page as `makeApp` read it, and refused when the page is no longer at `expectedHash`. It is sent alone
   in its call, since `makeApp` is an undo step of its own, and refused on a take's working copy
   (ADR 0098), which may be thrown away and leave the component placed nowhere. A name that is
   taken or a system component's is refused as the editor refuses it. Rejected: a `make_component` tool (a

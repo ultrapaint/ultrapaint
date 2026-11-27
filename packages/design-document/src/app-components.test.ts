@@ -244,4 +244,22 @@ describe("appComponentCycle", () => {
     ]);
     expect(appComponentCycle([placing("A", "B"), PLAN])).toBeNull();
   });
+
+  it("finds a way round the component named, whatever other one there is first", () => {
+    const placing = (name: string, inner: string): AppComponentFile => ({
+      ...PLAN,
+      name,
+      tree: { component: inner, from: "#app", id: "i", type: "instance" },
+    });
+    const files = [
+      placing("Loop", "Loop"),
+      placing("A", "B"),
+      placing("B", "A"),
+    ];
+    expect(appComponentCycle(files)).toEqual(["Loop", "Loop"]);
+    expect(appComponentCycle(files, "B")).toEqual(["B", "A", "B"]);
+    expect(
+      appComponentCycle([placing("Loop", "Loop"), PLAN], PLAN.name)
+    ).toBeNull();
+  });
 });

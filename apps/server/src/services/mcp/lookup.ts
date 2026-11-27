@@ -56,9 +56,13 @@ export interface Given {
   readonly route?: string | undefined;
 }
 
-/** An app component's tree as a tool names it, maybe one node of it: `component:AppShell#nav`. */
+/**
+ * An app component's tree as a tool names it, maybe one node of it: `component:AppShell#nav`. The
+ * name as a component's is written, so a page of a canvas named "component" (`component:/home`,
+ * `component:home.page.json`) is still that page.
+ */
 const COMPONENT_REF_RE = new RegExp(
-  String.raw`^${COMPONENT_DOC_PREFIX}([^\s#]+)(?:#([\w-]+))?$`
+  String.raw`^${COMPONENT_DOC_PREFIX}([A-Za-z][A-Za-z0-9]*)(?:#([\w-]+))?$`
 );
 
 /** The app component and maybe the node `component:<Name>` or `component:<Name>#id` names. */

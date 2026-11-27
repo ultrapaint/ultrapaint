@@ -297,8 +297,9 @@ export const problemOf = (
     ),
     component,
   ];
-  const cycle = appComponentCycle(apps);
-  return cycle?.includes(component.name)
+  // A way round another component is its file's problem, never this one's.
+  const cycle = appComponentCycle(apps, component.name);
+  return cycle
     ? `${cycle.join(" places ")}: a component cannot place itself`
     : undefined;
 };
