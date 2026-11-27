@@ -52,6 +52,12 @@ export interface StyleContext {
    */
   readonly screen?: string | undefined;
   readonly textStyles: ReadonlyMap<string, TextStyle>;
+  /**
+   * What a viewport length (`100vh`, `50dvh`, `25vw`) is a share of: the window when left out, as
+   * in the code; the frame (`frame`) on the canvas, where a page frame is the page's window and
+   * not the editor's (ADR 0034), so `100vh` is drawn `100cqh`.
+   */
+  readonly viewport?: "frame" | undefined;
 }
 
 export const makeStyleContext = (
@@ -151,6 +157,46 @@ const pageMinHeight = (node: DesignNode, ctx: StyleContext): DeclaredValue => {
     : `max(${ctx.resolver.css(node.minHeight)}, ${screen})`;
 };
 
+/**
+ * The height a page at the root of its render that fills its height is drawn at: the screen's,
+ * where the context names one. The code says it as filling its parent (`h-full`), which in the
+ * app is the window's height.
+ */
+const pageFillHeight = (
+  node: DesignNode,
+  ctx: StyleContext
+): DeclaredValue | undefined =>
+  node.type === "page" && ctx.parent === "free" && node.height === "fill"
+    ? ctx.screen
+    : undefined;
+
+/**
+ * A viewport unit, with the amount before it: `100vh`, `50dvh`, `-2.5svw`, `10vmin`. Not one
+ * inside a word, `$size-10vh` being a token's name, nor inside a file's path, `url(...)`, which
+ * the match keeps as it is.
+ */
+const VIEWPORT_UNIT_RE =
+  /url\([^)]*\)|(?<![\w$-])(-?(?:\d+\.?\d*|\.\d+))[dls]?v(h|w|i|b|min|max)\b/g;
+
+/**
+ * A value in the frame's units: each viewport unit as its container unit, `100dvh` → `100cqh`,
+ * the frame being the page's window.
+ */
+const asFrameUnits = (value: DeclaredValue): DeclaredValue =>
+  typeof value === "string"
+    ? value.replace(VIEWPORT_UNIT_RE, (match, amount, axis) =>
+        amount === undefined ? match : `${amount}cq${axis}`
+      )
+    : value;
+
+const declarationsAsFrameUnits = (declarations: Declarations): Declarations =>
+  Object.fromEntries(
+    Object.entries(declarations).map(([property, value]) => [
+      property,
+      asFrameUnits(value),
+    ])
+  );
+
 /** Padding or margin, on every side at once or side by side. */
 const sidesDeclared = (
   property: "padding" | "margin",
@@ -244,10 +290,14 @@ const layoutDeclared = (node: DesignNode, ctx: StyleContext): Declared => {
 };
 
 /** Size, spacing and place fields every node shares. */
-const boxDeclared = (node: DesignNode, parent: ParentLayout): Declared => {
+const boxDeclared = (node: DesignNode, ctx: StyleContext): Declared => {
+  const { parent } = ctx;
+  const fillHeight = pageFillHeight(node, ctx);
   const out: Declared = {
     ...sizeDeclared("width", node.width, parent),
-    ...sizeDeclared("height", node.height, parent),
+    ...(fillHeight === undefined
+      ? sizeDeclared("height", node.height, parent)
+      : { height: fillHeight }),
   };
   if (node.minWidth !== undefined) {
     out.minWidth = node.minWidth;
@@ -462,17 +512,23 @@ const appearanceDeclared = (node: DesignNode): Declared => {
  * place the format's layout fields are given a meaning (`fill` and `hug` against the parent's
  * axis, alignment, a text style under the node's own settings, a tint). The canvas draws them
  * (`nodeStyle`) and a style system writes them as classes (`ClassWriter`). In the order the code
- * lists them: layout, size and spacing, type, then appearance.
+ * lists them: layout, size and spacing, type, then appearance. A viewport length is the frame's
+ * where the context says the frame is the window.
  */
 export const declarationsOf = (
   node: DesignNode,
   ctx: StyleContext
-): Declarations => ({
-  ...layoutDeclared(node, ctx),
-  ...boxDeclared(node, ctx.parent),
-  ...(node.type === "text" ? textDeclared(node, ctx) : {}),
-  ...appearanceDeclared(node),
-});
+): Declarations => {
+  const declarations: Declarations = {
+    ...layoutDeclared(node, ctx),
+    ...boxDeclared(node, ctx),
+    ...(node.type === "text" ? textDeclared(node, ctx) : {}),
+    ...appearanceDeclared(node),
+  };
+  return ctx.viewport === "frame"
+    ? declarationsAsFrameUnits(declarations)
+    : declarations;
+};
 
 /**
  * What the canvas draws a node with besides its declarations, which the code leaves to the

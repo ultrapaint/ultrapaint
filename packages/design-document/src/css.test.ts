@@ -362,6 +362,82 @@ describe("a page as its own container", () => {
     const column: DesignNode = { ...page, type: "column" };
     expect(declarationsOf(column, ctx).minHeight).toBe(1024);
   });
+
+  it("ends at its frame where its own minimum is the window's height (ADR 0034)", () => {
+    const page: DesignNode = {
+      children: [],
+      id: "p",
+      minHeight: "50svh",
+      type: "page",
+    };
+    const ctx = makeStyleContext(ds);
+    expect(declarationsOf(page, ctx).minHeight).toBe("max(50svh, 100vh)");
+    expect(
+      declarationsOf(page, { ...ctx, screen: "100cqh", viewport: "frame" })
+        .minHeight
+    ).toBe("max(50cqh, 100cqh)");
+  });
+
+  it("is as tall as the screen when its height fills it, which the code leaves to its parent", () => {
+    const page: DesignNode = {
+      children: [],
+      height: "fill",
+      id: "p",
+      type: "page",
+    };
+    const ctx = makeStyleContext(ds);
+    expect(declarationsOf(page, ctx).height).toBe("100%");
+    expect(declarationsOf(page, { ...ctx, screen: "100cqh" }).height).toBe(
+      "100cqh"
+    );
+  });
+});
+
+describe("a viewport length", () => {
+  const sidebar: DesignNode = {
+    children: [],
+    id: "s",
+    margin: { top: "$space-10vh" },
+    maxHeight: "calc(100dvh - 64px)",
+    minHeight: "100vh",
+    minWidth: "25vw",
+    padding: { top: "2lvh" },
+    type: "column",
+  };
+
+  it("is the window's in the code, as written", () => {
+    expect(declarationsOf(sidebar, makeStyleContext(ds, "row"))).toMatchObject({
+      maxHeight: "calc(100dvh - 64px)",
+      minHeight: "100vh",
+      minWidth: "25vw",
+      paddingTop: "2lvh",
+    });
+  });
+
+  it("is the frame's where the frame is the window, a node's viewport its container (ADR 0034)", () => {
+    const ctx = { ...makeStyleContext(ds, "row"), viewport: "frame" } as const;
+    expect(declarationsOf(sidebar, ctx)).toMatchObject({
+      // A token's name is not a length.
+      marginTop: "$space-10vh",
+      maxHeight: "calc(100cqh - 64px)",
+      minHeight: "100cqh",
+      minWidth: "25cqw",
+      paddingTop: "2cqh",
+    });
+  });
+
+  it("leaves a file's path as it is, an image fill's included", () => {
+    const hero: DesignNode = {
+      children: [],
+      fill: "url(assets/100vh.png) center / cover no-repeat",
+      id: "h",
+      type: "column",
+    };
+    expect(
+      declarationsOf(hero, { ...makeStyleContext(ds), viewport: "frame" })
+        .background
+    ).toBe("url(assets/100vh.png) center / cover no-repeat");
+  });
 });
 
 describe("runsInRow", () => {
