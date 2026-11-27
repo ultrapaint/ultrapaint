@@ -37,6 +37,7 @@ import {
   type ImportFigmaTask,
   type RedrawTask,
 } from "@ultrapaint/contracts/tasks";
+import { linksOfNode } from "@ultrapaint/design-document/text-runs";
 import { nodeLabel, walk } from "@ultrapaint/design-document/tree";
 import { plural } from "@ultrapaint/shared/text";
 import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
@@ -374,9 +375,9 @@ const widthsOf = (frame: FrameLayout | undefined) =>
 const linksOf = (root: DesignNode | null | undefined) =>
   root
     ? [...walk(root)].flatMap((node) =>
-        "link" in node && typeof node.link === "string"
-          ? [`${nodeLabel(node)} (${node.id}) → ${node.link}`]
-          : []
+        linksOfNode(node).map(
+          (link) => `${nodeLabel(node)} (${node.id}) → ${link}`
+        )
       )
     : [];
 

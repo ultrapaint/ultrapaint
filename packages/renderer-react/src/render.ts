@@ -16,7 +16,11 @@ import {
   systemComponentsIn,
 } from "@ultrapaint/contracts/components";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
-import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
+import type {
+  DesignNode,
+  InstanceNode,
+  TextNode,
+} from "@ultrapaint/contracts/document";
 import { expandAppInstance } from "@ultrapaint/design-document/app-components";
 import {
   type Breakpoint,
@@ -42,6 +46,7 @@ import {
 import { resolveFillUrls } from "@ultrapaint/design-document/fill";
 import { layerIdOf } from "@ultrapaint/design-document/instance-layers";
 import { fillSlots, slotLayoutOf } from "@ultrapaint/design-document/slots";
+import { hasRuns, runsOf } from "@ultrapaint/design-document/text-runs";
 import { childrenOf } from "@ultrapaint/design-document/tree";
 import {
   type Drawing,
@@ -257,6 +262,32 @@ const onLink = (scope: Scope, link: string | undefined) =>
       }
     : undefined;
 
+/**
+ * A text's runs inside its element (ADR 0163): a run's link an anchor followed when pressed as a
+ * node's link is, with no `href` for the page to follow on its own; its underline drawn under its
+ * words; a plain run its words. A text that links as a whole is pressed as one.
+ */
+const runsDrawn = (node: TextNode, scope: Scope): ReactNode[] =>
+  runsOf(node).map((run, i) => {
+    const underline: Style = run.underline
+      ? { textDecorationLine: "underline" }
+      : {};
+    if (run.link && !node.link) {
+      return createElement(
+        "a",
+        {
+          key: i,
+          onClick: onLink(scope, run.link),
+          style: { cursor: "pointer", ...underline },
+        },
+        run.text
+      );
+    }
+    return run.underline
+      ? createElement("span", { key: i, style: underline }, run.text)
+      : run.text;
+  });
+
 /** What an app component's instance gives the root of its tree: its id, its marks, its box. */
 interface RootOverride {
   readonly attributes: Readonly<Record<string, unknown>>;
@@ -329,7 +360,14 @@ const NodeView = memo(function NodeDrawn({
     });
   }
   if (node.type === "text") {
-    return createElement(tagOf(node), common, node.text);
+    return hasRuns(node)
+      ? // Keyed by its runs: an edit in place that changed them leaves the words' DOM its own.
+        createElement(
+          tagOf(node),
+          { ...common, key: JSON.stringify(node.runs) },
+          runsDrawn(node, scope)
+        )
+      : createElement(tagOf(node), common, node.text);
   }
   if (node.type === "image" && node.tint !== undefined) {
     // Its shape, filled with the tint: the file is drawn as a mask.

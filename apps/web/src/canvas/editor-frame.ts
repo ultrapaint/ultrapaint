@@ -430,6 +430,8 @@ export class EditorFrame {
         this.fail({ during, error });
         tell("error", (l) => l.error?.(error));
       },
+      linkWords: (nodeId, words) =>
+        tell("linkWords", (l) => l.linkWords?.(nodeId, words)),
       navigateTo: (route, replace) =>
         tell("navigateTo", (l) => l.navigateTo?.(route, replace)),
       pressed: (nodeIds) => tell("pressed", (l) => l.pressed?.(nodeIds)),
@@ -444,8 +446,9 @@ export class EditorFrame {
         tell("rendered", (l) => l.rendered?.(renderId));
       },
       size: (size) => tell("size", (l) => l.size?.(size)),
-      textCommit: (nodeId, text) =>
-        tell("textCommit", (l) => l.textCommit?.(nodeId, text)),
+      // As it was said: a plain text's commit names no runs.
+      textCommit: (...commit) =>
+        tell("textCommit", (l) => l.textCommit?.(...commit)),
       textEditing: (nodeId) =>
         tell("textEditing", (l) => l.textEditing?.(nodeId)),
     };
@@ -721,13 +724,14 @@ export const forwardTo = (
   latest: () => FrameListeners
 ): Required<FrameListeners> => ({
   error: (error) => latest().error?.(error),
+  linkWords: (nodeId, words) => latest().linkWords?.(nodeId, words),
   navigateTo: (route, replace) => latest().navigateTo?.(route, replace),
   pressed: (nodeIds) => latest().pressed?.(nodeIds),
   ready: () => latest().ready?.(),
   rects: (rects) => latest().rects?.(rects),
   rendered: (renderId) => latest().rendered?.(renderId),
   size: (size) => latest().size?.(size),
-  textCommit: (nodeId, text) => latest().textCommit?.(nodeId, text),
+  textCommit: (...commit) => latest().textCommit?.(...commit),
   textEditing: (nodeId) => latest().textEditing?.(nodeId),
 });
 

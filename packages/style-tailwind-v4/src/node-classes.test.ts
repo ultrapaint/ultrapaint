@@ -977,6 +977,23 @@ describe("a text's case, text wrap and lines", () => {
     expect(text({ lines: 12 })).toBe("line-clamp-12");
   });
 
+  it("writes a run's underline as Tailwind's underline, inside the text's element", () => {
+    const code = writeCode(
+      {
+        id: "t",
+        role: "paragraph",
+        runs: [{ text: "Read the " }, { text: "terms", underline: true }],
+        text: "Read the terms",
+        type: "text",
+      },
+      tailwindClasses(ds),
+      { breakpoints, designSystem: ds }
+    );
+    expect(code).toBe(
+      '<p>Read the <span className="underline">terms</span></p>'
+    );
+  });
+
   it("writes them at a breakpoint with its prefix", () => {
     expect(text({ at: { md: { case: "upper", lines: 1 } } })).toBe(
       "md:uppercase md:truncate"

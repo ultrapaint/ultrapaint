@@ -1,13 +1,21 @@
+import type { JsonValue } from "@ultrapaint/contracts/base";
 import type {
   DesignNode,
   DocOp,
   InstanceNode,
   PageNode,
   TextNode,
+  TextRun,
 } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
 import { fillIds, makeIdGenerator } from "./ids.ts";
 import { applyOps, cloneJson, DocumentOpError, touchedBy } from "./ops.ts";
+import { runsDropped } from "./text-runs.ts";
+
+const BOTH_LINKS_RE = /links as a whole|its words link/;
+const FIXED_RUNS_RE = /runs is the same at every breakpoint/;
+const NAMES_RUNS_RE = /runs/;
+
 import { canvasRoot, findNode, findPath } from "./tree.ts";
 
 const text = (id: string, value = id): DesignNode => ({
@@ -690,5 +698,196 @@ describe("an instance's layers (ADR 0114)", () => {
     const ops: DocOp[] = [{ id: "shell/side", op: "update", set: { gap: 2 } }];
     const { created, root } = applyOps(shell(), ops, options());
     expect(touchedBy(ops, created, root)).toEqual(["shell"]);
+  });
+});
+
+describe("a text's runs", () => {
+  const legal = (fields: Partial<TextNode> = {}): PageNode => ({
+    children: [
+      {
+        id: "legal",
+        role: "paragraph",
+        text: "By signing up you accept the terms",
+        type: "text",
+        ...fields,
+      },
+    ],
+    id: "root",
+    type: "page",
+  });
+  const RUNS: TextRun[] = [
+    { text: "By signing up you accept the " },
+    { link: "terms.page.json", text: "terms", underline: true },
+  ];
+  /** The runs as an operation's `set` holds them, as JSON. */
+  const RUNS_SET = RUNS as unknown as JsonValue;
+  const legalOf = (root: DesignNode) => findNode(root, "legal") as TextNode;
+
+  it("keep text as their words joined, which a reader that knows no runs shows", () => {
+    const { root } = applyOps(
+      legal(),
+      [{ id: "legal", op: "update", set: { runs: RUNS_SET, text: "stale" } }],
+      options()
+    );
+    expect(legalOf(root).text).toBe("By signing up you accept the terms");
+    expect(legalOf(root).runs).toEqual(RUNS);
+
+    const inserted = applyOps(
+      legal(),
+      [
+        {
+          node: {
+            id: "note",
+            role: "paragraph",
+            runs: [{ text: "Read " }, { text: "this", underline: true }],
+            text: "",
+            type: "text",
+          },
+          op: "insert",
+          parent: "root",
+        },
+      ],
+      options()
+    );
+    expect((findNode(inserted.root, "note") as TextNode).text).toBe(
+      "Read this"
+    );
+  });
+
+  it("read as plain words once none is a link or an underline, and lose a run of no words", () => {
+    const { root } = applyOps(
+      legal({ runs: RUNS }),
+      [
+        {
+          id: "legal",
+          op: "update",
+          set: {
+            runs: [
+              { text: "By signing up you accept " },
+              { text: "the terms" },
+              { link: "terms.page.json", text: "" },
+            ],
+          },
+        },
+      ],
+      options()
+    );
+    expect(legalOf(root).runs).toBeUndefined();
+    expect(legalOf(root).text).toBe("By signing up you accept the terms");
+  });
+
+  it("go when text is set alone, and the answer says its links were dropped", () => {
+    const ops: DocOp[] = [
+      { id: "legal", op: "update", set: { text: "You accept the terms" } },
+    ];
+    const { found, root } = applyOps(legal({ runs: RUNS }), ops, options());
+    expect(legalOf(root).runs).toBeUndefined();
+    expect(legalOf(root).text).toBe("You accept the terms");
+    expect(runsDropped(found, root)).toEqual([
+      {
+        message:
+          "text set alone took off its runs (a link and an underline): set runs with the words to keep them",
+        nodeId: "legal",
+      },
+    ]);
+  });
+
+  it("stay when text is set to their own words, and nothing is said", () => {
+    const same = applyOps(
+      legal({ runs: RUNS }),
+      [
+        {
+          id: "legal",
+          op: "update",
+          set: { text: "By signing up you accept the terms" },
+        },
+      ],
+      options()
+    );
+    expect(legalOf(same.root).runs).toEqual(RUNS);
+    expect(runsDropped(same.found, same.root)).toEqual([]);
+  });
+
+  /** Applying the operations, to be refused. */
+  const applying = (root: PageNode, ops: DocOp[]) => () =>
+    applyOps(root, ops, options());
+
+  it("never link inside a text that links as a whole", () => {
+    expect(
+      applying(legal({ link: "home.page.json" }), [
+        { id: "legal", op: "update", set: { runs: RUNS_SET } },
+      ])
+    ).toThrow(BOTH_LINKS_RE);
+    expect(
+      applying(page(), [
+        {
+          node: {
+            id: "both",
+            link: "home.page.json",
+            role: "paragraph",
+            runs: RUNS,
+            text: "",
+            type: "text",
+          },
+          op: "insert",
+          parent: "root",
+        },
+      ])
+    ).toThrow(BOTH_LINKS_RE);
+  });
+
+  it("keep a text from linking as a whole once its words link", () => {
+    expect(
+      applying(legal({ runs: RUNS }), [
+        { id: "legal", op: "update", set: { link: "home.page.json" } },
+      ])
+    ).toThrow(BOTH_LINKS_RE);
+  });
+
+  it("underline words of a text that links as a whole: an underline is no link", () => {
+    const underlined = applyOps(
+      legal({ link: "home.page.json" }),
+      [
+        {
+          id: "legal",
+          op: "update",
+          set: {
+            runs: [
+              { text: "By signing up" },
+              { text: " you accept the terms", underline: true },
+            ],
+          },
+        },
+      ],
+      options()
+    );
+    expect(legalOf(underlined.root).runs).toHaveLength(2);
+  });
+
+  it("are the same at every breakpoint", () => {
+    expect(() =>
+      applyOps(
+        legal(),
+        [{ at: "md", id: "legal", op: "update", set: { runs: RUNS_SET } }],
+        options()
+      )
+    ).toThrow(FIXED_RUNS_RE);
+  });
+
+  it("keep a text's words the same at every breakpoint", () => {
+    expect(() =>
+      applyOps(
+        legal({ runs: RUNS }),
+        [{ at: "md", id: "legal", op: "update", set: { text: "Accept" } }],
+        options()
+      )
+    ).toThrow(NAMES_RUNS_RE);
+    expect(() =>
+      applyOps(
+        legal({ at: { md: { text: "Accept the terms" } } }),
+        [{ id: "legal", op: "update", set: { runs: RUNS_SET } }],
+        options()
+      )
+    ).toThrow(NAMES_RUNS_RE);
   });
 });

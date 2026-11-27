@@ -16,6 +16,7 @@ import { inertFields } from "@ultrapaint/design-document/inert-fields";
 import { type Found, touchedBy } from "@ultrapaint/design-document/ops";
 import { wrapperWarning } from "@ultrapaint/design-document/page-root";
 import { fillWarnings } from "@ultrapaint/design-document/sizing";
+import { runsDropped } from "@ultrapaint/design-document/text-runs";
 import { styleOverrides } from "@ultrapaint/design-document/text-styles";
 import {
   canvasDocOf,
@@ -141,9 +142,11 @@ const warningsOf = (
   const wrapper = wrapperWarning(root);
   return [
     ...(wrapper === null ? [] : [wrapper]),
-    ...[...fillWarnings(root, catalogue), ...styleOverrides(found, root)].map(
-      (w) => `${w.nodeId}: ${w.message}`
-    ),
+    ...[
+      ...fillWarnings(root, catalogue),
+      ...styleOverrides(found, root),
+      ...runsDropped(found, root),
+    ].map((w) => `${w.nodeId}: ${w.message}`),
     ...memberWarnings(root, catalogue, touched),
   ];
 };

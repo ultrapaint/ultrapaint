@@ -43,7 +43,11 @@ import {
 import { cn } from "@/lib/cn";
 import { CutText } from "../components/cut-text.tsx";
 import { IconButton } from "../components/icon-button.tsx";
-import { LinkField } from "../components/link-field.tsx";
+import {
+  LinkField,
+  WordsLinkNote,
+  wordsLinkIn,
+} from "../components/link-field.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { CommandKeys } from "../components/shortcut-sheet.tsx";
@@ -711,11 +715,15 @@ const LinkSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
   return (
     <Section title="Prototype">
       <Row fields={["link"]} label="Goes to">
-        <LinkField
-          link={shared === MIXED ? undefined : (shared ?? undefined)}
-          mixed={shared === MIXED}
-          onChange={(link) => set("link", link)}
-        />
+        {wordsLinkIn(nodes) ? (
+          <WordsLinkNote />
+        ) : (
+          <LinkField
+            link={shared === MIXED ? undefined : (shared ?? undefined)}
+            mixed={shared === MIXED}
+            onChange={(link) => set("link", link)}
+          />
+        )}
       </Row>
     </Section>
   );

@@ -85,9 +85,14 @@ interface LinkedNode {
   readonly children?: readonly LinkedNode[] | undefined;
   readonly id: string;
   readonly link?: string | undefined;
+  /** A text's runs, some of whose words may link (ADR 0163). */
+  readonly runs?: readonly { readonly link?: string | undefined }[] | undefined;
 }
 
-/** Every node of a tree that has a link, in document order. */
+/**
+ * Every link of a tree, in document order, each with the node it is on: a text whose words link
+ * is named once for each of its runs' links.
+ */
 export const linksIn = (
   root: LinkedNode | null | undefined
 ): { readonly link: string; readonly nodeId: string }[] => {
@@ -95,6 +100,11 @@ export const linksIn = (
   const walk = (node: LinkedNode) => {
     if (node.link) {
       found.push({ link: node.link, nodeId: node.id });
+    }
+    for (const run of node.runs ?? []) {
+      if (run.link) {
+        found.push({ link: run.link, nodeId: node.id });
+      }
     }
     for (const child of node.children ?? []) {
       walk(child);
@@ -105,3 +115,8 @@ export const linksIn = (
   }
   return found;
 };
+
+/** Every node of a tree that leads somewhere, once each, in document order. */
+export const linkedNodeIds = (
+  root: LinkedNode | null | undefined
+): string[] => [...new Set(linksIn(root).map((link) => link.nodeId))];

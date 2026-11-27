@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { PageDocument } from "@ultrapaint/contracts/document";
-import { Arbitrary, Effect } from "effect";
+import { Arbitrary, Effect, Schema } from "effect";
 import { serialise } from "./factories.ts";
 import { serialiseDocument } from "./format.ts";
 
@@ -49,6 +49,40 @@ describe("serialiseDocument", () => {
 `
     );
   });
+
+  it.effect(
+    "keeps a text's runs on its line, and reads them back (ADR 0163)",
+    () =>
+      Effect.gen(function* () {
+        const page = {
+          root: {
+            children: [
+              {
+                id: "t",
+                role: "paragraph" as const,
+                runs: [
+                  { text: "Accept the " },
+                  { link: "terms.page.json", text: "terms", underline: true },
+                ],
+                text: "Accept the terms",
+                type: "text" as const,
+              },
+            ],
+            id: "root",
+            type: "page" as const,
+          },
+          version: 1 as const,
+        };
+        const text = serialiseDocument(page);
+        expect(text).toContain(
+          `{"type": "text", "id": "t", "role": "paragraph", "runs": [{"text": "Accept the "}, {"link": "terms.page.json", "text": "terms", "underline": true}], "text": "Accept the terms"}`
+        );
+        const read = yield* Schema.decodeUnknownEffect(PageDocument)(
+          JSON.parse(text)
+        );
+        expect(canonical(read)).toBe(canonical(page));
+      })
+  );
 
   it("writes a canvas's loose nodes one per line and its other fields as before", () => {
     const text = serialiseDocument({

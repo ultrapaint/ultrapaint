@@ -120,6 +120,34 @@ describe("the inspector's sections", () => {
     expect(container.textContent).toContain("Prototype");
   });
 
+  it("say a text whose words link leads nowhere as a whole, rather than offer it a link (ADR 0163)", () => {
+    const legal = {
+      id: "legal",
+      role: "paragraph",
+      runs: [
+        { text: "Accept the " },
+        { link: "terms.page.json", text: "terms" },
+      ],
+      text: "Accept the terms",
+      type: "text",
+    } as DesignNode;
+    useDocuments.setState({
+      docs: {
+        [HOME]: {
+          ...home,
+          root: { children: [legal], id: "home", type: "page" } as DesignNode,
+        },
+      },
+    });
+    act(() => select({ frame: HOME, nodeId: "legal" }));
+    const label = [...container.querySelectorAll("*")].find(
+      (el) => el.children.length === 0 && el.textContent === "Goes to"
+    );
+    const row = label?.closest(".grid");
+    expect(row?.textContent).toContain("Its words link");
+    expect(row?.querySelector("button")).toBeNull();
+  });
+
   it("hold nothing of the code for a page: its implementation is the Code tab's", () => {
     act(() => select({ frame: HOME, nodeId: "home" }));
     expect(container.textContent).toContain("Route");

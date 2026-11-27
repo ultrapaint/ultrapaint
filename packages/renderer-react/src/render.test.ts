@@ -210,6 +210,42 @@ describe("a system component", () => {
   });
 });
 
+describe("a text's runs (ADR 0163)", () => {
+  const legal = text("legal", {
+    runs: [
+      { text: "By signing up you accept the " },
+      { link: "terms.page.json", text: "terms" },
+      { text: " and the " },
+      { text: "rules", underline: true },
+    ],
+    text: "By signing up you accept the terms and the rules",
+  } as Partial<DesignNode>);
+
+  it("draws a run's link inside the text's words, followed when pressed as a node's link is", async () => {
+    const { at, navigated } = await draw(column([legal]));
+    const words = at("legal");
+    expect(words?.textContent).toBe(
+      "By signing up you accept the terms and the rules"
+    );
+    const link = [...(words?.querySelectorAll("a") ?? [])];
+    expect(link.map((a) => a.textContent)).toEqual(["terms"]);
+    link[0]?.click();
+    expect(navigated).toEqual(["terms.page.json"]);
+    // The rest of the words lead nowhere.
+    words?.click();
+    expect(navigated).toEqual(["terms.page.json"]);
+  });
+
+  it("draws a run's underline under its words alone", async () => {
+    const { at } = await draw(column([legal]));
+    const underlined = [...(at("legal")?.querySelectorAll("*") ?? [])].filter(
+      (el) => (el as HTMLElement).style.textDecorationLine === "underline"
+    );
+    expect(underlined.map((el) => el.textContent)).toEqual(["rules"]);
+    expect(at("legal")?.style.textDecorationLine).toBe("");
+  });
+});
+
 describe("the design's stylesheet and the system components' looks (ADRs 0028, 0041)", () => {
   it("marks every instance with its component and its variant props", async () => {
     const { at } = await draw(

@@ -478,7 +478,9 @@ It holds a tree of nodes, each with an id:
 - group: a plain container; its children stack.
 - text: role "heading" (with level 1-6) or "paragraph", its text, and either a textStyle of the
   design system (its size, weight and line height as one thing: prefer this) or its own size,
-  weight, lineHeight, font, tracking; and color, align.
+  weight, lineHeight, font, tracking; and color, align. A link or an underline on some of its
+  words is its runs, never a text node of their own: runs [{ text: "Accept the " }, { text:
+  "terms", link: "terms.page.json", underline: true }].
 - image: src (assets/<file>: the canvas's own assets/ when it has that file, the shared assets/ at the root of the designs directory otherwise; or a URL), alt, fit.
 - instance: a component (listed below) — component (its name), from "${SYSTEM_FROM}" for
   Ultrapaint's system components or "${APP_FROM}" for the project's app components, props, and

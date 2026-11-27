@@ -759,6 +759,12 @@ const CUTS: readonly {
   },
 ];
 
+/** The line drawn under a text's words: `underline`, and `no-underline` for none. */
+const TEXT_DECORATION_LINE: Record<string, string> = {
+  none: "no-underline",
+  underline: "underline",
+};
+
 const TEXT_TRANSFORM: Record<string, string> = {
   lowercase: "lowercase",
   none: "normal-case",
@@ -871,6 +877,12 @@ const RULES: Record<string, Rule> = {
   ...sideRules("padding", "p"),
   ...sideRules("margin", "m"),
   textAlign: named("textAlign", "text", "center left right"),
+  textDecorationLine: (value) => {
+    const cls = TEXT_DECORATION_LINE[String(value)];
+    return cls === undefined
+      ? arbitraryProperty("textDecorationLine", value)
+      : one(cls, "textDecorationLine");
+  },
   textOverflow: cut("textOverflow"),
   textTransform: (value) => {
     const cls = TEXT_TRANSFORM[String(value)];

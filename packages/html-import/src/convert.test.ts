@@ -236,11 +236,58 @@ describe("pasting HTML as layers", () => {
     ]);
   });
 
-  it("keeps the words of inline markup in one text, and says its formatting was flattened", () => {
+  it("keeps an inline link and an underline as runs of one text, and warns of neither (ADR 0163)", () => {
+    const { nodes, warnings } = paste(
+      `<p>By signing up  you accept the <a href="/terms">terms</a> and <u>rules</u>, <span style="text-decoration: underline">read</span> <span class="underline">them</span>.</p>`
+    );
+    expect(nodes).toEqual([
+      {
+        id: "t_1",
+        role: "paragraph",
+        runs: [
+          { text: "By signing up you accept the " },
+          { link: "/terms", text: "terms" },
+          { text: " and " },
+          { text: "rules", underline: true },
+          { text: ", " },
+          { text: "read", underline: true },
+          { text: " " },
+          { text: "them", underline: true },
+          { text: "." },
+        ],
+        text: "By signing up you accept the terms and rules, read them.",
+        type: "text",
+      },
+    ]);
+    expect(warnings).toEqual([]);
+  });
+
+  it("keeps the underline of the text's own element as a run of all its words", () => {
+    expect(
+      paste(`<p class="underline">Read the terms</p>`).nodes
+    ).toMatchObject([{ runs: [{ text: "Read the terms", underline: true }] }]);
+  });
+
+  it("leaves out a non-breaking space at either end of a text's words", () => {
+    expect(paste("<p>&nbsp;Hi there&nbsp;</p>").nodes).toMatchObject([
+      { text: "Hi there" },
+    ]);
+  });
+
+  it("still flattens a bold or an italic into its text, and says so, keeping a link beside it", () => {
     const { nodes, warnings } = paste(
       "<p>Read the <a href='/docs'>docs</a>,<br> <strong>now</strong>.</p>"
     );
-    expect(nodes).toMatchObject([{ text: "Read the docs,\nnow." }]);
+    expect(nodes).toMatchObject([
+      {
+        runs: [
+          { text: "Read the " },
+          { link: "/docs", text: "docs" },
+          { text: ",\nnow." },
+        ],
+        text: "Read the docs,\nnow.",
+      },
+    ]);
     expect(warnings).toEqual([expect.objectContaining({ kind: "inline" })]);
   });
 

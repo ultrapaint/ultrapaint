@@ -3,6 +3,7 @@
  * page its prototype opens on, and the links between its pages, with the ones that lead nowhere.
  */
 import type { Page } from "@ultrapaint/contracts/pages";
+import { linksOfNode } from "@ultrapaint/design-document/text-runs";
 import { canvasDocOf, walk } from "@ultrapaint/design-document/tree";
 import { pageOfLink, linkTargetOf as parseLink } from "@ultrapaint/shared/link";
 import { Effect, Schema } from "effect";
@@ -200,17 +201,16 @@ export const CanvasToolsLive = CanvasTools.toLayer(
             state.doc === canvasDocOf(id)
               ? null
               : (inCanvas.find((p) => p.id === state.doc)?.file ?? state.doc);
+          // A text's runs' links (ADR 0163) are listed on the text, as its own link would be.
           return [...walk(state.root)].flatMap((node) =>
-            node.link === undefined || node.link.trim() === ""
-              ? []
-              : [
-                  {
-                    link: node.link,
-                    node: node.id,
-                    page,
-                    ...linkTargetOf(node.link, inCanvas),
-                  },
-                ]
+            linksOfNode(node)
+              .filter((link) => link.trim() !== "")
+              .map((link) => ({
+                link,
+                node: node.id,
+                page,
+                ...linkTargetOf(link, inCanvas),
+              }))
           );
         });
         const broken = links.filter((l) => l.broken !== undefined);

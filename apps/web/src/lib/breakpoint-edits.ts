@@ -14,6 +14,7 @@ import {
   resolveAtBreakpoint,
   sourceOf,
 } from "@ultrapaint/design-document/breakpoints";
+import { hasRuns } from "@ultrapaint/design-document/text-runs";
 import { sameJson } from "@ultrapaint/design-document/tree";
 import { currentBreakpoints } from "../state/design-system.ts";
 import { editedAtOf, useDocuments } from "../state/documents.ts";
@@ -113,7 +114,13 @@ export const updateOpsAt = (
       ? null
       : (resolveAtBreakpoint(node, breakpoints, below) as unknown as Fields);
   const entries = Object.entries(set).map(([key, value]) => {
-    if (FIXED_FIELDS.has(key) || (key === "type" && !isStack(node))) {
+    // A text's words are the same at every breakpoint once it has runs (ADR 0163).
+    const fixedWords = key === "text" && ("runs" in set || hasRuns(node));
+    if (
+      FIXED_FIELDS.has(key) ||
+      (key === "type" && !isStack(node)) ||
+      fixedWords
+    ) {
       return [key, value, null] as const;
     }
     if (target === null) {

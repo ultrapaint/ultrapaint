@@ -1,10 +1,11 @@
-import type { DesignNode } from "@ultrapaint/contracts/document";
+import type { DesignNode, TextRun } from "@ultrapaint/contracts/document";
 import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
 import type { Rect } from "@ultrapaint/contracts/preview";
 import {
   findLayer,
   instanceLayerOf,
 } from "@ultrapaint/design-document/instance-layers";
+import { asSet } from "@ultrapaint/design-document/text-runs";
 import { findNode, nodeLabel } from "@ultrapaint/design-document/tree";
 import type { Preview } from "@ultrapaint/preview-core/preview";
 import { X } from "lucide-react";
@@ -65,13 +66,24 @@ import { usePreview } from "./preview-module.ts";
 import { SelectionChrome } from "./selection-chrome.tsx";
 import { type PointerAt, useFramePointer } from "./use-frame-pointer.ts";
 import { CHOOSING_LIFT, VariationPreviewChrome } from "./variation-preview.tsx";
+import { askWordsLink } from "./words-link.tsx";
 
 /**
  * Writes an inline text edit from the preview back into the document, at the breakpoint of the
  * view it was typed in (ADR 0036): a page's, or an app component's tree edited on its board.
  */
-export const commitText = (frame: string, nodeId: string, text: string) =>
-  updateNodes([{ frame, nodeId }], { text }, "Edit text");
+export const commitText = (
+  frame: string,
+  nodeId: string,
+  text: string,
+  /** Its runs (ADR 0163), when the edit says them: null once none is left. */
+  runs?: readonly TextRun[] | null
+) =>
+  updateNodes(
+    [{ frame, nodeId }],
+    asSet(runs === undefined ? { text } : { runs, text }),
+    "Edit text"
+  );
 
 /** A frame takes input: the interact tool, Space not held. */
 export const isInteractive = (s: { mode: string; spacePan: boolean }) =>
@@ -195,15 +207,22 @@ export const Frame = memo(
     // What the frame says, heard while it is on screen and drawn. Its error the frame keeps,
     // whoever listens (`Highlights`).
     useFrameEvents(drawn ? frameId : null, {
+      // Words selected and ⌘K pressed in a text edited in place: where they lead is asked by
+      // them, in a preview of another variation neither (ADR 0098).
+      linkWords: (nodeId, words) => {
+        if (writesThrough(frameId)) {
+          askWordsLink({ frame: frameId, nodeId, ...words });
+        }
+      },
       // The frame keeps its page; the canvas brings the page the link leads to into view.
       navigateTo: (route) => focusLink(route),
       rects: (rects) => useEditor.getState().setRects(frameId, rects),
       rendered: () => setKept(true),
       size: (size) => useEditor.getState().setSize(frameId, size),
       // Text typed in a preview of another variation is not written (ADR 0098).
-      textCommit: (nodeId, text) => {
+      textCommit: (nodeId, text, runs) => {
         if (writesThrough(frameId)) {
-          commitText(frameId, nodeId, text);
+          commitText(frameId, nodeId, text, runs);
         }
       },
     });

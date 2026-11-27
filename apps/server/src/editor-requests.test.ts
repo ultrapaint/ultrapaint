@@ -1117,6 +1117,18 @@ describe("the editor's requests on a project", () => {
                   op: "insert",
                   parent: before.root?.id ?? null,
                 },
+                {
+                  // A link on some of a text's words (ADR 0163) follows as a node's does.
+                  node: {
+                    ...paragraph("byRun", "See the target"),
+                    runs: [
+                      { text: "See the " },
+                      { link: "/target", text: "target" },
+                    ],
+                  },
+                  op: "insert",
+                  parent: before.root?.id ?? null,
+                },
               ],
             },
           ],
@@ -1128,17 +1140,24 @@ describe("the editor's requests on a project", () => {
               (state.root && "children" in state.root
                 ? (state.root.children ?? [])
                 : []
-              ).map((c) => [c.id, c.link])
+              ).map((c) => [
+                c.id,
+                c.type === "text" && c.runs
+                  ? c.runs.map((r) => r.link ?? null)
+                  : c.link,
+              ])
             )
         );
         yield* client["pages.setRoute"]({ id: target.id, route: "/moved" });
         assert.deepInclude(yield* linksOf, {
           byFile: "target.page.json",
+          byRun: [null, "target.page.json"],
           byUrl: "target.page.json",
         });
         yield* client["pages.rename"]({ id: target.id, name: "Goal" });
         assert.deepInclude(yield* linksOf, {
           byFile: "goal.page.json",
+          byRun: [null, "goal.page.json"],
           byUrl: "goal.page.json",
         });
         yield* client["canvases.delete"]({ id: canvas.id });

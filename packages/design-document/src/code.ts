@@ -29,7 +29,11 @@ import {
   SYSTEM_FROM,
 } from "@ultrapaint/contracts/component-names";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
-import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
+import type {
+  DesignNode,
+  InstanceNode,
+  TextNode,
+} from "@ultrapaint/contracts/document";
 import type {
   ClassWriter,
   Declarations,
@@ -58,6 +62,7 @@ import {
   LAYER_SEPARATOR,
 } from "./instance-layers.ts";
 import { fillSlots, slotLayoutOf } from "./slots.ts";
+import { hasRuns, runsOf } from "./text-runs.ts";
 import { childrenOf, findNode, isRecord, nodeLabel, walk } from "./tree.ts";
 
 const INDENT = "  ";
@@ -66,6 +71,8 @@ const LINE_WIDTH = 80;
 
 /** What JSX text would read as markup or an expression, or would collapse. */
 const JSX_UNSAFE_RE = /[{}<>\n]|^\s|\s$/;
+/** The same inside a line of words, where JSX keeps the spaces beside a tag. */
+const JSX_INLINE_UNSAFE_RE = /[{}<>\n]/;
 /** What JSX decodes in text and in a quoted attribute: `&amp;`, `&#169;`. */
 const ENTITY_RE = /&(?:#\d+|#x[\da-f]+|[a-z][a-z\d]*);/i;
 const ATTRIBUTE_NAME_RE = /^[A-Za-z_$][\w$-]*$/;
@@ -506,14 +513,20 @@ type Child =
 interface Element {
   readonly attributes: readonly Attribute[];
   readonly children: readonly Child[];
+  /** Its children are a line of words (a text's runs): written on one line, as they are spaced. */
+  readonly inline?: boolean | undefined;
   readonly tag: string;
 }
 
 const element = (
   tag: string,
   attributes: readonly Attribute[],
-  children: readonly Child[] = []
-): Child => ({ element: { attributes, children, tag }, kind: "element" });
+  children: readonly Child[] = [],
+  inline = false
+): Child => ({
+  element: { attributes, children, tag, ...(inline && { inline }) },
+  kind: "element",
+});
 
 const comment = (text: string): Child => ({ kind: "comment", text });
 
@@ -586,8 +599,8 @@ const UPPER_RE = /[A-Z]/g;
 const LINE_BREAK_RE = /\r?\n/g;
 
 /** Text as a JSX child: as it is, or as a string expression when JSX would read it otherwise. */
-const jsxText = (text: string) =>
-  JSX_UNSAFE_RE.test(text) || ENTITY_RE.test(text)
+const jsxText = (text: string, unsafe = JSX_UNSAFE_RE) =>
+  unsafe.test(text) || ENTITY_RE.test(text)
     ? `{${JSON.stringify(text)}}`
     : text;
 
@@ -664,6 +677,8 @@ interface Printer {
   readonly comment: (text: string) => string;
   /** An element with nothing in it, its opening's last line given (`tail`, `pad` alone when the attributes are on lines of their own). */
   readonly empty: (tag: string, tail: string, pad: string) => string;
+  /** Words inside a line of them, beside a tag on the same line. */
+  readonly inlineText: (text: string) => string;
   readonly text: (text: string) => string;
 }
 
@@ -671,16 +686,34 @@ const JSX: Printer = {
   attribute: jsxAttribute,
   comment: (text) => `{/* ${text.replaceAll("*/", "* /")} */}`,
   empty: (_tag, tail, pad) => `${tail}${tail === pad ? "" : " "}/>`,
+  inlineText: (text) => jsxText(text, JSX_INLINE_UNSAFE_RE),
   text: jsxText,
 };
+
+/** A line break in a text is a `<br>`. */
+const htmlText = (text: string) =>
+  escapeHtml(text).replace(LINE_BREAK_RE, "<br>");
 
 const HTML: Printer = {
   attribute: htmlAttribute,
   comment: (text) => `<!-- ${text.replaceAll("--", "- -")} -->`,
   empty: (tag, tail) =>
     VOID_ELEMENTS.has(tag) ? `${tail}>` : `${tail}></${tag}>`,
-  // A line break in a text is a `<br>`.
-  text: (text) => escapeHtml(text).replace(LINE_BREAK_RE, "<br>"),
+  inlineText: htmlText,
+  text: htmlText,
+};
+
+/** A child inside a line of words, on that line: its own children too. */
+const printInline = (child: Child, printer: Printer): string => {
+  if (child.kind === "text") {
+    return printer.inlineText(child.text);
+  }
+  if (child.kind === "comment") {
+    return printer.comment(child.text);
+  }
+  const { attributes, children, tag } = child.element;
+  const opening = [tag, ...attributes.map(printer.attribute).filter(Boolean)];
+  return `<${opening.join(" ")}>${children.map((c) => printInline(c, printer)).join("")}</${tag}>`;
 };
 
 const printChild = (
@@ -694,6 +727,9 @@ const printChild = (
   }
   if (child.kind === "comment") {
     return [`${pad}${printer.comment(child.text)}`];
+  }
+  if (child.element.inline) {
+    return [`${pad}${printInline(child, printer)}`];
   }
   const { children, tag } = child.element;
   const attributes = child.element.attributes
@@ -766,6 +802,35 @@ const childFor = (node: DesignNode, w: Writing, parents: Parents): Child[] =>
   hiddenEverywhere(node, w)
     ? [comment(`Hidden: ${nodeLabel(node)}`)]
     : markupOf(node, w, parents);
+
+/** What an underlined run's element sets, as the style system writes it. */
+const UNDERLINE: Declarations = { textDecorationLine: "underline" };
+
+/**
+ * A text's runs inside its element (ADR 0163): a run's link an anchor, its underline the style
+ * system's class, a plain run its words. A text that links as a whole is one anchor already, and
+ * an anchor holds no other: its runs' links are left out.
+ */
+const runsFor = (node: TextNode, w: Writing): Child[] =>
+  runsOf(node).map((run): Child => {
+    const words: Child = { kind: "text", text: run.text };
+    const classes = run.underline
+      ? w.classes.classes([{ breakpoint: null, declarations: UNDERLINE }])
+      : [];
+    if (run.link && !node.link) {
+      return element(
+        "a",
+        [
+          stringAttribute("href", w.hrefOf(run.link)),
+          ...classAttribute(classes),
+        ],
+        [words]
+      );
+    }
+    return classes.length > 0
+      ? element("span", classAttribute(classes), [words])
+      : words;
+  });
 
 /** A link is a plain anchor here: in the application it is its router's own link. */
 const linked = (
@@ -856,9 +921,16 @@ const showing = (
   switch (node.type) {
     case "text":
       return linked(node, w, [
-        element(tagOf(node), classAttribute(classes), [
-          { kind: "text", text: node.text },
-        ]),
+        hasRuns(node)
+          ? element(
+              tagOf(node),
+              classAttribute(classes),
+              runsFor(node, w),
+              true
+            )
+          : element(tagOf(node), classAttribute(classes), [
+              { kind: "text", text: node.text },
+            ]),
       ]);
     case "image":
       if (node.tint !== undefined) {

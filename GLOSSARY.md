@@ -135,6 +135,11 @@ refactor and the board view left.
   the step for its frame's width and written with the step's prefixed classes, and a size or line
   height the text sets itself **overrides** the style there (`styleOverrides`). _Avoid_:
   responsive style, style breakpoint.
+- **Text run**: a stretch of a text's words with a link or an underline of its own (ADR 0163;
+  contracts' `TextRun`, design-document's `text-runs`), in the text's `runs`, whose words joined
+  are its `text`. A run that sets neither is plain words; a text whose runs set nothing is a
+  plain text. Edited in place as words, each edit mapped onto the runs by its offsets; ⌘U
+  underlines, ⌘K asks where the words lead. _Avoid_: span, rich text, inline style.
 - **Fill layer**: one of the layers a box's `fill` is read as (ADR 0134; design-document's
   `fill`), the top one first: a **colour**, a **gradient**, an **image** (ADR 0149: its file, a
   path in the canvas, and its **fit**, cover, contain or fill, centred and drawn once), or, for a

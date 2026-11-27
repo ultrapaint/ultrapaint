@@ -477,7 +477,7 @@ const BoardTree = ({
   useWatchedRects(frameId, [...selected, hover]);
   useFrameEvents(frameId, {
     rects: (rects) => useEditor.getState().setRects(frameId, rects),
-    textCommit: (nodeId, text) => commitText(frameId, nodeId, text),
+    textCommit: (nodeId, text, runs) => commitText(frameId, nodeId, text, runs),
   });
   const pointer = useFramePointer({
     canvas,

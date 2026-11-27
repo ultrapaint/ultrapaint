@@ -4,11 +4,23 @@
  * not fit the tree throws a `DocumentOpError`, which the server turns into a wire error. Types of
  * field values are not checked here; the server decodes the result against the schema.
  */
-import type { DesignNode, DocOp } from "@ultrapaint/contracts/document";
+import type {
+  DesignNode,
+  DocOp,
+  TextRun,
+} from "@ultrapaint/contracts/document";
 import { FIXED_FIELDS } from "./breakpoints.ts";
 import { type IdGenerator, idPrefix, withNewIds } from "./ids.ts";
 import { instanceLayerOf } from "./instance-layers.ts";
-import { acceptsChildren, findPath, idsOf, isContainer, walk } from "./tree.ts";
+import { settleRuns, wordsOfRuns } from "./text-runs.ts";
+import {
+  acceptsChildren,
+  findPath,
+  idsOf,
+  isContainer,
+  isRecord,
+  walk,
+} from "./tree.ts";
 
 export class DocumentOpError extends Error {
   constructor(message: string) {
@@ -41,6 +53,11 @@ const setAt = (node: Draft, name: string, set: Record<string, unknown>) => {
     if (FIXED_FIELDS.has(key)) {
       fail(`${key} is the same at every breakpoint: set it without "at"`);
     }
+    if (key === "text" && value !== null && Array.isArray(node.runs)) {
+      fail(
+        `${node.id} has runs, whose words are the same at every breakpoint: set its runs without "at"`
+      );
+    }
     if (
       key === "type" &&
       value !== null &&
@@ -69,7 +86,54 @@ const setAt = (node: Draft, name: string, set: Record<string, unknown>) => {
   }
 };
 
-/** How far a copy on the canvas lands from its original. */
+/**
+ * A text as its runs leave it (ADR 0163): `text` their words joined and the runs settled, or the
+ * runs gone when `set` gives the text new words alone. A text links as a whole or by its runs,
+ * never both, and has the same words at every breakpoint once it has runs.
+ */
+const settleText = (node: Draft, set?: Record<string, unknown>) => {
+  if (node.type !== "text") {
+    return;
+  }
+  const had = node.runs as TextRun[] | undefined;
+  if (
+    set &&
+    "text" in set &&
+    !("runs" in set) &&
+    Array.isArray(had) &&
+    set.text !== wordsOfRuns(had)
+  ) {
+    node.runs = undefined;
+  }
+  if (Array.isArray(node.runs)) {
+    const runs = node.runs as TextRun[];
+    node.text = wordsOfRuns(runs);
+    node.runs = settleRuns(runs) ?? undefined;
+  }
+  const runs = node.runs as TextRun[] | undefined;
+  if (runs?.some((run) => run.link) && typeof node.link === "string") {
+    fail(
+      set && "link" in set && !("runs" in set)
+        ? `${node.id}: its words link (runs), so it cannot link as a whole too: take the runs' links off first`
+        : `${node.id} links as a whole (link), so a run of its words cannot link too: take its link off first`
+    );
+  }
+  const at = isRecord(node.at) ? Object.values(node.at) : [];
+  if (runs && at.some((over) => isRecord(over) && "text" in over)) {
+    fail(
+      `${node.id} has words of its own at a breakpoint, and a text with runs has the same words at every one: take its "at" text off first`
+    );
+  }
+};
+
+/** Settles every text of a tree put in (`settleText`). */
+const settleTexts = (node: Draft) => {
+  settleText(node);
+  for (const child of node.children ?? []) {
+    settleTexts(child);
+  }
+};
+
 /** What a layer of an instance may have set: any field, but its structure or its kind. */
 const checkLayerFields = (set: Record<string, unknown>) => {
   for (const [key, value] of Object.entries(set)) {
@@ -131,6 +195,7 @@ const setOrDrop = (
  */
 const DRAFT_KIND = "row";
 
+/** How far a copy on the canvas lands from its original. */
 const DUPLICATE_OFFSET = 40;
 
 interface ApplyOptions {
@@ -310,6 +375,7 @@ export const applyOps = (
     const [parent] = pathTo(draft, parentId(op.parent)).slice(-1) as [Draft];
     const { at, slot } = arrival(parent, op.index);
     const node = fresh(op.node);
+    settleTexts(node);
     place(node, parent);
     slot.splice(at, 0, node);
     created.push(node.id);
@@ -337,6 +403,7 @@ export const applyOps = (
     }
     // Taken out first: the node may keep an id of one it replaces.
     const node = fresh(op.node);
+    settleTexts(node);
     place(node, parent, { x: Number(was.x ?? 0), y: Number(was.y ?? 0) });
     siblings.splice(at, 0, node);
     created.push(node.id);
@@ -393,6 +460,7 @@ export const applyOps = (
         node[key] = value;
       }
     }
+    settleText(node, op.set);
   };
 
   const setPropsOp = (op: Extract<DocOp, { op: "setProps" }>) => {

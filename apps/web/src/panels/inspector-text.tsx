@@ -14,6 +14,7 @@ import type {
   TextNode,
 } from "@ultrapaint/contracts/document";
 import { upTo } from "@ultrapaint/design-document/breakpoints";
+import { asSet, reworded } from "@ultrapaint/design-document/text-runs";
 import {
   attachTextStyleOps,
   detachTextStyleOps,
@@ -78,6 +79,7 @@ import {
   Row,
   Section,
   set,
+  setEach,
   sharedOf,
   TextInput,
   TokenField,
@@ -435,7 +437,12 @@ export const TextSection = ({
       <div className="pb-1">
         <TextInput
           multiline
-          onChange={(v) => set("text", v)}
+          // A text whose words link or are underlined keeps them on its words (ADR 0163).
+          onChange={(v) =>
+            setEach("Change text", (node) =>
+              node.type === "text" ? asSet(reworded(node, v)) : { text: v }
+            )
+          }
           {...shownAs(sharedOf(nodes, (n) => n.text))}
         />
       </div>

@@ -10,7 +10,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { LinkField } from "../components/link-field.tsx";
+import {
+  LinkField,
+  WordsLinkNote,
+  wordsLinkIn,
+} from "../components/link-field.tsx";
 import { describeLink } from "../lib/links.ts";
 import { updateSelection } from "../lib/node-actions.ts";
 import { Row, Section } from "../panels/inspector-fields.tsx";
@@ -70,15 +74,19 @@ export const LinkControl = ({ node }: { node: DesignNode }) => {
       <PopoverContent className="w-72 gap-0 p-0">
         <Section title="Prototype">
           <Row label="Goes to">
-            <LinkField
-              link={node.link}
-              onChange={(link) =>
-                updateSelection(
-                  { link },
-                  link === null ? "Remove the link" : "Link"
-                )
-              }
-            />
+            {wordsLinkIn([node]) ? (
+              <WordsLinkNote />
+            ) : (
+              <LinkField
+                link={node.link}
+                onChange={(link) =>
+                  updateSelection(
+                    { link },
+                    link === null ? "Remove the link" : "Link"
+                  )
+                }
+              />
+            )}
           </Row>
         </Section>
       </PopoverContent>

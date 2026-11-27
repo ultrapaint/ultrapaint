@@ -25,6 +25,7 @@ import { SnapshotBanner } from "./canvas/snapshot-banner.tsx";
 import { provideCanvasDefaults } from "./canvas/specimens.ts";
 import { CanvasStatus } from "./canvas/status.tsx";
 import { Toolbar } from "./canvas/toolbar.tsx";
+import { WordsLinkPopover } from "./canvas/words-link.tsx";
 import { CommandPalette } from "./components/command-palette.tsx";
 import { ContextMenuHost } from "./components/context-menu-host.tsx";
 import { DialogHost } from "./components/dialogs.tsx";
@@ -817,6 +818,7 @@ export const App = () => {
         <ShortcutSheet />
         <CommandPalette />
         <ContextMenuHost />
+        <WordsLinkPopover />
         <Toaster
           closeButton
           position="bottom-right"
