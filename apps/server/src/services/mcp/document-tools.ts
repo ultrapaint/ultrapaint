@@ -19,7 +19,6 @@ import {
   canvasDocOf,
   childrenOf,
   findNode,
-  idsOf,
   walk,
 } from "@ultrapaint/design-document/tree";
 import { valueMatcher } from "@ultrapaint/design-document/value-matches";
@@ -342,26 +341,15 @@ export const DocumentToolsLive = DocumentTools.toLayer(
           "makeComponent works on a page, not a take's working copy: make the component once the take is in"
         );
       }
-      const before = yield* documents((d) => d.get(at.doc));
-      if (expectedHash !== undefined && expectedHash !== before.hash) {
-        return yield* missing(
-          `${at.file} changed since you last saw it; read it again`
-        );
-      }
-      yield* reported(
+      const { instance } = yield* reported(
         project.use(
           Effect.flatMap(ComponentService, (c) =>
-            c.makeApp(at.doc, made.ids, made.name)
+            c.makeApp(at.doc, made.ids, made.name, expectedHash)
           )
         )
       );
-      // makeApp answers the component, as the editor's request does: the instance is the node
-      // the page did not have.
       const after = yield* documents((d) => d.get(at.doc));
-      const had = before.root ? idsOf(before.root) : new Set<string>();
-      const created = after.root
-        ? [...idsOf(after.root)].filter((id) => !had.has(id))
-        : [];
+      const created = [instance];
       yield* showEdited(at, created, undefined);
       return { created, hash: after.hash };
     });

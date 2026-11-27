@@ -321,6 +321,15 @@ withPromo(
         }),
         "makeComponent makes a component of a page's nodes"
       );
+      // Made on the page as the agent read it, or not at all.
+      assert.include(
+        yield* refusal("apply_operations", {
+          expectedHash: "an-older-hash",
+          ops: [{ ids: ["promo"], name: "Banner", op: "makeComponent" }],
+          route: "/home",
+        }),
+        "the page changed since you read it"
+      );
       const page = yield* tool("read_page", { route: "/home" });
       assert.deepStrictEqual(
         childrenOf(rootOf(page.document)).map((n) => n.id),
@@ -359,6 +368,20 @@ withPromo(
         promo?.component?.origin === "app" && promo.component.slots,
         []
       );
+      // Another file that places itself is no reason to let this one place itself.
+      assert.include(
+        yield* refusal("apply_operations", {
+          ops: [
+            {
+              node: { component: "Promo", from: "#app", type: "instance" },
+              op: "insert",
+              parent: "r",
+            },
+          ],
+          route: "component:Promo",
+        }),
+        "Promo places Promo: a component cannot place itself"
+      );
     })
 );
 
@@ -386,5 +409,22 @@ withPromo(
         variation: second?.id ?? "",
       });
       assert.strictEqual(yield* promoText("t"), "Hi");
+    })
+);
+
+onItsOwn(
+  "still names a page of a canvas called component by its URL, which is no component's name",
+  () =>
+    Effect.gen(function* () {
+      const { client } = yield* TestEnv;
+      const canvas = yield* client["canvases.create"]({ name: "Component" });
+      const page = yield* client["pages.create"]({
+        canvas: canvas.id,
+        name: "Plans",
+      });
+      const read = yield* tool("read_page", {
+        route: `${canvas.id}:${page.route ?? page.path}`,
+      });
+      assert.strictEqual(read.file, page.file);
     })
 );

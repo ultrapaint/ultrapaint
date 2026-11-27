@@ -30,6 +30,7 @@ import {
   BadRequest,
   type Conflict,
   NotFound,
+  Stale,
 } from "@ultrapaint/contracts/errors";
 import { variationsFileOf } from "@ultrapaint/contracts/variations";
 import { appComponentFrom } from "@ultrapaint/design-document/app-components";
@@ -180,13 +181,19 @@ export class ComponentService extends Context.Service<
     /**
      * Nodes of a page, siblings, made an app component: they are its tree (several in a row or a
      * column, as their container lays them out), and an instance of it takes their place, where
-     * the first of them was. One undo step.
+     * the first of them was. One undo step, written on the page as it was read: refused (`Stale`)
+     * when it changed meanwhile, or when it is no longer at `expectedHash`. Answers with the
+     * instance's id too.
      */
     readonly makeApp: (
       page: string,
       nodeIds: readonly string[],
-      name: string
-    ) => Effect.Effect<ComponentEntry, EditFailure | NotFound | Conflict>;
+      name: string,
+      expectedHash?: string
+    ) => Effect.Effect<
+      ComponentEntry & { readonly instance: string },
+      EditFailure | NotFound | Conflict
+    >;
     /**
      * A new app component, its tree an empty column, placed nowhere yet (ADR 0045): the Library's
      * + New, its board opened to build it in place. One undo step.
@@ -394,10 +401,16 @@ export class ComponentService extends Context.Service<
       const makeApp = Effect.fn("ComponentService.makeApp")(function* (
         page: string,
         nodeIds: readonly string[],
-        given: string
+        given: string,
+        expectedHash?: string
       ) {
         const name = appComponentName(given);
-        const { root } = yield* documents.get(page);
+        const { hash, root } = yield* documents.get(page);
+        if (expectedHash !== undefined && expectedHash !== hash) {
+          return yield* new Stale({
+            message: `${page} changed since you last saw it; reloading`,
+          });
+        }
         const found = root ? siblingsOf(root, nodeIds) : null;
         if (!found) {
           return yield* new NotFound({
@@ -420,6 +433,8 @@ export class ComponentService extends Context.Service<
             edits: [
               {
                 doc: page,
+                // The nodes were read at this hash: an edit landed since refuses the step.
+                expectedHash: hash,
                 ops: [
                   {
                     ids: nodes.map((n) => n.id),
@@ -445,7 +460,7 @@ export class ComponentService extends Context.Service<
             )
         );
         yield* publish;
-        return { component, file } satisfies ComponentEntry;
+        return { component, file, instance: instance.id };
       });
 
       const create = Effect.fn("ComponentService.create")(function* (
