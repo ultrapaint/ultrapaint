@@ -171,12 +171,12 @@ const pageFillHeight = (
     : undefined;
 
 /**
- * A viewport unit, with the amount before it: `100vh`, `50dvh`, `-2.5svw`, `10vmin`. Not one
- * inside a word, `$size-10vh` being a token's name, nor inside a file's path, `url(...)`, which
- * the match keeps as it is.
+ * A viewport unit, with the amount before it, in any case: `100vh`, `50dvh`, `-2.5svw`, `10VMIN`.
+ * Not one inside a word, `$spacing-1.5vh` being a token's name, nor inside a file's path,
+ * `url(...)` quoted or not, which the match keeps as it is.
  */
 const VIEWPORT_UNIT_RE =
-  /url\([^)]*\)|(?<![\w$-])(-?(?:\d+\.?\d*|\.\d+))[dls]?v(h|w|i|b|min|max)\b/g;
+  /url\((?:"[^"]*"|'[^']*'|[^)]*)\)|(?<![\w$.-])(-?(?:\d+\.?\d*|\.\d+))[dls]?v(h|w|i|b|min|max)\b/gi;
 
 /**
  * A value in the frame's units: each viewport unit as its container unit, `100dvh` → `100cqh`,
@@ -184,8 +184,8 @@ const VIEWPORT_UNIT_RE =
  */
 const asFrameUnits = (value: DeclaredValue): DeclaredValue =>
   typeof value === "string"
-    ? value.replace(VIEWPORT_UNIT_RE, (match, amount, axis) =>
-        amount === undefined ? match : `${amount}cq${axis}`
+    ? value.replace(VIEWPORT_UNIT_RE, (match, amount, axis: string) =>
+        amount === undefined ? match : `${amount}cq${axis.toLowerCase()}`
       )
     : value;
 

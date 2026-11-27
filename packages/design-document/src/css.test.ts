@@ -426,6 +426,45 @@ describe("a viewport length", () => {
     });
   });
 
+  it("is read in any case, `100VH` as `100vh`", () => {
+    const shout: DesignNode = {
+      children: [],
+      id: "s",
+      minHeight: "100VH",
+      type: "column",
+    };
+    expect(
+      declarationsOf(shout, { ...makeStyleContext(ds), viewport: "frame" })
+        .minHeight
+    ).toBe("100cqh");
+  });
+
+  it("is not read inside a token's name, a dotted one included", () => {
+    const spaced: DesignNode = {
+      children: [],
+      id: "s",
+      margin: { top: "$spacing-1.5vh" },
+      type: "column",
+    };
+    expect(
+      declarationsOf(spaced, { ...makeStyleContext(ds), viewport: "frame" })
+        .marginTop
+    ).toBe("$spacing-1.5vh");
+  });
+
+  it("leaves a quoted file's path as it is, parentheses and all", () => {
+    const hero: DesignNode = {
+      children: [],
+      fill: 'url("assets/(hero)/100vh.png") center / cover no-repeat',
+      id: "h",
+      type: "column",
+    };
+    expect(
+      declarationsOf(hero, { ...makeStyleContext(ds), viewport: "frame" })
+        .background
+    ).toBe('url("assets/(hero)/100vh.png") center / cover no-repeat');
+  });
+
   it("leaves a file's path as it is, an image fill's included", () => {
     const hero: DesignNode = {
       children: [],
