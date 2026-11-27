@@ -3,6 +3,9 @@
 Status: accepted, 2026-11-26. Amends 0024 (tokens are the style system's to read and write);
 follows 0028 (the code follows the design on export).
 
+> Amended by [0158](0158-an-export-keeps-the-stylesheets-form.md), 2026-11-27: a block under a
+> condition is an override for a `@theme` token too, and `scoped` is gone.
+
 ## Context
 
 ADR 0024 has the Tailwind v4 adapter read a token as a variable of an `@theme` block. Many

@@ -64,6 +64,28 @@ const project = (css = APP_CSS): DesignSystemContext => {
 const byName = (ctx: DesignSystemContext, name: string) =>
   readTokens(ctx).tokens.find((t) => t.name === name);
 
+/** The files as the changes leave them. */
+const edited = (
+  ctx: DesignSystemContext,
+  changes: Parameters<typeof writeTokens>[1]
+) => writeTokens(ctx, changes).edits;
+
+/** A package installed in the repository, with its stylesheet as `exports` names it. */
+const installed = (
+  ctx: DesignSystemContext,
+  pkg: string,
+  file: string,
+  css: string
+) => {
+  const dir = path.join(ctx.root, "node_modules", pkg);
+  mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
+  writeFileSync(
+    path.join(dir, "package.json"),
+    JSON.stringify({ exports: { ".": { style: `./${file}` } }, name: pkg })
+  );
+  writeFileSync(path.join(dir, file), css);
+};
+
 describe("reading Tailwind v4 tokens", () => {
   it("reads each @theme variable with where its value is written", () => {
     const ctx = project();
@@ -372,7 +394,7 @@ describe("reading a theme that resets Tailwind's defaults", () => {
 describe("writing Tailwind v4 tokens back", () => {
   it("changes a value where it is written, in each theme", () => {
     const ctx = project();
-    const edits = writeTokens(ctx, [
+    const edits = edited(ctx, [
       { name: "color-primary", value: "#ff0000" },
       { name: "color-primary", theme: "dark", value: "#ff8888" },
       { name: "color-brand", value: "#111111" },
@@ -394,7 +416,7 @@ describe("writing Tailwind v4 tokens back", () => {
 
   it("adds a token to the theme, a theme's value to its block, and takes one out", () => {
     const ctx = project();
-    const edits = writeTokens(ctx, [
+    const edits = edited(ctx, [
       { name: "color-accent", value: "#f59e0b" },
       { name: "color-brand", theme: "dark", value: "#60a5fa" },
       { name: "radius-lg", remove: true },
@@ -420,7 +442,7 @@ describe("writing Tailwind v4 tokens back", () => {
       "color-a--b",
     ];
     const ctx = project();
-    const edits = writeTokens(
+    const edits = edited(
       ctx,
       names.map((name) => ({ name, value: "#f59e0b" }))
     );
@@ -432,10 +454,10 @@ describe("writing Tailwind v4 tokens back", () => {
     expect(edits[0]?.text).toContain("--spacing-1_5: #f59e0b;");
   });
 
-  it("takes the last of two changes to one value, whether to the token or the variable it names", () => {
+  it("takes the last of two changes to one value, and gives tokens sharing a variable their own", () => {
     const ctx = project();
     const text = (changes: Parameters<typeof writeTokens>[1]) =>
-      writeTokens(ctx, changes)[0]?.text ?? "";
+      edited(ctx, changes)[0]?.text ?? "";
     expect(
       text([
         { name: "color-brand", value: "#111" },
@@ -454,18 +476,21 @@ describe("writing Tailwind v4 tokens back", () => {
     ]);
     expect(twice).toContain("--color-accent: #555555;");
     expect(twice).not.toContain("#444444");
-    // Two tokens that are one variable: the last change is the variable's.
+    // Two tokens that share one variable: each takes its own value, and the variable keeps its.
     const shared = project(
       APP_CSS.replace(
         "--color-background: var(--background);",
         "--color-background: var(--background);\n  --color-surface: var(--background);"
       )
     );
-    const edited = writeTokens(shared, [
-      { name: "color-background", value: "#fafafa" },
-      { name: "color-surface", value: "#f0f0f0" },
-    ]);
-    expect(edited[0]?.text).toContain("--background: #f0f0f0;");
+    const each =
+      edited(shared, [
+        { name: "color-background", value: "#fafafa" },
+        { name: "color-surface", value: "#f0f0f0" },
+      ])[0]?.text ?? "";
+    expect(each).toContain("--color-background: #fafafa;");
+    expect(each).toContain("--color-surface: #f0f0f0;");
+    expect(each).toContain("--background: #ffffff;");
   });
 
   it("adds a token after the reset of its namespace, which would take it out again", () => {
@@ -479,7 +504,7 @@ describe("writing Tailwind v4 tokens back", () => {
 }
 `);
     const text =
-      writeTokens(ctx, [
+      edited(ctx, [
         { name: "color-brand", value: "#2563eb" },
         { name: "radius-sm", value: "0.25rem" },
       ])[0]?.text ?? "";
@@ -501,8 +526,7 @@ describe("writing Tailwind v4 tokens back", () => {
 }
 `);
     const text =
-      writeTokens(ctx, [{ name: "color-brand", value: "#2563eb" }])[0]?.text ??
-      "";
+      edited(ctx, [{ name: "color-brand", value: "#2563eb" }])[0]?.text ?? "";
     expect(text).toContain(
       "--radius-lg: 0.75rem;\n  --color-brand: #2563eb;\n}"
     );
@@ -510,7 +534,7 @@ describe("writing Tailwind v4 tokens back", () => {
 
   it("starts a theme block in a stylesheet that has none", () => {
     const ctx = project('@import "tailwindcss";\n');
-    const edits = writeTokens(ctx, [
+    const edits = edited(ctx, [
       { name: "color-brand", value: "#2563eb" },
       { name: "color-brand", theme: "dark", value: "#60a5fa" },
     ]);
@@ -529,7 +553,7 @@ describe("writing Tailwind v4 tokens back", () => {
 }
 `;
     const ctx = project(css);
-    const edits = writeTokens(ctx, [
+    const edits = edited(ctx, [
       { name: "color-panel", value: "#eeeeee" },
       { name: "color-panel", theme: "dark", value: "#111111" },
     ]);
@@ -555,7 +579,7 @@ describe("writing Tailwind v4 tokens back", () => {
 `;
     const ctx = project(css);
     expect(byName(ctx, "color-panel")?.values).toEqual({ dark: "#18181b" });
-    const edits = writeTokens(ctx, [
+    const edits = edited(ctx, [
       { name: "color-panel", theme: "dark", value: "#111111" },
     ]);
     expect(edits[0]?.text).toBe(css.replace("#18181b", "#111111"));
@@ -573,7 +597,7 @@ describe("writing Tailwind v4 tokens back", () => {
 }
 `;
     const ctx = project(css);
-    const edits = writeTokens(ctx, [
+    const edits = edited(ctx, [
       { name: "color-panel", theme: "dark", value: "#111111" },
     ]);
     expect(edits[0]?.text).toBe(
@@ -592,7 +616,7 @@ describe("writing Tailwind v4 tokens back", () => {
 }
 `;
     const ctx = project(css);
-    const edits = writeTokens(ctx, [{ name: "color-panel", value: "#eeeeee" }]);
+    const edits = edited(ctx, [{ name: "color-panel", value: "#eeeeee" }]);
     expect(edits[0]?.text).toBe(css.replace("#ffffff", "#eeeeee"));
   });
 
@@ -607,7 +631,7 @@ describe("writing Tailwind v4 tokens back", () => {
 }
 `;
     const ctx = project(css);
-    const edits = writeTokens(ctx, [{ name: "color-panel", value: "#eeeeee" }]);
+    const edits = edited(ctx, [{ name: "color-panel", value: "#eeeeee" }]);
     expect(edits[0]?.text).toBe(css.replace("#f5f5f5", "#eeeeee"));
   });
 
@@ -618,7 +642,7 @@ describe("writing Tailwind v4 tokens back", () => {
   --header-height: 4rem;
 }
 `);
-    const edits = writeTokens(ctx, [{ name: "color-panel", remove: true }]);
+    const edits = edited(ctx, [{ name: "color-panel", remove: true }]);
     expect(edits[0]?.text).toBe(
       '@import "tailwindcss";\n:root {\n  --header-height: 4rem;\n}\n'
     );
@@ -634,7 +658,7 @@ describe("writing Tailwind v4 tokens back", () => {
 }
 `;
     const ctx = project(css);
-    const edits = writeTokens(ctx, [{ name: "color-panel", value: "#eeeeee" }]);
+    const edits = edited(ctx, [{ name: "color-panel", value: "#eeeeee" }]);
     expect(edits[0]?.text).toBe(css.replace("#f5f5f5", "#eeeeee"));
   });
 
@@ -644,9 +668,8 @@ describe("writing Tailwind v4 tokens back", () => {
     const write = (value: string) =>
       writeFileSync(
         file,
-        writeTokens(ctx, [
-          { name: "color-brand", theme: "dark mode", value },
-        ])[0]?.text ?? ""
+        edited(ctx, [{ name: "color-brand", theme: "dark mode", value }])[0]
+          ?.text ?? ""
       );
     write("#60a5fa");
     expect(readTokens(ctx).themes).toEqual(["dark", "dark mode"]);
@@ -656,6 +679,232 @@ describe("writing Tailwind v4 tokens back", () => {
     write("#93c5fd");
     expect(readFileSync(file, "utf8")).toBe(
       `${APP_CSS}\n[data-theme="dark mode"] {\n  --color-brand: #93c5fd;\n}\n`
+    );
+  });
+});
+
+describe("exporting tokens in the stylesheet's own form (UP-236)", () => {
+  const PALETTE = `@import "tailwindcss";
+@theme {
+  --color-gray-200: #e5e5e5;
+  --color-gray-300: #d4d4d4;
+  --color-border: var(--color-gray-200);
+}
+`;
+
+  it("keeps an alias whose variable holds the design's value, and writes nothing", () => {
+    const ctx = project(PALETTE);
+    const { edits, writes } = writeTokens(ctx, [
+      { name: "color-border", value: "#e5e5e5" },
+    ]);
+    expect(edits).toEqual([]);
+    expect(writes).toEqual([
+      {
+        does: "none",
+        file: "src/app.css",
+        from: "var(--color-gray-200)",
+        name: "color-border",
+      },
+    ]);
+  });
+
+  it("points an alias at the declared step that holds the new value", () => {
+    const ctx = project(PALETTE);
+    const step = writeTokens(ctx, [{ name: "color-border", value: "#d4d4d4" }]);
+    expect(step.edits[0]?.text).toBe(
+      PALETTE.replace("var(--color-gray-200);", "var(--color-gray-300);")
+    );
+    expect(step.writes).toEqual([
+      {
+        does: "change",
+        file: "src/app.css",
+        from: "var(--color-gray-200)",
+        name: "color-border",
+        to: "var(--color-gray-300)",
+      },
+    ]);
+  });
+
+  it("writes the value in place of an alias when no declared variable holds it", () => {
+    const ctx = project(PALETTE);
+    expect(
+      edited(ctx, [{ name: "color-border", value: "#123456" }])[0]?.text
+    ).toBe(PALETTE.replace("var(--color-gray-200);", "#123456;"));
+  });
+
+  it("repairs a value an earlier export damaged in place, declaring nothing again", () => {
+    const css = `@import "tailwindcss";
+@import "tw-animate-css";
+@theme {
+  --animate-accordion-down: accordion-down .2sease-out0s;
+}
+`;
+    const ctx = project(css);
+    installed(
+      ctx,
+      "tw-animate-css",
+      "dist/tw-animate.css",
+      "@theme inline{--animate-accordion-down:accordion-down var(--tw-duration,.2s)var(--tw-ease,ease-out)}"
+    );
+    // The damage still reads as the code's value, so Sync shows it differs from the design's.
+    expect(byName(ctx, "animate-accordion-down")?.value).toBe(
+      "accordion-down .2sease-out0s"
+    );
+    expect(
+      edited(ctx, [
+        {
+          name: "animate-accordion-down",
+          value: "accordion-down .2s ease-out",
+        },
+      ])
+    ).toEqual([
+      {
+        file: "src/app.css",
+        text: css.replace(".2sease-out0s", ".2s ease-out"),
+      },
+    ]);
+  });
+
+  it("never rewrites a palette step through a token that aliases it", () => {
+    const css = `@import "tailwindcss";
+:root {
+  --gray-200: #e5e5e5;
+}
+@theme inline {
+  --color-border: var(--gray-200);
+  --color-input: var(--gray-200);
+  --color-ring: var(--gray-200);
+}
+`;
+    const ctx = project(css);
+    const text =
+      edited(ctx, [
+        { name: "color-border", value: "#ffffff" },
+        { name: "color-ring", value: "#000000" },
+      ])[0]?.text ?? "";
+    expect(text).toBe(
+      css
+        .replace("--color-border: var(--gray-200);", "--color-border: #ffffff;")
+        .replace("--color-ring: var(--gray-200);", "--color-ring: #000000;")
+    );
+  });
+
+  it("writes shadcn's per-theme variable through its token's alias, as before", () => {
+    const ctx = project();
+    const text =
+      edited(ctx, [{ name: "color-background", value: "#fafafa" }])[0]?.text ??
+      "";
+    expect(text).toBe(
+      APP_CSS.replace("--background: #ffffff;", "--background: #fafafa;")
+    );
+  });
+
+  it("reads and writes a token's base value outside the media query that overrides it", () => {
+    const css = `@import "tailwindcss";
+@theme {
+  --text-hero: 2rem;
+  --color-brand: #000000;
+  --color-primary: var(--primary);
+}
+:root {
+  --primary: #111111;
+}
+.dark {
+  --color-brand: #ffffff;
+}
+@media (max-width: 640px) {
+  :root {
+    --text-hero: 1rem;
+    --primary: #222222;
+  }
+}
+@media (min-width: 1024px) {
+  .dark {
+    --color-brand: #eeeeee;
+  }
+}
+`;
+    const ctx = project(css);
+    expect(byName(ctx, "text-hero")?.value).toBe("2rem");
+    expect(byName(ctx, "color-primary")?.value).toBe("#111111");
+    expect(byName(ctx, "color-brand")?.values).toEqual({ dark: "#ffffff" });
+    const text =
+      edited(ctx, [
+        { name: "text-hero", value: "3rem" },
+        { name: "color-primary", value: "#333333" },
+        { name: "color-brand", theme: "dark", value: "#dddddd" },
+      ])[0]?.text ?? "";
+    expect(text).toBe(
+      css
+        .replace("--text-hero: 2rem;", "--text-hero: 3rem;")
+        .replace("--primary: #111111;", "--primary: #333333;")
+        .replace("--color-brand: #ffffff;", "--color-brand: #dddddd;")
+    );
+  });
+
+  it("adds the tokens the code lacks in one block, in the stylesheet that declares the project's tokens", () => {
+    const tokens = `:root {
+  --color-panel: #f5f5f5;
+  --color-line: #e5e5e5;
+}
+`;
+    const ctx = project('@import "tailwindcss";\n@import "./tokens.css";\n');
+    writeFileSync(path.join(ctx.root, "src/tokens.css"), tokens);
+    const { edits, writes } = writeTokens(ctx, [
+      { name: "color-accent", value: "#f59e0b" },
+      { name: "radius-card", value: "0.75rem" },
+      { name: "color-accent", theme: "dark", value: "#fbbf24" },
+      { name: "radius-card", theme: "dark", value: "1rem" },
+    ]);
+    expect(edits).toEqual([
+      {
+        file: "src/tokens.css",
+        text: `${tokens}\n@theme {\n  --color-accent: #f59e0b;\n  --radius-card: 0.75rem;\n}\n\n.dark {\n  --color-accent: #fbbf24;\n  --radius-card: 1rem;\n}\n`,
+      },
+    ]);
+    expect(writes.map((w) => [w.name, w.theme, w.does, w.file, w.to])).toEqual([
+      ["color-accent", undefined, "add", "src/tokens.css", "#f59e0b"],
+      ["radius-card", undefined, "add", "src/tokens.css", "0.75rem"],
+      ["color-accent", "dark", "add", "src/tokens.css", "#fbbf24"],
+      ["radius-card", "dark", "add", "src/tokens.css", "1rem"],
+    ]);
+  });
+
+  it("writes a package's token only where the design's value differs from the package's, as the project's own", () => {
+    const ctx = project('@import "tailwindcss";\n@import "tw-animate-css";\n');
+    installed(
+      ctx,
+      "tw-animate-css",
+      "dist/tw-animate.css",
+      "@theme inline{--animate-accordion-down:accordion-down var(--tw-animation-duration,var(--tw-duration,.2s))var(--tw-ease,ease-out)var(--tw-animation-delay,0s)}"
+    );
+    expect(byName(ctx, "animate-accordion-down")?.value).toBe(
+      "accordion-down .2s ease-out 0s"
+    );
+    const same = writeTokens(ctx, [
+      {
+        name: "animate-accordion-down",
+        value: "accordion-down .2s ease-out 0s",
+      },
+    ]);
+    expect(same.edits).toEqual([]);
+    expect(same.writes.map((w) => w.does)).toEqual(["none"]);
+    const differs = edited(ctx, [
+      {
+        name: "animate-accordion-down",
+        value: "accordion-down .3s ease-out 0s",
+      },
+    ]);
+    expect(differs).toEqual([
+      {
+        file: "src/app.css",
+        text: '@import "tailwindcss";\n@import "tw-animate-css";\n\n@theme {\n  --animate-accordion-down: accordion-down .3s ease-out 0s;\n}\n',
+      },
+    ]);
+    // The project's override is read back as the token's value: it comes after the import.
+    writeFileSync(path.join(ctx.root, "src/app.css"), differs[0]?.text ?? "");
+    expect(byName(ctx, "animate-accordion-down")?.value).toBe(
+      "accordion-down .3s ease-out 0s"
     );
   });
 });

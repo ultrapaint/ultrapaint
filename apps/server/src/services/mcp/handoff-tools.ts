@@ -13,6 +13,7 @@ import {
   isComponentTarget,
 } from "@ultrapaint/contracts/implementation";
 import { baselineKey } from "@ultrapaint/contracts/sync";
+import type { TokenWrite } from "@ultrapaint/contracts/tokens";
 import { plural } from "@ultrapaint/shared/text";
 import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
 import { Effect, Schema } from "effect";
@@ -82,6 +83,45 @@ const lineOf = (item: ImplementationItem) => {
     ? `; tokens waiting for the code: ${item.tokens.join(", ")}`
     : "";
   return `- ${item.target} (${item.name}): ${status}${files}${tokens}`;
+};
+
+/**
+ * Every change an export made, file by file, so that an agent can check it and undo it from git
+ * (ADR 0158): `styles/app.css: color-panel var(--gray-200) → var(--gray-300), text-hero 2rem →
+ * 3rem.`, and the tokens it left as they were.
+ */
+const writtenLines = (writes: readonly TokenWrite[]): string[] => {
+  const byFile = new Map<string, string[]>();
+  const kept: string[] = [];
+  const nowhere: string[] = [];
+  for (const w of writes) {
+    const token = baselineKey(w.name, w.theme);
+    if (w.file === undefined) {
+      nowhere.push(token);
+      continue;
+    }
+    if (w.does === "none") {
+      kept.push(token);
+      continue;
+    }
+    const entry = {
+      add: `${token} added as ${w.to}`,
+      change: `${token} ${w.from} → ${w.to}`,
+      remove: `${token} taken out (was ${w.from})`,
+    }[w.does];
+    byFile.set(w.file, [...(byFile.get(w.file) ?? []), entry]);
+  }
+  return [
+    ...[...byFile].map(([file, entries]) => `${file}: ${entries.join(", ")}.`),
+    ...(kept.length > 0
+      ? [`Already the design's value, nothing written: ${kept.join(", ")}.`]
+      : []),
+    ...(nowhere.length > 0
+      ? [
+          `Not written, as no stylesheet of the repository is read for the preview to take them: ${nowhere.join(", ")}.`,
+        ]
+      : []),
+  ];
 };
 
 export const HandoffTools = Toolkit.make(Handoff);
@@ -245,7 +285,7 @@ export const HandoffToolsLive = HandoffTools.toLayer(
           `neither the design system nor the code has ${unknown.join(", ")}`
         );
       }
-      const { files, written } = yield* reported(
+      const { files, writes, written } = yield* reported(
         sync.apply("code", decisions, direction, names)
       );
       const done = direction === "export" ? "to the code" : "into the design";
@@ -253,6 +293,7 @@ export const HandoffToolsLive = HandoffTools.toLayer(
         written === 0
           ? `Nothing to bring ${done}.`
           : `${plural(written, "token value")} brought ${done}${files.length > 0 ? `: ${files.join(", ")}` : ""}.`,
+        ...writtenLines(writes ?? []),
       ];
       // What the reading noted of a token brought over, such as its being declared twice
       // (ADR 0152): a note about one token starts with its name (`TokenSource.notes`).

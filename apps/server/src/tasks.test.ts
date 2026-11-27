@@ -17,6 +17,7 @@ import { Effect, FileSystem } from "effect";
 import { OpenProject, ProjectManager } from "./project.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { DesignSystemSetupService } from "./services/design-system-setup.ts";
+import { DesignSystemSyncService } from "./services/design-system-sync.ts";
 import { DocumentService } from "./services/documents.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { ImplementationService } from "./services/implementation.ts";
@@ -539,6 +540,98 @@ describe("a token the code declares outside @theme (ADR 0152)", () => {
           assert.strictEqual(
             yield* fs.readFileString(css),
             "@theme {\n  --color-panel: #ffffff;\n}\n:root {\n  --color-panel: #eeeeee;\n}\n"
+          );
+        })
+    );
+  });
+});
+
+describe("an export in the stylesheet's own form (ADR 0158)", () => {
+  /** A palette alias, a phone size and a minified package's animation, as a client's app had. */
+  const STYLESHEET = `@import "tw-animate-css";
+@theme {
+  --color-gray-200: #e5e5e5;
+  --color-gray-300: #d4d4d4;
+  --color-panel: var(--color-gray-200);
+  --text-hero: 2rem;
+}
+@media (max-width: 640px) {
+  :root {
+    --text-hero: 1rem;
+  }
+}
+`;
+
+  /**
+   * The stylesheet with the package installed, a design system read from it, and the design's
+   * color-panel and text-hero changed since.
+   */
+  const designChangedSince = Effect.gen(function* () {
+    const { repo } = yield* ProjectFixture;
+    const fs = yield* FileSystem.FileSystem;
+    const pkg = path.join(repo, "node_modules/tw-animate-css");
+    yield* fs.makeDirectory(path.join(pkg, "dist"), { recursive: true });
+    yield* fs.writeFileString(
+      path.join(pkg, "package.json"),
+      '{"name":"tw-animate-css","exports":{".":{"style":"./dist/tw-animate.css"}}}'
+    );
+    yield* fs.writeFileString(
+      path.join(pkg, "dist/tw-animate.css"),
+      "@theme inline{--animate-accordion-down:accordion-down var(--tw-animation-duration,var(--tw-duration,.2s))var(--tw-ease,ease-out)var(--tw-animation-delay,0s)}"
+    );
+    yield* panelChanges(STYLESHEET);
+    const project = yield* OpenProject;
+    yield* project.use(
+      Effect.gen(function* () {
+        yield* (yield* DesignSystemService).edit([
+          { name: "color-panel", op: "setValue", value: "#d4d4d4" },
+          { name: "text-hero", op: "setValue", value: "3rem" },
+        ]);
+      })
+    );
+  });
+
+  eachTest(ProjectTest({ mcp: true }))((it) => {
+    it.effect(
+      "says, for each token waiting for the code, the file an export writes it in",
+      () =>
+        Effect.gen(function* () {
+          yield* designChangedSince;
+          const listed = yield* (yield* DesignSystemSyncService).tokens("code");
+          const toCode = (listed?.diffs ?? []).filter(
+            (d) => d.outcome === "source-behind"
+          );
+          assert.deepStrictEqual(
+            toCode.map((d) => [d.name, d.write?.does, d.write?.file]),
+            [
+              ["color-panel", "change", "styles/app.css"],
+              ["text-hero", "change", "styles/app.css"],
+            ]
+          );
+        })
+    );
+
+    it.effect(
+      "exports only the values that differ, where they are declared, and answers with each change",
+      () =>
+        Effect.gen(function* () {
+          const { repo } = yield* ProjectFixture;
+          const fs = yield* FileSystem.FileSystem;
+          yield* designChangedSince;
+          const { text } = yield* callTool(EditorTools, "handoff", {
+            action: "export",
+          });
+          assert.include(text, "2 token values brought to the code");
+          assert.include(
+            text,
+            "styles/app.css: color-panel var(--color-gray-200) → var(--color-gray-300), text-hero 2rem → 3rem."
+          );
+          assert.strictEqual(
+            yield* fs.readFileString(path.join(repo, "styles/app.css")),
+            STYLESHEET.replace(
+              "--color-panel: var(--color-gray-200);",
+              "--color-panel: var(--color-gray-300);"
+            ).replace("--text-hero: 2rem;", "--text-hero: 3rem;")
           );
         })
     );

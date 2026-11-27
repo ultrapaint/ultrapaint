@@ -5,7 +5,7 @@
  * setup's (ADR 0023) where they apply; the rest are the sync's own.
  */
 import { Schema } from "effect";
-import { TokenKind } from "./tokens.ts";
+import { TokenKind, TokenWrite } from "./tokens.ts";
 
 /**
  * - `scratch`: no application yet.
@@ -237,6 +237,11 @@ export const TokenDiff = Schema.Struct({
    * `@theme`: `SourceToken.variableOnly`).
    */
   variableOnly: Schema.optional(Schema.Boolean),
+  /**
+   * What exporting it would write, for a token waiting for the code: the style system's writer
+   * run without writing (ADR 0158). Left out where it could not be worked out.
+   */
+  write: Schema.optional(TokenWrite),
 });
 export type TokenDiff = typeof TokenDiff.Type;
 

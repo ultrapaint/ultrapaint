@@ -1,6 +1,10 @@
 // @vitest-environment happy-dom
 import "../testing/fake-browser.ts";
-import type { SyncPlan, TokenComparison } from "@ultrapaint/contracts/sync";
+import type {
+  SyncPlan,
+  TokenComparison,
+  TokenDiff,
+} from "@ultrapaint/contracts/sync";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -96,6 +100,48 @@ describe("Sync › the code's tokens", () => {
     });
     expect(container.textContent).toContain("space-2");
     expect(button("Try again")).toBeUndefined();
+  });
+
+  it("says, before Export, the file each value will be written in or added to", async () => {
+    const [spacing] = comparisonOf("space-2").diffs;
+    fakeApi.respond("sync.tokens", () => ({
+      ...comparisonOf("space-2"),
+      diffs: [
+        {
+          ...(spacing as TokenDiff),
+          write: {
+            does: "change",
+            file: "src/app.css",
+            from: "4px",
+            name: "space-2",
+            to: "8px",
+          },
+        },
+        {
+          design: "#f59e0b",
+          kind: "color",
+          name: "color-accent",
+          outcome: "source-behind",
+          variable: "color-accent",
+          write: {
+            does: "add",
+            file: "src/tokens.css",
+            name: "color-accent",
+            to: "#f59e0b",
+          },
+        },
+      ],
+    }));
+    render(planAt(1));
+    await act(() => fakeApi.requested("sync.tokens", 1));
+    const rows = [...container.querySelectorAll("li")].map(
+      (li) => li.textContent
+    );
+    expect(rows).toEqual([
+      "space-24px→ 8pxin src/app.css",
+      "color-accentnone→ #f59e0badded to src/tokens.css",
+    ]);
+    expect(button("Export 2 tokens to the code")).toBeDefined();
   });
 
   it("keeps the newer plan's answer when an older read answers after it", async () => {
