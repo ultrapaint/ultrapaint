@@ -11,8 +11,10 @@ import {
   handsToAll,
   mergeFound,
   type PageAnswer,
+  requestOf,
   reviewerScore,
   runOf,
+  shownRequest,
   standInFor,
 } from "./review-rounds.ts";
 
@@ -63,9 +65,13 @@ describe("a review run", () => {
       user("u3", "findings", "r1"),
       round("r2"),
     ]);
-    expect(run.request).toBe("make it calmer");
     expect(run.rounds.map((r) => r.id)).toEqual(["r1", "r2"]);
     expect(run.answering).toBeUndefined();
+    // What the reviewers keep to reaches back past where the run starts (ADR 0159).
+    expect(run.request.map((p) => p.text)).toEqual([
+      "a page",
+      "make it calmer",
+    ]);
   });
 
   it("is answering the round whose findings the last prompt carried", () => {
@@ -75,6 +81,135 @@ describe("a review run", () => {
       user("u2", "x", "r1"),
     ]);
     expect(run.answering?.id).toBe("r1");
+  });
+});
+
+/** A card of one question the designer waited on, answered "Pro" unless left unanswered. */
+const asked = (id: string, answered = true): ThreadItem => ({
+  answers: answered ? { plan: "pro" } : null,
+  at: 1,
+  elicitation: { message: "To size the page." },
+  id,
+  kind: "question",
+  questions: [
+    {
+      id: "plan",
+      options: [{ id: "pro", label: "Pro" }],
+      question: "Which plan?",
+    },
+  ],
+});
+
+describe("the request a review keeps to", () => {
+  const ANSWERS = "Answers to your questions:\n1. Which plan? — Pro [pro]";
+
+  it("is the person's prompts since the brief, oldest first, their answers marked", () => {
+    expect(
+      requestOf([
+        user("u1", "A settings page for a team"),
+        round("r1"),
+        user("u2", "Focus only on the layout, leave the content empty"),
+        user("u3", "ask me again the declined questions"),
+        user("u4", ANSWERS),
+      ])
+    ).toEqual([
+      { answers: false, text: "A settings page for a team" },
+      {
+        answers: false,
+        text: "Focus only on the layout, leave the content empty",
+      },
+      // Kept as the newest would be: no prompt is dropped by its words.
+      { answers: false, text: "ask me again the declined questions" },
+      { answers: true, text: ANSWERS },
+    ]);
+  });
+
+  it("holds the answers the designer waited on within its turn, not those still open", () => {
+    expect(
+      requestOf([user("u1", "A pricing page"), asked("q1"), asked("q2", false)])
+    ).toEqual([
+      { answers: false, text: "A pricing page" },
+      { answers: true, inTurn: true, text: ANSWERS },
+    ]);
+  });
+
+  it("keeps the earlier prompts through a round's findings, which are not the person's", () => {
+    const items = [
+      user("u1", "Layout only, no design system"),
+      round("r1"),
+      user("u2", "findings", "r1"),
+      round("r2"),
+      user("u3", "findings", "r2"),
+    ];
+    expect(requestOf(items).map((p) => p.text)).toEqual([
+      "Layout only, no design system",
+    ]);
+  });
+
+  it("starts again at a task the editor knows", () => {
+    expect(
+      requestOf([
+        user("u1", "A pricing page"),
+        user("u2", "/redraw redesign to finished screens"),
+        user("u3", "warmer"),
+      ]).map((p) => p.text)
+    ).toEqual(["/redraw redesign to finished screens", "warmer"]);
+  });
+
+  it("keeps the brief through variations, which work on the same design", () => {
+    expect(
+      requestOf([
+        user("u1", "Layout only, leave the content empty"),
+        user("u2", "/variations designs/home.page.json#c_1 2 the header"),
+        user("u3", "keep the second, warmer"),
+      ]).map((p) => p.text)
+    ).toEqual([
+      "Layout only, leave the content empty",
+      "/variations designs/home.page.json#c_1 2 the header",
+      "keep the second, warmer",
+    ]);
+  });
+
+  it("is the one prompt of a thread that has one", () => {
+    expect(requestOf([user("u1", "a page"), round("r1")])).toEqual([
+      { answers: false, text: "a page" },
+    ]);
+  });
+});
+
+describe("the request as a review model is shown it", () => {
+  const prompt = (text: string) => ({ answers: false, text });
+
+  it("cuts each earlier prompt to 400 characters, never the newest", () => {
+    const newest = "y".repeat(1200);
+    const shown = shownRequest([prompt("x".repeat(500)), prompt(newest)]);
+    expect(shown.leftOut).toBe(0);
+    expect(shown.prompts[0]?.text).toBe(`${"x".repeat(400)}…`);
+    expect(shown.prompts[1]?.text).toBe(newest);
+  });
+
+  it("leaves out the oldest past 4,000 characters, and says how many", () => {
+    const request = [
+      ...Array.from({ length: 20 }, (_, i) => prompt(`${i}`.padEnd(400, "z"))),
+      prompt("the newest"),
+    ];
+    const shown = shownRequest(request);
+    const total = shown.prompts.reduce((n, p) => n + p.text.length, 0);
+    expect(total).toBeLessThanOrEqual(4000);
+    // The newest and the nine before it fit; the oldest go first.
+    expect(shown.prompts.map((p) => p.text.slice(0, 2))).toEqual([
+      "11",
+      "12",
+      "13",
+      "14",
+      "15",
+      "16",
+      "17",
+      "18",
+      "19",
+      "th",
+    ]);
+    expect(shown.leftOut).toBe(11);
   });
 });
 

@@ -511,6 +511,12 @@ refactor and the board view left.
   review loop adds, shown together as the **run card** (web's `design-run.ts`). A round waits
   while a question of the turn just ended **waits for the answers** (contracts'
   `waitsForAnswers`, ADR 0151): the round after the turn they begin looks at both turns' pages.
+- **Request** (of a review): what the review models keep to, what the person said since the
+  thread's **brief** (its last prompt that is a task the editor knows, variations aside, else
+  its first), oldest
+  first: their prompts, the newest marked as the turn's, and their answers to the designer's
+  questions; a round's findings prompt is not one of them (the server's `requestOf`,
+  `shownRequest`, ADR 0159).
 - **Decline**: a finding the designer leaves unfixed, with its reason, written at the end of its
   reply (`Declined: <number> — <reason>`; the server's `declinedOf`, `Decline`). A review model's
   finding it would decline while declining it leaves on the page what the finding says is wrong

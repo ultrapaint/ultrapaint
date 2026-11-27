@@ -14,6 +14,9 @@ replaces the editor part of `docs/plans/PLAN-review-loop.md` phase 5. Plan:
 > model's finding the designer would decline while the page keeps what it says is wrong is put
 > to the person on the question tool first, and the reply says who decided each decline.
 
+> Amended by [0159](0159-the-review-models-keep-to-the-whole-request.md), 2026-11-27: the request a
+> review model keeps to is what the person said since the thread's brief, not their last prompt.
+
 > Amended by [0066](0066-findings-are-kept-by-the-person-and-triaged-into-gaps.md), 2026-11-06:
 > keeping the findings is the person's choice, in their profile (Settings › Preferences › Keep
 > findings) and for every project, where this kept it in the project's `review` settings; a

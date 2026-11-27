@@ -1,8 +1,9 @@
 /**
  * The review loop's rules (ADR 0063), pure: where a design's review run starts in its transcript
- * and which rounds are its, a reviewer's answer read and scored, who stands in for a reviewer that
- * didn't answer, when a round's reviewers hand the page to every review model, why a review
- * ended, and which findings the designer declined. The service (`review-loop.ts`) does the rest.
+ * and which rounds are its, the request its reviewers keep to (ADR 0159), a reviewer's answer
+ * read and scored, who stands in for a reviewer that didn't answer, when a round's reviewers hand
+ * the page to every review model, why a review ended, and which findings the designer declined.
+ * The service (`review-loop.ts`) does the rest.
  */
 import {
   type Approval,
@@ -21,20 +22,32 @@ import {
   pageScore as toPageScore,
   type Verdict,
 } from "@ultrapaint/contracts/review";
-import type {
-  CheckPlace,
-  ReviewEnd,
-  RoundFinding,
-  RoundReviewer,
-  ThreadItem,
+import { parseCommand } from "@ultrapaint/contracts/tasks";
+import {
+  answeredInTurn,
+  type CheckPlace,
+  type ReviewEnd,
+  type RoundFinding,
+  type RoundReviewer,
+  type ThreadItem,
 } from "@ultrapaint/contracts/threads";
 import { Effect, Option, Schema } from "effect";
+import { ANSWERS_HEADING, answersText } from "../threads/elicitation.ts";
 
 /** One round of a review as the transcript keeps it. */
 export type ReviewItem = Extract<ThreadItem, { readonly kind: "review" }>;
 
 /** How long a review model has to answer before the next one in turn takes the round. */
 export const REVIEW_TIMEOUT = "5 minutes";
+
+/**
+ * The most a review model is shown of the person's prompts, in characters (ADR 0159): a small part
+ * of what it reads, one page's document being larger.
+ */
+export const REQUEST_CAP = 4000;
+
+/** What each of the person's earlier prompts is cut to for a review model; the newest is whole. */
+export const EARLIER_PROMPT_CAP = 400;
 
 /** What a review model that didn't answer in time is shown with. */
 export const TIMED_OUT = "It didn't answer in 5 minutes.";
@@ -52,11 +65,117 @@ export interface ReviewRun {
    * the round it answers.
    */
   readonly answering: ReviewItem | undefined;
-  /** The person's last prompt, the request the reviewers keep to; empty before any. */
-  readonly request: string;
+  /** The request the reviewers keep to (ADR 0159); empty before any prompt. */
+  readonly request: readonly RequestPrompt[];
   /** The run's rounds, oldest first. */
   readonly rounds: readonly ReviewItem[];
 }
+
+/** What the person said in the request the reviewers keep to (ADR 0159). */
+export interface RequestPrompt {
+  /**
+   * It is their answers to the designer's questions: a prompt sent from a card no agent waited
+   * on, which starts with elicitation's `ANSWERS_HEADING`, or a card the designer waited on.
+   */
+  readonly answers: boolean;
+  /** Answers given within the designer's turn, on a card it waited on: not a prompt. */
+  readonly inTurn?: true;
+  readonly text: string;
+}
+
+/**
+ * A prompt that starts a brief of its own: a task the editor knows (`/redraw`, `/import-figma`,
+ * …), but variations, which take a thing of the same design a few ways (ADR 0159).
+ */
+const startsBrief = (text: string) => {
+  const parsed = parseCommand(text);
+  return parsed?._tag === "Request" && parsed.request._tag !== "Variations";
+};
+
+/** What the person said in an item, as the request keeps it: none for any other item. */
+const saidIn = (item: ThreadItem): RequestPrompt | undefined => {
+  if (item.kind === "user") {
+    // A round's findings, sent on by the editor, are not the person's.
+    return item.review
+      ? undefined
+      : { answers: item.text.startsWith(ANSWERS_HEADING), text: item.text };
+  }
+  return item.kind === "question" &&
+    item.answers !== null &&
+    answeredInTurn(item)
+    ? {
+        answers: true,
+        inTurn: true,
+        text: answersText(item.questions, item.answers),
+      }
+    : undefined;
+};
+
+/**
+ * The request the reviewers keep to (ADR 0159): what the person said since the thread's brief,
+ * oldest first, their prompts and their answers to the designer's questions, the newest prompt
+ * what the turn was asked. The brief is the last prompt that is a task the editor knows, else the
+ * thread's first, so a thread taken to new work leaves the old brief. Nothing is left out by its
+ * words.
+ */
+export const requestOf = (
+  items: readonly ThreadItem[]
+): readonly RequestPrompt[] => {
+  const said = items.flatMap((i) => {
+    const one = saidIn(i);
+    return one === undefined ? [] : [one];
+  });
+  const brief = said.findLastIndex(
+    (p) => p.inTurn !== true && startsBrief(p.text)
+  );
+  const first = said.findIndex((p) => p.inTurn !== true);
+  return said.slice(Math.max(0, brief === -1 ? first : brief));
+};
+
+/** The request as a review model is shown it, and how many of the oldest it leaves out. */
+export interface ShownRequest {
+  readonly leftOut: number;
+  readonly prompts: readonly RequestPrompt[];
+}
+
+/** An earlier prompt as a review model is shown it: its first `EARLIER_PROMPT_CAP` characters. */
+const cutEarlier = (text: string) =>
+  text.length <= EARLIER_PROMPT_CAP
+    ? text
+    : `${text.slice(0, EARLIER_PROMPT_CAP)}…`;
+
+/** Where the newest prompt is in a request: the last of what was said that is not in-turn answers. */
+export const newestPromptOf = (request: readonly RequestPrompt[]) =>
+  request.findLastIndex((p) => p.inTurn !== true);
+
+/**
+ * The request as a review model is shown it (ADR 0159): the newest prompt whole, the rest cut to
+ * `EARLIER_PROMPT_CAP`, the newest first, until `REQUEST_CAP`; the oldest past it left out.
+ */
+export const shownRequest = (
+  request: readonly RequestPrompt[]
+): ShownRequest => {
+  const newest = newestPromptOf(request);
+  const whole = request[newest]?.text.trim() ?? "";
+  const kept = new Map<number, string>([[newest, whole]]);
+  let room = REQUEST_CAP - whole.length;
+  for (let i = request.length - 1; i >= 0; i -= 1) {
+    if (i === newest) {
+      continue;
+    }
+    const text = cutEarlier(request[i]?.text.trim() ?? "");
+    if (text.length > room) {
+      break;
+    }
+    room -= text.length;
+    kept.set(i, text);
+  }
+  const prompts = request.flatMap((p, i) => {
+    const text = kept.get(i);
+    return text === undefined ? [] : [{ ...p, text }];
+  });
+  return { leftOut: request.length - prompts.length, prompts };
+};
 
 /**
  * The run the transcript is in: it starts at the person's last prompt (a user item that carries
@@ -65,7 +184,6 @@ export interface ReviewRun {
 export const runOf = (items: readonly ThreadItem[]): ReviewRun => {
   const start = items.findLastIndex((i) => i.kind === "user" && !i.review);
   const since = start === -1 ? items : items.slice(start + 1);
-  const person = items[start];
   const rounds = since.flatMap((i) => (i.kind === "review" ? [i] : []));
   const at = items.findLastIndex((i) => i.kind === "user");
   const last = items[at];
@@ -78,7 +196,7 @@ export const runOf = (items: readonly ThreadItem[]): ReviewRun => {
       : undefined;
   return {
     answering: answered,
-    request: person?.kind === "user" ? person.text : "",
+    request: requestOf(items),
     rounds,
   };
 };

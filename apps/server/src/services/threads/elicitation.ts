@@ -396,10 +396,16 @@ const shownOf = (question: Question, answer: Answer | undefined) => {
     : answer.map(shown).join(", ");
 };
 
+/**
+ * The first line of the prompt the answers to a card no agent waited on are sent as: the review
+ * reads that prompt as the person's answers (ADR 0159).
+ */
+export const ANSWERS_HEADING = "Answers to your questions:";
+
 /** The answers as the agent reads them: one line per question. */
 export const answersText = (questions: readonly Question[], answers: Answers) =>
   [
-    "Answers to your questions:",
+    ANSWERS_HEADING,
     ...questions.map(
       (question, index) =>
         `${index + 1}. ${question.question} — ${shownOf(question, answers[question.id])}`

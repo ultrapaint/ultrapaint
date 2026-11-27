@@ -272,6 +272,23 @@ describe("a design's review", () => {
       yield* reviewer.stopped;
     }));
 
+  test("shows the reviewer of a later prompt's turn the thread's first prompt too (ADR 0159)", () =>
+    Effect.gen(function* () {
+      const { designer, threadId } = yield* designed();
+      const first = yield* nextReviewer;
+      yield* first.turn.say(answer([], true));
+      yield* first.turn.end();
+      yield* threadWhen(threadId, reviewEnded);
+      yield* TestClock.adjust("1 second");
+      yield* designTurn(threadId, designer, { padding: 24 });
+      const { turn } = yield* nextReviewer;
+      const said = turn.texts.join("\n");
+      assert.include(said, `<prompt>\n${REQUEST}\n</prompt>`);
+      assert.include(said, '<prompt turn="this">\nOnce more\n</prompt>');
+      yield* turn.say(answer([], true));
+      yield* turn.end();
+    }));
+
   test("scores the round from the reviewer's answer, and an approval ends it with nothing sent", () =>
     Effect.gen(function* () {
       const { threadId } = yield* designed();
