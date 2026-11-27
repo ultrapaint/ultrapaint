@@ -157,7 +157,7 @@ export class AgentTasks extends Context.Service<
    with the design system's in Sync afterwards.`
                   : ""
               }`;
-              return `1. ${ways.readTheme(settings.hostCss.join(", ") || "none configured yet", before)}
+              return `1. ${ways.readTheme(settings.stylesheets.join(", ") || "none configured yet", before)}
 2. Look at what the scan cannot see, in the repository: the design system's packages (${libraries}),
    their READMEs, AGENTS.md and docs, its Storybook stories and style guides, and how the
    application's own screens use the tokens.

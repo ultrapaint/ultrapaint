@@ -52,7 +52,7 @@ describe("scanning a Tailwind v4 design system", () => {
     const settings = {
       ...defaultSettings(root),
       designsDir: "designs",
-      hostCss: ["../../packages/web/src/app.css"],
+      stylesheets: ["packages/web/src/app.css"],
     };
     const { designSystem, files, notes } = scanDesignSystem({
       anchorDir: root,
@@ -127,7 +127,7 @@ describe("scanning a Tailwind v4 design system", () => {
       settings: {
         ...defaultSettings(root),
         designsDir: "designs",
-        hostCss: ["../../src/index.css"],
+        stylesheets: ["src/index.css"],
       },
     });
     expect(designSystem.themes).toEqual(["light", "dark"]);
@@ -161,7 +161,7 @@ describe("scanning a Tailwind v4 design system", () => {
       settings: {
         ...defaultSettings(root),
         designsDir: "designs",
-        hostCss: ["../../src/index.css"],
+        stylesheets: ["src/index.css"],
       },
     };
     const scanned = new Map(
@@ -213,7 +213,7 @@ describe("scanning a Tailwind v4 design system", () => {
       settings: {
         ...defaultSettings(root),
         designsDir: ".",
-        hostCss: ["../app.css"],
+        stylesheets: ["app.css"],
       },
     });
     expect(designSystem.borderWidths?.map((t) => t.name)).toEqual([
@@ -284,7 +284,7 @@ describe("scanning a Tailwind v4 design system", () => {
       settings: {
         ...defaultSettings(root),
         designsDir: ".",
-        hostCss: ["../app.css"],
+        stylesheets: ["app.css"],
       },
     });
     expect(designSystem.typography.fonts).toEqual([
@@ -311,7 +311,7 @@ describe("scanning a Tailwind v4 design system", () => {
       settings: {
         ...defaultSettings(root),
         designsDir: ".",
-        hostCss: ["../app.css"],
+        stylesheets: ["app.css"],
       },
     });
     expect(designSystem.colors.flatMap((g) => g.tokens)).toEqual([
@@ -339,7 +339,7 @@ describe("scanning a Tailwind v4 design system", () => {
         settings: {
           ...defaultSettings(root),
           designsDir: ".",
-          hostCss: ["../app.css"],
+          stylesheets: ["app.css"],
         },
       });
     };
@@ -393,7 +393,7 @@ describe("scanning a Tailwind v4 design system", () => {
       settings: {
         ...defaultSettings(root),
         designsDir: ".",
-        hostCss: ["../app.css"],
+        stylesheets: ["app.css"],
       },
     });
     // Tailwind's own inset, drop and text shadows stay out, as its palette does.
@@ -424,7 +424,7 @@ describe("scanning a Tailwind v4 design system", () => {
       settings: {
         ...defaultSettings(root),
         designsDir: ".",
-        hostCss: ["../app.css"],
+        stylesheets: ["app.css"],
       },
     });
     expect(designSystem.typography.sizes.map((s) => s.name)).toEqual([
@@ -443,7 +443,7 @@ describe("scanning a Tailwind v4 design system", () => {
       settings: {
         ...defaultSettings(root),
         designsDir: ".",
-        hostCss: ["../app.css"],
+        stylesheets: ["app.css"],
       },
     });
     expect(designSystem.colors).toEqual([]);

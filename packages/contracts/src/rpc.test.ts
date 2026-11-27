@@ -21,9 +21,9 @@ describe("contracts", () => {
   it("round-trips settings and leaves optional fields out", () => {
     const settings: Settings = {
       designsDir: "designs",
-      hostCss: [],
       libraryDirs: [],
       repoPath: "/tmp/repo",
+      stylesheets: [],
     };
     expect(overTheWire(Settings, settings)).toEqual(settings);
   });
@@ -33,9 +33,9 @@ describe("contracts", () => {
     expect(() =>
       decode({
         designsDir: "../outside",
-        hostCss: [],
         libraryDirs: [],
         repoPath: "/tmp/repo",
+        stylesheets: [],
       })
     ).toThrow();
   });

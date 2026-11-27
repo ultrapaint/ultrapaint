@@ -312,10 +312,10 @@ const program = Effect.gen(function* () {
     mkdirSync(designs, { recursive: true });
     const validation = yield* client["settings.set"]({
       designsDir: designsRel,
-      hostCss: ["../../../apps/web/src/styles.css"],
       libraryDirs: ["apps/web/src/components"],
       repoPath: repo,
       resolveFrom: "apps/web",
+      stylesheets: ["apps/web/src/styles.css"],
     });
     yield* Effect.log(`settings: ${JSON.stringify(validation)}`);
     yield* openEditor(`http://127.0.0.1:${port}/`);

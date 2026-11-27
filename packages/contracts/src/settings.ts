@@ -84,8 +84,6 @@ export const Settings = Schema.Struct({
   ...common,
   /** Directory holding the screens, relative to the repository. */
   designsDir: RepoRelativePath,
-  /** The stylesheets the code's tokens are in, which Sync reads and writes (ADR 0028). */
-  hostCss: Schema.Array(Schema.String),
   /**
    * Where the application's components are (relative to the repository): a hint for the agents
    * that implement (ADR 0040).
@@ -93,6 +91,12 @@ export const Settings = Schema.Struct({
   libraryDirs: Schema.Array(RepoRelativePath),
   /** Absolute path of the target repository. */
   repoPath: Schema.String,
+  /**
+   * The stylesheets the code's tokens are in, which Sync reads and writes (ADR 0028): a file of
+   * the repository from its root (`src/index.css`), a package's as it is imported
+   * (`@acme/ui/styles.css`), ADR 0165.
+   */
+  stylesheets: Schema.Array(Schema.String),
 });
 export type Settings = typeof Settings.Type;
 
@@ -109,11 +113,44 @@ export const ProjectConfig = Schema.Struct({
   ...common,
   $schema: Schema.optional(Schema.String),
   designsDir: RepoRelativePath,
+  /**
+   * The stylesheets as they were named before ADR 0165, relative to `<designsDir>/.ultrapaint`:
+   * read when `stylesheets` is absent, never written.
+   */
   hostCss: Schema.optional(Schema.Array(Schema.String)),
   libraryDirs: Schema.optional(Schema.Array(RepoRelativePath)),
   repoPath: Schema.optional(Schema.String),
+  stylesheets: Schema.optional(Schema.Array(Schema.String)),
 });
 export type ProjectConfig = typeof ProjectConfig.Type;
+
+/**
+ * The file of the repository an old `hostCss` entry names, from the root: it was written relative
+ * to `<designsDir>/.ultrapaint`, where the preview was once generated. A package's stylesheet
+ * (`@acme/ui/styles.css`) is named as it is.
+ */
+const fromHostCss = (designsDir: string, spec: string): string => {
+  if (!spec.startsWith(".")) {
+    return spec;
+  }
+  const parts: string[] = [];
+  for (const segment of `${designsDir}/.ultrapaint/${spec}`.split("/")) {
+    if (segment === ".." && parts.length > 0) {
+      parts.pop();
+    } else if (segment !== "" && segment !== "." && segment !== "..") {
+      parts.push(segment);
+    }
+  }
+  return parts.join("/");
+};
+
+/**
+ * The stylesheets a configuration names, from the repository's root (ADR 0165): its `stylesheets`,
+ * or else its old `hostCss`, read from where it was relative to.
+ */
+export const stylesheetsOf = (config: ProjectConfig): readonly string[] =>
+  config.stylesheets ??
+  (config.hostCss ?? []).map((spec) => fromHostCss(config.designsDir, spec));
 
 /** File name looked for from the working directory upwards when no `--config` is given. */
 export const CONFIG_FILE_NAME = "ultrapaint.config.json";
@@ -132,9 +169,9 @@ export const DEFAULT_DESIGNS_DIR = "docs/designs";
 
 export const defaultSettings = (repoPath: string): Settings => ({
   designsDir: DEFAULT_DESIGNS_DIR,
-  hostCss: [],
   libraryDirs: [],
   repoPath,
+  stylesheets: [],
 });
 
 export const SettingsValidation = Schema.Struct({

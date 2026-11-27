@@ -88,53 +88,12 @@ export const ScaffoldResult = Schema.Struct({
   /** Settings that point the tool at the new application, ready to apply. */
   settings: Schema.Struct({
     designsDir: RepoRelativePath,
-    hostCss: Schema.Array(Schema.String),
     libraryDirs: Schema.Array(RepoRelativePath),
     resolveFrom: Schema.optional(RepoRelativePath),
+    stylesheets: Schema.Array(Schema.String),
   }),
 });
 export type ScaffoldResult = typeof ScaffoldResult.Type;
-
-/** Directory the preview is generated into; host CSS imports are written relative to it. */
-const GENERATED_DIR = ".ultrapaint";
-
-/** Relative posix path from a directory to a file, both relative to the same root. */
-export const relativePosix = (fromDir: string, toFile: string): string => {
-  const from = fromDir.split("/").filter((s) => s && s !== ".");
-  const to = toFile.split("/").filter((s) => s && s !== ".");
-  let shared = 0;
-  while (
-    shared < from.length &&
-    shared < to.length - 1 &&
-    from[shared] === to[shared]
-  ) {
-    shared += 1;
-  }
-  return [...from.slice(shared).map(() => ".."), ...to.slice(shared)].join("/");
-};
-
-/** A stylesheet of the repository (`apps/web/src/app.css`) as the settings name it. */
-export const hostCssFor = (designsDir: string, file: string): string =>
-  relativePosix(`${designsDir}/${GENERATED_DIR}`, file);
-
-/**
- * The file of the repository a stylesheet the settings name is (`hostCssFor` undone); a package's
- * stylesheet (`@acme/ui/styles.css`) is named as it is.
- */
-export const stylesheetOf = (designsDir: string, spec: string): string => {
-  if (!spec.startsWith(".")) {
-    return spec;
-  }
-  const parts: string[] = [];
-  for (const segment of `${designsDir}/${GENERATED_DIR}/${spec}`.split("/")) {
-    if (segment === ".." && parts.length > 0) {
-      parts.pop();
-    } else if (segment !== "" && segment !== "." && segment !== "..") {
-      parts.push(segment);
-    }
-  }
-  return parts.join("/");
-};
 
 /** The stylesheet detection proposes: one of the designs directory itself wins, it was written for the pages. */
 const stylesheetIn = (found: SetupSuggestions, designsDir: string) =>
@@ -159,10 +118,10 @@ export const applySuggestions = (
     ...settings,
     designsDir,
     ...(found.styleSystem && { styleSystem: found.styleSystem }),
-    hostCss: css ? [hostCssFor(designsDir, css)] : [],
     libraryDirs: library ? [library.sourceDir] : [],
     // A designs directory that is a package resolves its own imports.
     resolveFrom: anchor && anchor.dir !== designsDir ? anchor.dir : undefined,
+    stylesheets: css ? [css] : [],
   };
 };
 

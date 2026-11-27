@@ -1,12 +1,11 @@
 import { BadRequest, ForbiddenPath } from "@ultrapaint/contracts/errors";
 import { DEFAULT_DESIGNS_DIR } from "@ultrapaint/contracts/settings";
-import {
-  type CreateDesignsInput,
-  type CreateDesignsResult,
-  relativePosix,
-  type ScaffoldInput,
-  type ScaffoldResult,
-  type SetupSuggestions,
+import type {
+  CreateDesignsInput,
+  CreateDesignsResult,
+  ScaffoldInput,
+  ScaffoldResult,
+  SetupSuggestions,
 } from "@ultrapaint/contracts/setup";
 import { defaultStyleSystem } from "@ultrapaint/contracts/tokens";
 import { detect as detectApplication } from "@ultrapaint/framework-react-vite/detect";
@@ -299,12 +298,10 @@ export class SetupService extends Context.Service<
           ...installed,
           settings: {
             designsDir,
-            hostCss: [
-              relativePosix(`${designsDir}/.ultrapaint`, made.settings.hostCss),
-            ],
             libraryDirs: [made.settings.libraryDir],
             // The application's package, the root's included: not the designs directory.
             resolveFrom: made.settings.resolveFrom,
+            stylesheets: [made.settings.stylesheet],
           },
         } satisfies ScaffoldResult;
       });

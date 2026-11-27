@@ -97,9 +97,9 @@ describe("a new design", () => {
         );
         assert.deepStrictEqual(config, {
           designsDir: "designs",
-          hostCss: ["../../app/src/index.css"],
           libraryDirs: ["app/src/components"],
           resolveFrom: "app",
+          stylesheets: ["app/src/index.css"],
         });
         assert.isTrue(yield* fs.exists(path.join(folder, "designs")));
         assert.isTrue(yield* fs.exists(path.join(folder, "app/package.json")));
@@ -150,7 +150,7 @@ describe("a new design", () => {
           yield* fs.readFileString(path.join(folder, "ultrapaint.config.json"))
         );
         assert.strictEqual(config.designsDir, "designs");
-        assert.deepStrictEqual(config.hostCss ?? [], []);
+        assert.deepStrictEqual(config.stylesheets ?? [], []);
       }).pipe(Effect.scoped, Effect.provide(Live))
   );
 
@@ -171,7 +171,7 @@ describe("a new design", () => {
       const config = yield* decodeConfig(
         yield* fs.readFileString(path.join(folder, "ultrapaint.config.json"))
       );
-      assert.deepStrictEqual(config.hostCss, ["../../src/index.css"]);
+      assert.deepStrictEqual(config.stylesheets, ["src/index.css"]);
       assert.deepStrictEqual(config.libraryDirs, ["src/components"]);
       assert.strictEqual(config.resolveFrom, ".");
     }).pipe(Effect.scoped, Effect.provide(Live))

@@ -27,7 +27,7 @@ const Themed = ProjectRpc({
       '{ "name": "designs", "dependencies": { "react": "19" } }\n',
     "styles/app.css": THEME,
   },
-  settings: { hostCss: ["../../styles/app.css"], libraryDirs: ["ui"] },
+  settings: { libraryDirs: ["ui"], stylesheets: ["styles/app.css"] },
 });
 
 eachTest(Themed)("the design-system sync", (it) => {
@@ -214,9 +214,9 @@ eachTest(Themed)("the design-system sync", (it) => {
         assert.isFalse(made.installed);
         assert.deepStrictEqual(made.settings, {
           designsDir: "docs/designs",
-          hostCss: ["../../../app/src/index.css"],
           libraryDirs: ["app/src/components"],
           resolveFrom: "app",
+          stylesheets: ["app/src/index.css"],
         });
         assert.isTrue(yield* fs.exists(path.join(repo, "docs/designs")));
         const validation = yield* client["settings.set"]({

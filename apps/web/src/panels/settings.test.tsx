@@ -40,7 +40,10 @@ describe("a refused save's reasons", () => {
 });
 
 describe("the settings save as they change (ADR 0079)", () => {
-  const settings = defaultSettings("/repo");
+  const settings: Settings = {
+    ...defaultSettings("/repo"),
+    stylesheets: ["src/index.css"],
+  };
   let mounted: Root;
   let container: HTMLElement;
 
@@ -185,6 +188,30 @@ describe("the settings save as they change (ADR 0079)", () => {
     });
     expect(sets()).toEqual([{ ...settings, designsDir: "docs/pages" }]);
     expect(input.value).toBe("docs/pages");
+  });
+
+  it("a stylesheet is shown and saved as a path from the repository's root (ADR 0165)", async () => {
+    fakeApi.respond("settings.set", () => ({ ok: true, problems: [] }));
+    act(() => useProject.setState({ settingsSection: "designSystem" }));
+    const input = container.querySelector<HTMLInputElement>("#settings-css");
+    if (!input) {
+      throw new Error("no field");
+    }
+    expect(input.value).toBe("src/index.css");
+    act(() => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value"
+      )?.set?.call(input, "app/src/index.css");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    });
+    await act(async () => {
+      await fakeApi.requested("settings.set");
+    });
+    expect(sets()).toEqual([
+      { ...settings, stylesheets: ["app/src/index.css"] },
+    ]);
   });
 
   it("a change that wasn't saved says why under its row", async () => {

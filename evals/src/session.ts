@@ -7,6 +7,7 @@
 import path from "node:path";
 import type { ReviewSettings } from "@ultrapaint/contracts/review";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
+import { stylesheetsOf } from "@ultrapaint/contracts/settings";
 import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import {
   Deferred,
@@ -15,6 +16,7 @@ import {
   FileSystem,
   Layer,
   Option,
+  Predicate,
   Schema,
   type Scope,
   Stream,
@@ -31,8 +33,8 @@ import { readJson, writeJson } from "./layout.ts";
 const PREVIEW_FILES = ".ultrapaint";
 /**
  * The designs directory a round works in, beside the host's own: emptied before every run and
- * filled from the host's, so each run starts from the host as it was committed. At the same depth
- * as the host's own, so the stylesheet paths of its configuration still lead to the same files.
+ * filled from the host's, so each run starts from the host as it was committed. The stylesheets
+ * are written from the host's root (ADR 0165), wherever the designs go.
  */
 const SCRATCH_DESIGNS = ".eval-designs";
 const CONFIG_FILE = "ultrapaint.config.json";
@@ -41,6 +43,10 @@ const HOST_FILES = ["DESIGN.md"] as const;
 
 /** The host's configuration, kept whole: only where its designs go is changed. */
 const HostConfig = Schema.Record(Schema.String, Schema.Unknown);
+
+/** A list of the host's configuration, when it is one of strings. */
+const stringsOf = (value: unknown): readonly string[] | undefined =>
+  Array.isArray(value) && value.every(Predicate.isString) ? value : undefined;
 
 const Ready = Schema.Struct({
   attached: Schema.optional(Schema.Boolean),
@@ -270,12 +276,18 @@ export const launch = Effect.fn("launch")(function* (
     ...(typeof own.skills === "object" && own.skills),
     ...(briefing !== undefined && { briefing }),
   };
+  const { hostCss, ...kept } = own;
   yield* writeJson(config, {
-    ...own,
+    ...kept,
     designsDir,
     repoPath: root,
     review: editorReview,
     ...(Object.keys(skills).length > 0 && { skills }),
+    stylesheets: stylesheetsOf({
+      designsDir: ownDir,
+      hostCss: stringsOf(hostCss),
+      stylesheets: stringsOf(own.stylesheets),
+    }),
   });
 
   // The server's log is kept beside its configuration, for when a round goes wrong.

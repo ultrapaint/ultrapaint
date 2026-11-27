@@ -70,8 +70,8 @@ const setUp = Effect.gen(function* () {
   );
   yield* client["settings.set"]({
     ...settings,
-    hostCss: ["../../styles/app.css"],
     libraryDirs: ["designs/ui"],
+    stylesheets: ["styles/app.css"],
   });
   yield* client["designSystem.detect"]();
 });

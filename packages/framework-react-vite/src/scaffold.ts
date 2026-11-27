@@ -18,9 +18,9 @@ interface Scaffolded {
   readonly files: Readonly<Record<string, string>>;
   /** Relative to the repository. */
   readonly settings: {
-    readonly hostCss: string;
     readonly libraryDir: string;
     readonly resolveFrom: string;
+    readonly stylesheet: string;
   };
 }
 
@@ -264,9 +264,9 @@ export const scaffold = ({
       Object.entries(files).map(([file, text]) => [at(file), text])
     ),
     settings: {
-      hostCss: at("src/index.css"),
       libraryDir: at("src/components"),
       resolveFrom: base || ".",
+      stylesheet: at("src/index.css"),
     },
   };
 };

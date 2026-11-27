@@ -56,7 +56,7 @@ const project = (css = APP_CSS): DesignSystemContext => {
     settings: {
       ...defaultSettings(root),
       designsDir: "designs",
-      hostCss: ["../../src/app.css"],
+      stylesheets: ["src/app.css"],
     },
   };
 };
@@ -87,6 +87,21 @@ const installed = (
 };
 
 describe("reading Tailwind v4 tokens", () => {
+  it("reads a package's stylesheet the settings name as it is imported (ADR 0165)", () => {
+    const app = project("");
+    const ctx: DesignSystemContext = {
+      ...app,
+      settings: { ...app.settings, stylesheets: ["@acme/ui/styles.css"] },
+    };
+    installed(
+      ctx,
+      "@acme/ui",
+      "styles.css",
+      "@theme {\n  --color-acme: #123456;\n}\n"
+    );
+    expect(byName(ctx, "color-acme")?.value).toBe("#123456");
+  });
+
   it("reads each @theme variable with where its value is written", () => {
     const ctx = project();
     const source = readTokens(ctx);

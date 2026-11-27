@@ -15,7 +15,7 @@
  * a block's values belong to is read here once, for every reader: the tokens Sync compares and
  * the first design system `/init` starts from (`design-system-scan.ts`) alike.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import {
   nameOfVariable,
@@ -246,19 +246,32 @@ export const collect = (
 };
 
 /**
- * What the stylesheets the settings name are relative to: the preview's stylesheet as it was
- * once generated, `<designs>/.ultrapaint/host.css`. It is generated elsewhere since ADR 0034;
- * the settings keep their meaning.
+ * A stylesheet the settings name, as a file (ADR 0165): a file of the repository from its root,
+ * or else a package's, looked up from the designs directory upwards and then from the anchor.
  */
-const hostCssBase = (
-  ctx: Pick<DesignSystemContext, "root" | "settings">
-): string =>
-  path.join(ctx.root, ctx.settings.designsDir, ".ultrapaint", "host.css");
+const stylesheetFile = (
+  spec: string,
+  ctx: DesignSystemContext
+): string | null => {
+  const file = path.resolve(ctx.root, spec);
+  if (statSync(file, { throwIfNoEntry: false })?.isFile()) {
+    return file;
+  }
+  if (spec.startsWith(".") || path.isAbsolute(spec)) {
+    return null;
+  }
+  // `resolveImport` looks a package up from its importer's folder: the designs directory is it.
+  return resolveImport(
+    spec,
+    path.join(ctx.root, ctx.settings.designsDir, "index.css"),
+    ctx.anchorDir
+  );
+};
 
 /** The stylesheets the settings name, as files. */
-const hostEntries = (ctx: DesignSystemContext): string[] =>
-  ctx.settings.hostCss
-    .map((spec) => resolveImport(spec, hostCssBase(ctx), ctx.anchorDir))
+const stylesheetEntries = (ctx: DesignSystemContext): string[] =>
+  ctx.settings.stylesheets
+    .map((spec) => stylesheetFile(spec, ctx))
     .filter((file): file is string => file !== null);
 
 /** The variable a value is an alias of, `var(--primary)`; undefined for anything else. */
@@ -518,7 +531,7 @@ const resolverOf =
     });
 
 export const read = (ctx: DesignSystemContext): Reading => {
-  const entries = hostEntries(ctx);
+  const entries = stylesheetEntries(ctx);
   const found = collect(entries, ctx.anchorDir);
   const notes =
     entries.length === 0

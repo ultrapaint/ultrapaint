@@ -84,10 +84,10 @@ describe("the settings in force", () => {
           // The same settings with their keys in another order, and a field set to nothing.
           const reordered: Settings = {
             designsDir: settings.designsDir,
-            hostCss: settings.hostCss,
             libraryDirs: settings.libraryDirs,
             repoPath: settings.repoPath,
             resolveFrom: undefined,
+            stylesheets: settings.stylesheets,
           };
           assert.isTrue((yield* project.set(reordered)).ok);
           assert.strictEqual(yield* projectScope, scope);
@@ -290,7 +290,7 @@ describe("the settings in force", () => {
           assert.isTrue(yield* fs.exists(`${repo}/ui-designs`));
           const saved = yield* running;
           assert.strictEqual(saved.designsDir, "ui-designs");
-          assert.deepStrictEqual(saved.hostCss, []);
+          assert.deepStrictEqual(saved.stylesheets, []);
 
           // Saved again, it goes where the settings are kept now.
           const again = yield* project.saveSetup({});

@@ -202,9 +202,9 @@ const journalIn = (repo: string) =>
       Layer.mergeAll(
         RepoPaths.layer({
           designsDir: "designs",
-          hostCss: [],
           libraryDirs: [],
           repoPath: repo,
+          stylesheets: [],
         }),
         EventBus.layer
       )

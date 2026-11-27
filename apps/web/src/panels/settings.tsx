@@ -1181,10 +1181,12 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           <PathList
             addLabel="Add a stylesheet"
             id="settings-css"
-            onChange={(hostCss) => change({ hostCss }, "stylesheets", "later")}
+            onChange={(stylesheets) =>
+              change({ stylesheets }, "stylesheets", "later")
+            }
             onLeave={saver.flush}
             placeholder="src/index.css"
-            value={draft.hostCss}
+            value={draft.stylesheets}
           />
         </Row>
       </Group>

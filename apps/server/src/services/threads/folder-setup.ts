@@ -3,7 +3,6 @@
  * put settings in force already; the agent checks them against the code, saves them with
  * `save_setup`, and tells the user in a few lines what the app is and where its designs go.
  */
-import { stylesheetOf } from "@ultrapaint/contracts/setup";
 import { Effect, FileSystem, Path } from "effect";
 import { OpenProject } from "../../project.ts";
 import { DesignSystemService } from "../design-system.ts";
@@ -27,11 +26,7 @@ export const makeFolderSetup = Effect.gen(function* () {
         const { root, settings } = yield* RepoPaths;
         const { designSystem } = yield* (yield* DesignSystemService).get;
         const found = yield* setup.detect(root);
-        const [css] = settings.hostCss;
-        const stylesheet =
-          css === undefined
-            ? undefined
-            : stylesheetOf(settings.designsDir, css);
+        const [stylesheet] = settings.stylesheets;
         const designsThere = yield* fs
           .exists(path.join(root, settings.designsDir))
           .pipe(Effect.orElseSucceed(() => false));

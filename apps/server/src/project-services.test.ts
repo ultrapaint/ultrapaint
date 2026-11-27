@@ -115,7 +115,7 @@ describe("a project in-process", () => {
     () =>
       withProject({
         files: { "styles/app.css": THEME },
-        settings: { hostCss: ["../../styles/app.css"] },
+        settings: { stylesheets: ["styles/app.css"] },
       })(
         Effect.gen(function* () {
           const { repo } = yield* ProjectFixture;

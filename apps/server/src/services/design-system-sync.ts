@@ -188,7 +188,7 @@ export class DesignSystemSyncService extends Context.Service<
             }),
             designSystem: state.designSystem !== null,
             ...(latest && { figma: { id: latest.id, name: latest.name } }),
-            stylesheets: settings.hostCss.length,
+            stylesheets: settings.stylesheets.length,
             ...(codeTokens && { codeTokens }),
           };
           const baseline = latest ? yield* figmaBaselineOf(latest.name) : null;

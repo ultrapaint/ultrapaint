@@ -237,9 +237,9 @@ export const makeTestServer = (
             repo,
             settings: {
               designsDir: "designs",
-              hostCss: [],
               libraryDirs: [],
               repoPath: repo,
+              stylesheets: [],
             } satisfies Settings,
           };
         })

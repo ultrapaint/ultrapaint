@@ -82,7 +82,7 @@ ${userAdds(extra)}</ultrapaint-task>`
       Effect.gen(function* () {
         const { settings } = yield* RepoPaths;
         const stylesheets =
-          settings.hostCss.join(", ") ||
+          settings.stylesheets.join(", ") ||
           "none configured yet: ask the user which stylesheet sets up Tailwind";
         return `<ultrapaint-task command="design-system">
 This is the Define step of the design-system setup, proposing a design system, which the user

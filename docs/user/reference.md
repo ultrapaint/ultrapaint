@@ -63,7 +63,7 @@ The agent's own slash commands are listed after these.
 | `designsDir` | Where the pages are (`docs/designs`) |
 | `resolveFrom` | The package your application is (`front`), for its stylesheets' imports; a hint for agents that implement |
 | `libraryDirs` | Optional: where your components are (`front/src/components`), a hint for agents that implement |
-| `hostCss` | The stylesheets that set up your design system, whose tokens Sync reads and writes |
+| `stylesheets` | The stylesheets that set up your design system, whose tokens Sync reads and writes (`src/index.css`; a package's as you import it, `@acme/ui/styles.css`). A file written before them names them in `hostCss`, which is still read and is replaced by `stylesheets` the next time the settings are saved |
 | `styleSystem` | What the tokens are written in: `tailwind-v4` (the default, and the only one today) |
 | `codeTokens` | `auto` to write a token changed in the design to the code at once; `manual` (the default) leaves it waiting in Sync for an export |
 | `ignoredProblems` | The warnings the team left as they are in **Problems**, by id; written by **Ignore for the project** and **Show again**, not by hand |

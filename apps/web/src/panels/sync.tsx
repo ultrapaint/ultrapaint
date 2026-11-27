@@ -5,7 +5,6 @@
  * describing what changed, Figma's tokens and frames, a new application — around them.
  */
 import { SETUP_STEPS } from "@ultrapaint/contracts/design-system-setup";
-import { stylesheetOf } from "@ultrapaint/contracts/setup";
 import type { SyncPlan, SyncStep } from "@ultrapaint/contracts/sync";
 import { ChevronLeft, FileText, FileUp, RefreshCw, Wand2 } from "lucide-react";
 import type * as React from "react";
@@ -100,11 +99,8 @@ const applyDetected = async () => {
       keepDesignsDir: true,
     });
     const next = detection.onto(settings);
-    const stylesheets = next.hostCss.map((spec) =>
-      stylesheetOf(next.designsDir, spec)
-    );
     const lines = [
-      `Stylesheets: ${stylesheets.join(", ") || "none found"}`,
+      `Stylesheets: ${next.stylesheets.join(", ") || "none found"}`,
       `Application: ${next.resolveFrom ?? settings.designsDir}`,
     ];
     const ok = await confirmDialog({
