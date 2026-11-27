@@ -13,6 +13,8 @@ import {
   taskPurpose,
 } from "@ultrapaint/contracts/tasks";
 import type { ThreadPurpose } from "@ultrapaint/contracts/threads";
+import { DETAILED_ROLES } from "@ultrapaint/contracts/token-presets";
+import { SYSTEM_ROLES } from "@ultrapaint/system-components/default-look";
 import { Context, Effect, Layer } from "effect";
 import { ServerConfig } from "../../config.ts";
 import { OpenProject } from "../../project.ts";
@@ -30,6 +32,62 @@ import {
   userAdds,
 } from "./task-text.ts";
 import { makeVariationTasks } from "./variation-tasks.ts";
+
+/** A role as a step lists it: its name, and what it is for where the default look says. */
+const roleOf = ({ description, name }: (typeof SYSTEM_ROLES)[number]) =>
+  description
+    ? `${name} (${description.charAt(0).toLowerCase()}${description.slice(1)})`
+    : name;
+
+const COLOR_ROLES = SYSTEM_ROLES.filter((r) => r.name.startsWith("color-"));
+const RADIUS_ROLES = SYSTEM_ROLES.filter((r) => r.name.startsWith("radius-"));
+
+/**
+ * What the roles the system components draw with are to be given (UP-226): each the product's
+ * token that plays it, or the designer's answer. A detailed system's colour roles are its
+ * detailed tokens already (ADR 0062), so only those are checked.
+ */
+const rolesStep = (ways: AgentWays, detailed: boolean, before: boolean) => {
+  const colors = detailed
+    ? `Its colours are named by property and meaning (the detailed preset), and
+   each colour role is one of its detailed tokens already: ${[...new Set(Object.values(DETAILED_ROLES))].join(", ")}.
+   Check that each is a token of the design system, and give one it lacks as below. The radii:
+   ${RADIUS_ROLES.map(roleOf).join(", ")}.`
+    : `The colours: ${COLOR_ROLES.map(roleOf).join(", ")}.
+   The radii: ${RADIUS_ROLES.map(roleOf).join(", ")}.`;
+  return `The system components (Button, Input, Select, Badge and the others the designs place) draw
+   with roles: give each the product's token that plays it, so they draw in the product's look.
+   ${colors}
+   - A role the theme declares under its own name (--color-primary, --radius-md) is mapped already:
+     there is nothing to do for it.
+   - One that a token of the product plays under another name is added to the design system as a
+     token whose value is a var() of it (color-primary: var(--color-brand-ink)), never the value
+     copied, so a change of that token follows into the components in every theme. Say in its
+     description what it is for and which of the product's tokens it stands for.
+   - Those the code leaves open, put to the user ${ways.askUser}, ${ways.tools ? "in one call" : "all at once"}, one question per role,
+     your pick its first option and the product's other candidate tokens after it. A role they
+     decline keeps the default look's value.
+   Write no stylesheet: a role reaches the code when the user exports it through Sync.${
+     before
+       ? `
+   Keep a role set before: ask only about one the code changed or did not have.`
+       : ""
+   }`;
+};
+
+/** What setting the system components' looks to the product's own components is (UP-226). */
+const looksStep = (ways: AgentWays, designsDir: string, before: boolean) =>
+  `Set the system components' looks to the product's, on the roles above.
+   Read its own Button, Input, Select and Badge in the code (their classes, variants and sizes),
+   and any other component of it that one of the system components stands for, and set each one's
+   look to match: height, radius, fill, border, font size and weight, per size and variant where
+   the code has them, ${ways.setLooks(designsDir)}.${
+     before
+       ? `
+   Keep a look set before: change it only where the product's code changed.`
+       : ""
+   }
+   Say in your summary which roles and looks you set, and which you left at the default and why.`;
 
 /** A task: what the agent is told, and what the thread that runs it is for. */
 export interface AgentTask {
@@ -67,30 +125,34 @@ export class AgentTasks extends Context.Service<
 
       /** The texts, worded for an agent with the editor's tools or without them. */
       const writtenFor = Effect.fnUntraced(function* (ways: AgentWays) {
-        /** What `/init` asks for, which Define asks for too when it adopts the theme. */
-        const importSteps = project.use(
-          Effect.gen(function* () {
-            const paths = yield* RepoPaths;
-            const { designSystem, document } =
-              yield* (yield* DesignSystemService).get;
-            const { settings } = paths;
-            const libraries =
-              settings.libraryDirs.join(", ") || "the component library";
-            const before = `${
-              designSystem
-                ? `
+        /**
+         * What `/init` asks for, which Define asks for too when it adopts the theme, with what
+         * `alsoInDesignMd` adds to DESIGN.md.
+         */
+        const importSteps = (alsoInDesignMd = "") =>
+          project.use(
+            Effect.gen(function* () {
+              const paths = yield* RepoPaths;
+              const { designSystem, document } =
+                yield* (yield* DesignSystemService).get;
+              const { settings } = paths;
+              const libraries =
+                settings.libraryDirs.join(", ") || "the component library";
+              const before = `${
+                designSystem
+                  ? `
    A design system was imported before: ${ways.readDesignSystem(settings.designsDir)}. Update
    it rather than start over, and ask only about what changed.`
-                : ""
-            }${
-              document && !designSystem
-                ? `
+                  : ""
+              }${
+                document && !designSystem
+                  ? `
    The repository has a DESIGN.md (${document.path}): it says what the product is meant to
    look like. Start from it, keep what it says, and keep its sections; its tokens are compared
    with the design system's in Sync afterwards.`
-                : ""
-            }`;
-            return `1. ${ways.readTheme(settings.hostCss.join(", ") || "none configured yet", before)}
+                  : ""
+              }`;
+              return `1. ${ways.readTheme(settings.hostCss.join(", ") || "none configured yet", before)}
 2. Look at what the scan cannot see, in the repository: the design system's packages (${libraries}),
    their READMEs, AGENTS.md and docs, its Storybook stories and style guides, and how the
    application's own screens use the tokens.
@@ -98,7 +160,8 @@ export class AgentTasks extends Context.Service<
    time, and wait for the answers: what the application is and who uses it, which colours are
    the brand and which are semantic, which text styles the product uses, what to always or never
    do. Skip what you already know.
-4. ${ways.saveDesignSystem(settings.designsDir)}
+4. ${rolesStep(ways, designSystem?.tokenPreset === "detailed", designSystem !== null)}
+5. ${ways.saveDesignSystem(settings.designsDir)}
    - colors: groups of tokens, the semantic colours first ("Semantic"), then one group per
      palette. Keep only what the product uses; say in \`description\` what a colour is for.
    - typography.styles: the named text styles the product uses, each one a size, a weight and
@@ -118,20 +181,21 @@ export class AgentTasks extends Context.Service<
      its components has them read from there.
    - icons: the package the product's icons come from, the sizes it uses, and in
      \`description\` how they are used (stroke width, with or without labels).
-   - DESIGN.md: ${DESIGN_MD_GUIDE}`;
-          })
-        );
+   - DESIGN.md: ${DESIGN_MD_GUIDE}${alsoInDesignMd}
+6. ${looksStep(ways, settings.designsDir, designSystem !== null)}`;
+            })
+          );
 
         /** `/init`: the repository's design system imported, in the steps above. */
         const init = (extra: string | undefined) =>
           Effect.map(
-            importSteps,
+            importSteps(),
             (steps) => `<ultrapaint-task command="init">
 Import this repository's design system into Ultrapaint, so that designs are drawn with its
 tokens and every agent knows its conventions. Only Tailwind v4 is supported.
 
 ${steps}
-5. End with a short summary: what you wrote, and what you were unsure of.
+7. End with a short summary: what you wrote, and what you were unsure of.
 ${userAdds(extra)}</ultrapaint-task>`
           );
 

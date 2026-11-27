@@ -49,6 +49,11 @@ refactor and the board view left.
   Tailwind v4's per-property namespaces (`--text-color-subtle`): contracts' `token-presets`, its
   `DETAILED_ROLES` saying which detailed token each role the system components read is.
   _Avoid_: semantic layer, token style.
+- **Role**: a token the system components draw with (`color-primary`, `color-ring`,
+  `radius-md`): system-components' `SYSTEM_ROLES`, the neutral palette's colours and the radii the
+  default looks read. `/init` gives each the product's token that plays it, as a `var()` of it,
+  or the person's answer (ADR 0155); one it does not give keeps the default look's value.
+  _Avoid_: role token, semantic token.
 - **Foundations**: the design system's values as the Design system place lists them (ADR 0045):
   Color, Typography, Spacing, Radius, Elevation, Motion and Breakpoints, each shown only when the
   design system has data for it, each opened as its boards. The **Guidelines** are DESIGN.md's

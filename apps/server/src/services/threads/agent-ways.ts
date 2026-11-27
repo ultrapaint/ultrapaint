@@ -6,6 +6,7 @@
  * which is null without the server. The `handoff` tool's actions are named here too, for its
  * schema (`mcp/handoff-tools.ts`) and every text that tells an agent to call it.
  */
+import { COMPONENTS_DIR } from "@ultrapaint/contracts/components";
 import {
   DESIGN_MD_FILE,
   DESIGN_SYSTEM_FILE,
@@ -161,6 +162,11 @@ export interface AgentWays {
    * design skill's words for what an agent may have (a browser, a view at a width): a step's text.
    */
   readonly seeRunningScreen: string;
+  /**
+   * Setting the looks of the system components a step names to the product's (UP-226): a clause
+   * after a comma, "each" the component.
+   */
+  readonly setLooks: (designsDir: string) => string;
   /** Settling a token changed on both sides, once the user said which value to keep. */
   readonly settleTokens: string;
   /**
@@ -239,6 +245,11 @@ ${TOOLS.read_design_system}, ${TOOLS.list_components} and ${TOOLS.get_component}
   seeRunningScreen: `${SEE_RUNNING_SCREEN}; ${TOOLS.get_screenshot} shows the page as you
    redraw it, at the same widths, to compare. Where you can see neither, update the page from
    the code alone.`,
+  setLooks:
+    () => `each through ${handoffCall("change")}, target component:<Name>, one change
+   at a time: ${SET_STYLE}.
+   A style is the part's whole style at its place, so start from the look ${TOOLS.get_component} answers
+   there; a change it refuses names the parts, members and states the component has`,
   settleTokens: `bring it over with ${handoffCall("export")} for the design's value or "import" for the code's, and tokens, their names`,
   tools: TOOLS,
 };
@@ -291,6 +302,12 @@ page format: ${pageSchema()}`,
    last are there, and they win over the ones you write.`,
   seeRunningScreen: `${SEE_RUNNING_SCREEN}. Where you can see neither, update the page from the
    code alone.`,
+  setLooks: (
+    designsDir
+  ) => `each in its file, ${designsDir}/${COMPONENTS_DIR}/<Name>.component.json (origin "system"; a
+   field it leaves out keeps the default look's). A look styles only its component's parts (? those
+   it may leave out) and states; a file that styles another does not read:
+${systemParts().replaceAll(/^/gm, "   ")}`,
   settleTokens:
     "have the user pick it in the Design system panel's Sync view, or write the design's value into the stylesheet where the token is declared",
   tools: null,

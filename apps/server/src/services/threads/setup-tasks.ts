@@ -39,8 +39,13 @@ export const STEPS_NEXT = `The steps an agent runs are ${SETUP_STEPS.filter(
 const MAP_LISTED = 200;
 
 export const makeSetupTasks = Effect.fnUntraced(function* (deps: {
-  /** What `/init` asks for, which Define asks for too when it adopts the theme. */
-  readonly importSteps: Effect.Effect<string, NotConfigured>;
+  /**
+   * What `/init` asks for, which Define asks for too when it adopts the theme, with what
+   * `alsoInDesignMd` adds to DESIGN.md.
+   */
+  readonly importSteps: (
+    alsoInDesignMd?: string
+  ) => Effect.Effect<string, NotConfigured>;
   readonly ways: AgentWays;
 }) {
   const { importSteps, ways } = deps;
@@ -51,19 +56,20 @@ export const makeSetupTasks = Effect.fnUntraced(function* (deps: {
 
   const defineAdopt = (extra: string | undefined, brief: string) =>
     Effect.map(
-      importSteps,
+      importSteps(`
+   Say in DESIGN.md's Do's and Don'ts what the code does off the system that the team should
+   stop doing.`),
       (steps) => `<ultrapaint-task command="design-system">
 This is the Define step of the design-system setup, adopting the theme, which the user follows in
 the Design system panel's Setup view. The theme is the design system: import it into Ultrapaint, so that designs are
 drawn with its tokens and every agent knows its conventions. Only Tailwind v4 is
-supported. Change no other file: bringing the code onto the design system is a later step.
+supported. Change none of the code's files: bringing the code onto the design system is a later
+step.
 
 ${brief}
 
 ${steps}
-   Say in DESIGN.md's Do's and Don'ts what the code does off the system that the team should
-   stop doing.
-5. ${finishing("Define")}
+7. ${finishing("Define")}
 ${userAdds(extra)}</ultrapaint-task>`
     );
 

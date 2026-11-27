@@ -11,6 +11,7 @@ import {
   starterTextStyles,
   type Token,
 } from "@ultrapaint/contracts/design-system";
+import { SYSTEM_DEFAULTS } from "./defaults.ts";
 import { NEUTRAL_COLORS, NEUTRAL_SHADOWS } from "./look.ts";
 
 const token = (name: string, value: string, description?: string): Token => ({
@@ -85,6 +86,34 @@ const shadows = NEUTRAL_SHADOWS.map((s) =>
   token(s.name, s.value, LEVELS[s.name])
 );
 
+const radius = [
+  token("radius-sm", "0.375rem", "Items inside menus and lists"),
+  token("radius-md", "0.5rem", "Buttons, fields and popovers"),
+  token("radius-lg", "0.75rem", "Cards and dialogs"),
+];
+
+/** The radii the default looks read (`$radius-md`), by name. */
+const RADII_READ = new Set(
+  (JSON.stringify(SYSTEM_DEFAULTS).match(/\$radius-[a-z0-9-]+/g) ?? []).map(
+    (read) => read.slice(1)
+  )
+);
+
+/**
+ * The tokens the system components draw with, each a role a design system gives the product's
+ * value (UP-226): the neutral palette's colours and the radii the default looks read, with what
+ * each is for where the default look says. What `/init` maps to the product's tokens.
+ */
+export const SYSTEM_ROLES: readonly {
+  readonly description?: string | undefined;
+  readonly name: string;
+}[] = [
+  ...NEUTRAL_COLORS.map((c) => ({ description: ROLES[c.name], name: c.name })),
+  ...radius
+    .filter((r) => RADII_READ.has(r.name))
+    .map((r) => ({ description: r.description, name: r.name })),
+];
+
 export const DEFAULT_LOOK: DesignSystem = {
   blurs: [...DEFAULT_BLURS],
   colors: [
@@ -123,11 +152,7 @@ export const DEFAULT_LOOK: DesignSystem = {
     sizes: [16, 20],
     stroke: 2,
   },
-  radius: [
-    token("radius-sm", "0.375rem", "Items inside menus and lists"),
-    token("radius-md", "0.5rem", "Buttons, fields and popovers"),
-    token("radius-lg", "0.75rem", "Cards and dialogs"),
-  ],
+  radius,
   shadows,
   spacing: { base: "0.25rem" },
   themes: ["light", "dark"],

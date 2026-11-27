@@ -5,7 +5,13 @@ import {
   type AppComponentFile,
 } from "@ultrapaint/contracts/components";
 import { commandOf, type TaskRequest } from "@ultrapaint/contracts/tasks";
+import { DETAILED_ROLES } from "@ultrapaint/contracts/token-presets";
+import {
+  LOOK_PRESETS,
+  lookSystem,
+} from "@ultrapaint/design-document/look-dials";
 import { makeFixture as makeFigma } from "@ultrapaint/figma-import/testing/fixture";
+import { SYSTEM_ROLES } from "@ultrapaint/system-components/default-look";
 import { Effect, FileSystem } from "effect";
 import { OpenProject, ProjectManager } from "./project.ts";
 import { DesignSystemService } from "./services/design-system.ts";
@@ -311,6 +317,171 @@ const panelChanges = (stylesheet: string) =>
       })
     );
   });
+
+/** Define's word on DESIGN.md, in the step that writes it, before the looks' step. */
+const DEFINE_DESIGN_MD_RE =
+  /5\. Save it with write_design_system[\s\S]*Do's and Don'ts what the code does off the system[\s\S]*6\. /;
+
+describe("/init's roles and looks of the system components (UP-226)", () => {
+  /** Import's steps, in /init and in Define when it adopts the theme. */
+  const importing = Effect.all([
+    textOf({ _tag: "Init" }),
+    textOf({ _tag: "SetupStep", mode: "adopt", step: "define" }),
+  ]);
+
+  eachTest(ProjectTest({ mcp: true }))((it) => {
+    it.effect(
+      "has each role the system components draw with mapped to the product's token, as a var() of it",
+      () =>
+        Effect.gen(function* () {
+          for (const text of yield* importing) {
+            // Every role, by the system components' own list.
+            for (const role of SYSTEM_ROLES) {
+              assert.include(text, role.name);
+            }
+            assert.include(text, "color-primary (the main action)");
+            // A role named as the components read it is mapped already.
+            assert.include(
+              text,
+              "(--color-primary, --radius-md) is mapped already"
+            );
+            assert.include(text, "color-primary: var(--color-brand-ink)");
+            assert.include(
+              text,
+              "what it is for and which of the product's tokens it stands for"
+            );
+            assert.include(text, "Write no stylesheet");
+            assert.notInclude(text, "detailed token");
+          }
+        })
+    );
+
+    it.effect(
+      "has the roles the code leaves open asked in one call, a question each, the agent's pick first",
+      () =>
+        Effect.gen(function* () {
+          for (const text of yield* importing) {
+            assert.include(
+              text,
+              "with ask_user, in one call, one question per role"
+            );
+            assert.include(text, "your pick its first option");
+          }
+        })
+    );
+
+    it.effect(
+      "has the looks read from the product's components and set through the tools",
+      () =>
+        Effect.gen(function* () {
+          for (const text of yield* importing) {
+            assert.include(text, "its own Button, Input, Select and Badge");
+            assert.include(
+              text,
+              'handoff with action "change", target component:<Name>'
+            );
+            assert.include(text, '{op:"setStyle"');
+            assert.include(text, "get_component");
+          }
+        })
+    );
+
+    it.effect(
+      "has the summary name what was left at the default, and why",
+      () =>
+        Effect.gen(function* () {
+          for (const text of yield* importing) {
+            assert.include(
+              text,
+              "which roles and looks you set, and which you left at the default and why"
+            );
+          }
+        })
+    );
+
+    it.effect(
+      "ends on the seventh step, Define's word on DESIGN.md in the step that writes it",
+      () =>
+        Effect.gen(function* () {
+          const [init, define] = yield* importing;
+          assert.include(init, "7. End with a short summary");
+          assert.include(define, "7. End by calling finish_setup_step");
+          assert.match(define, DEFINE_DESIGN_MD_RE);
+        })
+    );
+  });
+
+  eachTest(ProjectTest({ mcp: true }))((it) => {
+    it.effect(
+      "keeps the roles and looks set before once imported, and not before",
+      () =>
+        Effect.gen(function* () {
+          for (const text of yield* importing) {
+            assert.notInclude(text, "set before");
+          }
+          yield* withDesignSystem;
+          for (const text of yield* importing) {
+            assert.include(text, "Keep a role set before");
+            assert.include(text, "Keep a look set before");
+          }
+        })
+    );
+  });
+
+  eachTest(ProjectTest({ mcp: true }))("with the detailed preset", (it) => {
+    it.effect(
+      "names the detailed tokens its colour roles are, and asks only about one it lacks",
+      () =>
+        Effect.gen(function* () {
+          const [calm] = LOOK_PRESETS;
+          if (!calm) {
+            return assert.fail("no look preset");
+          }
+          const project = yield* OpenProject;
+          yield* project.use(
+            Effect.flatMap(DesignSystemService, (d) =>
+              d.write(lookSystem({ ...calm.dials, tokens: "detailed" }))
+            )
+          );
+          for (const text of yield* importing) {
+            assert.include(
+              text,
+              "each colour role is one of its detailed tokens"
+            );
+            for (const token of new Set(Object.values(DETAILED_ROLES))) {
+              assert.include(text, token);
+            }
+            assert.notInclude(text, "color-primary (the main action)");
+            // The radii are mapped as in any system.
+            assert.include(text, "radius-md");
+          }
+        })
+    );
+  });
+
+  eachTest(ProjectTest({ mcp: false }))("without the tools", (it) => {
+    it.effect(
+      "has the looks written in the components' files, their parts listed",
+      () =>
+        Effect.gen(function* () {
+          const [init, define] = yield* importing;
+          for (const text of [init, define]) {
+            assert.include(
+              text,
+              "in its file, designs/components/<Name>.component.json"
+            );
+            assert.include(text, "Button: root, button-spinner");
+            assert.include(text, "Input: root, field-label?");
+            assert.notInclude(text, "setStyle");
+            assert.include(
+              text,
+              "in your reply, ending your turn for the answers"
+            );
+          }
+        })
+    );
+  });
+});
 
 describe("a token the code declares outside @theme (ADR 0152)", () => {
   eachTest(ProjectTest({ mcp: true }))((it) => {
