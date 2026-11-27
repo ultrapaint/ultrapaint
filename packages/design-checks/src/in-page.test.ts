@@ -223,6 +223,31 @@ describe("a block's label", () => {
     );
   });
 
+  it("of rows touching is the list's first row, cut at a word", () => {
+    const rows = [
+      "Invoice 2026-0041 from Northwind, paid in full",
+      "Invoice 2026-0042",
+      "Invoice 2026-0043",
+    ].map((text, i) =>
+      shownAt(
+        { height: 28, width: 400, x: 0, y: i * 28 },
+        text,
+        "border-radius:4px"
+      )
+    );
+    document.body.append(listOf(rows, 0));
+    assert.deepStrictEqual(
+      auditInBrowser({
+        grid: 0,
+        nearTone: 0.045,
+        only: ["touching-rows"],
+        root: "body",
+        stress: false,
+      }).findings.map((f) => f.label),
+      ["Invoice 2026-0041 from Northwind, paid…"]
+    );
+  });
+
   it("is cut at a word with an ellipsis past 40 characters", () => {
     assert.deepStrictEqual(
       labels(

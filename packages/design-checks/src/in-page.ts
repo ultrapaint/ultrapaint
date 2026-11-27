@@ -448,6 +448,29 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
       text || name || `${el.tagName.toLowerCase()}${role ? `[${role}]` : ""}`
     );
   };
+  /**
+   * A list named by its first line (its first row, not its rows run together), cut at a word
+   * with an ellipsis past 40 characters; by `labelOf` when it shows no text.
+   */
+  const firstLineOf = (el: Element) => {
+    const [first = ""] = (el instanceof HTMLElement ? el.innerText : "")
+      .split("\n")
+      .map((line) => line.trim().replace(/\s+/g, " "))
+      .filter((line) => line !== "");
+    if (first === "") {
+      return labelOf(el);
+    }
+    if (first.length <= 40) {
+      return first;
+    }
+    // One past the limit: a word ending at it is whole.
+    const space = first.slice(0, 41).lastIndexOf(" ");
+    let cut = space > 0 ? first.slice(0, space) : first.slice(0, 40);
+    while (cut !== "" && " ,.;:—–-".includes(cut.at(-1) ?? "")) {
+      cut = cut.slice(0, -1);
+    }
+    return `${cut}…`;
+  };
   /** The element above `at`: its parent, or across a shadow boundary, its host. */
   const above = (at: Element): Element | null => {
     if (at.parentElement) {
@@ -820,7 +843,7 @@ export const auditInBrowser = (options: AuditOptions): Audited => {
         {
           check: "touching-rows",
           detail: `rows of ${typical}px, rounded or filled, with no gap between them`,
-          label: labelOf(el).slice(0, 40),
+          label: firstLineOf(el),
           value: typical,
         },
         el
