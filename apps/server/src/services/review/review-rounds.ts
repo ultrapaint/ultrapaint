@@ -272,6 +272,9 @@ const EMPHASIS = /[*`_]/g;
 const DECLINED = /^declined\s*:?\s*(.*)$/gi;
 const LEADING_NUMBER = /^#?(\d+)\b/g;
 const LEADING_DASH = /^[\s:—–-]+/;
+const ELLIPSIS = /…|\.{3}/;
+/** The dash between a declined finding and its reason. */
+const REASON_DASH = /\s+[—–-]+\s+/;
 
 /** A line as the designer wrote it, without the markdown around it. */
 const bare = (line: string) =>
@@ -281,9 +284,46 @@ const normal = (text: string) =>
   text.replaceAll(EMPHASIS, "").trim().toLowerCase();
 
 /**
+ * The one title a title shortened with an ellipsis is (`Hand-set colour color-mix…`,
+ * `linear-gradient(…) color off the system`): the one that starts with what comes before the
+ * first ellipsis and holds each piece after it in order. A shortening two titles fit names none.
+ */
+const shortenedTitle = (
+  rest: string,
+  titles: readonly { readonly i: number; readonly title: string }[]
+) => {
+  const [named = ""] = rest.split(REASON_DASH);
+  if (!ELLIPSIS.test(named)) {
+    return;
+  }
+  const [start = "", ...after] = normal(named)
+    .split(ELLIPSIS)
+    .map((piece) => piece.trim());
+  const fits = titles.filter(({ title }) => {
+    if (start === "" || !title.startsWith(start)) {
+      return false;
+    }
+    let from = start.length;
+    for (const piece of after) {
+      const at = title.indexOf(piece, from);
+      if (at < 0) {
+        return false;
+      }
+      from = at + piece.length;
+    }
+    return true;
+  });
+  const [only] = fits;
+  // What is named is the shortened title, as long as it was written.
+  return fits.length === 1 && only !== undefined
+    ? { i: only.i, title: named }
+    : undefined;
+};
+
+/**
  * The findings the designer declined, by their index, each with its reason: one line each,
- * `Declined: <title> — <reason>` (a number for the title is taken too). A line naming no finding
- * is left out.
+ * `Declined: <number> — <reason>`, or the finding's title for its number, whole or shortened
+ * with an ellipsis. A line naming no finding is left out.
  */
 export const declinedOf = (
   said: string,
@@ -305,6 +345,7 @@ export const declinedOf = (
     const [number] = rest.matchAll(LEADING_NUMBER);
     const at =
       byTitle ??
+      shortenedTitle(rest, titles) ??
       (number === undefined
         ? undefined
         : { i: Number(number[1]) - 1, title: number[0] });

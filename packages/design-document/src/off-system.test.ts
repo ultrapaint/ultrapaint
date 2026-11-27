@@ -84,6 +84,32 @@ describe("values off the design system", () => {
     ]);
   });
 
+  it("reports the raw stop or colour layer of a fill in layers, not the whole fill", () => {
+    const found = offSystemValues(
+      page([
+        {
+          children: [],
+          fill: "linear-gradient(180deg, $color-scrim, rgba(12, 10, 40, 0.6) 70%), radial-gradient($color-glow, transparent), url(assets/hero.png) center / cover no-repeat",
+          id: "hero",
+          name: "Hero",
+          type: "column",
+        },
+        {
+          children: [],
+          fill: "linear-gradient($color-primary, transparent), #fafafa",
+          id: "band",
+          type: "column",
+        },
+        { children: [], fill: "#ffffff", id: "plain", type: "column" },
+      ])
+    );
+    expect(found.map((f) => [f.node, f.field, f.value, f.layer])).toEqual([
+      ["Hero", "fill", "rgba(12, 10, 40, 0.6)", "gradient"],
+      ["band", "fill", "#fafafa", "colour"],
+      ["plain", "fill", "#ffffff", undefined],
+    ]);
+  });
+
   it("passes an image layer, and still flags a raw colour beside it (ADR 0149)", () => {
     expect(
       isOffSystem("color", "url(assets/hero.png) center / cover no-repeat")

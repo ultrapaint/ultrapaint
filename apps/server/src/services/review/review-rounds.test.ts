@@ -230,6 +230,31 @@ describe("the designer's answer", () => {
     ]);
   });
 
+  it("declines a finding by its title shortened with an ellipsis, at its end or inside it", () => {
+    const checks = [
+      { title: "Hand-set colour color-mix(…) on Plan and 2 more" },
+      {
+        title:
+          "linear-gradient(180deg, $color-scrim, rgba(12, 10, 40, 0.6) 70%) color off the system",
+      },
+      { title: "Hand-set spacing 13px on Title" },
+      { title: "Hand-set spacing 6px on Row 1 and 8 more" },
+    ];
+    const declined = declinedOf(
+      [
+        "Declined: Hand-set colour color-mix… — the brand's tint",
+        "Declined: linear-gradient(…) color off the system — the hero's scrim",
+        // Two titles begin so: it names neither.
+        "Declined: Hand-set spacing... — the grid",
+      ].join("\n"),
+      checks
+    );
+    expect([...declined.entries()]).toEqual([
+      [0, "the brand's tint"],
+      [1, "the hero's scrim"],
+    ]);
+  });
+
   it("declines a finding by its number, and ignores a line naming none", () => {
     const declined = declinedOf(
       "Declined: #2 — out of scope\nDeclined: something else — no",

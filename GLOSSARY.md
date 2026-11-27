@@ -487,7 +487,8 @@ refactor and the board view left.
 - **General check**: a rule written once for every screen that code decides on the document or
   the rendered page, with a threshold (ADR 0061): values **off the system** (design-document's
   `offSystemValues`: spacing off the base's steps, a raw radius, colour or type size where a
-  token was due), and the rendered checks of `measure --checks` (evals' `auditInBrowser`).
+  token was due; in a fill of several fill layers, each raw stop or colour layer on its own), and
+  the rendered checks of `measure --checks` (evals' `auditInBrowser`).
 - **Value match**: the nodes holding a value, a token (`$color-primary`), CSS or pixels, as an agent
   finds them with `read_page`'s `match`: on one page, or on every page of a canvas as its variations
   in use draw it and among the nodes beside the pages, a page that cannot be read passed by and

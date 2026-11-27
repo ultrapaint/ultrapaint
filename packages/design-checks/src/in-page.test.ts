@@ -192,3 +192,44 @@ describe("a text cut on purpose", () => {
     assert.deepStrictEqual(clipped(panel), ["clipped-text"]);
   });
 });
+
+describe("a block's label", () => {
+  /** A section of a heading and the text under it, laid out from `y`. */
+  const sectionAt = (y: number, heading: string) => {
+    const section = shownAt({ height: 100, width: 400, x: 0, y });
+    section.append(
+      shownAt({ height: 20, width: 400, x: 0, y }, heading),
+      shownAt(
+        { height: 60, width: 400, x: 0, y: y + 30 },
+        "Every plan includes the editor"
+      )
+    );
+    return section;
+  };
+  const labels = (...blocks: Element[]) => {
+    const panel = shownAt({ height: 400, width: 400, x: 0, y: 0 });
+    panel.append(...blocks);
+    document.body.append(panel);
+    return layoutInBrowser(panel).block?.children.map((c) => c.label);
+  };
+
+  it("is its first line, not a heading run into the text under it", () => {
+    assert.deepStrictEqual(
+      labels(
+        sectionAt(0, "Two plans"),
+        shownAt({ height: 20, width: 400, x: 0, y: 140 }, "Questions")
+      ),
+      ["Two plans", "Questions"]
+    );
+  });
+
+  it("is cut at a word with an ellipsis past 40 characters", () => {
+    assert.deepStrictEqual(
+      labels(
+        shownAt({ height: 20, width: 400, x: 0, y: 0 }, "Pricing"),
+        sectionAt(40, "Choose the plan that fits your growing design team")
+      ),
+      ["Pricing", "Choose the plan that fits your growing…"]
+    );
+  });
+});

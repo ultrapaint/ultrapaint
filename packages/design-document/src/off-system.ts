@@ -11,7 +11,8 @@
  *
  * A fill in layers (ADR 0134) is on the system when each of its colours is: a gradient whose
  * every stop is a token, or a keyword that is no value, passes; a raw stop or a raw colour layer
- * is off it. A shadow list is read shadow by shadow: a raw shadow anywhere in it is off it.
+ * is off it, and is reported alone, not the fill it is in. A shadow list is read shadow by
+ * shadow: a raw shadow anywhere in it is off it, and is reported alone.
  *
  * Left alone: 0 and the CSS keywords that are no value (`none`, `transparent`, `auto`,
  * `currentColor`, `inherit`); sizes (a width, a height), which are the layout's; a round radius
@@ -43,8 +44,14 @@ export interface OffSystemValue {
   /** The field, with its side or breakpoint: `padding.top`, `at.md.gap`, `border.color`. */
   readonly field: string;
   readonly kind: OffSystemKind;
+  /**
+   * The fill layer the value is (ADR 0134): one of a gradient's stops, or a colour layer among
+   * others. None for a value that is the whole field.
+   */
+  readonly layer?: "gradient" | "colour" | undefined;
   /** The node's name, else its id. */
   readonly node: string;
+  /** The raw value itself: in a fill of several layers, the stop or colour layer, not the fill. */
   readonly value: string | number;
 }
 
@@ -163,6 +170,43 @@ export const tokenFieldsOf = (
   return found;
 };
 
+/** A raw colour of a fill, and the fill layer it is in. */
+interface RawLayer {
+  readonly color: string;
+  readonly layer: NonNullable<OffSystemValue["layer"]>;
+}
+
+/**
+ * A fill's colours off the system, layer by layer (ADR 0134): a gradient's stops, and its colour
+ * layers when it has more than one layer (an image is no colour, ADR 0149). None for a fill of
+ * one colour layer, or one the editor cannot read: the raw value is the whole field.
+ */
+const rawLayersOf = (
+  kind: OffSystemKind,
+  value: unknown
+): readonly RawLayer[] | undefined => {
+  if (kind !== "color" || typeof value !== "string" || isToken(value)) {
+    return undefined;
+  }
+  const layers = fillLayers(value);
+  if (
+    !layers.every((l) => l.kind !== "css") ||
+    (layers.length === 1 && layers[0]?.kind === "color")
+  ) {
+    return undefined;
+  }
+  return layers.flatMap<RawLayer>((layer) => {
+    if (layer.kind === "gradient") {
+      return layer.stops
+        .filter((stop) => isOffSystem(kind, stop.color))
+        .map((stop) => ({ color: stop.color, layer: "gradient" }));
+    }
+    return layer.kind === "color" && isOffSystem(kind, layer.color)
+      ? [{ color: layer.color, layer: "colour" }]
+      : [];
+  });
+};
+
 /** One node's fields (its own, or a breakpoint's), each value a token was due for and isn't. */
 const offIn = (
   fields: Readonly<Record<string, unknown>>,
@@ -177,6 +221,16 @@ const offIn = (
     if (shadows.length > 1) {
       for (const shadow of shadows) {
         check(field, kind, shadow);
+      }
+      return;
+    }
+    // A fill of layers is reported by its raw stops and colour layers, each once (ADR 0134).
+    const layers = rawLayersOf(kind, value);
+    if (layers !== undefined) {
+      for (const { color, layer } of layers) {
+        if (!found.some((f) => f.field === field && f.value === color)) {
+          found.push({ field, kind, layer, node, value: color });
+        }
       }
       return;
     }

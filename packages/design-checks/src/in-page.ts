@@ -116,6 +116,26 @@ export const layoutInBrowser = (root: CheckRoot) => {
       .filter((r) => r.width > 0 && r.height > 0)
       .map((r) => ({ bottom: r.bottom - origin.top, top: r.top - origin.top }));
   };
+  /**
+   * A block named by its first line, not a heading run into the text under it, cut at a word
+   * with an ellipsis past 40 characters.
+   */
+  const firstLineOf = (text: string) => {
+    const [first = ""] = text
+      .split("\n")
+      .map((line) => line.trim().replace(/\s+/g, " "))
+      .filter((line) => line !== "");
+    if (first.length <= 40) {
+      return first;
+    }
+    // One past the limit: a word ending at it is whole.
+    const space = first.slice(0, 41).lastIndexOf(" ");
+    let cut = space > 0 ? first.slice(0, space) : first.slice(0, 40);
+    while (cut !== "" && " ,.;:—–-".includes(cut.at(-1) ?? "")) {
+      cut = cut.slice(0, -1);
+    }
+    return `${cut}…`;
+  };
   const walk = (el: Element | ShadowRoot): LaidBlock | null => {
     if (el instanceof Element && !shown(el)) {
       return null;
@@ -141,14 +161,11 @@ export const layoutInBrowser = (root: CheckRoot) => {
       bottom: box.bottom - origin.top,
       box: boxOf(box),
       children,
-      label: (
+      label: firstLineOf(
         (el instanceof HTMLElement ? el.innerText : undefined) ??
-        el.textContent ??
-        ""
-      )
-        .trim()
-        .replace(/\s+/g, " ")
-        .slice(0, 40),
+          el.textContent ??
+          ""
+      ),
       lines,
       top: box.top - origin.top,
     };

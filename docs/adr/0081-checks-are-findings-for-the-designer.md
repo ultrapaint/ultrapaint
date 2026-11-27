@@ -48,8 +48,9 @@ detector results shown first "anchor judgment".
    the document's off-system values and, once the editor checks the rendered page, the kinds
    above. A kind joins after its own rating deck; one that falls under 80% leaves.
 4. **The designer may decline a check's finding**, with a reason, as it may a reviewer's
-   (`Declined: <title> — <reason>`). The findings log keeps the declines by kind, and they are
-   the sample a kind's precision is read from again, with the person rating the declines blind.
+   (`Declined: <title> — <reason>`, by its number since UP-218: see "As built"). The findings
+   log keeps the declines by kind, and they are the sample a kind's precision is read from
+   again, with the person rating the declines blind.
 5. **Approval is unchanged.** A check's finding counts as minor and never holds back approval by
    itself; whether a measured finding should block (a target under 24px, text contrast) is left
    for the loop's next round of measurement (R4, R5 in the plan).
@@ -81,6 +82,15 @@ detector results shown first "anchor judgment".
   the document's values off the system are one finding a value ("13px spacing, 9 places").
   They go beside the reviewers' findings, or alone once the review is over (approved, or at a
   cap), when the review still ends there; a review no model could score sends nothing.
-- **Declines.** A check's finding declined (`Declined: <title> — <reason>`) is kept on the
+- **Declines.** A check's finding declined (`Declined: <number> — <reason>`) is kept on the
   round and in the findings log with its kind (`check`), and is not sent again in the same run.
   A second look is never shown the checks' findings.
+- **Readable titles** (UP-218). A check's finding is titled in about 60 characters by its kind,
+  its value as it reads and its first element ("Hand-set colour rgba(12, 10, 40, 0.6) in a
+  gradient on Hero", "Hand-set spacing 6px on Row 1 and others"), the others uncounted so that a
+  declined title stays the same while its places change; the whole value is its `problem`. A
+  fill of several fill layers reports the raw stop or colour layer, not the whole fill (ADR 0134,
+  0149). A block is labelled by its first line, cut at a word with an ellipsis, and a page is
+  named as the canvas names it, so the home page is "Home". The designer declines a finding by
+  its number (`Declined: 12 — <reason>`); a title shortened with an ellipsis, at its end or
+  inside it, is read too when it fits one finding alone.
