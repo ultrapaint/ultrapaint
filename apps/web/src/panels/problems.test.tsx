@@ -4,13 +4,16 @@ import type {
   DesignDocument,
   DesignFinding,
 } from "@ultrapaint/contracts/design-system";
+import type { DesignNode } from "@ultrapaint/contracts/document";
 import { defaultSettings } from "@ultrapaint/contracts/settings";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startPrompt } from "../lib/start-thread.ts";
+import { useComponents } from "../state/components.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
+import { useDocuments } from "../state/documents.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { setIgnored, usePersonalIgnores } from "../state/problems.ts";
 import { useProject } from "../state/project.ts";
@@ -300,5 +303,113 @@ describe("Problems › a problem's menu (ADR 0106)", () => {
         (row) => row.textContent
       )
     ).toEqual(["Show in file"]);
+  });
+});
+
+describe("an instance of a variant member its look takes out (ADR 0161)", () => {
+  const initialComponents = useComponents.getState();
+  const initialDocuments = useDocuments.getState();
+  afterEach(() => {
+    useComponents.setState(initialComponents, true);
+    useDocuments.setState(initialDocuments, true);
+  });
+
+  const badge = (id: string, variant: string): DesignNode =>
+    ({
+      component: "Badge",
+      from: "@ultrapaint/system",
+      id,
+      props: { variant },
+      text: id,
+      type: "instance",
+    }) as DesignNode;
+
+  const withOutlineTakenOut = () => {
+    useComponents.setState({
+      components: [
+        {
+          base: {},
+          members: { variant: { remove: ["outline"] } },
+          name: "Badge",
+          origin: "system",
+          states: {},
+          variants: {},
+          version: 1,
+        },
+      ],
+    });
+    useDocuments.setState({
+      docs: {
+        "home.page.json": {
+          doc: "home.page.json",
+          hash: "h",
+          root: {
+            children: [
+              badge("new", "outline"),
+              badge("beta", "outline"),
+              badge("live", "default"),
+            ],
+            id: "home",
+            type: "page",
+          } as DesignNode,
+        },
+      },
+    });
+    useProject.setState({
+      info: { configured: true, storage: { mode: "managed" } },
+      pages: [
+        {
+          canvas: "main",
+          file: "designs/home.page.json",
+          id: "home.page.json",
+          name: "Home",
+          path: "home.page.json",
+          route: "/",
+        },
+      ],
+    });
+    panelWith([]);
+  };
+
+  it("lists them, still drawn, with where they are", () => {
+    withOutlineTakenOut();
+    const group = container.querySelector('section[aria-label="Components"]');
+    expect(group?.querySelector("li")?.getAttribute("aria-label")).toBe(
+      "2 Badge instances still use outline, taken out of its variant"
+    );
+    expect(group?.textContent).toContain("They draw as before, on Home.");
+  });
+
+  it("moves them to a member the look offers, in one undo step", async () => {
+    withOutlineTakenOut();
+    fakeApi.respond("documents.apply", () => ({ changes: [], created: [] }));
+    act(() => button("Move to…")[0]?.click());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const options = [
+      ...document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+    ];
+    expect(options.map((o) => o.textContent)).toEqual([
+      "default",
+      "secondary",
+      "destructive",
+    ]);
+    act(() => options.find((o) => o.textContent === "secondary")?.click());
+    await act(() => fakeApi.requested("documents.apply"));
+    expect(
+      fakeApi.calls.findLast((c) => c.method === "documents.apply")?.input
+    ).toEqual({
+      edits: [
+        {
+          doc: "home.page.json",
+          ops: [
+            { id: "new", op: "setProps", props: { variant: "secondary" } },
+            { id: "beta", op: "setProps", props: { variant: "secondary" } },
+          ],
+        },
+      ],
+      label: "Move Badge's outline to secondary",
+    });
   });
 });

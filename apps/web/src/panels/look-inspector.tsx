@@ -45,7 +45,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { axesOf, rowAxisOf } from "../boards/library-boards.ts";
+import { boardAxesOf, rowAxisOf } from "../boards/library-boards.ts";
 import { cellId, placeOfCell } from "../boards/pick.ts";
 import { IconButton } from "../components/icon-button.tsx";
 import { Segmented } from "../components/segmented.tsx";
@@ -73,6 +73,7 @@ import { Notes } from "./component-notes.tsx";
 import { ComponentUsedIn } from "./component-used-in.tsx";
 import { OPACITY_OPTIONS, opacityOf } from "./inspector-appearance.tsx";
 import { Row, Section } from "./inspector-fields.tsx";
+import { LookMembers } from "./look-members.tsx";
 
 /** A system component's parts, the root first, as the catalogue names them. */
 const partsOf = (name: string) =>
@@ -721,7 +722,7 @@ export const LookInspector = ({
   const place = usePlace();
   const [slot, setSlot] = usePart(name);
   const parts = partsOf(name);
-  const axes = drawn ? axesOf(drawn, meta) : {};
+  const axes = drawn ? boardAxesOf(drawn, meta) : {};
   const rowAxis = drawn ? rowAxisOf(drawn, axes, undefined) : undefined;
   const members = Object.entries(axes).flatMap(([axis, names]) =>
     names.map((member) => ({ axis, member }))
@@ -848,6 +849,7 @@ export const LookInspector = ({
 
   // The saved style: a field's own value is what it commits against, the draft being drawn only.
   const style = styleAt(file, place, slot);
+  const builtIn = systemComponentOf(name);
   const commit = (next: PartStyle) => {
     if (JSON.stringify(next) === JSON.stringify(styleAt(file, place, slot))) {
       draftStyle(null);
@@ -872,6 +874,11 @@ export const LookInspector = ({
       ) || systemComponentOf(name)?.templatedItems ? (
         <Section title="Parts">
           <LookExtras file={file} />
+        </Section>
+      ) : null}
+      {builtIn ? (
+        <Section title="Variants">
+          <LookMembers file={file} meta={builtIn} />
         </Section>
       ) : null}
       <ComponentUsedIn from={SYSTEM_FROM} name={name} />

@@ -1,5 +1,8 @@
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
-import type { AppComponentFile } from "@ultrapaint/contracts/components";
+import type {
+  AppComponentFile,
+  SystemComponentFile,
+} from "@ultrapaint/contracts/components";
 import {
   type DesignDocument,
   type DesignSystem,
@@ -431,6 +434,35 @@ describe("the Library's boards", () => {
     // A Menu draws no hover, focus or disabled column it could not take.
     expect(states("Menu")).not.toContain("state:hover");
     expect(states("Button")).toContain("state:hover");
+  });
+
+  it("draws the members a product's look adds and its own axis, and none it takes out (ADR 0161)", () => {
+    const badge: SystemComponentFile = {
+      base: {},
+      members: {
+        shape: { add: ["default", "pill"] },
+        variant: { add: ["neutral-strong"], remove: ["outline"] },
+      },
+      name: "Badge",
+      origin: "system",
+      states: {},
+      // Still styled, for the instances that keep it.
+      variants: { variant: { outline: { root: { radius: 4 } } } },
+      version: 1,
+    };
+    const { boards } = libraryBoards("Badge", catalogueOf([badge]), (name) =>
+      name === "Badge" ? badge : defaultLookOf(name)
+    );
+    expect(boards.map((b) => b.title)).toEqual(["variant × state", "shape"]);
+    const drawn = boards.flatMap((b) => ids(b.root as DesignNode));
+    expect(drawn).toEqual(
+      expect.arrayContaining([
+        "member:neutral-strong",
+        "cell:variant=neutral-strong:base",
+        "cell:shape=pill:base",
+      ])
+    );
+    expect(drawn).not.toContain("member:outline");
   });
 
   it("draws an app component a board a member of each choice, edited in place on the member", () => {

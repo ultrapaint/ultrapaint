@@ -19,7 +19,7 @@ import { Tool, Toolkit } from "effect/ai";
 import { CodeSide } from "../code-side.ts";
 import { ComponentService } from "../components.ts";
 import { DesignSystemService } from "../design-system.ts";
-import { lookParts } from "../threads/agent-docs.ts";
+import { lookParts, memberLines } from "../threads/agent-docs.ts";
 import { TOOLS } from "../threads/agent-ways.ts";
 import { makeLookup } from "./lookup.ts";
 import {
@@ -128,6 +128,11 @@ const GetComponent = Tool.make("get_component", {
      * state and per state in a member. A setStyle's style is the part's whole style at its place.
      */
     look: Schema.optional(Json),
+    /**
+     * The variant members a system component's look adds and takes out, an axis a line (ADR
+     * 0161); none when it keeps the editor's own.
+     */
+    members: Schema.optional(Schema.Array(Schema.String)),
     name: Schema.String,
     /**
      * A system component's parts a look styles (`root`, or a `data-slot`), `?` after those it may
@@ -184,6 +189,7 @@ export const DesignSystemToolsLive = DesignSystemTools.toLayer(
               (c) => c.name === name
             )
           : undefined;
+        const members = system ? memberLines(system, file) : [];
         return {
           ...(component.description !== undefined && {
             description: component.description,
@@ -195,6 +201,7 @@ export const DesignSystemToolsLive = DesignSystemTools.toLayer(
             parts: lookParts(system),
             states: system.states,
           }),
+          ...(members.length > 0 && { members }),
           name: component.name,
           props: component.props.map(
             (prop) => `${prop.name}: ${typeText(prop.type)}`

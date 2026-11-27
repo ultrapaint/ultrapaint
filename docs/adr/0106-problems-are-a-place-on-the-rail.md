@@ -3,6 +3,8 @@
 Status: accepted, 2026-11-19. Amends 0025 (the rail's and the place switch's sync dot), 0027 (where
 the linter's findings are shown) and 0053 (the modes' rails).
 
+> Amended by [0161](0161-a-look-adds-and-takes-out-variant-members.md), 2026-11-27: Problems also lists the instances of a variant member a system component's look takes out, under Components, its fix Move to… a member the look offers, in one undo step.
+
 ## Context
 
 What DESIGN.md's linter (`@google/design.md`) found was listed under Foundations' guidelines, in

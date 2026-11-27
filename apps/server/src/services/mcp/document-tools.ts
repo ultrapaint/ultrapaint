@@ -5,7 +5,8 @@
  * agent works.
  */
 import { Json } from "@ultrapaint/contracts/base";
-import type { Catalogue } from "@ultrapaint/contracts/catalogue";
+import { type Catalogue, metaOf } from "@ultrapaint/contracts/catalogue";
+import { SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
 import { type DesignNode, DocOp } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
@@ -101,13 +102,41 @@ const capped = <A>(items: readonly A[]): (A | string)[] =>
     : [...items];
 
 /**
+ * The system components' instances the call touched that it set in a variant member their look
+ * does not offer (ADR 0161): one it takes out, or one the product has that the look has not added
+ * yet, which an agent adds to the look rather than placing by hand.
+ */
+const memberWarnings = (
+  root: DesignNode,
+  catalogue: Catalogue,
+  touched: readonly string[]
+): string[] =>
+  touched.flatMap((id) => {
+    const node = findNode(root, id);
+    if (node?.type !== "instance" || node.from !== SYSTEM_FROM) {
+      return [];
+    }
+    const meta = metaOf(catalogue, node);
+    return Object.entries(meta?.variants ?? {}).flatMap(([axis, members]) => {
+      const value = node.props?.[axis];
+      return typeof value === "string" && !members.includes(value)
+        ? [
+            `${id}: ${node.component}'s ${axis} offers no ${value}; its members are ${members.join(", ")}. A member of the product's own is added to its look first, through handoff's change: {op:"addMember", axis:${JSON.stringify(axis)}, member:${JSON.stringify(value)}}`,
+          ]
+        : [];
+    });
+  });
+
+/**
  * What an agent is told of a page after its edit: a wrapper the page does not need, fills with
- * no room, then the styled texts the call gave a size or line height of their own (ADR 0160).
+ * no room, the styled texts the call gave a size or line height of their own (ADR 0160), then
+ * the instances it set in a member their look does not offer (ADR 0161).
  */
 const warningsOf = (
   root: DesignNode,
   catalogue: Catalogue,
-  found: readonly Found[]
+  found: readonly Found[],
+  touched: readonly string[]
 ): string[] => {
   const wrapper = wrapperWarning(root);
   return [
@@ -115,6 +144,7 @@ const warningsOf = (
     ...[...fillWarnings(root, catalogue), ...styleOverrides(found, root)].map(
       (w) => `${w.nodeId}: ${w.message}`
     ),
+    ...memberWarnings(root, catalogue, touched),
   ];
 };
 
@@ -547,19 +577,23 @@ export const DocumentToolsLive = DocumentTools.toLayer(
           )
         );
         const after = yield* documents((d) => d.get(doc));
+        const touched = after.root
+          ? touchedBy(decoded, result.created, after.root)
+          : [];
         // The work is the calling thread's: the canvas shows it on the nodes it changed.
         if (after.root) {
-          yield* showEdited(
-            at,
-            touchedBy(decoded, result.created, after.root),
-            label
-          );
+          yield* showEdited(at, touched, label);
         }
         // What the call set that did nothing, then the fills on the page with no room.
         const { ignored, warnings } = after.root
           ? {
               ignored: inertFields(result.found, after.root, breakpoints),
-              warnings: warningsOf(after.root, yield* catalogue, result.found),
+              warnings: warningsOf(
+                after.root,
+                yield* catalogue,
+                result.found,
+                touched
+              ),
             }
           : { ignored: [], warnings: [] };
         return {

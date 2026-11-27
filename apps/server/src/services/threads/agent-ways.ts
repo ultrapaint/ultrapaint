@@ -96,13 +96,17 @@ and ${TOOLS.rename_page} names it for its state`;
 /** One part's style at a place of a system component's look, as `ComponentChange` writes it. */
 export const SET_STYLE = `{op:"setStyle", place:{variant:{axis, member}|null, state|null}, slot, style}`;
 
+/** A variant member of the product's own added to a system component's look, or one taken out (ADR 0161). */
+const ADD_MEMBER = `{op:"addMember", axis, member}`;
+const REMOVE_MEMBER = `{op:"removeMember", axis, member}`;
+
 /**
  * The changes `handoff`'s "change" takes of a system component's look, as `ComponentChange`
  * writes them: what the briefing and a task list, so the tool's own description stays short
  * (ADR 0122).
  */
 const LOOK_CHANGES = `${SET_STYLE}, {op:"setHidden", part, hidden},
-   {op:"setContent", slot, nodes}, {op:"setItem", item}`;
+   {op:"setContent", slot, nodes}, {op:"setItem", item}, ${ADD_MEMBER}, ${REMOVE_MEMBER}`;
 
 /** The changes it takes of an app component's properties and slots, and of either's look. */
 const COMPONENT_CHANGES = `an app component's {op:"addProperty", property}, {op:"setProperty", name, default?, members?, targets?},
@@ -131,6 +135,11 @@ export interface AgentWays {
    * briefing's paragraph.
    */
   readonly changeLook: string;
+  /**
+   * Adding a variant member or axis of the product's own to a system component, or taking one out
+   * (ADR 0161): a phrase after "add it or take it out".
+   */
+  readonly changeMembers: string;
   /**
    * The briefing's paragraph on changing designs: with the tools, only through them, never by
    * writing a design file (UP-232).
@@ -217,6 +226,8 @@ the part's whole style at its place (the base, a variant member, a state, or a s
 so start from what the look has there. A part, a member or a state it lacks is refused with the
 ones it has. A first change starts its file from the default look; each change is one undo step,
 drawn on every instance at once.`,
+  changeMembers: `through ${handoffCall("change")}, target component:<Name>: ${ADD_MEMBER} or
+   ${REMOVE_MEMBER}`,
   changingDesigns: `The "ultrapaint" MCP server is the editor itself: change designs only through its tools, validated,
 shown on the canvas at once and undoable by the user, and ${ONLY_THROUGH_TOOLS}
 ${TOOLS.set_frame} sizes and moves frames, ${TOOLS.apply_operations} changes a page's tree or an app component's, and
@@ -288,6 +299,8 @@ leaves out keeps the default look's. A look styles only its component's parts (?
 leave out) and states; a file that styles another does not read, and the component is drawn in
 its default look:
 ${systemParts()}`,
+  changeMembers: `in its file's "members": { "<axis>": { "add": [...], "remove": [...] } }, an axis of
+   its own with its members all added, the first its default`,
   changingDesigns:
     "Edit the .page.json files directly and keep them valid; every node needs a unique id.",
   drawState:

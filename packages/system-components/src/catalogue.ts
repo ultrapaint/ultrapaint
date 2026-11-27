@@ -473,6 +473,101 @@ export const systemComponentOf = (
   name: string
 ): SystemComponentMeta | undefined => byName.get(name);
 
+/** One variant axis of a system component, as a project's look makes it (ADR 0161). */
+export interface LookAxis {
+  /** The members the look adds, in its order. */
+  readonly added: readonly string[];
+  /**
+   * The members offered, the first the default: the catalogue's but those taken out, then the
+   * added.
+   */
+  readonly members: readonly string[];
+  /** The axis is the project's own: the catalogue's component does not have it. */
+  readonly own: boolean;
+  /** The catalogue's members the look takes out: no longer offered, their instances kept. */
+  readonly removed: readonly string[];
+}
+
+/**
+ * Each variant axis of a system component as a project's look makes it (ADR 0161): the
+ * catalogue's axes, then the look's own, each with the members it offers. What a look's file
+ * cannot mean (a member taken out that the axis lacks, one added twice, every member taken out)
+ * is its check's to refuse; here it changes nothing.
+ */
+export const axesOf = (
+  meta: SystemComponentMeta,
+  look: Pick<SystemComponentFile, "members"> | undefined
+): Record<string, LookAxis> => {
+  const declared = look?.members ?? {};
+  const names = [
+    ...new Set([...Object.keys(meta.variants), ...Object.keys(declared)]),
+  ];
+  return Object.fromEntries(
+    names.flatMap((axis): [string, LookAxis][] => {
+      const builtIn = meta.variants[axis] ?? [];
+      const removed = builtIn.filter((m) =>
+        declared[axis]?.remove?.includes(m)
+      );
+      const added = [...new Set(declared[axis]?.add ?? [])].filter(
+        (m) => !builtIn.includes(m)
+      );
+      const members = [
+        ...builtIn.filter((m) => !removed.includes(m)),
+        ...added,
+      ];
+      if (members.length === 0) {
+        // Every member taken out, or an axis of its own with none: it changes nothing.
+        return builtIn.length === 0
+          ? []
+          : [[axis, { added: [], members: builtIn, own: false, removed: [] }]];
+      }
+      return [
+        [axis, { added, members, own: !(axis in meta.variants), removed }],
+      ];
+    })
+  );
+};
+
+/**
+ * A system component as a project's look makes it (ADR 0161): its axes' members as `axesOf`
+ * gives them, the prop of each choosing among them and starting in the first, an axis of the
+ * project's own a prop after the catalogue's, and a new instance starting in a member it offers.
+ * What the catalogue, the inspector, the Library, the tools and the code writer read.
+ */
+export const systemMetaIn = (
+  meta: SystemComponentMeta,
+  look: Pick<SystemComponentFile, "members"> | undefined
+): SystemComponentMeta => {
+  if (!look?.members) {
+    return meta;
+  }
+  const axes = axesOf(meta, look);
+  const members = (axis: string) => axes[axis]?.members ?? [];
+  const props = meta.props.map((p) =>
+    p.name in axes && p.type.kind === "enum"
+      ? choice(p.name, members(p.name))
+      : p
+  );
+  const own = Object.entries(axes).flatMap(([axis, a]) =>
+    a.own ? [choice(axis, a.members)] : []
+  );
+  const example = Object.fromEntries(
+    Object.entries(meta.example).map(([key, value]) =>
+      key in axes && !members(key).includes(String(value))
+        ? [key, members(key)[0] ?? value]
+        : [key, value]
+    )
+  );
+  return {
+    ...meta,
+    example,
+    props: [...props, ...own],
+    variants: Object.fromEntries(
+      Object.entries(axes).map(([axis, a]) => [axis, a.members])
+    ),
+  };
+};
+
 /** How each variant of a look lays a part out, where it says (`direction`), by `<axis>=<member>`. */
 const layoutsIn = (
   look: SystemComponentFile | undefined,
@@ -491,7 +586,8 @@ const layoutsIn = (
 
 /**
  * A system component as the catalogue lists a component, its slots laid out as the project's look
- * says (`direction`, at its base and in each variant) over the catalogue's own layout.
+ * says (`direction`, at its base and in each variant) over the catalogue's own layout, its
+ * members the look's (`systemMetaIn`).
  */
 const systemEntryOf = (
   meta: SystemComponentMeta,
@@ -586,9 +682,10 @@ const appEntryOf = (file: AppComponentFile): ComponentMeta => ({
 export const catalogueOf = (files: readonly ComponentFile[]): Catalogue => {
   const looks = new Map(systemComponentsIn(files).map((f) => [f.name, f]));
   return [
-    ...SYSTEM_COMPONENTS.map((meta) =>
-      systemEntryOf(meta, looks.get(meta.name))
-    ),
+    ...SYSTEM_COMPONENTS.map((meta) => {
+      const look = looks.get(meta.name);
+      return systemEntryOf(systemMetaIn(meta, look), look);
+    }),
     ...appComponentsIn(files).map(appEntryOf),
   ];
 };

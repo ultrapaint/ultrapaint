@@ -9,9 +9,12 @@ import { useMemo } from "react";
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { type Problem, problemsOf } from "../lib/problems.ts";
+import { removedMembersOf } from "../lib/removed-members.ts";
 import { saveWith } from "../lib/settings-actions.ts";
+import { useComponents } from "./components.ts";
 import { api } from "./connection.ts";
 import { useDesignSystem } from "./design-system.ts";
+import { useDocuments } from "./documents.ts";
 import { reportError, useProject } from "./project.ts";
 import { useSync } from "./sync.ts";
 
@@ -78,6 +81,21 @@ const useAllProblems = (): readonly Problem[] => {
   );
   const designsDir = useProject((s) => s.settings?.designsDir ?? "");
   const plan = useSync((s) => s.plan);
+  const components = useComponents((s) => s.components);
+  const docs = useDocuments((s) => s.docs);
+  const pages = useProject((s) => s.pages);
+  const removedMembers = useMemo(
+    () =>
+      removedMembersOf(
+        components,
+        Object.values(docs).map((d) => ({
+          doc: d.doc,
+          name: pages.find((p) => p.id === d.doc)?.name ?? d.doc,
+          root: d.root,
+        }))
+      ),
+    [components, docs, pages]
+  );
   return useMemo(
     () =>
       problemsOf({
@@ -87,8 +105,17 @@ const useAllProblems = (): readonly Problem[] => {
         notes,
         plan,
         problem,
+        removedMembers,
       }),
-    [designSystemRead, designsDir, document, notes, plan, problem]
+    [
+      designSystemRead,
+      designsDir,
+      document,
+      notes,
+      plan,
+      problem,
+      removedMembers,
+    ]
   );
 };
 

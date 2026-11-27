@@ -221,6 +221,23 @@ describe("the design's stylesheet and the system components' looks (ADRs 0028, 0
     expect(card?.getAttribute("data-ed-c")).toBe("Card");
     expect(card?.getAttribute("data-ed-v")).toBe("size:lg variant:outline");
   });
+
+  it("marks an instance that sets no member with the one its look starts in, where the look moved it (ADR 0161)", async () => {
+    const plain = instance("plain", "Badge", { text: "New" });
+    const before = await draw(column([plain]));
+    // As it was: the axis is left out, and the default member's rule matches its absence.
+    expect(before.at("plain")?.getAttribute("data-ed-v")).toBe("");
+    const look = {
+      ...emptySystemComponent("Badge"),
+      members: {
+        shape: { add: ["default", "pill"] },
+        variant: { remove: ["default"] },
+      },
+    };
+    const { at } = await draw(column([plain]), { components: [look] });
+    // Not the editor's default, whose look would match under the product's: its own.
+    expect(at("plain")?.getAttribute("data-ed-v")).toBe("variant:secondary");
+  });
 });
 
 describe("a system component's look beyond its style (ADR 0041)", () => {

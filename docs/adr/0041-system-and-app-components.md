@@ -10,6 +10,8 @@ components' files). The terms are in `GLOSSARY.md`.
 
 > Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: the migration is retired; an instance's `from` is one of the two origins, and a page that names another does not read.
 
+> Amended by [0161](0161-a-look-adds-and-takes-out-variant-members.md), 2026-11-27: a look may add or take out appearance-only variant members of its system component (`members`); a member that adds behaviour, props, slots or text is still an app component built on it.
+
 ## Context
 
 0040 made the canvas draw the editor's own components, the primitives, each with a look the

@@ -97,7 +97,8 @@ const placeholderOf = (
     : `Default (${show(meta.defaultValue)})`;
 };
 
-const blurOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
+/** Commits a field on Enter, as leaving it does. */
+export const blurOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
   if (e.key === "Enter") {
     (e.target as HTMLInputElement).blur();
   }

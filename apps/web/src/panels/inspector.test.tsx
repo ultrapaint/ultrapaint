@@ -2,6 +2,7 @@
 import "../testing/fake-browser.ts";
 import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, DocumentState } from "@ultrapaint/contracts/document";
+import { catalogueOf } from "@ultrapaint/system-components/catalogue";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -1150,5 +1151,73 @@ describe("the Colours used section", () => {
       ])
     );
     expect(rows()).toEqual([["2 uses", "primary"]]);
+  });
+});
+
+describe("a system component's own variant members (ADR 0161)", () => {
+  const settle = () =>
+    act(async () => {
+      await Promise.resolve();
+    });
+
+  it("lists the members the product's look adds and its own axis in the Variant field, and none it takes out", async () => {
+    const badge = {
+      base: {},
+      members: {
+        shape: { add: ["default", "pill"] },
+        variant: { add: ["neutral-strong"], remove: ["outline"] },
+      },
+      name: "Badge",
+      origin: "system",
+      states: {},
+      variants: {},
+      version: 1,
+    } as const;
+    useComponents.setState({
+      catalogue: catalogueOf([badge]),
+      components: [badge],
+    });
+    useDocuments.setState({
+      docs: {
+        [HOME]: {
+          ...home,
+          root: {
+            children: [
+              {
+                component: "Badge",
+                from: "@ultrapaint/system",
+                id: "beta",
+                props: { variant: "neutral-strong" },
+                text: "Beta",
+                type: "instance",
+              },
+            ],
+            id: "home",
+            type: "page",
+          } as DesignNode,
+        },
+      },
+    });
+    act(() => select({ frame: HOME, nodeId: "beta" }));
+    expect(container.textContent).toContain("variant");
+    expect(container.textContent).toContain("shape");
+    const trigger = [
+      ...container.querySelectorAll<HTMLElement>(
+        '[data-slot="select-trigger"]'
+      ),
+    ].find((t) => t.textContent?.includes("neutral-strong"));
+    act(() => trigger?.click());
+    await settle();
+    expect(
+      [...document.querySelectorAll('[role="option"]')].map(
+        (o) => o.textContent
+      )
+    ).toEqual([
+      "default",
+      "secondary",
+      "destructive",
+      "neutral-strong",
+      "Default",
+    ]);
   });
 });

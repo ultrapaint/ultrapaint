@@ -464,6 +464,25 @@ describe("/init's roles and looks of the system components (UP-226)", () => {
     );
 
     it.effect(
+      "has the product's own variant members read from its components, asked, and added or taken out before the look (ADR 0161)",
+      () =>
+        Effect.gen(function* () {
+          for (const text of yield* importing) {
+            assert.include(
+              text,
+              "A variant member or axis the product's component declares (its cva variants)"
+            );
+            assert.include(text, '{op:"addMember", axis, member}');
+            assert.include(text, '{op:"removeMember", axis, member}');
+            assert.include(
+              text,
+              "appearance alone: one with props, slots or behaviour"
+            );
+          }
+        })
+    );
+
+    it.effect(
       "has the summary name what was left at the default, and why",
       () =>
         Effect.gen(function* () {
@@ -550,6 +569,9 @@ describe("/init's roles and looks of the system components (UP-226)", () => {
             assert.include(text, "Button: root, button-spinner");
             assert.include(text, "Input: root, field-label?");
             assert.notInclude(text, "setStyle");
+            // The product's own members are written in the file too (ADR 0161).
+            assert.include(text, `in its file's "members"`);
+            assert.notInclude(text, "addMember");
             assert.include(
               text,
               "in your reply, ending your turn for the answers"

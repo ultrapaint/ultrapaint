@@ -17,11 +17,13 @@ import type { JsonValue } from "@ultrapaint/contracts/base";
 import {
   APP_FROM,
   type AppComponentFile,
+  type AxisMembers,
   type ComponentChange,
   ComponentFile,
   type ComponentProperty,
   componentFileOf,
   isVariantKey,
+  PartStyle,
   ROOT_SLOT,
   type SystemComponentFile,
   variantKey,
@@ -37,8 +39,10 @@ import {
   walk,
 } from "@ultrapaint/design-document/tree";
 import {
+  axesOf,
   type SystemComponentMeta,
   systemComponentOf,
+  systemMetaIn,
 } from "@ultrapaint/system-components/catalogue";
 import { Schema } from "effect";
 
@@ -62,12 +66,90 @@ export type ComponentRead =
   | { readonly component: ComponentFile }
   | { readonly problem: string };
 
+/** The style fields a part's style has, which a member the project adds keeps to (ADR 0161). */
+const STYLE_FIELDS: ReadonlySet<string> = new Set(
+  Object.keys(PartStyle.fields)
+);
+
+type Json = Readonly<Record<string, unknown>>;
+const objectIn = (value: unknown): Json =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Json)
+    : {};
+
+/**
+ * The first field of a style a member the project adds sets that is no style field, with where
+ * (ADR 0161): such a member is appearance only, and its file is refused rather than read without
+ * the field. Read off the file's JSON, since reading it as a component drops what it does not know.
+ */
+const behaviourIn = (
+  json: unknown,
+  component: SystemComponentFile
+): string | undefined => {
+  const meta = systemComponentOf(component.name);
+  if (!(meta && component.members)) {
+    return undefined;
+  }
+  const axes = axesOf(meta, component);
+  const own = (axis: string, member: string) =>
+    axes[axis]?.added.includes(member) ?? false;
+  const raw = objectIn(json);
+  const places = [
+    ...Object.entries(objectIn(raw.variants)).flatMap(([axis, members]) =>
+      Object.entries(objectIn(members)).flatMap(([member, parts]) =>
+        own(axis, member)
+          ? [{ at: `variants.${axis}.${member}`, parts: objectIn(parts) }]
+          : []
+      )
+    ),
+    ...Object.entries(objectIn(raw.variantStates)).flatMap(([axis, members]) =>
+      Object.entries(objectIn(members)).flatMap(([member, states]) =>
+        own(axis, member)
+          ? Object.entries(objectIn(states)).map(([state, parts]) => ({
+              at: `variantStates.${axis}.${member}.${state}`,
+              parts: objectIn(parts),
+            }))
+          : []
+      )
+    ),
+  ];
+  for (const { at, parts } of places) {
+    for (const [part, style] of Object.entries(parts)) {
+      const refused = notAStyle(component.name, style);
+      if (refused !== undefined) {
+        return `${at}.${part}: ${refused}`;
+      }
+    }
+  }
+  return undefined;
+};
+
+/**
+ * Why a style a look is given is refused, when it sets a field that is no style field (ADR
+ * 0161): a look is its component's appearance alone, and what does more is an app component
+ * built on it. Said alike of a file's member and of `handoff`'s setStyle, whose change would
+ * otherwise be read without the field.
+ */
+export const notAStyle = (
+  component: string,
+  style: unknown
+): string | undefined => {
+  const field = Object.keys(objectIn(style)).find((f) => !STYLE_FIELDS.has(f));
+  return field === undefined
+    ? undefined
+    : `${field} is no style field. A look is ${component}'s appearance alone (${[...STYLE_FIELDS].join(", ")}); one with props, slots, text or behaviour is an app component built on ${component}`;
+};
+
 /** What a writer gives (a file's JSON, an editor's or an agent's) as a component, or why it is not one. */
 export const componentOf = (json: unknown): ComponentRead => {
   const result = decodeComponent(json);
-  return result._tag === "Success"
-    ? { component: result.success }
-    : { problem: result.failure.message };
+  if (result._tag !== "Success") {
+    return { problem: result.failure.message };
+  }
+  const component = result.success;
+  const behaviour =
+    component.origin === "system" ? behaviourIn(json, component) : undefined;
+  return behaviour === undefined ? { component } : { problem: behaviour };
 };
 
 /**
@@ -220,16 +302,96 @@ const placesIn = (
   ),
 ];
 
+const MEMBER_RE = /^[A-Za-z0-9][\w-]*$/;
+
+/** A member added that the axis offers already, said alike by the file's check and `addMember`. */
+const hasAlready = (meta: SystemComponentMeta, axis: string, member: string) =>
+  `${meta.name}'s ${axis} has ${member} already`;
+const AXIS_RE = /^[a-z][A-Za-z0-9]*$/;
+
+/**
+ * What is wrong with the members one axis of a look adds or takes out (ADR 0161), or nothing: a
+ * member it adds is named as a prop's value can be and once, one it takes out is the catalogue's,
+ * an axis keeps a member, and an axis of its own is named apart from the component's props.
+ */
+const axisProblemOf = (
+  meta: SystemComponentMeta,
+  axis: string,
+  { add = [], remove = [] }: AxisMembers
+): string | undefined => {
+  const { name } = meta;
+  const builtIn = meta.variants[axis];
+  const at = `members.${axis}`;
+  if (!builtIn) {
+    if (meta.props.some((p) => p.name === axis) || !AXIS_RE.test(axis)) {
+      return `${at}: ${name}'s own axis takes a name of its own in camelCase, not ${axis}; its props are ${meta.props.map((p) => p.name).join(", ")}`;
+    }
+    if (remove.length > 0) {
+      return `${at}: ${axis} is ${name}'s own axis: it has no built-in member to take out`;
+    }
+    if (add.length === 0) {
+      return `${at}: ${name}'s own axis ${axis} adds its members, the first its default`;
+    }
+  }
+  const bad = add.find((m) => !MEMBER_RE.test(m));
+  if (bad !== undefined) {
+    return `${at}: a member is named in letters, digits, - and _: ${JSON.stringify(bad)}`;
+  }
+  const again = twice(add);
+  if (again !== undefined) {
+    return `${at}: ${axis} adds ${again} twice`;
+  }
+  const had = add.find((m) => builtIn?.includes(m));
+  if (had !== undefined) {
+    return `${at}: ${hasAlready(meta, axis, had)}`;
+  }
+  const unknown = remove.find((m) => !builtIn?.includes(m));
+  if (unknown !== undefined) {
+    return `${at}: ${name}'s ${axis} has no built-in member ${unknown} to take out; ${theyAre("members", builtIn ?? [])}`;
+  }
+  if (builtIn && add.length === 0 && builtIn.every((m) => remove.includes(m))) {
+    return `${at}: ${name}'s ${axis} keeps a member: add one before taking out the last`;
+  }
+  return undefined;
+};
+
+/**
+ * A system component's entry with the members its look may style (ADR 0161): those it offers,
+ * and the built-in ones it takes out, whose instances keep drawing.
+ */
+const styledMetaOf = (
+  meta: SystemComponentMeta,
+  component: SystemComponentFile
+): SystemComponentMeta => {
+  if (!component.members) {
+    return meta;
+  }
+  const axes = axesOf(meta, component);
+  return {
+    ...systemMetaIn(meta, component),
+    variants: Object.fromEntries(
+      Object.entries(axes).map(([axis, a]) => [
+        axis,
+        [...a.members, ...a.removed],
+      ])
+    ),
+  };
+};
+
 /**
  * Everything wrong with a system component's look against its catalogue entry, in the file's
- * order: it styles only the parts, variant members and states it has, leaves out only optional
- * parts, gives content only to slots, and a template only to a Select's or a Menu's items.
+ * order: the members it adds or takes out mean something, it styles only the parts, variant
+ * members (its own among them) and states it has, leaves out only optional parts, gives content
+ * only to slots, and a template only to a Select's or a Menu's items.
  */
 const systemProblemsOf = (
   component: SystemComponentFile,
-  meta: SystemComponentMeta
+  builtIn: SystemComponentMeta
 ): string[] => {
-  const problems: string[] = [];
+  const problems = Object.entries(component.members ?? {}).flatMap(
+    ([axis, members]) => axisProblemOf(builtIn, axis, members) ?? []
+  );
+  const meta = styledMetaOf(builtIn, component);
   for (const { at, parts: styled, place } of placesIn(component)) {
     // A place it lacks is said once, not once per part.
     const lacks = styled.flatMap((p) => lackOf(meta, place, p) ?? []);
@@ -574,6 +736,8 @@ export const changedComponent = (
     case "setHidden":
     case "setContent":
     case "setItem":
+    case "addMember":
+    case "removeMember":
       return file.origin === "system"
         ? looked(file, change)
         : { problem: `${file.name} is an app component: it has no look` };
@@ -636,6 +800,51 @@ const withField = <K extends "content" | "hidden" | "item">(
 };
 
 /**
+ * One part's style set at a place of a look, refused where the component lacks the part, the
+ * state or the member (its own members among them, ADR 0161); an empty style takes out what a
+ * file styles there that the component lacks, which is a fix.
+ */
+const withPartStyle = (
+  file: SystemComponentFile,
+  builtIn: SystemComponentMeta,
+  { place, slot, style }: Extract<ComponentChange, { op: "setStyle" }>
+): Changed<SystemComponentFile> => {
+  const meta = styledMetaOf(builtIn, file);
+  const lack = lackOf(
+    meta,
+    {
+      ...(place.variant && place.variant),
+      ...(place.state !== null && { state: place.state }),
+    },
+    slot
+  );
+  const takenOut =
+    Object.keys(style).length === 0 &&
+    Object.keys(styleAt(file, place, slot)).length > 0;
+  if (lack === undefined || takenOut) {
+    return withStyle(file, place, slot, style);
+  }
+  // A member it lacks is the product's own, which the look adds before it styles it.
+  const member = place.variant;
+  const added =
+    member === null
+      ? undefined
+      : withMember(file, builtIn, { ...member, op: "addMember" });
+  const lacksMember =
+    member !== null &&
+    added !== undefined &&
+    !("problem" in added) &&
+    axisProblemOf(builtIn, member.axis, added.members?.[member.axis] ?? {}) ===
+      undefined &&
+    lackOf(meta, {}, slot) === undefined;
+  return {
+    problem: lacksMember
+      ? `${lack}. A member of the product's own is added first: {op:"addMember", axis:${JSON.stringify(member.axis)}, member:${JSON.stringify(member.member)}}`
+      : lack,
+  };
+};
+
+/**
  * One thing of a system component's look changed, the rest as the file has it: a part's style at
  * a place, an optional part left out or shown, a slot's content, the items' template.
  */
@@ -643,30 +852,28 @@ const looked = (
   file: SystemComponentFile,
   change: Extract<
     ComponentChange,
-    { op: "setStyle" | "setHidden" | "setContent" | "setItem" }
+    {
+      op:
+        | "setStyle"
+        | "setHidden"
+        | "setContent"
+        | "setItem"
+        | "addMember"
+        | "removeMember";
+    }
   >
 ): Changed<SystemComponentFile> => {
   if (change.op === "setItem") {
     return withField(file, "item", change.item ?? undefined);
   }
-  const meta = systemComponentOf(file.name);
-  if (change.op === "setStyle" && meta) {
-    const { place, slot, style } = change;
-    const lack = lackOf(
-      meta,
-      {
-        ...(place.variant && place.variant),
-        ...(place.state !== null && { state: place.state }),
-      },
-      slot
-    );
-    // An empty style takes out what a file styles there that the component lacks: a fix.
-    const takenOut =
-      Object.keys(style).length === 0 &&
-      Object.keys(styleAt(file, place, slot)).length > 0;
-    return lack === undefined || takenOut
-      ? withStyle(file, place, slot, style)
-      : { problem: lack };
+  const builtIn = systemComponentOf(file.name);
+  if (change.op === "addMember" || change.op === "removeMember") {
+    return builtIn
+      ? withMember(file, builtIn, change)
+      : missing(file, "variant axis", change.axis);
+  }
+  if (change.op === "setStyle" && builtIn) {
+    return withPartStyle(file, builtIn, change);
   }
   const part = change.op === "setHidden" ? change.part : change.slot;
   const parts = partsOf(file);
@@ -696,6 +903,103 @@ const looked = (
   }
 };
 
+/** A look's members of one axis set to `next`, the axis gone when it adds and takes out none. */
+const withAxis = (
+  file: SystemComponentFile,
+  axis: string,
+  next: AxisMembers
+): SystemComponentFile => {
+  const kept: AxisMembers = {
+    ...(next.add && next.add.length > 0 && { add: next.add }),
+    ...(next.remove && next.remove.length > 0 && { remove: next.remove }),
+  };
+  const members = withKey(
+    file.members,
+    axis,
+    Object.keys(kept).length > 0 ? kept : undefined
+  );
+  const { members: _old, ...rest } = file;
+  return members ? { ...rest, members } : rest;
+};
+
+/** A look with what it styles in one member of an axis taken out, in the member and its states. */
+const withoutMemberLook = (
+  file: SystemComponentFile,
+  axis: string,
+  member: string
+): SystemComponentFile => {
+  type Variants = SystemComponentFile["variants"];
+  type States = NonNullable<SystemComponentFile["variantStates"]>;
+  const variants = withKey<Variants[string]>(
+    file.variants,
+    axis,
+    withKey<Variants[string][string]>(file.variants[axis], member, undefined)
+  );
+  const variantStates = withKey<States[string]>(
+    file.variantStates,
+    axis,
+    withKey<States[string][string]>(
+      file.variantStates?.[axis],
+      member,
+      undefined
+    )
+  );
+  const { variantStates: _was, ...rest } = file;
+  return {
+    ...rest,
+    variants: variants ?? {},
+    ...(variantStates && { variantStates }),
+  };
+};
+
+/**
+ * A variant member a look adds or takes out (ADR 0161). Added: put back when it is a built-in one
+ * taken out, else after the axis's members, an axis the component lacks being the look's own.
+ * Taken out: a built-in one no longer offered, what the look styles in it kept for the instances
+ * that keep it; one of the look's own gone with what it styles. Whether the axis still means
+ * something is the file's check's (`axisProblemOf`).
+ */
+const withMember = (
+  file: SystemComponentFile,
+  meta: SystemComponentMeta,
+  {
+    axis,
+    member,
+    op,
+  }: Extract<ComponentChange, { op: "addMember" | "removeMember" }>
+): Changed<SystemComponentFile> => {
+  const builtIn = meta.variants[axis] ?? [];
+  const { add = [], remove = [] } = file.members?.[axis] ?? {};
+  if (op === "addMember") {
+    if (remove.includes(member)) {
+      return withAxis(file, axis, {
+        add,
+        remove: remove.filter((m) => m !== member),
+      });
+    }
+    return builtIn.includes(member) || add.includes(member)
+      ? { problem: hasAlready(meta, axis, member) }
+      : withAxis(file, axis, { add: [...add, member], remove });
+  }
+  if (add.includes(member)) {
+    return withoutMemberLook(
+      withAxis(file, axis, {
+        add: add.filter((m) => m !== member),
+        remove,
+      }),
+      axis,
+      member
+    );
+  }
+  if (builtIn.includes(member) && !remove.includes(member)) {
+    return withAxis(file, axis, { add, remove: [...remove, member] });
+  }
+  const offered = axesOf(meta, file)[axis]?.members ?? [];
+  return {
+    problem: `${meta.name}'s ${axis} offers no member ${member}; ${theyAre("members", offered)}`,
+  };
+};
+
 const changedApp = (
   file: AppComponentFile,
   change: Exclude<
@@ -707,7 +1011,9 @@ const changedApp = (
         | "setStyle"
         | "setHidden"
         | "setContent"
-        | "setItem";
+        | "setItem"
+        | "addMember"
+        | "removeMember";
     }
   >
 ): Changed<AppComponentFile> => {
