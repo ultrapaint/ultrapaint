@@ -7,7 +7,7 @@ import { emptySystemComponent } from "@ultrapaint/contracts/testing/components";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 import { SYSTEM_COMPONENTS } from "./catalogue.ts";
-import { DEFAULT_LOOK } from "./default-look.ts";
+import { DEFAULT_LOOK, SYSTEM_ROLES } from "./default-look.ts";
 import { defaultLookOf, SYSTEM_DEFAULTS } from "./defaults.ts";
 import { designCss, SYSTEM_COMPONENTS_CSS } from "./look.ts";
 
@@ -99,6 +99,22 @@ describe("the default look", () => {
     );
     expect(SYSTEM_COMPONENTS_CSS).toContain(
       "background-color: var(--color-primary)"
+    );
+  });
+
+  it("names as roles every colour and radius the default looks read, with what each is for", () => {
+    const read = new Set(
+      JSON.stringify(SYSTEM_DEFAULTS).match(/\$(?:color|radius)-[a-z0-9-]+/g)
+    );
+    const roles = SYSTEM_ROLES.map((r) => r.name);
+    expect(
+      [...read].filter((token) => !roles.includes(token.slice(1)))
+    ).toEqual([]);
+    expect(roles).toEqual(
+      expect.arrayContaining(["color-primary", "radius-md"])
+    );
+    expect(SYSTEM_ROLES.find((r) => r.name === "color-ring")?.description).toBe(
+      "The focus ring"
     );
   });
 
