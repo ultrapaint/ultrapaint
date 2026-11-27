@@ -226,8 +226,34 @@ describe("the designer's answer", () => {
       findings
     );
     expect([...declined.entries()]).toEqual([
-      [2, "the brand asks for it"],
-      [0, "the grid sets it"],
+      [2, { reason: "the brand asks for it" }],
+      [0, { reason: "the grid sets it" }],
+    ]);
+  });
+
+  it("reads a decline the person kept when asked beside the designer's own (ADR 0157)", () => {
+    const declined = declinedOf(
+      [
+        "Declined: 1 — the grid sets it",
+        "- **Declined by the user: Weak title** — they want it quiet",
+        "Declined by the person: #3 — the brand asks for it",
+      ].join("\n"),
+      findings
+    );
+    expect([...declined.entries()]).toEqual([
+      [0, { reason: "the grid sets it" }],
+      [1, { decidedBy: "person", reason: "they want it quiet" }],
+      [2, { decidedBy: "person", reason: "the brand asks for it" }],
+    ]);
+  });
+
+  it("keeps a check's decline the designer's, written as the person's or not: it is never asked", () => {
+    const declined = declinedOf(
+      "Declined by the user: 1 — one strip by design",
+      [{ check: "touching-rows", title: "Rows touching" }]
+    );
+    expect([...declined.entries()]).toEqual([
+      [0, { reason: "one strip by design" }],
     ]);
   });
 
@@ -251,8 +277,8 @@ describe("the designer's answer", () => {
       checks
     );
     expect([...declined.entries()]).toEqual([
-      [0, "the brand's tint"],
-      [1, "the hero's scrim"],
+      [0, { reason: "the brand's tint" }],
+      [1, { reason: "the hero's scrim" }],
     ]);
   });
 
@@ -261,7 +287,7 @@ describe("the designer's answer", () => {
       "Declined: #2 — out of scope\nDeclined: something else — no",
       findings
     );
-    expect([...declined.entries()]).toEqual([[1, "out of scope"]]);
+    expect([...declined.entries()]).toEqual([[1, { reason: "out of scope" }]]);
   });
 });
 
@@ -363,7 +389,9 @@ describe("a round answered", () => {
       reviewers: [],
       round: 1,
     };
-    expect(answeredRound(answered, new Map([[1, "the brief"]])).fixed).toBe(1);
+    expect(
+      answeredRound(answered, new Map([[1, { reason: "the brief" }]])).fixed
+    ).toBe(1);
   });
 
   it("counts as fixed only what the designer was sent, when it is known", () => {
@@ -393,9 +421,41 @@ describe("a round answered", () => {
       round: 1,
     };
     expect(answeredRound(answered, new Map(), 1).fixed).toBe(1);
-    expect(answeredRound(answered, new Map([[0, "by design"]]), 1).fixed).toBe(
-      0
+    expect(
+      answeredRound(answered, new Map([[0, { reason: "by design" }]]), 1).fixed
+    ).toBe(0);
+  });
+
+  it("keeps who decided each decline: the person, where they kept it when asked (ADR 0157)", () => {
+    const answered: Extract<ThreadItem, { kind: "review" }> = {
+      at: 0,
+      findings: ["A", "B", "C"].map((title) => ({
+        ...finding,
+        reviewer: "opus",
+        severity: "major" as const,
+        title,
+      })),
+      id: "r1",
+      kind: "review",
+      maxRounds: 2,
+      reviewers: [],
+      round: 1,
+    };
+    const after = answeredRound(
+      answered,
+      new Map([
+        [0, { reason: "the grid sets it" }],
+        [1, { decidedBy: "person" as const, reason: "they want it quiet" }],
+      ])
     );
+    expect(
+      after.findings.map((f) => [f.title, f.declined, f.decidedBy])
+    ).toEqual([
+      ["A", "the grid sets it", undefined],
+      ["B", "they want it quiet", "person"],
+      ["C", undefined, undefined],
+    ]);
+    expect(after.fixed).toBe(1);
   });
 
   it("leaves a decline carried from an earlier round as it was, neither fixed nor declined again", () => {
@@ -421,7 +481,10 @@ describe("a round answered", () => {
       round: 1,
     };
     // Sent before the server restarted, the round counts what it sends: never a carried one.
-    const again = answeredRound(answered, new Map([[0, "another reason"]]));
+    const again = answeredRound(
+      answered,
+      new Map([[0, { reason: "another reason" }]])
+    );
     expect(again.fixed).toBe(0);
     expect(again.findings).toEqual([carried]);
   });

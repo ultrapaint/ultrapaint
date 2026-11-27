@@ -52,6 +52,7 @@ import { OpenProject } from "../../project.ts";
 import { ProfileService } from "../profile.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { AgentConfigs } from "../threads/agent-configs.ts";
+import { agentWays } from "../threads/agent-ways.ts";
 import { ChatPreferences } from "../threads/chat-preferences.ts";
 import { ThreadStore } from "../threads/thread-store.ts";
 import { type Checked, checksOf } from "./check-findings.ts";
@@ -65,6 +66,7 @@ import {
 import {
   answeredRound,
   bySeverity,
+  type Decline,
   declinedChecksOf,
   declinedOf,
   endedRound,
@@ -218,6 +220,8 @@ interface Review {
   readonly maxRounds: number;
   readonly models: readonly ReviewModel[];
   readonly projectName: string;
+  /** The question tool as the designer knows it, which its findings name (ADR 0157). */
+  readonly questionTool: string;
   /** What the person asked, which every round's prompt keeps to. */
   readonly request: string;
   readonly root: string;
@@ -252,7 +256,9 @@ export class ReviewLoop extends Context.Service<
      */
     readonly run: (
       threadId: string,
-      due: DueRound
+      due: DueRound,
+      /** Whether the designer has the editor's tools: its findings name its question tool. */
+      options: { readonly tools: boolean }
     ) => Effect.Effect<ToDesigner | null>;
     /**
      * A turn of the thread ended: the pages it changed wait for the next round, and when it
@@ -371,7 +377,7 @@ export class ReviewLoop extends Context.Service<
         }
         // A turn stopped answered nothing.
         const declined = cancelled
-          ? new Map<number, string>()
+          ? new Map<number, Decline>()
           : // A decline carried is none of the round's to answer: it comes after those that are.
             declinedOf(
               saidSinceLastPrompt(items),
@@ -388,13 +394,17 @@ export class ReviewLoop extends Context.Service<
         unanswered.delete(round.id);
         if (waiting) {
           yield* logFindings(waiting, (i): LoggedFinding["designer"] => {
-            const reason = declined.get(i);
+            const decline = declined.get(i);
             if (cancelled) {
               return { did: "unanswered" };
             }
-            return reason === undefined
+            return decline === undefined
               ? { did: "fixed" }
-              : { did: "declined", reason };
+              : {
+                  ...(decline.decidedBy && { decidedBy: decline.decidedBy }),
+                  did: "declined",
+                  reason: decline.reason,
+                };
           });
         }
       });
@@ -697,7 +707,8 @@ export class ReviewLoop extends Context.Service<
           text: findingsPrompt(
             review.views,
             asked.map(toRoundFinding),
-            send ? state.left : []
+            send ? state.left : [],
+            review.questionTool
           ),
         };
       });
@@ -789,7 +800,8 @@ export class ReviewLoop extends Context.Service<
       const reviewFrom = Effect.fnUntraced(function* (
         threadId: string,
         round: DueRound,
-        shared: { review: Review | null }
+        shared: { review: Review | null },
+        tools: boolean
       ) {
         const paths = yield* currentPaths;
         const { settings } = round;
@@ -812,6 +824,7 @@ export class ReviewLoop extends Context.Service<
           maxRounds: settings.goal?.maxRounds ?? MAX_ROUNDS,
           models,
           projectName: path.basename(paths.root),
+          questionTool: agentWays(tools).questionTool,
           request: round.request,
           root: paths.root,
           settings,
@@ -855,12 +868,13 @@ export class ReviewLoop extends Context.Service<
 
       const run = Effect.fn("ReviewLoop.run")(function* (
         threadId: string,
-        round: DueRound
+        round: DueRound,
+        options: { readonly tools: boolean }
       ) {
         const shared: { review: Review | null } = { review: null };
         const ending = (end: NonNullable<ReviewItem["end"]>) =>
           shared.review === null ? Effect.void : endCurrent(shared.review, end);
-        return yield* reviewFrom(threadId, round, shared).pipe(
+        return yield* reviewFrom(threadId, round, shared, options.tools).pipe(
           Effect.onInterrupt(() =>
             // Not reviewed after all: the pages wait for the next round.
             Effect.andThen(

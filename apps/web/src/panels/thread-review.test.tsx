@@ -75,17 +75,26 @@ describe("a review round's declined findings", () => {
     ]);
   });
 
-  it("leave a reviewer's finding unmarked", () => {
+  it("say who decided a reviewer's finding: the agent, or the person it asked (ADR 0157)", () => {
     act(() =>
       root.render(
         <Rounds
           rounds={[
-            round([finding("Header too loud", { declined: "The brief asks" })]),
+            round([
+              finding("Header too loud", { declined: "The brief asks" }),
+              finding("Sidebar too wide", {
+                decidedBy: "person",
+                declined: "The tables need it",
+              }),
+            ]),
           ]}
         />
       )
     );
-    expect(lines()).toEqual(["Header too loudDeclined: The brief asks"]);
+    expect(lines()).toEqual([
+      "Header too loudDeclined by the agent: The brief asks",
+      "Sidebar too wideDeclined by you: The tables need it",
+    ]);
   });
 
   it("say a check's finding declined in an earlier round, carried into this one, is held back since", () => {

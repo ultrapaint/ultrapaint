@@ -750,7 +750,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       const projectScope = yield* project.scope;
       yield* transition({ _tag: "ReviewStarted" });
       const fiber = yield* Effect.forkIn(
-        reviews.run(threadId, due),
+        reviews.run(threadId, due, { tools: live?.editorMcp === true }),
         projectScope
       );
       reviewing = fiber;

@@ -1401,6 +1401,11 @@ describe("the editor's tools in what an agent is told", () => {
       "A component's documentation is get_component: its props, variants and example",
       "A component's documentation is its line among the components listed below: its props and variants.",
     ],
+    // A decline of a review model's finding goes to the user first (ADR 0157).
+    declining: [
+      "page what the finding says is wrong goes to ask_user first, one question per finding,",
+      "page what the finding says is wrong goes to your own question tool first, one question per finding,",
+    ],
     tokens: [
       "The design system's store is read_design_system: DESIGN.md and the tokens, each value in every theme",
       "every token's value in every theme is in designs/design.tokens.json",
@@ -1765,6 +1770,7 @@ describe("the briefing", () => {
           (yield* briefing.text("design", { reviewed: false })) ?? "";
         assert.notInclude(untold, review);
         assert.notInclude(untold, "Declined:");
+        assert.notInclude(untold, "Declined by the user");
         // The skill's "a reviewer that sends you findings" is the loop only where it runs (ADR 0110).
         const reviewer = `the design skill's "a reviewer that sends you findings"`;
         assert.include(told, reviewer);

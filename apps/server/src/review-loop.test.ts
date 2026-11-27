@@ -9,6 +9,7 @@
  */
 import path from "node:path";
 import { assert, describe } from "@effect/vitest";
+import type { CreateElicitationRequest } from "@ultrapaint/acp/acp-agent";
 import { MAX_ROUNDS, type ReviewSettings } from "@ultrapaint/contracts/review";
 import type {
   RenderedFinding,
@@ -16,7 +17,7 @@ import type {
 } from "@ultrapaint/contracts/screenshots";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import type { Question, ThreadItem } from "@ultrapaint/contracts/threads";
-import { Effect, FileSystem, Ref, Stream } from "effect";
+import { Effect, Fiber, FileSystem, Ref, Stream } from "effect";
 import { TestClock } from "effect/testing";
 import { ProfileService } from "./services/profile.ts";
 import { STOPPED } from "./services/review/review-loop.ts";
@@ -781,6 +782,171 @@ describe("a question left for the designer (ADR 0151)", () => {
     }));
 });
 
+describe("a decline put to the person (ADR 0157)", () => {
+  /** The question a designer that cannot wait leaves on a card for a decline. */
+  const KEEP_GAP: readonly Question[] = [
+    {
+      id: "gap",
+      options: [
+        { id: "keep", label: "Keep it as it is: the grid sets that gap" },
+        { id: "fix", label: "Use the 16px step" },
+      ],
+      question: "Uneven gap: keep it, or even it out?",
+    },
+  ];
+
+  /** The form a designer that waits within its turn asks about the second finding. */
+  const keepForm = (sessionId: string) =>
+    ({
+      message: "Loud title",
+      mode: "form",
+      requestedSchema: {
+        properties: {
+          title: {
+            oneOf: [
+              { const: "keep", title: "Keep it as it is: they want it loud" },
+              { const: "fix", title: "Quiet the title" },
+            ],
+            title: "Loud title: keep it, or quiet it?",
+            type: "string",
+          },
+        },
+        required: ["title"],
+        type: "object",
+      },
+      sessionId,
+    }) as CreateElicitationRequest;
+
+  /** A first round of the review models' findings `titles`, sent to the designer: its turn. */
+  const sentFindings = Effect.fnUntraced(function* (
+    designer: Effect.Success<ReturnType<typeof designed>>["designer"],
+    titles: readonly string[]
+  ) {
+    const reviewing = yield* nextReviewer;
+    yield* reviewing.turn.say(answer(titles.map(finding), false));
+    yield* reviewing.turn.end();
+    return yield* designer.nextTurn;
+  });
+
+  test("tells the designer to ask the person first of a decline the page would show, its call suggested", () =>
+    Effect.gen(function* () {
+      const { designer } = yield* designed();
+      const told = (yield* sentFindings(designer, ["Uneven gap"])).texts.join(
+        "\n"
+      );
+      // Without the editor's tools, on the agent's own question tool.
+      assert.include(told, "ask them with your own question tool");
+      assert.include(told, '"Keep it as it is: <your reason>"');
+      assert.include(told, "then the fix");
+      assert.include(told, "or do what they wrote instead");
+      assert.include(told, "a finding the design already meets");
+      assert.include(
+        told,
+        "Declined by the user: <the finding's number> — <the reason>"
+      );
+      assert.include(told, "your reply says they haven't answered");
+    }));
+
+  test("keeps a decline the person kept when asked as theirs, on the round and in the findings log", () =>
+    Effect.gen(function* () {
+      const { designer, threadId } = yield* designed({
+        review: { findingsLog: true },
+      });
+      const fixing = yield* sentFindings(designer, [
+        "Uneven gap",
+        "Loud title",
+      ]);
+      // It waits on its question within the turn, and the person keeps its call.
+      const reply = yield* Effect.forkChild(
+        fixing.elicit(keepForm(fixing.sessionId))
+      );
+      const { items: asking } = yield* threadWhen(threadId, (_, all) =>
+        all.some((i) => i.kind === "question")
+      );
+      const card = asking.findLast((i) => i.kind === "question");
+      yield* onThread(threadId, (s) =>
+        s.answer(card?.id ?? "", { title: "keep" })
+      );
+      yield* Fiber.join(reply);
+      yield* fixing.say(
+        "Declined: 1 — the grid sets that gap\nDeclined by the user: 2 — they want it loud"
+      );
+      yield* fixing.end();
+      yield* nextReviewer;
+      const { items } = yield* threadWhen(
+        threadId,
+        (_, all) => reviewsOf(all).length === 2
+      );
+      assert.deepStrictEqual(
+        reviewsOf(items)[0]?.findings.map((f) => [
+          f.title,
+          f.declined,
+          f.decidedBy,
+        ]),
+        [
+          ["Uneven gap", "the grid sets that gap", undefined],
+          ["Loud title", "they want it loud", "person"],
+        ]
+      );
+      const lines = yield* logged;
+      assert.deepStrictEqual(
+        lines.map((l) => [l.title, l.designer]),
+        [
+          ["Uneven gap", { did: "declined", reason: "the grid sets that gap" }],
+          [
+            "Loud title",
+            {
+              decidedBy: "person",
+              did: "declined",
+              reason: "they want it loud",
+            },
+          ],
+        ]
+      );
+    }));
+
+  test("holds the next round until the turn the answers begin ends, for a findings reply that left its questions on a card", () =>
+    Effect.gen(function* () {
+      const { repo } = yield* ThreadFixture;
+      const { designer, threadId } = yield* designed();
+      const fixing = yield* sentFindings(designer, ["Uneven gap"]);
+      yield* onThread(threadId, (s) => s.cards.ask(KEEP_GAP));
+      yield* fixing.say("Declined: 1 — the grid sets that gap");
+      yield* fixing.end();
+      const { items } = yield* threadWhen(threadId, turnsEnded(2));
+      assert.strictEqual(reviewsOf(items).length, 1);
+      assert.strictEqual(yield* (yield* ScriptedAgents).launched, 2);
+      const card = items.findLast((i) => i.kind === "question");
+      yield* onThread(threadId, (s) =>
+        s.answer(card?.id ?? "", { gap: "fix" })
+      );
+      const answering = yield* designer.nextTurn;
+      assert.include(answering.texts.join("\n"), "Use the 16px step");
+      yield* designer.host.writeTextFile({
+        content: `{ "version": 1, "root": { "id": "c_1", "type": "page", "padding": 16, "gap": 16, "children": [] } }\n`,
+        path: path.join(repo, PAGE),
+        sessionId: answering.sessionId,
+      });
+      yield* answering.end();
+      // The round after the answers' turn judges the design they produced.
+      const { turn } = yield* nextReviewer;
+      assert.include(turn.texts.join("\n"), '"gap":16');
+    }));
+
+  perTest(threadTest({ mcp: true })).effect(
+    "names the editor's question tool to a designer that has its tools",
+    () =>
+      Effect.gen(function* () {
+        const { designer } = yield* designed();
+        const fixing = yield* sentFindings(designer, ["Uneven gap"]);
+        assert.include(
+          fixing.texts.join("\n"),
+          "ask them with ask_user, one question per finding"
+        );
+      })
+  );
+});
+
 describe("the checks' findings", () => {
   drawnTest(
     "go to the designer after the reviewers', each marked as a check's with what it measured",
@@ -855,6 +1021,22 @@ describe("the checks' findings", () => {
         const rounds = reviewsOf(items);
         assert.strictEqual(rounds.length, 1);
         assert.strictEqual(rounds[0]?.end?.reason, "approved");
+      }).pipe(Effect.scoped)
+  );
+
+  drawnTest(
+    "ask the person nothing of them, only a review model's finding is (ADR 0157)",
+    () =>
+      Effect.gen(function* () {
+        yield* anEditor([TOUCHING]);
+        const { designer } = yield* designed();
+        const reviewing = yield* nextReviewer;
+        yield* reviewing.turn.say(answer([], true));
+        yield* reviewing.turn.end();
+        const told = (yield* designer.nextTurn).texts.join("\n");
+        assert.include(told, "Rows touching");
+        assert.notInclude(told, "question tool");
+        assert.notInclude(told, "Declined by the user");
       }).pipe(Effect.scoped)
   );
 

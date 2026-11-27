@@ -142,10 +142,15 @@ const ReviewerLine = ({ reviewer }: { reviewer: RoundReviewer }) => (
   </div>
 );
 
-/** How a declined finding says why: a check's as a measurement (ADR 0081), one carried too (ADR 0156). */
+/**
+ * How a declined finding says why: a reviewer's by who decided, the agent or the person it asked
+ * (ADR 0157); a check's as a measurement (ADR 0081), never asked, one carried too (ADR 0156).
+ */
 const declinedAs = (f: ReviewItem["findings"][number]) => {
   if (f.check === undefined) {
-    return "Declined";
+    return f.decidedBy === "person"
+      ? "Declined by you"
+      : "Declined by the agent";
   }
   return f.carried === true
     ? "Declined check in an earlier round"

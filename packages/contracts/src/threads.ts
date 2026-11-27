@@ -1,7 +1,13 @@
 import { Schema } from "effect";
 import { FileId, Json } from "./base.ts";
 import { LookPlace } from "./components.ts";
-import { Category, CheckKind, ReviewSettings, Severity } from "./review.ts";
+import {
+  Category,
+  CheckKind,
+  DecidedBy,
+  ReviewSettings,
+  Severity,
+} from "./review.ts";
 
 /**
  * The agents that ship built in, each declared once by its descriptor in acp's `built-in`
@@ -662,7 +668,12 @@ export const RoundFinding = Schema.Struct({
    * shown to them; none for a reviewer's.
    */
   check: Schema.optional(CheckKind),
-  /** The designer's reason when it declined it. */
+  /**
+   * Who decided a decline (ADR 0157): the person, when the designer asked them and they kept it.
+   * Absent, the designer alone, as every decline stored before.
+   */
+  decidedBy: Schema.optional(DecidedBy),
+  /** The reason a decline was given, by the designer or by the person it asked. */
   declined: Schema.optional(Schema.String),
   fix: Schema.String,
   /** A check's finding: what it is about, so that a decline of it is remembered (ADR 0156). */

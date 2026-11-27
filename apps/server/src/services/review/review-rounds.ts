@@ -8,6 +8,7 @@ import {
   type Approval,
   Category,
   type CheckKind,
+  type DecidedBy,
   Finding,
   formatReviewModel,
   type ReviewerRound,
@@ -270,7 +271,9 @@ const endReasonOf = (reason: StopReason): ReviewEnd =>
 
 const LIST_MARK = /^[-*>]\s+|^\d+[.)]\s+/;
 const EMPHASIS = /[*`_]/g;
-const DECLINED = /^declined\s*:?\s*(.*)$/gi;
+// "Declined by the user:" is a decline the person kept when asked (ADR 0157).
+const DECLINED =
+  /^declined(\s+by\s+(?:the\s+)?(?:user|person))?\s*:?\s*(.*)$/gi;
 const LEADING_NUMBER = /^#?(\d+)\b/g;
 const LEADING_DASH = /^[\s:—–-]+/;
 const ELLIPSIS = /…|\.{3}/;
@@ -321,23 +324,30 @@ const shortenedTitle = (
     : undefined;
 };
 
+/** A finding declined: why, and who decided, where it was the person (ADR 0157). */
+export interface Decline {
+  readonly decidedBy?: DecidedBy;
+  readonly reason: string;
+}
+
 /**
  * The findings the designer declined, by their index, each with its reason: one line each,
  * `Declined: <number> — <reason>`, or the finding's title for its number, whole or shortened
- * with an ellipsis. A line naming no finding is left out.
+ * with an ellipsis; `Declined by the user:` for one the person kept when asked (ADR 0157), never
+ * a check's, which is not asked. A line naming no finding is left out.
  */
 export const declinedOf = (
   said: string,
-  findings: readonly Pick<RoundFinding, "title">[]
-): ReadonlyMap<number, string> => {
+  findings: readonly Pick<RoundFinding, "check" | "title">[]
+): ReadonlyMap<number, Decline> => {
   const titles = findings.map((f, i) => ({ i, title: normal(f.title) }));
-  const declined = new Map<number, string>();
+  const declined = new Map<number, Decline>();
   for (const line of said.split("\n").map(bare)) {
     const [matched] = line.matchAll(DECLINED);
     if (matched === undefined) {
       continue;
     }
-    const rest = (matched[1] ?? "").trim();
+    const rest = (matched[2] ?? "").trim();
     const lower = rest.toLowerCase();
     // The longest title it starts with: one title may begin another.
     const [byTitle] = titles
@@ -351,9 +361,15 @@ export const declinedOf = (
         ? undefined
         : { i: Number(number[1]) - 1, title: number[0] });
     if (at !== undefined && at.i >= 0 && at.i < findings.length) {
+      const reason = rest
+        .slice(at.title.length)
+        .replace(LEADING_DASH, "")
+        .trim();
       declined.set(
         at.i,
-        rest.slice(at.title.length).replace(LEADING_DASH, "").trim()
+        matched[1] === undefined || findings[at.i]?.check !== undefined
+          ? { reason }
+          : { decidedBy: "person", reason }
       );
     }
   }
@@ -569,10 +585,13 @@ export const reviewerResult = (
   };
 };
 
-/** The round with the designer's answer: what it declined and why, and how many it fixed. */
+/**
+ * The round with the designer's answer: what it declined, why and who decided, and how many it
+ * fixed.
+ */
 export const answeredRound = (
   item: ReviewItem,
-  declined: ReadonlyMap<number, string>,
+  declined: ReadonlyMap<number, Decline>,
   /**
    * How many findings the designer was sent, the first of the round's list; unknown (a round
    * sent before the server restarted), those a round sends: blockers, majors, the checks'.
@@ -585,10 +604,14 @@ export const answeredRound = (
   return {
     ...item,
     findings: item.findings.map((f, i) => {
-      const reason = declined.get(i);
-      return reason === undefined || f.carried === true
+      const decline = declined.get(i);
+      return decline === undefined || f.carried === true
         ? f
-        : { ...f, declined: reason };
+        : {
+            ...f,
+            declined: decline.reason,
+            ...(decline.decidedBy && { decidedBy: decline.decidedBy }),
+          };
     }),
     // What the designer was sent (ADR 0063, 0081), less what it declined.
     fixed: item.findings.filter((f, i) => wasSent(f, i) && !declined.has(i))

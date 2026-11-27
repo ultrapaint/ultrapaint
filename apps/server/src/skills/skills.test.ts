@@ -5,7 +5,7 @@ import { AskUser } from "../services/mcp/ask-user.ts";
 import { EditorTools } from "../services/mcp/route.ts";
 import { GetScreenshot } from "../services/mcp/screenshot.ts";
 import { agentWays } from "../services/threads/agent-ways.ts";
-import { REVIEW_ANSWERED, skillTerms } from "../services/threads/briefing.ts";
+import { reviewAnswered, skillTerms } from "../services/threads/briefing.ts";
 import {
   CORE_FILE,
   coreText,
@@ -59,7 +59,7 @@ const capabilities = () => {
 
 /**
  * What `skillTerms` leaves out: the agent's own, wherever it works, and the reviewer, which is
- * the review loop where it runs (`REVIEW_ANSWERED`), not in every chat.
+ * the review loop where it runs (`reviewAnswered`), not in every chat.
  */
 const THE_AGENTS_OWN = "another agent";
 const THE_REVIEWER = "a reviewer that sends you findings";
@@ -174,7 +174,7 @@ describe("the design skill's terms in the editor", () => {
       .filter((capability) => !terms.toLowerCase().includes(capability));
     assert.deepStrictEqual(missing, []);
     assert.include(capabilities(), THE_REVIEWER);
-    assert.include(REVIEW_ANSWERED, THE_REVIEWER);
+    assert.include(reviewAnswered(agentWays(true)), THE_REVIEWER);
   });
 
   it("without the tools, still say where the design system's store and each component's documentation are", () => {

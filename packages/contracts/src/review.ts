@@ -412,6 +412,10 @@ export const verdictOf = (goal: Goal, rounds: readonly Round[]): Verdict => {
   return { stop: false, unmet: short };
 };
 
+/** Who decided a finding's decline when it was not the designer alone (ADR 0157): the person. */
+export const DecidedBy = Schema.Literal("person");
+export type DecidedBy = typeof DecidedBy.Type;
+
 /**
  * One finding as the findings log keeps it (`~/.ultrapaint/findings/<project>.jsonl`, opt-in):
  * where it was, who found it with which skill, and what the designer did, for triage to turn
@@ -427,6 +431,8 @@ export const LoggedFinding = Schema.Struct({
   /** The section's picture the reviewer saw, an absolute path. */
   crop: Schema.optional(Schema.String),
   designer: Schema.Struct({
+    /** A decline the person kept when the designer asked them (ADR 0157); absent, the designer's. */
+    decidedBy: Schema.optional(DecidedBy),
     did: Schema.Literals(["fixed", "declined", "unanswered"]),
     reason: Schema.optional(Schema.String),
   }),
