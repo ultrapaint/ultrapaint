@@ -3,6 +3,7 @@ import { assert, describe, it } from "@effect/vitest";
 import { emptySystemComponent } from "@ultrapaint/contracts/testing/components";
 import { defaultLookOf } from "@ultrapaint/system-components/defaults";
 import {
+  type Context,
   Effect,
   Fiber,
   FileSystem,
@@ -13,8 +14,14 @@ import {
 } from "effect";
 import { McpSchema } from "effect/ai";
 import { EventBus } from "./events.ts";
-import { OpenProject, ProjectManager } from "./project.ts";
+import {
+  OpenProject,
+  ProjectManager,
+  type ProjectServices,
+} from "./project.ts";
+import { canvasText } from "./services/canvas-files.ts";
 import { DesignSystemService } from "./services/design-system.ts";
+import { EditService } from "./services/edit.ts";
 import { AskUser } from "./services/mcp/ask-user.ts";
 import { EditorTools } from "./services/mcp/route.ts";
 import { GetScreenshot } from "./services/mcp/screenshot.ts";
@@ -125,6 +132,27 @@ const topTexts = (route: string) =>
 /** A page made through the tools, to work on. */
 const pageAt = (name: string, route: string) =>
   tool("create_page", { name, route });
+
+/** A service of the project the tools work on. */
+const inProject = <I extends ProjectServices, S, A, E>(
+  key: Context.Key<I, S>,
+  f: (service: S) => Effect.Effect<A, E>
+) => Effect.flatMap(OpenProject, (p) => p.use(Effect.flatMap(key, f)));
+
+/** The frames the root canvas saves. */
+const framesNow = inProject(PagesService, (p) =>
+  Effect.map(p.readCanvas(""), (layout) => layout.frames)
+);
+
+/** The root canvas's `canvas.json` as it is on disk. */
+const canvasJson = Effect.gen(function* () {
+  const { repo } = yield* ProjectFixture;
+  const fs = yield* FileSystem.FileSystem;
+  return yield* fs.readFileString(path.join(repo, "designs", "canvas.json"));
+});
+
+/** The undo journal's state: what an undo would take back. */
+const journal = inProject(EditService, (e) => e.state);
 
 describe("the editor's MCP server, over the wire", () => {
   onAServer("turns away a caller without a token", () =>
@@ -854,18 +882,220 @@ describe("the tools for pages", () => {
     Effect.gen(function* () {
       yield* pageAt("Plans", "/plans");
       assert.deepStrictEqual(
-        yield* tool("set_frame", { height: 2400, route: "/home" }),
-        { file: "designs/home.page.json", height: 2400, width: 1440 }
+        yield* tool("set_frame", {
+          frames: [{ height: 2400, route: "/home" }],
+        }),
+        {
+          frames: [
+            {
+              file: "designs/home.page.json",
+              height: 2400,
+              width: 1440,
+              x: 0,
+              y: 0,
+            },
+          ],
+        }
       );
-      yield* tool("set_frame", { preset: "mobile", route: "/home" });
-      yield* tool("set_frame", { height: 2000, route: "/plans" });
-      const { frames } = yield* Effect.flatMap(OpenProject, (project) =>
-        project.use(Effect.flatMap(PagesService, (p) => p.readCanvas("")))
-      );
+      yield* tool("set_frame", {
+        frames: [{ preset: "mobile", route: "/home" }],
+      });
+      yield* tool("set_frame", { frames: [{ height: 2000, route: "/plans" }] });
+      const frames = yield* framesNow;
       assert.strictEqual(frames["home.page.json"]?.preset, "mobile");
       assert.strictEqual(frames["plans.page.json"]?.height, 2000);
       assert.strictEqual(frames["plans.page.json"]?.preset, "custom");
     })
+  );
+
+  /** Home, Plans and Pricing, every frame saved where the editor draws it: in a row. */
+  const threeInARow = Effect.gen(function* () {
+    yield* pageAt("Plans", "/plans");
+    yield* pageAt("Pricing", "/pricing");
+    yield* tool("set_frame", {
+      frames: [{ route: "/home" }, { route: "/plans" }, { route: "/pricing" }],
+    });
+    return yield* framesNow;
+  });
+
+  /** Plans and Pricing moved under Home. */
+  const underHome = tool("set_frame", {
+    frames: [
+      { route: "/plans", x: 0, y: 1008 },
+      { route: "/pricing", x: 1520, y: 1008 },
+    ],
+  });
+
+  inAProject("moves frames in one call, taken back in one undo step", () =>
+    Effect.gen(function* () {
+      const before = yield* threeInARow;
+      yield* underHome;
+      assert.strictEqual((yield* journal).undoLabel, "Arrange the canvas");
+      yield* inProject(EditService, (e) => e.undo);
+      assert.deepStrictEqual(yield* framesNow, before);
+    })
+  );
+
+  inAProject("puts a moved frame on the grid's nearest line", () =>
+    Effect.gen(function* () {
+      yield* threeInARow;
+      const { frames } = yield* tool("set_frame", {
+        frames: [
+          { route: "/plans", x: 3, y: 1005 },
+          { route: "/pricing", x: 1523, y: 1003 },
+        ],
+      });
+      assert.deepStrictEqual(
+        frames.map((f) => [f.file, f.x, f.y]),
+        [
+          ["designs/plans.page.json", 0, 1008],
+          ["designs/pricing.page.json", 1520, 1000],
+        ]
+      );
+    })
+  );
+
+  inAProject("writes only the frames it moves, in the server's format", () =>
+    Effect.gen(function* () {
+      const before = yield* threeInARow;
+      yield* underHome;
+      const after = yield* framesNow;
+      assert.deepStrictEqual(after["home.page.json"], before["home.page.json"]);
+      assert.deepStrictEqual(after["plans.page.json"], {
+        ...before["plans.page.json"],
+        x: 0,
+        y: 1008,
+      });
+      assert.strictEqual(
+        yield* canvasJson,
+        canvasText(yield* inProject(PagesService, (p) => p.readCanvas("")))
+      );
+    })
+  );
+
+  inAProject("sizes and moves frames in the same call", () =>
+    Effect.gen(function* () {
+      yield* pageAt("Plans", "/plans");
+      const { frames } = yield* tool("set_frame", {
+        frames: [
+          { height: 2400, route: "/home" },
+          { height: 2400, preset: "mobile", route: "/plans", x: 1600, y: 0 },
+        ],
+      });
+      assert.deepStrictEqual(
+        frames.map((f) => [f.x, f.width, f.height]),
+        [
+          [0, 1440, 2400],
+          [1600, 390, 2400],
+        ]
+      );
+      assert.strictEqual((yield* journal).undoLabel, "Arrange the canvas");
+    })
+  );
+
+  inAProject(
+    "refuses a move onto another frame or its views, naming them, and writes nothing",
+    () =>
+      Effect.gen(function* () {
+        yield* pageAt("Plans", "/plans");
+        yield* pageAt("Pricing", "/pricing");
+        yield* tool("set_frame", {
+          frames: [{ route: "/home", views: [390] }, { route: "/plans" }],
+        });
+        const before = yield* canvasJson;
+        // Onto Home's view, which ends at 1910.
+        assert.include(
+          yield* refusal("set_frame", {
+            frames: [{ route: "/plans", x: 1800, y: 0 }],
+          }),
+          "designs/plans.page.json would lie over designs/home.page.json"
+        );
+        // Onto each other, both moved in the call, and Pricing sized as well.
+        const both = yield* refusal("set_frame", {
+          frames: [
+            { route: "/plans", x: 0, y: 2000 },
+            { height: 2000, route: "/pricing", x: 400, y: 2400 },
+          ],
+        });
+        assert.include(
+          both,
+          "designs/plans.page.json would lie over designs/pricing.page.json"
+        );
+        assert.include(
+          both,
+          "designs/pricing.page.json would lie over designs/plans.page.json"
+        );
+        assert.strictEqual(yield* canvasJson, before);
+      })
+  );
+
+  inAProject("never refuses a frame only sized onto another", () =>
+    Effect.gen(function* () {
+      yield* pageAt("Plans", "/plans");
+      yield* tool("set_frame", {
+        frames: [{ route: "/home" }, { route: "/plans" }],
+      });
+      // Home grows over Plans, which starts at 1520.
+      yield* tool("set_frame", { frames: [{ route: "/home", width: 3000 }] });
+      assert.strictEqual((yield* framesNow)["home.page.json"]?.width, 3000);
+    })
+  );
+
+  inAProject("refuses a call that names pages of two canvases", () =>
+    Effect.gen(function* () {
+      const { id } = yield* tool("create_canvas", { name: "Marketing" });
+      yield* tool("create_page", {
+        canvas: id,
+        name: "Launch",
+        route: "/launch",
+      });
+      assert.include(
+        yield* refusal("set_frame", {
+          frames: [{ route: "/home" }, { route: "/launch", x: 0, y: 2000 }],
+        }),
+        'one canvas per call: designs/marketing/launch.page.json is in "marketing", not ""'
+      );
+      // The canvas given is the call's, the first page's too.
+      assert.include(
+        yield* refusal("set_frame", {
+          canvas: "",
+          frames: [{ route: "/launch", x: 0, y: 2000 }],
+        }),
+        "one canvas per call"
+      );
+    })
+  );
+
+  inAProject(
+    "lists each page's frame and its bounds with its views, one with no frame saved where the editor draws it",
+    () =>
+      Effect.gen(function* () {
+        yield* pageAt("Plans", "/plans");
+        yield* tool("set_frame", {
+          frames: [{ route: "/home", views: [390] }],
+        });
+        const { pages } = yield* tool("list_pages", {});
+        const of = (route: string) => pages.find((p) => p.route === route);
+        assert.deepStrictEqual(of("/home")?.frame, {
+          height: 900,
+          width: 1440,
+          x: 0,
+          y: 0,
+        });
+        assert.deepStrictEqual(of("/home")?.bounds, {
+          height: 900,
+          width: 1440 + 80 + 390,
+          x: 0,
+          y: 0,
+        });
+        // Not saved yet: a gap past Home's view, as the editor draws it.
+        assert.deepStrictEqual(of("/plans")?.frame, {
+          height: 900,
+          width: 1440,
+          x: 1910 + 80,
+          y: 0,
+        });
+      })
   );
 
   inAProject(

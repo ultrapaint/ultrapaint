@@ -1,5 +1,6 @@
+import { GRID } from "@ultrapaint/contracts/canvas-layout";
 import { describe, expect, it } from "vitest";
-import { GRID, snapBox, snapPoint, snapToEdges } from "./snap.ts";
+import { snapBox, snapPoint, snapToEdges } from "./snap.ts";
 
 const frame = { height: 100, preset: "custom" as const, width: 100 };
 

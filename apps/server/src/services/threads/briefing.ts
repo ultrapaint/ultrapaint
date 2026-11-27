@@ -226,7 +226,7 @@ export const skillTerms = (
           `- The design system's store is ${t.read_design_system}: DESIGN.md and the tokens, each value in every theme. Save both together with ${t.write_design_system}.`,
           `- A question tool is ${t.ask_user}: the one question the skill asks goes there.`,
           `- A component's documentation is ${t.get_component}: its props, variants and example; replace every placeholder of its example with real content.`,
-          `- A view at a width is ${t.get_screenshot} at that width; give the page views at the widths you check (${t.set_frame}'s views: [390, 1440]).`,
+          `- A view at a width is ${t.get_screenshot} at that width; give the page views at the widths you check (${t.set_frame}'s frames: [{route, views: [390, 1440]}]).`,
           "- A component written into the code is placed once the user runs Sync. Do not ask them to run it, and do not wait: draw now with the components the system has and, where one is missing, its parts, and say in your last message what Sync will bring in.",
           `- From Figma, /sync figma and /import-figma run the steps; the skill's \`${skillDir}/references/system/figma.md\` decides each match.`,
         ]

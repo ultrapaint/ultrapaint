@@ -1,10 +1,12 @@
 /**
  * The tools that list and manage pages: the project and its pages at a glance, the templates a
- * page starts from, and making, sizing, renaming, giving a URL to, deleting and duplicating a
- * page, each through the operations the editor uses.
+ * page starts from, and making, sizing and placing, renaming, giving a URL to, deleting and
+ * duplicating a page, each through the operations the editor uses.
  */
 
 import { Json } from "@ultrapaint/contracts/base";
+import { boundsOf, canvasFrames } from "@ultrapaint/contracts/canvas-layout";
+import type { FrameLayout } from "@ultrapaint/contracts/pages";
 import { SelectedNode } from "@ultrapaint/contracts/rpc";
 import type { VariationSet } from "@ultrapaint/contracts/variations";
 import { pageTemplates } from "@ultrapaint/design-document/factories";
@@ -12,6 +14,7 @@ import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { DocumentService } from "../documents.ts";
 import { EditorSelection } from "../editor-selection.ts";
+import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { VariationRounds } from "../variation-rounds.ts";
 import { VariationsService } from "../variations.ts";
@@ -19,15 +22,28 @@ import { makeLookup } from "./lookup.ts";
 import {
   asJson,
   doing,
-  finite,
+  missing,
   opt,
   reported,
   ToolFailure,
+  within,
 } from "./tool-helpers.ts";
 
+/** A box on the canvas, in its coordinates. */
+const CanvasBox = Schema.Struct({
+  height: Schema.Number,
+  width: Schema.Number,
+  x: Schema.Number,
+  y: Schema.Number,
+});
+
 const PageSummary = Schema.Struct({
+  /** The box its frame takes with its views; absent when its canvas cannot be read. */
+  bounds: Schema.optional(CanvasBox),
   canvas: Schema.String,
   file: Schema.String,
+  /** Its frame where the editor draws it; absent when its canvas cannot be read. */
+  frame: Schema.optional(CanvasBox),
   name: Schema.String,
   /** The URL the prototype serves it at; absent when it has none. */
   route: Schema.optional(Schema.String),
@@ -61,27 +77,34 @@ export const GetContext = Tool.make("get_context", {
 
 const ListPages = Tool.make("list_pages", {
   description:
-    "Every page: canvas, name, file, URL and variations, the one in use being the page.",
+    "Every page: canvas, name, file, URL, variations (the one in use is the page), frame, bounds.",
   failure: ToolFailure,
   success: Schema.Struct({ pages: Schema.Array(PageSummary) }),
 }).annotateMerge(doing("read"));
 
 const SetFrame = Tool.make("set_frame", {
   description:
-    "Size a page's frame (canvas and get_screenshot): a preset, or width and height; a long page needs a tall one. views: widths drawn beside it.",
+    "Size or move frames: preset or width/height (tall for a long page), views: widths beside it, x/y.",
   failure: ToolFailure,
   parameters: Schema.Struct({
     canvas: opt(Schema.String),
-    height: opt(finite(100, 20_000)),
-    preset: opt(Schema.Literals(["mobile", "tablet", "desktop"])),
-    route: Schema.String,
-    views: opt(Schema.Array(finite(200, 8000))),
-    width: opt(finite(200, 8000)),
+    frames: Schema.Array(
+      Schema.Struct({
+        height: opt(within(100, 20_000)),
+        preset: opt(Schema.Literals(["mobile", "tablet", "desktop"])),
+        route: Schema.String,
+        views: opt(Schema.Array(within(200, 8000))),
+        width: opt(within(200, 8000)),
+        x: opt(Schema.Finite),
+        y: opt(Schema.Finite),
+      })
+    ),
   }),
   success: Schema.Struct({
-    file: Schema.String,
-    height: Schema.Number,
-    width: Schema.Number,
+    /** Each frame named, where it is after the call. */
+    frames: Schema.Array(
+      Schema.Struct({ ...CanvasBox.fields, file: Schema.String })
+    ),
   }),
 }).annotateMerge(doing("edit", { idempotent: true }));
 
@@ -189,6 +212,16 @@ const variationNames = (set: VariationSet | undefined): string[] =>
     v.id === set?.inUse ? `${v.name} (in use)` : v.name
   );
 
+/** A frame's own box, without its views. */
+const boxOf = ({ height, width, x, y }: FrameLayout) => ({
+  height,
+  width,
+  x,
+  y,
+});
+
+const NO_FRAMES: Readonly<Record<string, FrameLayout>> = {};
+
 export const PageToolsLive = PageTools.toLayer(
   Effect.gen(function* () {
     const {
@@ -213,6 +246,21 @@ export const PageToolsLive = PageTools.toLayer(
           })
         )
         .pipe(Effect.orElseSucceed((): string[] => []));
+
+    /**
+     * A page `set_frame` names, in the call's canvas: a page of another canvas refuses the call
+     * with why, rather than a miss.
+     */
+    const pageIn = (route: string, canvas: string) =>
+      Effect.catchTag(pageAt(route, canvas), "ToolFailure", (missed) =>
+        Effect.flatMap(Effect.option(pageAt(route, undefined)), (other) =>
+          other._tag === "Some" && other.value.canvas !== canvas
+            ? missing(
+                `one canvas per call: ${other.value.file} is in ${JSON.stringify(other.value.canvas)}, not ${JSON.stringify(canvas)}`
+              )
+            : Effect.fail(missed)
+        )
+      );
 
     return PageTools.of({
       create_page: Effect.fn("EditorTools.create_page")(function* ({
@@ -274,14 +322,45 @@ export const PageToolsLive = PageTools.toLayer(
 
       list_pages: Effect.fn("EditorTools.list_pages")(function* () {
         const pages = yield* reported(pagesOf);
+        // Each canvas's frames as the editor draws them, a page with none saved included.
+        const drawn = yield* Effect.forEach(pages.canvases, (c) =>
+          project
+            .use(
+              Effect.flatMap(PagesService, (service) =>
+                service.readCanvas(c.id)
+              )
+            )
+            .pipe(
+              Effect.map((layout) =>
+                canvasFrames(
+                  pages.pages
+                    .filter((p) => p.canvas === c.id)
+                    .map((p) => p.path),
+                  layout.frames
+                )
+              ),
+              // A canvas whose `canvas.json` cannot be read still lists its pages, without frames.
+              Effect.catchTags({
+                Conflict: () => Effect.succeed(NO_FRAMES),
+                NotFound: () => Effect.succeed(NO_FRAMES),
+              }),
+              reported,
+              Effect.map((frames) => [c.id, frames] as const)
+            )
+        );
+        const framesOf = new Map(drawn);
         const listed = yield* Effect.forEach(pages.pages, (page) =>
-          Effect.map(variationsOfPage(page.id), (variations) => ({
-            canvas: page.canvas,
-            file: page.file,
-            name: page.name,
-            ...(page.route !== undefined && { route: page.route }),
-            ...(variations.length > 0 && { variations }),
-          }))
+          Effect.map(variationsOfPage(page.id), (variations) => {
+            const frame = framesOf.get(page.canvas)?.[page.path];
+            return {
+              canvas: page.canvas,
+              file: page.file,
+              name: page.name,
+              ...(page.route !== undefined && { route: page.route }),
+              ...(variations.length > 0 && { variations }),
+              ...(frame && { bounds: boundsOf(frame), frame: boxOf(frame) }),
+            };
+          })
         );
         return { pages: listed };
       }),
@@ -315,25 +394,43 @@ export const PageToolsLive = PageTools.toLayer(
       }),
 
       set_frame: Effect.fn("EditorTools.set_frame")(function* ({
-        height,
-        preset,
-        route,
         canvas,
-        views,
-        width,
+        frames,
       }) {
-        const page = yield* pageAt(route, canvas);
-        // Sized from the layout as it is when the frame is written, and that frame alone
-        // written: the others may have moved since the agent last looked.
-        const frame = yield* pagesService((pages) =>
-          pages.setFrame(page.canvas, page.path, {
-            height,
-            preset,
-            views,
-            width,
-          })
+        const [head] = frames;
+        if (!head) {
+          return yield* missing("frames is empty: name a page's frame in it");
+        }
+        // One canvas per call: the one given, or the one the first page is in.
+        const id = canvas ?? (yield* pageAt(head.route, undefined)).canvas;
+        const named = yield* Effect.forEach(frames, (frame) =>
+          Effect.map(pageIn(frame.route, id), (page) => ({ frame, page }))
         );
-        return { file: page.file, height: frame.height, width: frame.width };
+        // Sized and placed from the layout as it is when the frames are written, and those
+        // alone written: the others may have moved since the agent last looked.
+        const placed = yield* pagesService((service) =>
+          service.arrangeFrames(
+            id,
+            named.map(({ frame, page }) => ({
+              path: page.path,
+              size: {
+                height: frame.height,
+                preset: frame.preset,
+                views: frame.views,
+                width: frame.width,
+              },
+              x: frame.x,
+              y: frame.y,
+            }))
+          )
+        );
+        const pages = new Map(named.map(({ page }) => [page.path, page]));
+        return {
+          frames: [...pages.values()].flatMap((page) => {
+            const frame = placed[page.path];
+            return frame ? [{ ...boxOf(frame), file: page.file }] : [];
+          }),
+        };
       }),
 
       set_page_url: Effect.fn("EditorTools.set_page_url")(function* ({

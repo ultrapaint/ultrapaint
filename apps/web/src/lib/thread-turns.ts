@@ -5,6 +5,7 @@
  * message; the steps are there for whoever opens them. Pure, so the grouping is tested without the stores.
  */
 import {
+  editorToolOf,
   isEditorMcpCall,
   type ThreadItem,
 } from "@ultrapaint/contracts/threads";
@@ -80,9 +81,8 @@ const EDITOR_STEPS: Partial<Record<string, readonly [string, string]>> = {
   ],
 };
 
-/** What leads an editor tool's name in a call's title, as Claude Code or Codex writes it. */
-const EDITOR_PREFIX_RE = /^.*?(?:mcp__ultrapaint__|mcp\.ultrapaint\.)/;
-const TOOL_NAME_RE = /^[\w-]+/;
+/** `set_frame` when the call moves a frame. */
+const ARRANGING = ["Arranging the canvas", "Arranged the canvas"] as const;
 
 /**
  * A tool call in words: an editor tool by what it does ("Edited a page"), any other by the title
@@ -90,9 +90,8 @@ const TOOL_NAME_RE = /^[\w-]+/;
  */
 export const stepTitle = (tool: ToolItem, active: boolean): string => {
   if (isEditorMcpCall(tool.title)) {
-    const [name = ""] =
-      tool.title.replace(EDITOR_PREFIX_RE, "").match(TOOL_NAME_RE) ?? [];
-    const words = EDITOR_STEPS[name];
+    const name = editorToolOf(tool.title) ?? "";
+    const words = tool.arranges ? ARRANGING : EDITOR_STEPS[name];
     if (words) {
       return words[active ? 0 : 1];
     }

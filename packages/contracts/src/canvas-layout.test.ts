@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  boundsOf,
   boxesOf,
   canvasFrames,
   drawnFrame,
@@ -7,6 +8,9 @@ import {
   familyOf,
   frameBottom,
   frameRight,
+  GRID,
+  onGrid,
+  overlapsOf,
   placeFrame,
   placeFrameAt,
   placeView,
@@ -76,6 +80,68 @@ describe("a frame's extent", () => {
       { height: 900, width: 1440, x: 100, y: 200 },
       { height: 844, width: 390, x: 1620, y: 200 },
     ]);
+  });
+});
+
+describe("a frame's bounds (boundsOf)", () => {
+  it("is its own box alone, and takes in its views, one above it too", () => {
+    expect(boundsOf(frame(100, 50))).toEqual({
+      height: 900,
+      width: 1440,
+      x: 100,
+      y: 50,
+    });
+    expect(
+      boundsOf(
+        frame(0, 0, 1440, 900, [view("w390", 1520, 0), view("w320", 0, -900)])
+      )
+    ).toEqual({ height: 1800, width: 1910, x: 0, y: -900 });
+  });
+});
+
+describe("frames over other frames (overlapsOf)", () => {
+  it("names the frames a moved one lies over, its views and theirs counted", () => {
+    const frames = {
+      a: frame(0, 0, 1440, 900, [view("w390", 1520, 0)]),
+      // Under a's view, not under a.
+      b: frame(1700, 400),
+      // Over b's right side, past a's view.
+      c: frame(3000, 0),
+      // Its view reaches back over a.
+      d: frame(0, 1000, 1440, 900, [view("w390", 0, -200)]),
+    };
+    expect(overlapsOf(frames, ["a"])).toEqual({ a: ["b", "d"] });
+    expect(overlapsOf(frames, ["b", "c"])).toEqual({
+      b: ["a", "c"],
+      c: ["b"],
+    });
+  });
+
+  it("lets frames that touch, or sit closer than the gap, be", () => {
+    const frames = {
+      a: frame(0, 0),
+      // Its left edge on a's right one.
+      b: frame(1440, 0),
+      // A pixel under a.
+      c: frame(0, 901),
+    };
+    expect(overlapsOf(frames, ["a", "b", "c"])).toEqual({});
+  });
+
+  it("checks only the frames that moved, against every other one", () => {
+    const frames = { a: frame(0, 0), b: frame(100, 100), c: frame(200, 200) };
+    expect(overlapsOf(frames, ["a"])).toEqual({ a: ["b", "c"] });
+    expect(overlapsOf(frames, [])).toEqual({});
+  });
+});
+
+describe("the canvas's grid", () => {
+  it("is 8 pixels, and a value goes to its nearest line, either way", () => {
+    expect(GRID).toBe(8);
+    expect([onGrid(11), onGrid(12), onGrid(-3), onGrid(-5)]).toEqual([
+      8, 16, 0, -8,
+    ]);
+    expect(Object.is(onGrid(-3), -0)).toBe(false);
   });
 });
 

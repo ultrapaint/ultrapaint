@@ -87,6 +87,37 @@ describe("projectUpdate", () => {
     ).toEqual([{ line: 42, path: "designs/index.tsx" }]);
   });
 
+  it("marks an editor's set_frame that moves a frame, once its input says so", () => {
+    const title = "mcp__ultrapaint__set_frame";
+    const started = projectUpdate(
+      {
+        rawInput: {},
+        sessionUpdate: "tool_call",
+        title,
+        toolCallId: "call_1",
+      } as Parameters<typeof projectUpdate>[0],
+      ctx
+    );
+    const [push] = started.actions;
+    const item = push?.type === "push" ? push.item : undefined;
+    expect(item?.kind === "tool" && item.arranges).toBeFalsy();
+    const refined = (rawInput: unknown) => {
+      const [patch] = projectUpdate(
+        {
+          rawInput,
+          sessionUpdate: "tool_call_update",
+          toolCallId: "call_1",
+        } as Parameters<typeof projectUpdate>[0],
+        { ...ctx, hasItem: () => true }
+      ).actions;
+      const next =
+        patch?.type === "patch" && item ? patch.patch(item) : undefined;
+      return next?.kind === "tool" ? next.arranges : undefined;
+    };
+    expect(refined({ frames: [{ route: "/home", x: 0, y: 1200 }] })).toBe(true);
+    expect(refined({ frames: [{ height: 2400, route: "/home" }] })).toBeFalsy();
+  });
+
   it("leaves out a command's cd into the repository, and keeps one anywhere else", () => {
     const titleOf = (title: string) => {
       const {

@@ -165,6 +165,17 @@ describe("a step in words", () => {
     );
   });
 
+  it("says a frame tool's call that moves a frame arranges the canvas", () => {
+    const sizing = tool("c", "mcp__ultrapaint__set_frame", "in_progress");
+    expect(stepTitle(sizing, true)).toBe("Sizing a page");
+    expect(stepTitle({ ...sizing, arranges: true }, true)).toBe(
+      "Arranging the canvas"
+    );
+    expect(stepTitle({ ...sizing, arranges: true }, false)).toBe(
+      "Arranged the canvas"
+    );
+  });
+
   it("names an editor tool it has no words for by its name", () => {
     expect(stepTitle(tool("c", "mcp__ultrapaint__map_values"), false)).toBe(
       "Map values"

@@ -180,14 +180,17 @@ describe("a project in-process", () => {
         Effect.gen(function* () {
           yield* pages((p) => p.create("", { name: "Plans" }, "blank"));
           const sized = yield* callTool(EditorTools, "set_frame", {
-            route: "plans.page.json",
-            views: [390],
+            frames: [{ route: "plans.page.json", views: [390] }],
           });
-          assert.deepStrictEqual(sized, {
-            file: "designs/plans.page.json",
-            height: 900,
-            width: 1440,
-          });
+          assert.deepStrictEqual(sized.frames, [
+            {
+              file: "designs/plans.page.json",
+              height: 900,
+              width: 1440,
+              x: 1520 + 390 + 80,
+              y: 0,
+            },
+          ]);
           const frames = yield* framesNow;
           assert.deepStrictEqual(frames["plans.page.json"], {
             height: 900,
@@ -291,8 +294,7 @@ describe("a project in-process", () => {
       })(
         Effect.gen(function* () {
           yield* callTool(EditorTools, "set_frame", {
-            route: "home.page.json",
-            width: 1280,
+            frames: [{ route: "home.page.json", width: 1280 }],
           });
           const layout = yield* pages((p) => p.readCanvas(""));
           assert.strictEqual(layout.frames["home.page.json"]?.width, 1280);

@@ -32,6 +32,19 @@ export const finite = (minimum: number, maximum: number) =>
   Schema.Finite.check(Schema.isBetween({ maximum, minimum }));
 
 /**
+ * A number an agent passes, between bounds that are checked but not written in the schema: for a
+ * tool whose schema the bounds would make longer than they are worth, where an agent seldom comes
+ * near them. One past them is refused with the bounds.
+ */
+export const within = (minimum: number, maximum: number) =>
+  Schema.Finite.check(
+    Schema.makeFilter(
+      (n: number) =>
+        (n >= minimum && n <= maximum) || `from ${minimum} to ${maximum}`
+    )
+  );
+
+/**
  * JSON an agent passes, which the handler validates itself and says what is wrong. `Json`
  * would describe itself to the agent as a recursive schema of every JSON value.
  */
