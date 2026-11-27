@@ -5,7 +5,9 @@ import {
 import type { TextNode } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
 import {
+  attachedSteps,
   attachTextStyle,
+  detachedSteps,
   detachTextStyle,
   groupTextStyles,
   matchTextStyle,
@@ -88,6 +90,81 @@ describe("attachTextStyle", () => {
       role: "paragraph",
       textStyle: "Body",
     });
+  });
+});
+
+describe("a text style's steps, as a text is taken off or set in it (ADR 0160)", () => {
+  const stepped: TextStyle = {
+    ...title,
+    at: {
+      lg: { size: "$text-5xl" },
+      sm: { lineHeight: "$leading-snug", size: "$text-4xl" },
+    },
+  };
+  const order = ["sm", "md", "lg"];
+
+  it("copies the style's steps into the text's own at each breakpoint", () => {
+    expect(
+      detachedSteps(text({ textStyle: "Heading xl" }), stepped, order)
+    ).toEqual([
+      {
+        at: "sm",
+        id: "t",
+        op: "update",
+        set: { lineHeight: "$leading-snug", size: "$text-4xl" },
+      },
+      { at: "lg", id: "t", op: "update", set: { size: "$text-5xl" } },
+    ]);
+  });
+
+  it("copies no step the text overrides, as its own or at that breakpoint or a smaller one", () => {
+    const node = text({
+      at: { md: { size: 30 } },
+      lineHeight: 1.1,
+      textStyle: "Heading xl",
+    });
+    // Its md size holds at lg over the style's lg step; its own line height over every step.
+    expect(detachedSteps(node, stepped, order)).toEqual([
+      { at: "sm", id: "t", op: "update", set: { size: "$text-4xl" } },
+    ]);
+  });
+
+  it("copies no step of the setting being edited as the text is detached", () => {
+    expect(
+      detachedSteps(text({ textStyle: "Heading xl" }), stepped, order, ["size"])
+    ).toEqual([
+      {
+        at: "sm",
+        id: "t",
+        op: "update",
+        set: { lineHeight: "$leading-snug" },
+      },
+    ]);
+  });
+
+  it("copies nothing from a style without steps, or from no style", () => {
+    expect(detachedSteps(text(), title, order)).toEqual([]);
+    expect(detachedSteps(text(), undefined, order)).toEqual([]);
+  });
+
+  it("clears the text's own size and line height at every breakpoint as it is set in a style", () => {
+    const node = text({
+      at: {
+        lg: { align: "center" },
+        md: { size: 30 },
+        sm: { lineHeight: 1.2, size: 28 },
+      },
+    });
+    expect(attachedSteps(node)).toEqual([
+      { at: "md", id: "t", op: "update", set: { size: null } },
+      {
+        at: "sm",
+        id: "t",
+        op: "update",
+        set: { lineHeight: null, size: null },
+      },
+    ]);
+    expect(attachedSteps(text())).toEqual([]);
   });
 });
 

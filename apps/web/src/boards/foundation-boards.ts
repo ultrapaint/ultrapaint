@@ -10,6 +10,7 @@ import {
   type DesignSystem,
   TEXT_STYLE_GROUPS,
   type TextStyle,
+  type TextStyleStep,
   type Token,
 } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
@@ -20,6 +21,7 @@ import {
   variableOf,
 } from "@ultrapaint/contracts/token-table";
 import { ROOT_PX, toMs, toPx } from "@ultrapaint/contracts/token-value";
+import { breakpointsOf } from "@ultrapaint/design-document/breakpoints";
 import { groupTextStyles } from "@ultrapaint/design-document/text-styles";
 import { isToken, tokenRef } from "@ultrapaint/design-document/tokens";
 import {
@@ -83,15 +85,27 @@ const settingOf = (
   return tokenOf(ds, named)?.value ?? shortName(named);
 };
 
-/** A style's settings as a type specimen says them: `24px / 1.25 · 600 · -0.02em`. */
-const settingsText = (ds: DesignSystem, style: TextStyle): string => {
-  const size = settingOf(ds, style.size);
+/** A size and a line height, a style's own or a step's, as a type specimen says them: `24px / 1.25`. */
+const scaleText = (ds: DesignSystem, step: TextStyleStep): string => {
+  const size = settingOf(ds, step.size);
   const px = size === undefined ? null : toPx(size, { em: ROOT_PX });
   const sizeText = px === null ? size : `${Math.round(px * 100) / 100}px`;
-  const leading = settingOf(ds, style.lineHeight);
+  return [sizeText, settingOf(ds, step.lineHeight)].filter(Boolean).join(" / ");
+};
+
+/**
+ * A style's settings as a type specimen says them, its steps after its own size (ADR 0160):
+ * `24px / 1.25, sm 28px / 1.2 · 600 · -0.02em`.
+ */
+const settingsText = (ds: DesignSystem, style: TextStyle): string => {
+  const steps = breakpointsOf(ds).flatMap(({ name }) => {
+    const step = style.at?.[name];
+    const said = step && scaleText(ds, step);
+    return said ? [`${name} ${said}`] : [];
+  });
   return [
     style.level ? `h${style.level}` : undefined,
-    [sizeText, leading].filter(Boolean).join(" / ") || undefined,
+    [scaleText(ds, style), ...steps].filter(Boolean).join(", ") || undefined,
     settingOf(ds, style.weight),
     settingOf(ds, style.tracking),
   ]

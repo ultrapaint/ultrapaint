@@ -114,6 +114,28 @@ const textOf = (answer: McpSchema.CallToolResult | McpSchema.InputRequired) =>
 const FILL_IN_CARD =
   /^t_\w+: Fill height takes the room the component leaves, and it leaves none/;
 
+/** A heading set in a text style, as an agent puts it in. */
+const HEADING = {
+  role: "heading",
+  text: "Pricing",
+  textStyle: "Heading xl",
+  type: "text",
+};
+
+/** The id of a styled heading put at the top of /home, with no size of its own: no warning. */
+const styledHeading = Effect.gen(function* () {
+  const { created, warnings } = yield* tool("apply_operations", {
+    ops: [inserted(HEADING)],
+    route: "/home",
+  });
+  assert.isUndefined(warnings);
+  return created[0] ?? "";
+});
+
+/** A styled text given both a size and a line height of its own, as `apply_operations` warns of it. */
+const BOTH_OVERRIDE =
+  /: lineHeight and size override its text style Heading xl\. Set them to null/;
+
 /** A text node an agent inserts at the top of a page. */
 const inserted = (node: Record<string, unknown>) => ({
   node,
@@ -1525,6 +1547,71 @@ describe("the tools for documents", () => {
   );
 
   inAProject(
+    "warns of a styled text the call gives its own size at a breakpoint, naming its style and the ways out (ADR 0160)",
+    () =>
+      Effect.gen(function* () {
+        const id = yield* styledHeading;
+        const { warnings } = yield* tool("apply_operations", {
+          ops: [{ at: "sm", id, op: "update", set: { size: 28 } }],
+          route: "/home",
+        });
+        assert.deepStrictEqual(warnings, [
+          `${id}: at.sm.size overrides its text style Heading xl. Set it to null to keep the style's, or textStyle to null to detach the style.`,
+        ]);
+      })
+  );
+
+  inAProject(
+    "warns of a styled text put in with its own size and line height, naming both",
+    () =>
+      Effect.gen(function* () {
+        const { warnings } = yield* tool("apply_operations", {
+          ops: [inserted({ ...HEADING, lineHeight: 1.3, size: 30 })],
+          route: "/home",
+        });
+        assert.match(warnings?.[0] ?? "", BOTH_OVERRIDE);
+      })
+  );
+
+  inAProject(
+    "does not warn again of an override already on the page that the call did not set",
+    () =>
+      Effect.gen(function* () {
+        const id = yield* styledHeading;
+        yield* tool("apply_operations", {
+          ops: [{ at: "sm", id, op: "update", set: { size: 28 } }],
+          route: "/home",
+        });
+        const { warnings } = yield* tool("apply_operations", {
+          ops: [{ id, op: "update", set: { text: "Plans" } }],
+          route: "/home",
+        });
+        assert.isUndefined(warnings);
+      })
+  );
+
+  inAProject(
+    "does not warn of an unstyled text's size, nor of a text the call takes off its style",
+    () =>
+      Effect.gen(function* () {
+        const id = yield* styledHeading;
+        const { warnings } = yield* tool("apply_operations", {
+          ops: [
+            inserted({
+              role: "paragraph",
+              size: 14,
+              text: "Note",
+              type: "text",
+            }),
+            { id, op: "update", set: { lineHeight: 1.2, textStyle: null } },
+          ],
+          route: "/home",
+        });
+        assert.isUndefined(warnings);
+      })
+  );
+
+  inAProject(
     "shows the nodes a thread is about to change and has changed, named by reference",
     () =>
       Effect.gen(function* () {
@@ -2083,6 +2170,62 @@ describe("the tools for the design system", () => {
         // At the root, its front matter filled in from the design system.
         assert.strictEqual(system.document?.path, "DESIGN.md");
         assert.include(system.document?.text ?? "", "colors:\n  primary:");
+      })
+  );
+});
+
+describe("a text style's steps, through the tools (ADR 0160)", () => {
+  const style = {
+    at: { sm: { lineHeight: 1.2, size: "$text-3xl" } },
+    lineHeight: 1.25,
+    name: "Heading xl",
+    role: "heading",
+    size: "$text-2xl",
+  };
+  /** A design system of one stepped style, with DESIGN.md's prose stating the step. */
+  const written = tool("write_design_system", {
+    designMd: "## Typography\n\nHeading xl steps to 30px from sm.\n",
+    designSystem: {
+      colors: [],
+      radius: [],
+      shadows: [],
+      spacing: { base: "0.25rem" },
+      typography: {
+        fonts: [],
+        sizes: [
+          { name: "text-2xl", value: "1.5rem" },
+          { name: "text-3xl", value: "1.875rem" },
+        ],
+        styles: [style],
+        weights: [],
+      },
+      version: 1,
+    },
+  });
+
+  inAProject(
+    "gives a style's size and line height at each breakpoint back as they were written",
+    () =>
+      Effect.gen(function* () {
+        yield* written;
+        const { designSystem } = yield* tool("read_design_system", {});
+        assert.deepStrictEqual(
+          (designSystem as { typography: { styles: unknown[] } }).typography
+            .styles,
+          [style]
+        );
+      })
+  );
+
+  inAProject(
+    "writes DESIGN.md's front matter with a style's own settings alone",
+    () =>
+      Effect.gen(function* () {
+        yield* written;
+        const { designMd } = yield* tool("read_design_system", {});
+        const [front = ""] = (designMd ?? "").split("## Typography");
+        assert.include(front, "fontSize: 1.5rem");
+        assert.notInclude(front, "1.875rem");
       })
   );
 });

@@ -279,6 +279,31 @@ describe("Design system's boards", () => {
     ]);
   });
 
+  it("says a text style's size and line height at each breakpoint, its own first (ADR 0160)", () => {
+    const stepped: DesignSystem = {
+      ...ds,
+      typography: {
+        ...ds.typography,
+        styles: [
+          {
+            at: { lg: { size: 36 }, sm: { lineHeight: 1.2, size: 28 } },
+            level: 1,
+            lineHeight: 1.25,
+            name: "Display",
+            role: "heading",
+            size: 24,
+            weight: 700,
+          },
+        ],
+      },
+    };
+    const [styles] = systemBoards("typography", stepped, null).boards;
+    const line = styles && find(styles.root, "style-settings:Display");
+    expect(line?.type === "text" && line.text).toBe(
+      "h1 · 24 / 1.25, sm 28 / 1.2, lg 36 · 700"
+    );
+  });
+
   it("draws the other foundations' tokens, each named for its token", () => {
     const more: DesignSystem = {
       ...ds,

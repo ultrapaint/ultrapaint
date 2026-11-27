@@ -109,7 +109,8 @@ added to the format's eight); leave one out only when there is nothing to say:
      density, shape, accent).
    - Colors: what each colour is for, named as its token ({colors.primary}), and how dark mode
      differs.
-   - Typography: the families, and which text style ({typography.heading-xl}) is for what.
+   - Typography: the families, which text style ({typography.heading-xl}) is for what, and the
+     size and line height each steps to at a breakpoint (the front matter holds its own alone).
    - Layout: the grid, the spacing scale, how much room things get, the breakpoints.
    - Elevation & Depth: how layers are told apart: surfaces, shadows, borders.
    - Shapes: the radii ({rounded.md}) and where each goes.

@@ -67,6 +67,13 @@ export const TEXT_STYLE_GROUPS: readonly {
   { group: "other", label: "Others" },
 ];
 
+/** A text style's size and line height from a breakpoint up (ADR 0160). */
+const TextStyleStep = Schema.Struct({
+  lineHeight: Schema.optional(Schema.Union([Schema.Number, Schema.String])),
+  size: Schema.optional(Schema.Union([Schema.Number, Schema.String])),
+});
+export type TextStyleStep = typeof TextStyleStep.Type;
+
 /**
  * A named combination of type settings: a font size, a weight and a line height (and a family
  * and tracking when the style sets them) that a text is set in as one thing. A text that points
@@ -74,6 +81,12 @@ export const TEXT_STYLE_GROUPS: readonly {
  * from the style carries them as its own fields.
  */
 export const TextStyle = Schema.Struct({
+  /**
+   * Its size and line height from a breakpoint of the design system up, by the breakpoint's
+   * name, mobile-first as a node's `at` (ADR 0036, 0160): the style's own are the smallest
+   * screen's.
+   */
+  at: Schema.optional(Schema.Record(Schema.String, TextStyleStep)),
   description: Schema.optional(Schema.String),
   font: Schema.optional(Schema.String),
   /** Left out, a heading style is a heading and a paragraph style is body copy. */
@@ -102,6 +115,9 @@ export const TEXT_STYLE_SETTINGS = [
   "tracking",
 ] as const;
 export type TextStyleSetting = (typeof TEXT_STYLE_SETTINGS)[number];
+
+/** The settings a style can say again at a breakpoint (`TextStyle.at`, ADR 0160). */
+export const TEXT_STYLE_STEP_SETTINGS = ["size", "lineHeight"] as const;
 
 export const FontFamily = Schema.Struct({
   ...Token.fields,

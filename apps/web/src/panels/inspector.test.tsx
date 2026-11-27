@@ -503,6 +503,147 @@ describe("the Text section", () => {
     ).toBeInstanceOf(SVGElement);
   });
 
+  describe("a text style's steps (ADR 0160)", () => {
+    /** Body, which steps up at lg; the page's frame is 1440 wide, at xl. */
+    const withBody = (title: Record<string, unknown>) => {
+      useDesignSystem.setState({
+        designSystem: {
+          ...emptyDesignSystem(),
+          typography: {
+            ...emptyDesignSystem().typography,
+            styles: [
+              {
+                at: { lg: { lineHeight: 1.4, size: 18 } },
+                name: "Body",
+                role: "paragraph",
+                size: 16,
+              },
+            ],
+          },
+        },
+      });
+      useDocuments.setState({
+        docs: {
+          [HOME]: {
+            ...home,
+            root: {
+              children: [
+                { ...text("title"), textStyle: "Body", ...title } as DesignNode,
+              ],
+              id: "home",
+              type: "page",
+            } as DesignNode,
+          },
+        },
+      });
+      act(() => select({ frame: HOME, nodeId: "title" }));
+    };
+    const shown = (name: string) =>
+      field(name)?.querySelector<HTMLInputElement>("input")?.value;
+    const button = (label: string) =>
+      [...container.querySelectorAll("button")].find(
+        (b) => b.getAttribute("aria-label") === label
+      );
+
+    it("shows what the style gives at the frame's breakpoint", () => {
+      withBody({});
+      expect(shown("Size: from Body; a change detaches it")).toBe("18");
+      expect(shown("Line height: from Body; a change detaches it")).toBe("1.4");
+    });
+
+    it("marks the text's own size at a breakpoint as overriding its style there", () => {
+      withBody({ at: { xl: { size: 20 } } });
+      expect(shown("Size: its own, over Body")).toBe("20");
+      expect(field("Line height: from Body; a change detaches it")).not.toBe(
+        null
+      );
+    });
+
+    it("detaches the text with the style's steps copied into its own, in one edit", async () => {
+      withBody({});
+      fakeApi.respond("documents.apply", () => ({ changes: [], created: [] }));
+      act(() => button("Detach style")?.click());
+      await act(() => fakeApi.requested("documents.apply"));
+      expect(applied()).toEqual({
+        edits: [
+          {
+            doc: HOME,
+            ops: [
+              { id: "title", op: "update", set: { size: 16, textStyle: null } },
+              {
+                at: "lg",
+                id: "title",
+                op: "update",
+                set: { lineHeight: 1.4, size: 18 },
+              },
+            ],
+          },
+        ],
+        label: "Detach the text style",
+      });
+    });
+
+    it("detaches the text in a view as the style draws there, its steps copied below", async () => {
+      useEditor.setState({
+        frames: {
+          [HOME]: {
+            height: 900,
+            preset: "desktop",
+            views: [{ height: 800, id: "w390", width: 390, x: 1520, y: 0 }],
+            width: 1440,
+            x: 0,
+            y: 0,
+          },
+        },
+      });
+      withBody({});
+      fakeApi.respond("documents.apply", () => ({ changes: [], created: [] }));
+      act(() => button("Detach style")?.click());
+      await act(() => fakeApi.requested("documents.apply"));
+      // The frame is a view at xl: the edit lands there, with the size Body has there.
+      expect(applied()).toEqual({
+        edits: [
+          {
+            doc: HOME,
+            ops: [
+              {
+                at: "xl",
+                id: "title",
+                op: "update",
+                set: { lineHeight: 1.4, size: 18, textStyle: null },
+              },
+              {
+                at: "lg",
+                id: "title",
+                op: "update",
+                set: { lineHeight: 1.4, size: 18 },
+              },
+            ],
+          },
+        ],
+        label: "Detach the text style",
+      });
+    });
+
+    it("sets a text in a style with its own sizes cleared at every breakpoint", async () => {
+      withBody({ at: { md: { size: 20 } }, textStyle: undefined });
+      fakeApi.respond("documents.apply", () => ({ changes: [], created: [] }));
+      act(() => button("Attach to a style")?.click());
+      await act(() => fakeApi.requested("documents.apply"));
+      expect(applied()).toMatchObject({
+        edits: [
+          {
+            doc: HOME,
+            ops: [
+              { id: "title", op: "update", set: { textStyle: "Body" } },
+              { at: "md", id: "title", op: "update", set: { size: null } },
+            ],
+          },
+        ],
+      });
+    });
+  });
+
   it("holds the role in a popover titled Formatting", async () => {
     act(() => select({ frame: HOME, nodeId: "title" }));
     await openFormatting();

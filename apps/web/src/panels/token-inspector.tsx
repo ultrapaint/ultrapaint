@@ -3,8 +3,8 @@
  * edited live. A token: its value in each theme (a colour picker beside the text for a colour),
  * its description, its group, where it is used, and for a colour "Generate ramp from…"; a colour
  * group: its name, a token added to it, its ramp generated; a text style: its font, size, weight,
- * leading and tracking as token pickers. With nothing picked, a token or a group added to the
- * foundation open.
+ * leading and tracking as token pickers, and its size and line height at each breakpoint (ADR
+ * 0160). With nothing picked, a token or a group added to the foundation open.
  *
  * A value is drawn as it is typed (`draftEdits`, every frame following) and committed on Enter
  * or when the field is left, one `designSystem.edit` and one undo step (`commitEdits`); Escape
@@ -15,6 +15,7 @@ import type {
   DesignSystem,
   TextStyle,
   TextStyleSetting,
+  TextStyleStep,
 } from "@ultrapaint/contracts/design-system";
 import { defaultTheme, themesOf } from "@ultrapaint/contracts/themes";
 import {
@@ -23,8 +24,22 @@ import {
   tokenPrefix,
 } from "@ultrapaint/contracts/token-table";
 import { hexOf, parseColor } from "@ultrapaint/contracts/token-value";
+import {
+  breakpointBelow,
+  breakpointsOf,
+  upTo,
+} from "@ultrapaint/design-document/breakpoints";
 import { shadeOf } from "@ultrapaint/design-document/ramp";
-import { Component, File, Palette, Type } from "lucide-react";
+import { textStyleAt } from "@ultrapaint/design-document/text-styles";
+import {
+  ALargeSmall,
+  Component,
+  File,
+  Palette,
+  Type,
+  UnfoldVertical,
+  X,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +51,7 @@ import {
 import { type Pick, pickId } from "../boards/pick.ts";
 import { FOUNDATIONS } from "../boards/system-boards.ts";
 import { CutText } from "../components/cut-text.tsx";
+import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { takenName } from "../lib/new-token.ts";
 import {
@@ -43,6 +59,7 @@ import {
   rampEdits,
   type TokenUse,
   textStyleOp,
+  textStyleStepOp,
   usesOf,
   valueOp,
 } from "../lib/token-ops.ts";
@@ -566,6 +583,102 @@ const STYLE_FIELDS: readonly {
   { kind: "tracking", label: "Tracking", setting: "tracking" },
 ];
 
+/**
+ * A text style's size and line height at each breakpoint (ADR 0160), a row a step: changed,
+ * added and taken off here, each one edit of the design system. A step is added as the style
+ * draws at its breakpoint, so that adding it changes nothing until it is changed; a field left
+ * empty shows what the step takes from below.
+ */
+const StepsSection = ({
+  ds,
+  style,
+}: {
+  ds: DesignSystem;
+  style: TextStyle;
+}) => {
+  const breakpoints = breakpointsOf(ds);
+  const order = breakpoints.map((b) => b.name);
+  const steps = style.at ?? {};
+  const stepped = breakpoints.filter((b) => steps[b.name] !== undefined);
+  const free = breakpoints.filter((b) => steps[b.name] === undefined);
+  const commit = (at: string, step: TextStyleStep | null) =>
+    commitEdits([textStyleStepOp(style, at, step, order)]);
+  /** What the style draws at a breakpoint: what a new step starts from. */
+  const drawnAt = (name: string | null) =>
+    textStyleAt(style, upTo(breakpoints, name));
+  return (
+    <Section title="Breakpoints">
+      {stepped.map(({ name }) => {
+        const step = steps[name] ?? {};
+        const below = drawnAt(breakpointBelow(breakpoints, name));
+        return (
+          // A row as the inspector's, its removal beside the breakpoint's name so the two
+          // fields keep their room.
+          <div
+            className="grid min-h-7 grid-cols-[72px_minmax(0,1fr)] items-center gap-x-2"
+            key={name}
+          >
+            <div className="flex min-w-0 items-center gap-0.5">
+              <CutText className="truncate font-body-small text-muted-foreground">
+                {name}
+              </CutText>
+              <IconButton
+                className="text-muted-foreground"
+                onClick={() => commit(name, null)}
+                size="icon-xs"
+                tooltip={`Remove the ${name} step`}
+              >
+                <X className="size-3.5" />
+              </IconButton>
+            </div>
+            <div className="flex min-w-0 items-center gap-2">
+              <TokenField
+                kind="fontSize"
+                leading={<ALargeSmall />}
+                onChange={(v) =>
+                  commit(name, { ...step, size: v as string | number })
+                }
+                placeholder={below.size === undefined ? "" : String(below.size)}
+                title={`Size from ${name}`}
+                value={step.size}
+              />
+              <TokenField
+                kind="leading"
+                leading={<UnfoldVertical />}
+                onChange={(v) =>
+                  commit(name, { ...step, lineHeight: v as string | number })
+                }
+                placeholder={
+                  below.lineHeight === undefined ? "" : String(below.lineHeight)
+                }
+                title={`Line height from ${name}`}
+                value={step.lineHeight}
+              />
+            </div>
+          </div>
+        );
+      })}
+      {free.length > 0 ? (
+        <Row label={stepped.length > 0 ? "" : "Steps"}>
+          <OptionSelect
+            aria-label="Add a breakpoint"
+            onChange={(name) => {
+              const { lineHeight, size } = drawnAt(name);
+              commit(name, { lineHeight, size });
+            }}
+            options={free.map((b) => ({
+              label: `${b.name} · ${b.min}px`,
+              value: b.name,
+            }))}
+            placeholder="Add a breakpoint"
+            value={null}
+          />
+        </Row>
+      ) : null}
+    </Section>
+  );
+};
+
 /** A text style's font, size, weight, leading and tracking, each picked from its tokens. */
 export const TextStyleInspector = ({
   ds,
@@ -599,6 +712,7 @@ export const TextStyleInspector = ({
           </Row>
         ))}
       </Section>
+      <StepsSection ds={ds} style={style} />
       <Section title="Description">
         <TextInput
           multiline

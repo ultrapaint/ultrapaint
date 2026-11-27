@@ -24,6 +24,7 @@ import {
 import type { PageList } from "@ultrapaint/contracts/pages";
 import type { ThreadPurpose } from "@ultrapaint/contracts/threads";
 import { listedTokens } from "@ultrapaint/contracts/token-table";
+import { breakpointsOf } from "@ultrapaint/design-document/breakpoints";
 import { groupTextStyles } from "@ultrapaint/design-document/text-styles";
 import { catalogueOf } from "@ultrapaint/system-components/catalogue";
 import { DEFAULT_LOOK } from "@ultrapaint/system-components/default-look";
@@ -40,15 +41,48 @@ import { canvasesIn, componentFiles, PAGES } from "./agent-docs.ts";
 import { AgentSandbox } from "./agent-sandbox.ts";
 import { type AgentWays, agentWays } from "./agent-ways.ts";
 
+/**
+ * A style by name, with its steps at the breakpoints, smallest first (ADR 0160): `Heading xl (sm:
+ * 28, lg: $text-4xl)`, a step's size and line height as `28 / 1.2`.
+ */
+const styleWithSteps = (style: TextStyle, order: readonly string[]) => {
+  const at = style.at ?? {};
+  const steps = order.flatMap((name) => {
+    const step = at[name];
+    const said = [step?.size, step?.lineHeight].filter((v) => v !== undefined);
+    return said.length > 0 ? [`${name}: ${said.join(" / ")}`] : [];
+  });
+  return steps.length > 0 ? `${style.name} (${steps.join(", ")})` : style.name;
+};
+
 /** The styles under their groups: `headings: Heading xl, Heading lg; body: Body`. */
-const textStylesByGroup = (styles: readonly TextStyle[]) =>
+const textStylesByGroup = (
+  styles: readonly TextStyle[],
+  order: readonly string[]
+) =>
   [...groupTextStyles(styles)]
     .filter(([, list]) => list.length > 0)
     .map(
       ([group, list]) =>
-        `${TEXT_STYLE_GROUPS.find((g) => g.group === group)?.label.toLowerCase() ?? group}: ${list.map((s) => s.name).join(", ")}`
+        `${TEXT_STYLE_GROUPS.find((g) => g.group === group)?.label.toLowerCase() ?? group}: ${list.map((s) => styleWithSteps(s, order)).join(", ")}`
     )
     .join("; ");
+
+/** What a style's steps are, said when one has them. */
+const STEPS_NOTE =
+  "A style's steps (sm: …) are its size and line height from that breakpoint up: a text in the style needs no size of its own at any width.";
+
+/** The briefing's line of text styles, and what their steps are when one has them; none without styles. */
+const textStylesOf = (ds: DesignSystem): string => {
+  const { styles } = ds.typography;
+  if (styles.length === 0) {
+    return "";
+  }
+  const order = breakpointsOf(ds).map((b) => b.name);
+  const stepped = styles.some((s) => Object.keys(s.at ?? {}).length > 0);
+  return `Text styles: ${textStylesByGroup(styles, order)}
+${stepped ? `${STEPS_NOTE}\n` : ""}`;
+};
 
 /**
  * What the agent is told of `.git`: only where there is one, and the sandbox keeps it read-only.
@@ -417,7 +451,6 @@ export class ProjectBriefing extends Context.Service<
           () => ({ designSystem: null, document: null })
         );
         const ds = system.designSystem;
-        const styles = ds?.typography.styles ?? [];
         const { designs, skills } = yield* designSkills(tools, wanted, chosen);
         const craft = craftOf(skills);
         const conventions = conventionsOf(system.document);
@@ -471,12 +504,7 @@ ${pagesListOf(pages)}
 ${
   ds
     ? `Design tokens: ${tokensOf(ds)}
-${ds.tokenPreset === "detailed" ? `${DETAILED_NOTE}\n` : ""}${
-  styles.length > 0
-    ? `Text styles: ${textStylesByGroup(styles)}
-`
-    : ""
-}`
+${ds.tokenPreset === "detailed" ? `${DETAILED_NOTE}\n` : ""}${textStylesOf(ds)}`
     : `${DEFAULT_LOOK_NOTE}
 Design tokens of the default look: ${tokensOf(DEFAULT_LOOK)}
 `

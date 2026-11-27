@@ -37,7 +37,9 @@ export const codeRules = `How the design maps to code (Tailwind v4):
 - text: role heading with level n is <hN>, paragraph is <p>; size, weight, font, lineHeight,
   tracking, color and align are the matching utilities; textStyle names a text style of the
   design system — write all of the classes that style stands for (its size, weight and line
-  height, and its font and tracking when it sets them), then the node's own fields over them.
+  height, and its font and tracking when it sets them, and its at steps with their breakpoint
+  prefixes: text-2xl sm:text-3xl, or the product's own class for the style), then the node's own
+  fields over them.
   case: uppercase, lowercase. textWrap: text-balance, text-nowrap. lines 1: truncate; 2 or
   more: line-clamp-2 and so on. Their defaults at a breakpoint: normal-case, text-wrap, and for
   lines "all" line-clamp-none with whitespace-normal and text-clip.

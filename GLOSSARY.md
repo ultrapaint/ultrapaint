@@ -125,6 +125,13 @@ refactor and the board view left.
   or direction. **Copy style** keeps a node's as its view draws them, for the editor's session
   alone; **Paste style** writes them onto the nodes selected, clearing what the copy leaves unset,
   each taking only its own kind's. Not the node style, which is what fields mean as CSS.
+- **Text style**: a named size, weight and line height (and family and tracking) a text is set in
+  as one thing (contracts' `TextStyle`, design-document's `text-styles`): attached, the text takes
+  them all; detached, it carries them as its own fields. Its **steps** (ADR 0160) are its size and
+  line height from a breakpoint up, mobile-first as a node's `at`: a text in the style is drawn at
+  the step for its frame's width and written with the step's prefixed classes, and a size or line
+  height the text sets itself **overrides** the style there (`styleOverrides`). _Avoid_:
+  responsive style, style breakpoint.
 - **Fill layer**: one of the layers a box's `fill` is read as (ADR 0134; design-document's
   `fill`), the top one first: a **colour**, a **gradient**, an **image** (ADR 0149: its file, a
   path in the canvas, and its **fit**, cover, contain or fill, centred and drawn once), or, for a

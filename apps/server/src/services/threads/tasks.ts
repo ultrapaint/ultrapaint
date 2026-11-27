@@ -170,7 +170,11 @@ export class AgentTasks extends Context.Service<
      a level), body (Body lg, Body, Body sm, role paragraph) and other (Caption, Label, Code).
      Use tokens such as "$text-4xl", "$font-weight-bold" and "$leading-tight". The scan starts
      you off with a scale built from the theme: keep what the product uses, rename and fix the
-     rest, drop what it does not have.
+     rest, drop what it does not have. Where the code steps a style at a breakpoint (text-2xl
+     sm:text-3xl on its headings), the style holds the step in \`at\`, its size and line
+     height from that breakpoint up, in the same tokens as its own:
+     "at": { "sm": { "size": "$text-3xl", "lineHeight": "$leading-tight" } }. A text in the
+     style then needs no size of its own.
    - elevation: the levels, lowest first (Sunken, Default, Raised, Overlay), each a \`surface\`
      colour token, the \`shadow\` that goes with it, and the z-index \`layer\` of those that
      overlap. The scan starts you off from the semantic surfaces; fix it from how the product's

@@ -116,6 +116,8 @@ interface Writing {
   /** The tree at each level, by node id: the base first, then each breakpoint it sets. */
   readonly at: readonly ReadonlyMap<string, DesignNode>[];
   readonly classes: ClassWriter;
+  /** The breakpoints that hold at each level, smallest first: a text style's steps there (ADR 0160). */
+  readonly holding: readonly (readonly string[])[];
   readonly hrefOf: (link: string) => string;
   /** How the instance or the part a child is in lays it out, by the child's id, at each level. */
   readonly inSlots: InSlots;
@@ -808,7 +810,11 @@ const classesOf = (
 const markupOf = (node: DesignNode, w: Writing, parents: Parents): Child[] => {
   const levels = w.levels.map((_, level) => nodeAt(node, w, level));
   const styles = levels.map((n, level) =>
-    declarationsOf(n, { ...w.styles, parent: parents[level] ?? "free" })
+    declarationsOf(n, {
+      ...w.styles,
+      holding: w.holding[level],
+      parent: parents[level] ?? "free",
+    })
   );
   const contents = levels.map(contentOf);
   const runs: number[][] = [];
@@ -960,7 +966,8 @@ export const toCode = (
   options: CodeOptions = {}
 ): string => {
   const breakpoints = options.breakpoints ?? [];
-  const used = breakpointsUsed(given, breakpoints);
+  const styles = makeStyleContext(options.designSystem);
+  const used = breakpointsUsed(given, breakpoints, styles.textStyles);
   const levels = [null, ...used.map((b) => b.name)];
   const inSlots: InSlots = new Map();
   const modules: Modules = new Map();
@@ -980,11 +987,12 @@ export const toCode = (
   const writing: Writing = {
     at,
     classes,
+    holding: levels.map((name) => upTo(breakpoints, name)),
     hrefOf: options.hrefOf ?? ((link: string) => link),
     inSlots,
     instance: jsxInstance,
     levels,
-    styles: makeStyleContext(options.designSystem),
+    styles,
   };
   const { hidden, lines } = writeTree(
     base,
@@ -1264,11 +1272,16 @@ export const toHtml = (
 ): string => {
   const breakpoints = options.breakpoints ?? [];
   const fileOf = options.fileOf ?? (() => undefined);
+  const styles = makeStyleContext(options.designSystem);
   // What the instance sets at a breakpoint, and what its component's layers set at one.
   const names = new Set(
     [
-      ...breakpointsUsed(given, breakpoints),
-      ...breakpointsUsed(expandApps(given, fileOf), breakpoints),
+      ...breakpointsUsed(given, breakpoints, styles.textStyles),
+      ...breakpointsUsed(
+        expandApps(given, fileOf),
+        breakpoints,
+        styles.textStyles
+      ),
     ].map((b) => b.name)
   );
   const levels = [
@@ -1290,6 +1303,7 @@ export const toHtml = (
     {
       at,
       classes,
+      holding: levels.map((name) => upTo(breakpoints, name)),
       hrefOf: options.hrefOf ?? ((link: string) => link),
       inSlots: new Map(),
       instance: htmlInstance(
@@ -1298,7 +1312,7 @@ export const toHtml = (
         options.systemDrawing ?? (() => undefined)
       ),
       levels,
-      styles: makeStyleContext(options.designSystem),
+      styles,
     },
     options.parent ?? "free",
     HTML,

@@ -307,7 +307,8 @@ const NodeView = memo(function NodeDrawn({
     );
   }
   const drawn = withFiles(
-    nodeStyle(node, { ...scope.styles, parent }),
+    // A text style's steps at the frame's breakpoint (ADR 0160).
+    nodeStyle(node, { ...scope.styles, holding: scope.holding, parent }),
     scope.assetUrl
   );
   const style = own ? { ...drawn, ...own.style } : drawn;

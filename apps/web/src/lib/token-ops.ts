@@ -10,6 +10,7 @@ import type {
   DesignSystem,
   TextStyle,
   TextStyleSetting,
+  TextStyleStep,
 } from "@ultrapaint/contracts/design-system";
 import type { DesignSystemEdit } from "@ultrapaint/contracts/design-system-edit";
 import type { DesignNode } from "@ultrapaint/contracts/document";
@@ -172,6 +173,37 @@ export const textStyleOp = (
       ? rest
       : { ...rest, [setting]: value as string | number };
   return { op: "setTextStyle", style: next as TextStyle };
+};
+
+/**
+ * A style with its step at a breakpoint set (ADR 0160): `step` its size and line height there,
+ * what it leaves out not said; null, or a step that says nothing, takes the step off. The steps
+ * are kept in the breakpoints' order (`order`, smallest first), and a style left without any has
+ * no `at`.
+ */
+export const textStyleStepOp = (
+  style: TextStyle,
+  at: string,
+  step: TextStyleStep | null,
+  order: readonly string[]
+): DesignSystemEdit => {
+  const { at: steps = {}, ...rest } = style;
+  const said = Object.fromEntries(
+    Object.entries(step ?? {}).filter(
+      ([, value]) => value !== undefined && value !== null && value !== ""
+    )
+  ) as TextStyleStep;
+  const others = Object.entries(steps).filter(([name]) => name !== at);
+  const kept: [string, TextStyleStep][] =
+    Object.keys(said).length > 0 ? [...others, [at, said]] : others;
+  const rank = (name: string) =>
+    order.includes(name) ? order.indexOf(name) : order.length;
+  const sorted = kept.toSorted(([a], [b]) => rank(a) - rank(b));
+  return {
+    op: "setTextStyle",
+    style:
+      sorted.length > 0 ? { ...rest, at: Object.fromEntries(sorted) } : rest,
+  };
 };
 
 /** A place a token is used in: a page and how many of its nodes, a component, a text style. */

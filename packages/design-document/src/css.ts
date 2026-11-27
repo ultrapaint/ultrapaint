@@ -23,6 +23,7 @@ import type {
 } from "@ultrapaint/contracts/node-style";
 import type { PageDefaults } from "@ultrapaint/contracts/pages";
 import { lineHeightName } from "@ultrapaint/contracts/token-table";
+import { textStyleAt } from "./text-styles.ts";
 import {
   isToken,
   makeTokenResolver,
@@ -37,6 +38,11 @@ export type Style = Record<string, string>;
 export type ParentLayout = "row" | "column" | "block" | "free";
 
 export interface StyleContext {
+  /**
+   * The breakpoints that hold where the node is drawn or written, smallest first: a text style's
+   * steps at them are laid over its own settings (ADR 0160). None, the base.
+   */
+  readonly holding?: readonly string[] | undefined;
   /** Where the node sits: inside a row, a column, a group, or free (the root of a render). */
   readonly parent: ParentLayout;
   readonly resolver: TokenResolver;
@@ -268,9 +274,13 @@ const boxDeclared = (node: DesignNode, parent: ParentLayout): Declared => {
   return out;
 };
 
-/** Type settings: the text style first, then what the node sets itself. */
+/**
+ * Type settings: the text style first, with its steps at the breakpoints that hold (ADR 0160),
+ * then what the node sets itself.
+ */
 const typeSettingsOf = (node: TextNode, ctx: StyleContext) => {
-  const base = node.textStyle ? ctx.textStyles.get(node.textStyle) : undefined;
+  const style = node.textStyle ? ctx.textStyles.get(node.textStyle) : undefined;
+  const base = style && textStyleAt(style, ctx.holding ?? []);
   return {
     font: node.font ?? base?.font,
     lineHeight: node.lineHeight ?? base?.lineHeight,
