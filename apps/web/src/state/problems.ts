@@ -8,6 +8,7 @@
 import { useMemo } from "react";
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
+import { missingRolesOf } from "../lib/missing-roles.ts";
 import { type Problem, problemsOf } from "../lib/problems.ts";
 import { removedMembersOf } from "../lib/removed-members.ts";
 import { saveWith } from "../lib/settings-actions.ts";
@@ -71,9 +72,9 @@ export const idsOf = (value: unknown): readonly string[] =>
 
 /** Every problem as the stores have them now, the ones left as they are included. */
 const useAllProblems = (): readonly Problem[] => {
-  const { designSystemRead, document, notes, problem } = useDesignSystem(
+  const { designSystem, document, notes, problem } = useDesignSystem(
     useShallow((s) => ({
-      designSystemRead: s.designSystem !== null,
+      designSystem: s.designSystem,
       document: s.document,
       notes: s.notes ?? NONE,
       problem: s.problem,
@@ -84,33 +85,40 @@ const useAllProblems = (): readonly Problem[] => {
   const components = useComponents((s) => s.components);
   const docs = useDocuments((s) => s.docs);
   const pages = useProject((s) => s.pages);
-  const removedMembers = useMemo(
+  const readDocuments = useMemo(
     () =>
-      removedMembersOf(
-        components,
-        Object.values(docs).map((d) => ({
-          doc: d.doc,
-          name: pages.find((p) => p.id === d.doc)?.name ?? d.doc,
-          root: d.root,
-        }))
-      ),
-    [components, docs, pages]
+      Object.values(docs).map((d) => ({
+        doc: d.doc,
+        name: pages.find((p) => p.id === d.doc)?.name ?? d.doc,
+        root: d.root,
+      })),
+    [docs, pages]
+  );
+  const removedMembers = useMemo(
+    () => removedMembersOf(components, readDocuments),
+    [components, readDocuments]
+  );
+  const missingRoles = useMemo(
+    () => missingRolesOf(components, designSystem, readDocuments),
+    [components, designSystem, readDocuments]
   );
   return useMemo(
     () =>
       problemsOf({
-        designSystemRead,
+        designSystemRead: designSystem !== null,
         designsDir,
         document,
+        missingRoles,
         notes,
         plan,
         problem,
         removedMembers,
       }),
     [
-      designSystemRead,
+      designSystem,
       designsDir,
       document,
+      missingRoles,
       notes,
       plan,
       problem,

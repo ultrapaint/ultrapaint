@@ -163,8 +163,11 @@ const badgeVariants = cva(
       variant: {
         default: "bg-primary text-primary-foreground",
         destructive: "bg-destructive text-destructive-foreground",
+        info: "bg-info text-info-foreground",
         outline: "border-border text-foreground",
         secondary: "bg-secondary text-secondary-foreground",
+        success: "bg-success text-success-foreground",
+        warning: "bg-warning text-warning-foreground",
       },
     },
   }

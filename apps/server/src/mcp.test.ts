@@ -2318,7 +2318,15 @@ describe("a system component's own variant members, read through the tools (ADR 
         const badge = yield* tool("get_component", { name: "Badge" });
         assert.deepStrictEqual(badge.variants, {
           shape: ["default", "pill"],
-          variant: ["default", "secondary", "destructive", "neutral-strong"],
+          variant: [
+            "default",
+            "secondary",
+            "destructive",
+            "warning",
+            "success",
+            "info",
+            "neutral-strong",
+          ],
         });
         assert.include(badge.props, 'shape: "default" | "pill"');
         assert.deepStrictEqual(badge.members, [
@@ -2329,7 +2337,7 @@ describe("a system component's own variant members, read through the tools (ADR 
           .components;
         assert.include(
           line,
-          "variant: default|secondary|destructive|neutral-strong; shape: default|pill"
+          "variant: default|secondary|destructive|warning|success|info|neutral-strong; shape: default|pill"
         );
         // A component whose look adds and takes out nothing says nothing of it.
         const button = yield* tool("get_component", { name: "Button" });
@@ -2357,14 +2365,57 @@ describe("a system component's own variant members, read through the tools (ADR 
             type: "instance",
           });
         const { created, warnings } = yield* tool("apply_operations", {
-          ops: [badge("outline"), badge("warning"), badge("secondary")],
+          ops: [badge("outline"), badge("pending"), badge("secondary")],
           route: "/home",
         });
-        const [outline, warning] = created;
+        const [outline, pending] = created;
+        const members =
+          "its members are default, secondary, destructive, warning, success, info";
         assert.deepStrictEqual(warnings, [
-          `${outline}: Badge's variant offers no outline; its members are default, secondary, destructive. A member of the product's own is added to its look first, through handoff's change: {op:"addMember", axis:"variant", member:"outline"}`,
-          `${warning}: Badge's variant offers no warning; its members are default, secondary, destructive. A member of the product's own is added to its look first, through handoff's change: {op:"addMember", axis:"variant", member:"warning"}`,
+          `${outline}: Badge's variant offers no outline; ${members}. A member of the product's own is added to its look first, through handoff's change: {op:"addMember", axis:"variant", member:"outline"}`,
+          `${pending}: Badge's variant offers no pending; ${members}. A member of the product's own is added to its look first, through handoff's change: {op:"addMember", axis:"variant", member:"pending"}`,
         ]);
+      })
+  );
+});
+
+describe("Badge's status members (UP-252)", () => {
+  inAProject(
+    "names them among Badge's members, and places a status badge as any other",
+    () =>
+      Effect.gen(function* () {
+        const badge = yield* tool("get_component", { name: "Badge" });
+        assert.deepStrictEqual(badge.variants, {
+          variant: [
+            "default",
+            "secondary",
+            "outline",
+            "destructive",
+            "warning",
+            "success",
+            "info",
+          ],
+        });
+        const [line] = (yield* tool("list_components", { match: "badge" }))
+          .components;
+        assert.include(
+          line,
+          "variant: default|secondary|outline|destructive|warning|success|info"
+        );
+        const { created, warnings } = yield* tool("apply_operations", {
+          ops: [
+            inserted({
+              component: "Badge",
+              from: "@ultrapaint/system",
+              props: { variant: "success" },
+              text: "Paid",
+              type: "instance",
+            }),
+          ],
+          route: "/home",
+        });
+        assert.lengthOf(created, 1);
+        assert.isUndefined(warnings);
       })
   );
 });

@@ -96,6 +96,11 @@ const UNUSABLE: PartStyle = { opacity: 0.5 };
 /** A field drawn as wrong. */
 const WRONG: PartStyle = { border: { color: "$color-destructive" } };
 
+/** A badge filled with a status role and set in its foreground, borderless as the base is. */
+const filledWith = (role: string): PartStyles => ({
+  root: { color: `$${role}-foreground`, fill: `$${role}` },
+});
+
 const LOOKS: Readonly<Record<string, Look>> = {
   Avatar: {
     base: {
@@ -139,6 +144,7 @@ const LOOKS: Readonly<Record<string, Look>> = {
             fill: "$color-destructive",
           },
         },
+        info: filledWith("color-info"),
         outline: {
           root: {
             border: { color: "$color-border" },
@@ -152,6 +158,8 @@ const LOOKS: Readonly<Record<string, Look>> = {
             fill: "$color-secondary",
           },
         },
+        success: filledWith("color-success"),
+        warning: filledWith("color-warning"),
       },
     },
   },
@@ -507,8 +515,54 @@ export const defaultLookOf = (
 ): SystemComponentFile | undefined => byName.get(component);
 
 /**
- * A system component's file as it is drawn: its fields, with its parts from the catalogue and the
- * member each axis starts in as the file's members make it (ADR 0161). Undefined for a name that is no system component.
+ * The members the built-in set gained after projects could take a look over, by component and
+ * axis (ADR 0162): Badge's statuses. A look written before one came styles its base over the
+ * default look's layer, so it would draw the new member in the base's colours.
+ */
+const LATER_MEMBERS: Readonly<
+  Record<string, Readonly<Record<string, readonly string[]>>>
+> = {
+  Badge: { variant: ["warning", "success", "info"] },
+};
+
+/**
+ * A look's variant styles, with each later member it does not style as the default look styles
+ * it (ADR 0162): a look that never styled `warning` draws it in the warning role, as a project
+ * with no look does. A member it styles is its own, as any is.
+ */
+const withLaterMembers = (
+  file: SystemComponentFile
+): SystemComponentFile["variants"] => {
+  const later = LATER_MEMBERS[file.name];
+  const defaults = byName.get(file.name)?.variants;
+  if (!(later && defaults)) {
+    return file.variants;
+  }
+  const { variants } = file;
+  return {
+    ...variants,
+    ...Object.fromEntries(
+      Object.entries(later).map(([axis, members]) => [
+        axis,
+        {
+          ...Object.fromEntries(
+            members.flatMap((member) => {
+              const style = defaults[axis]?.[member];
+              return style ? [[member, style]] : [];
+            })
+          ),
+          ...variants[axis],
+        },
+      ])
+    ),
+  };
+};
+
+/**
+ * A system component's file as it is drawn: its fields, with its parts from the catalogue, the
+ * member each axis starts in as the file's members make it (ADR 0161), and the later members it
+ * does not style as the default look draws them (ADR 0162). Undefined for a name that is no
+ * system component.
  */
 export const lookOf = (
   file: SystemComponentFile
@@ -530,7 +584,7 @@ export const lookOf = (
     parts: meta.slots.map((s) => s.name),
     states: file.states,
     variantStates: file.variantStates,
-    variants: file.variants,
+    variants: withLaterMembers(file),
   };
 };
 

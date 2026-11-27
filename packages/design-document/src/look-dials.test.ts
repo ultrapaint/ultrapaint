@@ -66,6 +66,36 @@ describe("a look made from the dials", () => {
     }
   });
 
+  it("gives Badge's statuses a fill and its text readable in both themes, in either preset (UP-252)", () => {
+    for (const tokens of ["simple", "detailed"] as const) {
+      const ds = lookSystem({ ...calm, tokens });
+      const css = designTokenCss(ds);
+      for (const status of ["warning", "success", "info"]) {
+        const [fill, ink] =
+          tokens === "simple"
+            ? [`color-${status}`, `color-${status}-foreground`]
+            : [
+                `background-color-${status === "info" ? "information" : status}-bold`,
+                status === "warning"
+                  ? "text-color-warning-inverse"
+                  : "text-color-inverse",
+              ];
+        for (const theme of ["light", "dark"]) {
+          expect(
+            contrastRatio(
+              valueInTheme(ds, ink, theme) ?? "",
+              valueInTheme(ds, fill, theme) ?? ""
+            )
+          ).toBeGreaterThanOrEqual(4.5);
+        }
+        if (tokens === "detailed") {
+          expect(css).toContain(`--color-${status}: var(--${fill});`);
+          expect(css).toContain(`--color-${status}-foreground: var(--${ink});`);
+        }
+      }
+    }
+  });
+
   it("sets the corners, the density and the face it was given", () => {
     const ds = lookSystem({
       ...calm,

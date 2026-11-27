@@ -77,11 +77,11 @@ describe("a system component's own variant members, in its look (ADR 0161)", () 
   it("lists each axis's members, and adds and takes out those typed, the added first", async () => {
     fakeApi.respond("components.change", () => undefined as never);
     expect(field("variant’s members").value).toBe(
-      "default, secondary, outline, destructive"
+      "default, secondary, outline, destructive, warning, success, info"
     );
     typeAndLeave(
       "variant’s members",
-      "default, secondary, destructive, neutral-strong"
+      "default, secondary, destructive, warning, success, info, neutral-strong"
     );
     // The second is sent once the first is answered.
     await act(() => fakeApi.requested("components.change", 2));
@@ -117,7 +117,7 @@ describe("a system component's own variant members, in its look (ADR 0161)", () 
       })
     );
     expect(field("variant’s members").value).toBe(
-      "default, secondary, destructive"
+      "default, secondary, destructive, warning, success, info"
     );
     expect(field("shape’s members").value).toBe("default, pill");
   });

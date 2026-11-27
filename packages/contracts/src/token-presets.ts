@@ -29,6 +29,8 @@ export const DETAILED_ROLES: Readonly<Record<string, string>> = {
   "color-destructive": "background-color-danger-bold",
   "color-destructive-foreground": "text-color-inverse",
   "color-foreground": "text-color-default",
+  "color-info": "background-color-information-bold",
+  "color-info-foreground": "text-color-inverse",
   "color-input": "border-color-input",
   "color-muted": "background-color-neutral",
   "color-muted-foreground": "text-color-subtle",
@@ -39,4 +41,8 @@ export const DETAILED_ROLES: Readonly<Record<string, string>> = {
   "color-ring": "border-color-focus",
   "color-secondary": "background-color-neutral",
   "color-secondary-foreground": "text-color-default",
+  "color-success": "background-color-success-bold",
+  "color-success-foreground": "text-color-inverse",
+  "color-warning": "background-color-warning-bold",
+  "color-warning-foreground": "text-color-warning-inverse",
 };

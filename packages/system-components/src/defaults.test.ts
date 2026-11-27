@@ -4,12 +4,18 @@ import {
   type DesignSystem,
 } from "@ultrapaint/contracts/design-system";
 import { emptySystemComponent } from "@ultrapaint/contracts/testing/components";
+import { contrastRatio } from "@ultrapaint/contracts/token-value";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 import { SYSTEM_COMPONENTS } from "./catalogue.ts";
 import { DEFAULT_LOOK, SYSTEM_ROLES } from "./default-look.ts";
 import { defaultLookOf, SYSTEM_DEFAULTS } from "./defaults.ts";
-import { designCss, SYSTEM_COMPONENTS_CSS } from "./look.ts";
+import {
+  designCss,
+  NEUTRAL_COLORS,
+  STATUS_COLORS,
+  SYSTEM_COMPONENTS_CSS,
+} from "./look.ts";
 
 describe("the default look", () => {
   it("is a valid system component's file for each, styling only its parts and axes", () => {
@@ -204,5 +210,69 @@ describe("the design's stylesheet", () => {
     expect(css.indexOf("--color-primary")).toBeLessThan(
       css.indexOf('[data-ed-c="Card"]')
     );
+  });
+});
+
+describe("Badge's status members (UP-252)", () => {
+  const STATUSES = ["warning", "success", "info"];
+  /** The rule a look draws a Badge member with, from its selector to its closing brace. */
+  const ruleOf = (css: string, member: string) => {
+    const at = css.indexOf(
+      `[data-ed-c="Badge"][data-ed-v~="variant:${member}"]`
+    );
+    return at === -1 ? "" : css.slice(at, css.indexOf("}", at));
+  };
+
+  it("draws each status filled with its role and set in its foreground, borderless", () => {
+    for (const status of STATUSES) {
+      const rule = ruleOf(SYSTEM_COMPONENTS_CSS, status);
+      expect(rule).toContain(`background-color: var(--color-${status})`);
+      expect(rule).toContain(`color: var(--color-${status}-foreground)`);
+      expect(rule).not.toContain("border");
+    }
+  });
+
+  it("gives each status role a default that reads in both themes, listed and described as the others", () => {
+    expect(STATUS_COLORS.map((c) => c.name)).toEqual(
+      STATUSES.flatMap((s) => [`color-${s}`, `color-${s}-foreground`])
+    );
+    for (const status of STATUSES) {
+      const of = (name: string) => STATUS_COLORS.find((c) => c.name === name);
+      for (const theme of ["light", "dark"] as const) {
+        const fill = of(`color-${status}`)?.[theme] ?? "";
+        const ink = of(`color-${status}-foreground`)?.[theme] ?? "";
+        expect(contrastRatio(ink, fill)).toBeGreaterThanOrEqual(4.5);
+      }
+      expect(NEUTRAL_COLORS).toEqual(
+        expect.arrayContaining([of(`color-${status}`)])
+      );
+      expect(
+        SYSTEM_ROLES.find((r) => r.name === `color-${status}`)?.description
+      ).toBeTruthy();
+    }
+  });
+
+  it("draws a status a look written before it leaves unstyled in its role, and one it styles as the look says", () => {
+    const taken = {
+      ...(defaultLookOf("Badge") ?? emptySystemComponent("Badge")),
+      base: { root: { fill: "$color-primary" } },
+      variants: {
+        variant: {
+          info: { root: { fill: "#0000ff" } },
+          secondary: { root: { fill: "$color-secondary" } },
+        },
+      },
+    };
+    const css = designCss([taken], null);
+    expect(ruleOf(css, "warning")).toContain(
+      "background-color: var(--color-warning)"
+    );
+    expect(ruleOf(css, "success")).toContain(
+      "background-color: var(--color-success)"
+    );
+    expect(ruleOf(css, "info")).toContain("background-color: #0000ff");
+    // A member it had before keeps its own say: one it leaves unstyled draws as its base.
+    expect(ruleOf(css, "outline")).toBe("");
+    expect(ruleOf(css, "destructive")).toBe("");
   });
 });

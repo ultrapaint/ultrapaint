@@ -52,7 +52,10 @@ refactor and the board view left.
 - **Role**: a token the system components draw with (`color-primary`, `color-ring`,
   `radius-md`): system-components' `SYSTEM_ROLES`, the neutral palette's colours and the radii the
   default looks read. `/init` gives each the product's token that plays it, as a `var()` of it,
-  or the person's answer (ADR 0155); one it does not give keeps the default look's value.
+  or the person's answer (ADR 0155); one it does not give keeps the default look's value. The
+  **status roles** (`color-warning`, `color-success`, `color-info`, each with its `-foreground`,
+  `STATUS_COLORS`) are the ones Badge's statuses draw with; Problems names one a placed member
+  needs that the design system lacks (ADR 0162).
   _Avoid_: role token, semantic token.
 - **Foundations**: the design system's values as the Design system place lists them (ADR 0045):
   Color, Typography, Spacing, Radius, Elevation, Motion and Breakpoints, each shown only when the
@@ -619,6 +622,10 @@ refactor and the board view left.
   (`members.<axis>.remove`) is a **removed member**: no longer offered, its instances kept and
   listed in Problems to be moved. `systemMetaIn` makes the component as its look has it. _Avoid_
   "custom variant".
+- **Later member**: a built-in member the catalogue gained after projects could take a look over
+  (Badge's `warning`, `success` and `info`; `LATER_MEMBERS` in system-components' `defaults.ts`,
+  ADR 0162). A project's look that does not style one draws it as the default look does, so a
+  look written before it came still draws it in its role.
 - **App component**: one of the project's own components (ADR 0041), built from system
   components and other app components; an instance names one with `from: "#app"`. Its file is a
   **tree**, its **properties** and its **slots**, drawn in an instance's place by
@@ -812,8 +819,9 @@ refactor and the board view left.
   rail's place for it in both modes, shown while there are some (ADR 0106; `lib/problems.ts`,
   `panels/problems.tsx`): the sync's waiting steps, a file that does not read, what the tokens file
   left out, DESIGN.md's linter findings in Ultrapaint's words, and the instances of a **removed
-  member** (ADR 0161, `lib/removed-members.ts`); each with its fix (Review, Fix with agent, Move
-  to…), and Fix all with agent. A warning can be **ignored** for the person or for the project (`ignoredProblems`),
+  member** (ADR 0161, `lib/removed-members.ts`), and the status roles a placed member needs that
+  the design system lacks (ADR 0162, `lib/missing-roles.ts`); each with its fix (Review, Fix with
+  agent, Move to…), and Fix all with agent. A warning can be **ignored** for the person or for the project (`ignoredProblems`),
   listed in Settings › Design system with Show again.
 - **Editor theme**: light, dark or the system's, the person's pick kept in the browser (ADR 0058;
   `state/theme.ts`); the editor's chrome only, never a design's theme.

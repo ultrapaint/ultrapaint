@@ -556,7 +556,7 @@ describe("a change to any component's file", () => {
 
 /** A member's non-style field refused, with the style fields listed. */
 const NOT_A_STYLE_RE =
-  /^variants\.variant\.warning\.root: text is no style field\. A look is Badge's appearance alone \(.*fill.*\); one with props, slots, text or behaviour is an app component built on Badge$/;
+  /^variants\.variant\.pending\.root: text is no style field\. A look is Badge's appearance alone \(.*fill.*\); one with props, slots, text or behaviour is an app component built on Badge$/;
 
 describe("a system component's own variant members (ADR 0161)", () => {
   const BADGE: SystemComponentFile = {
@@ -601,9 +601,9 @@ describe("a system component's own variant members (ADR 0161)", () => {
   it("refuses a member it adds that sets anything but style fields, saying it is an app component's", () => {
     const read = readComponentFile(
       JSON.stringify({
-        ...look({ members: { variant: { add: ["warning"] } } }),
+        ...look({ members: { variant: { add: ["pending"] } } }),
         variants: {
-          variant: { warning: { root: { fill: "#fa0", text: "Warning" } } },
+          variant: { pending: { root: { fill: "#fa0", text: "Pending" } } },
         },
       })
     );
@@ -612,13 +612,13 @@ describe("a system component's own variant members (ADR 0161)", () => {
     expect(
       problemOf(
         look({
-          members: { variant: { add: ["warning"] } },
-          variants: { variant: { warning: { props: {} } } },
+          members: { variant: { add: ["pending"] } },
+          variants: { variant: { pending: { props: {} } } },
         }),
         []
       )
     ).toBe(
-      "variants.variant.warning: Badge has no part props; its parts are root"
+      "variants.variant.pending: Badge has no part props; its parts are root"
     );
   });
 
@@ -626,7 +626,7 @@ describe("a system component's own variant members (ADR 0161)", () => {
     const problem = (members: SystemComponentFile["members"]) =>
       problemOf(look({ members }), []);
     expect(problem({ variant: { remove: ["pill"] } })).toBe(
-      "members.variant: Badge's variant has no built-in member pill to take out; its members are default, secondary, outline, destructive"
+      "members.variant: Badge's variant has no built-in member pill to take out; its members are default, secondary, outline, destructive, warning, success, info"
     );
     expect(problem({ variant: { add: ["outline"] } })).toBe(
       "members.variant: Badge's variant has outline already"
@@ -640,7 +640,15 @@ describe("a system component's own variant members (ADR 0161)", () => {
     expect(
       problem({
         variant: {
-          remove: ["default", "secondary", "outline", "destructive"],
+          remove: [
+            "default",
+            "secondary",
+            "outline",
+            "destructive",
+            "warning",
+            "success",
+            "info",
+          ],
         },
       })
     ).toBe(
@@ -741,7 +749,7 @@ describe("a system component's own variant members (ADR 0161)", () => {
       })
     ).toEqual({
       problem:
-        "Badge's variant offers no member outline; its members are default, secondary, destructive",
+        "Badge's variant offers no member outline; its members are default, secondary, destructive, warning, success, info",
     });
   });
 
@@ -778,13 +786,13 @@ describe("a system component's own variant members (ADR 0161)", () => {
     expect(
       changedComponent(BADGE, {
         op: "setStyle",
-        place: { state: null, variant: { axis: "variant", member: "warning" } },
+        place: { state: null, variant: { axis: "variant", member: "pending" } },
         slot: "root",
         style: { fill: "#fa0" },
       })
     ).toEqual({
       problem:
-        'Badge\'s variant has no member warning; its members are default, secondary, outline, destructive. A member of the product\'s own is added first: {op:"addMember", axis:"variant", member:"warning"}',
+        'Badge\'s variant has no member pending; its members are default, secondary, outline, destructive, warning, success, info. A member of the product\'s own is added first: {op:"addMember", axis:"variant", member:"pending"}',
     });
   });
 });

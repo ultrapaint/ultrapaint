@@ -20,7 +20,7 @@ const token = (name: string, value: string, description?: string): Token => ({
   value,
 });
 
-/** What each neutral role is for, as the Color board says it. */
+/** What each role is for, as the Color board says it. */
 const ROLES: Readonly<Record<string, string>> = {
   "color-accent": "Hovered rows and items",
   "color-background": "The page",
@@ -28,6 +28,7 @@ const ROLES: Readonly<Record<string, string>> = {
   "color-card": "Cards and panels",
   "color-destructive": "Deleting and errors",
   "color-foreground": "Text",
+  "color-info": "Notices and what is new",
   "color-input": "The edges of fields",
   "color-muted": "Quiet fills",
   "color-muted-foreground": "Secondary text",
@@ -35,6 +36,8 @@ const ROLES: Readonly<Record<string, string>> = {
   "color-primary": "The main action",
   "color-ring": "The focus ring",
   "color-secondary": "Secondary actions",
+  "color-success": "Done and healthy states",
+  "color-warning": "What needs a look soon",
 };
 
 const fonts = [

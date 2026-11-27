@@ -99,7 +99,8 @@ ${ways.proposeWith}
 2. Draw up a proposal, small: what the product needs, not every value it has.
    - Colours: near-identical ones are one (#333, #343434 and gray-700 are one grey). A semantic
  layer first — background, foreground, card, popover, primary, secondary, muted, accent,
- destructive, border, input, ring, each surface with a -foreground for the text on it — then
+ destructive, the statuses it shows (warning, success, info), border, input, ring, each surface
+ with a -foreground for the text on it — then
  the palettes those are drawn from, one ramp per hue the product uses. Keep the names the code
  already uses where it has them, and a dark theme if the code has one.
    - Spacing: the base, usually 4px; the values off it are snapped to it later.

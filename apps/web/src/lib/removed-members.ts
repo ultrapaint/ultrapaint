@@ -38,20 +38,25 @@ export interface RemovedMember {
   readonly to: readonly string[];
 }
 
-/** The documents an app component's tree is read as, beside the pages. */
-const treesOf = (components: readonly ComponentFile[]): ReadDocument[] =>
-  components.flatMap((c) =>
+/** The pages the editor has read, then each app component's tree as a document of its own. */
+export const documentsOf = (
+  components: readonly ComponentFile[],
+  pages: readonly ReadDocument[]
+): ReadDocument[] => [
+  ...pages,
+  ...components.flatMap((c) =>
     c.origin === "app"
       ? [{ doc: componentDocOf(c.name), name: c.name, root: c.tree }]
       : []
-  );
+  ),
+];
 
 /** Every member a project's looks take out that an instance still has, a member each. */
 export const removedMembersOf = (
   components: readonly ComponentFile[],
   pages: readonly ReadDocument[]
 ): RemovedMember[] => {
-  const documents = [...pages, ...treesOf(components)];
+  const documents = documentsOf(components, pages);
   return systemComponentsIn(components).flatMap((file) => {
     const meta = systemComponentOf(file.name);
     if (!(meta && file.members)) {

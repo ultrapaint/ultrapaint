@@ -1216,6 +1216,9 @@ describe("a system component's own variant members (ADR 0161)", () => {
       "default",
       "secondary",
       "destructive",
+      "warning",
+      "success",
+      "info",
       "neutral-strong",
       "Default",
     ]);
