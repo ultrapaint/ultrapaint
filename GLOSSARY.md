@@ -445,9 +445,10 @@ refactor and the board view left.
 - **Check's finding**: a finding a check measured, not one a review model judged (ADR 0081;
   contracts' `CheckKind`, the server's `review/check-findings.ts`): groups set too close and
   rounded or filled rows touching, measured by the editor on the page it draws for the review,
-  and the values a page's document sets **off the system**, one finding a kind of value. It goes
-  to the designer after the reviewers' findings, marked as a check's, and never to a review
-  model; it is minor, never holds back approval, and is declined by the designer alone, never
+  and the values a page's document sets **off the system**, one finding a kind of value. A
+  kind the person rated real at 80% or more goes to the designer after the reviewers' findings,
+  marked as a check's, and never to a review model (`SENT_CHECKS`: groups set too close is
+  measured and not sent since UP-219, ADR 0081); it is minor, never holds back approval, and is declined by the designer alone, never
   asked of the person (ADR 0157). The checks
   read what changed since each page's **before**: its tree before the first of the turns since
   the thread's last round that changed it, read from the designs' history (the server's

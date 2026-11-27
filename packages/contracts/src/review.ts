@@ -84,11 +84,11 @@ export const Severity = Schema.Literals(SEVERITIES);
 export type Severity = typeof Severity.Type;
 
 /**
- * The checks whose findings go to the designer beside the reviewers' (ADR 0081): the kinds the
- * person rated real at 80% or more. On the rendered page, groups set closer than the skill's
- * ratio (`groups-apart`) and rounded or filled rows touching (`touching-rows`); in the document,
- * values set by hand where the design system has a token (`off-system`). A check's finding is
- * minor and never holds back approval.
+ * The checks whose findings can go to the designer beside the reviewers' (ADR 0081). On the
+ * rendered page, groups set closer than the skill's ratio (`groups-apart`) and rounded or filled
+ * rows touching (`touching-rows`); in the document, values set by hand where the design system
+ * has a token (`off-system`). The designer is sent the kinds the person rated real at 80% or
+ * more (ADR 0081 §3). A check's finding is minor and never holds back approval.
  */
 export const CHECK_KINDS = [
   "groups-apart",

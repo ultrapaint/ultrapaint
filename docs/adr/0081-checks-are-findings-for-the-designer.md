@@ -98,3 +98,9 @@ detector results shown first "anchor judgment".
   named as the canvas names it, so the home page is "Home". The designer declines a finding by
   its number (`Declined: 12 — <reason>`); a title shortened with an ellipsis, at its end or
   inside it, is read too when it fits one finding alone.
+- **Groups set too close left the list** (UP-219). The designers declined most `groups-apart`
+  findings in two client projects (75 of 139 declines in one day), and the person upheld the
+  declines: near 10 to 20% real, under §3's 80%. The designer is sent `touching-rows` and
+  `off-system` only (`SENT_CHECKS`, `check-findings.ts`); the editor still measures the kind, so
+  putting it back is a server change once a rating deck of the fixed check passes at 80%, the
+  logged declines planted as known negatives (§4).

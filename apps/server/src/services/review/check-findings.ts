@@ -44,6 +44,16 @@ export interface CheckedPage {
   readonly route?: string | undefined;
 }
 
+/**
+ * The kinds of check whose findings the designer is sent: those the person rated real at 80% or
+ * more (ADR 0081 §3). Groups set too close (`groups-apart`) left (ADR 0081, "As built"); the
+ * editor still measures it.
+ */
+export const SENT_CHECKS: ReadonlySet<CheckKind> = new Set([
+  "touching-rows",
+  "off-system",
+]);
+
 /** How many places of one kind of value off the system a finding names, the rest counted. */
 const NAMED_PLACES = 5;
 
@@ -386,18 +396,25 @@ export interface Checked {
 }
 
 /**
- * Every check's finding on the pages (ADR 0081): what the editor measured on each, a problem two
- * pages share once, then the values off the system, one finding a kind across the pages. What a
- * check's finding the designer declined before still names, as it read then, is held back, and
- * the decline carried (ADR 0156).
+ * Every check's finding of the kinds the designer is sent on the pages (ADR 0081, `sent`): what
+ * the editor measured on each, a problem two pages share once, then the values off the system,
+ * one finding a kind across the pages. What a check's finding the designer declined before still
+ * names, as it read then, is held back, and the decline carried (ADR 0156).
  */
 export const checksOf = (
   pages: readonly CheckedPage[],
-  declined: readonly RoundFinding[] = []
+  declined: readonly RoundFinding[] = [],
+  sent: ReadonlySet<CheckKind> = SENT_CHECKS
 ): Checked => {
   const holding = new Set<RoundFinding>();
-  /** Whether a decline holds the place back, the decline then counted as carried. */
-  const isHeld = (check: CheckKind, place: CheckPlace) => {
+  /**
+   * Whether what a check measured at a place is not sent: a kind the designer is not sent, or a
+   * place a decline holds back, the decline then counted as carried.
+   */
+  const isLeftOut = (check: CheckKind, place: CheckPlace) => {
+    if (!sent.has(check)) {
+      return true;
+    }
     const by = declineHolding(declined, check, place);
     if (by !== undefined) {
       holding.add(by);
@@ -406,7 +423,7 @@ export const checksOf = (
   };
   const rendered = pages.flatMap((page) =>
     (page.checks?.rendered ?? []).flatMap((f) =>
-      isHeld(f.kind, renderedPlace(page.file, f))
+      isLeftOut(f.kind, renderedPlace(page.file, f))
         ? []
         : [renderedFound(page.route ?? page.file, page.file, f)]
     )
@@ -414,7 +431,7 @@ export const checksOf = (
   const offSystem = pages.flatMap((page) =>
     (page.checks?.offSystem ?? []).flatMap((value) => {
       const place = { fields: value.fields, node: value.id, page: page.file };
-      return isHeld("off-system", place) ? [] : [{ page, place, value }];
+      return isLeftOut("off-system", place) ? [] : [{ page, place, value }];
     })
   );
   const onPages = new Set(rendered.map((f) => f.page)).size;
