@@ -8,8 +8,10 @@ import {
   APP_FROM,
   COMPONENTS_DIR,
   type ComponentOrigin,
+  type SystemComponentFile,
 } from "@ultrapaint/contracts/components";
 import {
+  axesOf,
   SYSTEM_COMPONENTS,
   type SystemComponentMeta,
 } from "@ultrapaint/system-components/catalogue";
@@ -48,9 +50,11 @@ const SYSTEM_LOOK = `origin "system": the look of a system component, whose beha
   wins over the state's, which wins over the member's), each style fields per part (root or a
   data-slot): fill, color, border, radius, padding (one or per side), height, width, gap,
   direction, align, crossAlign, order, fontSize, fontWeight, shadow, opacity; "content" (nodes per
-  slot, drawn when an instance gives it none), "hidden" (optional parts left out) and, for Select
-  and Menu, "item" ({ tree, label, image }: nodes drawn per item, label and image the ids showing
-  them). Without a file it has its default look.`;
+  slot, drawn when an instance gives it none), "hidden" (optional parts left out), "members" (per
+  axis, { add, remove }: the product's own members, styled as the others, and the editor's it
+  takes out; an axis it lacks is the product's own, the first member its default; appearance
+  alone) and, for Select and Menu, "item" ({ tree, label, image }: nodes drawn per item, label and
+  image the ids showing them). Without a file it has its default look.`;
 
 /** An app component, as its file keeps it (ADR 0041). */
 const APP_COMPONENT = `origin "app": the project's own component, placed with from "${APP_FROM}": "tree" (a node, its
@@ -86,3 +90,28 @@ export const systemParts = (): string =>
 /** A system component's parts a look styles, by name, `?` after those it may leave out. */
 export const lookParts = (meta: SystemComponentMeta): string[] =>
   meta.slots.map((s) => `${s.name}${s.optional ? "?" : ""}`);
+
+/**
+ * What a product's look adds and takes out of a system component's variant members, an axis a
+ * line (ADR 0161): what an
+ * agent places instead of overriding an instance, what it no longer places, and what `/implement`
+ * gives the product's component. None for a look that keeps the editor's members.
+ */
+export const memberLines = (
+  meta: SystemComponentMeta,
+  look: Pick<SystemComponentFile, "members"> | undefined
+): string[] =>
+  Object.entries(axesOf(meta, look)).flatMap(([axis, a]) => {
+    if (a.own) {
+      return [`${axis}: the product's own axis, ${a.members.join("|")}`];
+    }
+    const said = [
+      ...(a.added.length > 0 ? [`adds ${a.added.join(", ")}`] : []),
+      ...(a.removed.length > 0
+        ? [
+            `takes out ${a.removed.join(", ")}, whose instances keep it until moved`,
+          ]
+        : []),
+    ];
+    return said.length > 0 ? [`${axis}: ${said.join("; ")}`] : [];
+  });

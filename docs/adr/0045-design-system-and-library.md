@@ -12,6 +12,8 @@ are in `GLOSSARY.md`.
 
 > Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: the board view is one of the main area's two surfaces (`showBoardFramesWith` and `takeBoardSelectionWith` go); a board's picks have one grammar; a pick crosses the wire as a `LookPlace`.
 
+> Amended by [0161](0161-a-look-adds-and-takes-out-variant-members.md), 2026-11-27: a system component's board draws the members its look adds and its own axes, and none it takes out; the look inspector edits them in a Variants section.
+
 ## Context
 
 The design system has one panel, the width of the rail's column: swatches, type specimens and

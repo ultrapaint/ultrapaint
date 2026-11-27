@@ -19,6 +19,7 @@ import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { OpenProject } from "../../project.ts";
+import { notAStyle } from "../component-files.ts";
 import { ComponentService } from "../components.ts";
 import { DesignSystemSyncService } from "../design-system-sync.ts";
 import {
@@ -239,6 +240,14 @@ export const HandoffToolsLive = HandoffTools.toLayer(
         return yield* missing(
           "say the change in change: one {op, …} of the component"
         );
+      }
+      // A style read as a change drops a field it does not know: say so instead (ADR 0161).
+      const { op, style } = (
+        typeof given === "object" && given !== null ? given : {}
+      ) as { op?: unknown; style?: unknown };
+      const refused = op === "setStyle" ? notAStyle(name, style) : undefined;
+      if (refused !== undefined) {
+        return yield* new ToolFailure({ message: `style: ${refused}` });
       }
       const made = yield* decodeChange(given).pipe(
         Effect.mapError(

@@ -11,6 +11,7 @@ import {
   appComponentsIn,
   type ComponentFile,
   type ItemTemplate,
+  SYSTEM_FROM,
   type SystemComponentFile,
   systemComponentsIn,
 } from "@ultrapaint/contracts/components";
@@ -357,11 +358,34 @@ const NodeView = memo(function NodeDrawn({
   );
 });
 
+/**
+ * The props a look finds a system component's instance by: its own, and, for an axis it does not
+ * set whose first member the project's look moved off the editor's (ADR 0161), the look's, so the
+ * default look's first member does not match under the product's.
+ */
+const lookPropsOf = (scope: Scope, node: InstanceNode) => {
+  const builtIn =
+    node.from === SYSTEM_FROM ? systemComponentOf(node.component) : undefined;
+  const entry = builtIn && metaOf(scope.catalogue, node);
+  const moved = Object.entries(entry?.variants ?? {}).flatMap(
+    ([axis, [first]]) =>
+      node.props?.[axis] === undefined &&
+      first !== undefined &&
+      builtIn?.variants[axis] !== undefined &&
+      builtIn.variants[axis][0] !== first
+        ? [[axis, first] as const]
+        : []
+  );
+  return moved.length > 0
+    ? { ...node.props, ...Object.fromEntries(moved) }
+    : node.props;
+};
+
 /** The marks every instance's element carries: its id, and what a look finds it by. */
 const marksOf = (scope: Scope, node: InstanceNode) => ({
   [scope.nodeAttribute]: node.id,
   [COMPONENT_ATTRIBUTE]: node.component,
-  [VARIANT_ATTRIBUTE]: variantAttributeOf(node.props),
+  [VARIANT_ATTRIBUTE]: variantAttributeOf(lookPropsOf(scope, node)),
 });
 
 /**

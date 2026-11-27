@@ -39,6 +39,7 @@ import {
 } from "@ultrapaint/contracts/tasks";
 import { nodeLabel, walk } from "@ultrapaint/design-document/tree";
 import { plural } from "@ultrapaint/shared/text";
+import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
 import { Effect, FileSystem, Option } from "effect";
 import { OpenProject } from "../../project.ts";
 import { ComponentService } from "../components.ts";
@@ -51,7 +52,7 @@ import { pageEntry, pageNamed } from "../page-names.ts";
 import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { ProjectStyleSystem } from "../style-system.ts";
-import { componentBody } from "./agent-docs.ts";
+import { componentBody, memberLines } from "./agent-docs.ts";
 import { type AgentWays, handoffCall } from "./agent-ways.ts";
 import { designsOnly, stackStep } from "./first-implementation.ts";
 import {
@@ -389,7 +390,20 @@ const systemIntro = (
 on the application's own ${component.name}: find the component the application uses for it, whatever library it
 is written with (Base UI, Radix, shadcn, MUI…), and give each of its parts the look of the matching part,
 in each variant and state, as closely as the library allows. Where the application has none, create
-it, on Base UI when the application has no library of its own. Its behaviour stays the library's${asked ? ", with what its behaviour notes ask" : ""}.`;
+it, on Base UI when the application has no library of its own. Its behaviour stays the library's${asked ? ", with what its behaviour notes ask" : ""}.${membersSaid(component)}`;
+};
+
+/**
+ * The variant members a system component's look makes the product's own (ADR 0161), which its
+ * implementation gives the application's component as values of its variant props; nothing when
+ * the look keeps the editor's.
+ */
+const membersSaid = (component: SystemComponentFile) => {
+  const meta = systemComponentOf(component.name);
+  const lines = meta ? memberLines(meta, component) : [];
+  return lines.length > 0
+    ? `\nIts variants are the product's own (ADR 0161), as its file's members say:\n${lines.map((l) => `- ${l}`).join("\n")}`
+    : "";
 };
 
 /** What an app component's implementation is: a component of the application's, from its tree. */
@@ -1083,7 +1097,7 @@ ${numbered([
   tokens.step,
   app
     ? "Write the component, its props typed by its properties (a choice as a union of its members, its default the property's), and its slots as children or named props."
-    : "Change the component's classes (its cva base, variants and sizes, and the state classes) so it draws as the file says. Keep its props and behaviour.",
+    : `Change the component's classes (its cva base, variants and sizes, and the state classes) so it draws as the file says. Keep its props and behaviour.${component.members ? " Give the component's variant props the members its file adds, an axis of its own a prop of its own, each drawn as the file styles it; a member it takes out is left in the code while something uses it." : ""}`,
   notes.length > 0
     ? "Implement each behaviour note in the component, with the application's own services and data; ask the user where one is unclear rather than inventing it."
     : null,

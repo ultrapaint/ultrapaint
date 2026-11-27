@@ -24,7 +24,10 @@ import { STATE_ATTRIBUTE } from "@ultrapaint/design-document/component-look";
 import { newInstance } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
-import { systemComponentOf } from "@ultrapaint/system-components/catalogue";
+import {
+  axesOf,
+  systemComponentOf,
+} from "@ultrapaint/system-components/catalogue";
 import { label, nameText, nodeCss, RULE } from "./board-nodes.ts";
 import { cellId, pickId } from "./pick.ts";
 import type { Board, Boards } from "./system-boards.ts";
@@ -32,8 +35,11 @@ import type { Board, Boards } from "./system-boards.ts";
 /** The Library's first item: every component, one click away from its board. */
 export const OVERVIEW = "overview";
 
-/** The axes and members a look is drawn in: the catalogue's, and its own besides. */
-export const axesOf = (
+/**
+ * The axes and members a look is drawn in: the catalogue's, those it adds among them, and any
+ * other it styles besides, but for a member it takes out (ADR 0161), which it no longer offers.
+ */
+export const boardAxesOf = (
   spec: SystemComponentFile,
   meta: ComponentMeta | undefined
 ) => {
@@ -41,8 +47,16 @@ export const axesOf = (
   for (const [axis, members] of Object.entries(meta?.variants ?? {})) {
     axes[axis] = [...members];
   }
+  const built = systemComponentOf(spec.name);
+  const taken = built ? axesOf(built, spec) : {};
   for (const [axis, members] of Object.entries(spec.variants)) {
-    axes[axis] = [...new Set([...(axes[axis] ?? []), ...Object.keys(members)])];
+    const removed = taken[axis]?.removed ?? [];
+    axes[axis] = [
+      ...new Set([
+        ...(axes[axis] ?? []),
+        ...Object.keys(members).filter((m) => !removed.includes(m)),
+      ]),
+    ];
   }
   return axes;
 };
@@ -396,7 +410,7 @@ const systemComponentBoards = (
   meta: ComponentMeta | undefined
 ): Board[] => {
   const next = makeIdGenerator();
-  const axes = axesOf(file, meta);
+  const axes = boardAxesOf(file, meta);
   const axis = rowAxisOf(file, axes, undefined);
   const members = axis ? (axes[axis] ?? []) : [];
   const states: (ComponentState | null)[] = [null, ...drawnStates(file)];

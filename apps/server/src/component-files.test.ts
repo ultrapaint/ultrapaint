@@ -485,7 +485,7 @@ describe("a change to any component's file", () => {
       })
     ).toEqual({
       problem:
-        "Button's variant has no member tertiary; its members are primary, secondary, outline, ghost, destructive, link",
+        'Button\'s variant has no member tertiary; its members are primary, secondary, outline, ghost, destructive, link. A member of the product\'s own is added first: {op:"addMember", axis:"variant", member:"tertiary"}',
     });
     expect(
       changedComponent(BUTTON, {
@@ -495,7 +495,8 @@ describe("a change to any component's file", () => {
         style,
       })
     ).toEqual({
-      problem: "Button has no variant tone; its variants are size, variant",
+      problem:
+        'Button has no variant tone; its variants are size, variant. A member of the product\'s own is added first: {op:"addMember", axis:"tone", member:"loud"}',
     });
     expect(
       changedComponent(BUTTON, {
@@ -549,6 +550,241 @@ describe("a change to any component's file", () => {
     ).toEqual({
       problem:
         "Button is a system component's look: it has no properties or slots",
+    });
+  });
+});
+
+/** A member's non-style field refused, with the style fields listed. */
+const NOT_A_STYLE_RE =
+  /^variants\.variant\.warning\.root: text is no style field\. A look is Badge's appearance alone \(.*fill.*\); one with props, slots, text or behaviour is an app component built on Badge$/;
+
+describe("a system component's own variant members (ADR 0161)", () => {
+  const BADGE: SystemComponentFile = {
+    base: {},
+    name: "Badge",
+    origin: "system",
+    states: {},
+    variants: {},
+    version: 1,
+  };
+  const look = (fields: Partial<SystemComponentFile>): SystemComponentFile => ({
+    ...BADGE,
+    ...fields,
+  });
+  const lookOf = (result: ReturnType<typeof changedComponent>) => {
+    if ("problem" in result || result.origin !== "system") {
+      throw new Error(JSON.stringify(result));
+    }
+    return result;
+  };
+
+  it("reads a look that styles the members it adds, an axis of its own and a member it takes out", () => {
+    const own = look({
+      members: {
+        shape: { add: ["default", "pill"] },
+        variant: { add: ["neutral-strong"], remove: ["outline"] },
+      },
+      variantStates: {},
+      variants: {
+        shape: { pill: { root: { radius: "9999px" } } },
+        variant: {
+          "neutral-strong": { root: { color: "#fff", fill: "#333" } },
+          // Its instances keep drawing as the look says.
+          outline: { root: { border: { width: "1px" } } },
+        },
+      },
+    });
+    expect(problemOf(own, [])).toBeUndefined();
+    expect(readComponentFile(componentText(own))).toEqual({ component: own });
+  });
+
+  it("refuses a member it adds that sets anything but style fields, saying it is an app component's", () => {
+    const read = readComponentFile(
+      JSON.stringify({
+        ...look({ members: { variant: { add: ["warning"] } } }),
+        variants: {
+          variant: { warning: { root: { fill: "#fa0", text: "Warning" } } },
+        },
+      })
+    );
+    expect("problem" in read && read.problem).toMatch(NOT_A_STYLE_RE);
+    // A part that is no part is refused as any look's is.
+    expect(
+      problemOf(
+        look({
+          members: { variant: { add: ["warning"] } },
+          variants: { variant: { warning: { props: {} } } },
+        }),
+        []
+      )
+    ).toBe(
+      "variants.variant.warning: Badge has no part props; its parts are root"
+    );
+  });
+
+  it("refuses members that cannot mean anything, saying why", () => {
+    const problem = (members: SystemComponentFile["members"]) =>
+      problemOf(look({ members }), []);
+    expect(problem({ variant: { remove: ["pill"] } })).toBe(
+      "members.variant: Badge's variant has no built-in member pill to take out; its members are default, secondary, outline, destructive"
+    );
+    expect(problem({ variant: { add: ["outline"] } })).toBe(
+      "members.variant: Badge's variant has outline already"
+    );
+    expect(problem({ variant: { add: ["pill", "pill"] } })).toBe(
+      "members.variant: variant adds pill twice"
+    );
+    expect(problem({ variant: { add: ["two words"] } })).toBe(
+      'members.variant: a member is named in letters, digits, - and _: "two words"'
+    );
+    expect(
+      problem({
+        variant: {
+          remove: ["default", "secondary", "outline", "destructive"],
+        },
+      })
+    ).toBe(
+      "members.variant: Badge's variant keeps a member: add one before taking out the last"
+    );
+    expect(problem({ shape: {} })).toBe(
+      "members.shape: Badge's own axis shape adds its members, the first its default"
+    );
+    expect(problem({ shape: { add: ["pill"], remove: ["round"] } })).toBe(
+      "members.shape: shape is Badge's own axis: it has no built-in member to take out"
+    );
+    expect(
+      problemOf(
+        { ...look({}), members: { loading: { add: ["yes"] } }, name: "Button" },
+        []
+      )
+    ).toBe(
+      "members.loading: Button's own axis takes a name of its own in camelCase, not loading; its props are variant, size, disabled, loading"
+    );
+  });
+
+  it("adds a member to an axis or an axis of its own, and puts back a built-in one taken out", () => {
+    const added = lookOf(
+      changedComponent(BADGE, {
+        axis: "variant",
+        member: "neutral-strong",
+        op: "addMember",
+      })
+    );
+    expect(added.members).toEqual({ variant: { add: ["neutral-strong"] } });
+    const shaped = lookOf(
+      changedComponent(added, {
+        axis: "shape",
+        member: "default",
+        op: "addMember",
+      })
+    );
+    expect(shaped.members?.shape).toEqual({ add: ["default"] });
+    expect(
+      changedComponent(added, {
+        axis: "variant",
+        member: "outline",
+        op: "addMember",
+      })
+    ).toEqual({ problem: "Badge's variant has outline already" });
+    const removed = lookOf(
+      changedComponent(BADGE, {
+        axis: "variant",
+        member: "outline",
+        op: "removeMember",
+      })
+    );
+    expect(removed.members).toEqual({ variant: { remove: ["outline"] } });
+    const back = lookOf(
+      changedComponent(removed, {
+        axis: "variant",
+        member: "outline",
+        op: "addMember",
+      })
+    );
+    expect(back.members).toBeUndefined();
+  });
+
+  it("takes out a member it added with what it styles in it, and keeps a built-in one's look for its instances", () => {
+    const own = look({
+      members: { shape: { add: ["default", "pill"] } },
+      variantStates: { shape: { pill: { hover: { root: { opacity: 0.8 } } } } },
+      variants: {
+        shape: { pill: { root: { radius: "9999px" } } },
+        variant: { outline: { root: { border: { width: "1px" } } } },
+      },
+    });
+    const pill = lookOf(
+      changedComponent(own, {
+        axis: "shape",
+        member: "pill",
+        op: "removeMember",
+      })
+    );
+    expect(pill.members).toEqual({ shape: { add: ["default"] } });
+    expect(pill.variants).toEqual({
+      variant: { outline: { root: { border: { width: "1px" } } } },
+    });
+    expect(pill.variantStates).toBeUndefined();
+    const outline = lookOf(
+      changedComponent(pill, {
+        axis: "variant",
+        member: "outline",
+        op: "removeMember",
+      })
+    );
+    expect(outline.variants.variant).toEqual(own.variants.variant);
+    expect(
+      changedComponent(outline, {
+        axis: "variant",
+        member: "outline",
+        op: "removeMember",
+      })
+    ).toEqual({
+      problem:
+        "Badge's variant offers no member outline; its members are default, secondary, destructive",
+    });
+  });
+
+  it("offers no addMember where adding it would be refused", () => {
+    const button: SystemComponentFile = { ...BADGE, name: "Button" };
+    expect(
+      changedComponent(button, {
+        op: "setStyle",
+        place: { state: null, variant: { axis: "loading", member: "yes" } },
+        slot: "root",
+        style: { opacity: 0.5 },
+      })
+    ).toEqual({
+      problem: "Button has no variant loading; its variants are size, variant",
+    });
+  });
+
+  it("styles a member it adds, and says how to add one it lacks", () => {
+    const own = look({ members: { variant: { add: ["neutral-strong"] } } });
+    const styled = lookOf(
+      changedComponent(own, {
+        op: "setStyle",
+        place: {
+          state: null,
+          variant: { axis: "variant", member: "neutral-strong" },
+        },
+        slot: "root",
+        style: { fill: "#333" },
+      })
+    );
+    expect(styled.variants).toEqual({
+      variant: { "neutral-strong": { root: { fill: "#333" } } },
+    });
+    expect(
+      changedComponent(BADGE, {
+        op: "setStyle",
+        place: { state: null, variant: { axis: "variant", member: "warning" } },
+        slot: "root",
+        style: { fill: "#fa0" },
+      })
+    ).toEqual({
+      problem:
+        'Badge\'s variant has no member warning; its members are default, secondary, outline, destructive. A member of the product\'s own is added first: {op:"addMember", axis:"variant", member:"warning"}',
     });
   });
 });

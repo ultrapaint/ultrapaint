@@ -17,6 +17,7 @@ import {
   SYSTEM_COMPONENTS,
   type SystemComponentMeta,
   systemComponentOf,
+  systemMetaIn,
 } from "./catalogue.ts";
 
 /** The same length above and below, and the same on either side. */
@@ -506,8 +507,8 @@ export const defaultLookOf = (
 ): SystemComponentFile | undefined => byName.get(component);
 
 /**
- * A system component's file as it is drawn: its fields, with its parts and the member each axis
- * starts in from the catalogue. Undefined for a name that is no system component.
+ * A system component's file as it is drawn: its fields, with its parts from the catalogue and the
+ * member each axis starts in as the file's members make it (ADR 0161). Undefined for a name that is no system component.
  */
 export const lookOf = (
   file: SystemComponentFile
@@ -520,8 +521,9 @@ export const lookOf = (
     base: file.base,
     component: file.name,
     defaults: Object.fromEntries(
-      Object.entries(meta.variants).flatMap(([axis, members]) =>
-        members[0] === undefined ? [] : [[axis, members[0]]]
+      Object.entries(systemMetaIn(meta, file).variants).flatMap(
+        ([axis, members]) =>
+          members[0] === undefined ? [] : [[axis, members[0]]]
       )
     ),
     hidden: file.hidden,

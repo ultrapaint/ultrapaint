@@ -81,7 +81,12 @@ const looksStep = (ways: AgentWays, designsDir: string, before: boolean) =>
    Read its own Button, Input, Select and Badge in the code (their classes, variants and sizes),
    and any other component of it that one of the system components stands for, and set each one's
    look to match: height, radius, fill, border, font size and weight, per size and variant where
-   the code has them, ${ways.setLooks(designsDir)}.${
+   the code has them, ${ways.setLooks(designsDir)}.
+   A variant member or axis the product's component declares (its cva variants) that the system
+   component lacks, or a member it offers that the product's does not have: ask the user
+   ${ways.askUser}, one question per component, whether to make it the product's own, then add it
+   or take it out ${ways.changeMembers}, before you set its look. A member is the component's
+   appearance alone: one with props, slots or behaviour of its own is an app component built on it.${
      before
        ? `
    Keep a look set before: change it only where the product's code changed.`

@@ -3,11 +3,13 @@ import { SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import type {
   AppComponentFile,
   ComponentFile,
+  SystemComponentFile,
 } from "@ultrapaint/contracts/components";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { toCode } from "@ultrapaint/design-document/code";
 import { describe, expect, it } from "vitest";
 import { catalogueOf } from "./catalogue.ts";
+import { lookOf } from "./defaults.ts";
 
 const PLAN: AppComponentFile = {
   category: "Marketing",
@@ -151,5 +153,106 @@ describe("the catalogue", () => {
         name: "body",
       },
     ]);
+  });
+
+  describe("a system component's members as the project's look makes them (ADR 0161)", () => {
+    const badge = (
+      members: SystemComponentFile["members"]
+    ): SystemComponentFile => ({
+      base: {},
+      ...(members && { members }),
+      name: "Badge",
+      origin: "system",
+      states: {},
+      variants: {},
+      version: 1,
+    });
+    const entryOf = (look: SystemComponentFile) =>
+      metaOf(catalogueOf([look]), { component: "Badge", from: SYSTEM_FROM });
+
+    it("offers a member the look adds to an axis after the catalogue's, in the axis and its prop", () => {
+      const entry = entryOf(badge({ variant: { add: ["neutral-strong"] } }));
+      expect(entry?.variants).toEqual({
+        variant: [
+          "default",
+          "secondary",
+          "outline",
+          "destructive",
+          "neutral-strong",
+        ],
+      });
+      expect(entry?.props.find((p) => p.name === "variant")).toEqual({
+        defaultValue: "default",
+        name: "variant",
+        type: {
+          kind: "enum",
+          members: [
+            "default",
+            "secondary",
+            "outline",
+            "destructive",
+            "neutral-strong",
+          ],
+        },
+      });
+    });
+
+    it("gives an axis of the project's own a prop of its own, starting in its first member", () => {
+      const entry = entryOf(badge({ shape: { add: ["default", "pill"] } }));
+      expect(entry?.variants).toEqual({
+        shape: ["default", "pill"],
+        variant: ["default", "secondary", "outline", "destructive"],
+      });
+      expect(entry?.props.at(-1)).toEqual({
+        defaultValue: "default",
+        name: "shape",
+        type: { kind: "enum", members: ["default", "pill"] },
+      });
+    });
+
+    it("no longer offers a member the look takes out, and starts a new instance in one it offers", () => {
+      const entry = entryOf(
+        badge({ variant: { add: ["neutral"], remove: ["default", "outline"] } })
+      );
+      expect(entry?.variants.variant).toEqual([
+        "secondary",
+        "destructive",
+        "neutral",
+      ]);
+      expect(entry?.example).toEqual({ variant: "secondary" });
+      expect(
+        lookOf(badge({ variant: { add: ["neutral"], remove: ["default"] } }))
+          ?.defaults
+      ).toEqual({ variant: "secondary" });
+    });
+
+    it("is written as code with the product's members as the component's own props", () => {
+      const catalogue = catalogueOf([
+        badge({
+          shape: { add: ["default", "pill"] },
+          variant: { add: ["neutral-strong"] },
+        }),
+      ]);
+      const placed: DesignNode = {
+        component: "Badge",
+        from: SYSTEM_FROM,
+        id: "b",
+        props: { shape: "pill", variant: "neutral-strong" },
+        text: "Beta",
+        type: "instance",
+      };
+      expect(toCode(placed, { classes: () => [] }, { catalogue })).toBe(
+        `import { Badge } from "@/components/ui/badge";
+
+<Badge shape="pill" variant="neutral-strong">Beta</Badge>`
+      );
+    });
+
+    it("is the catalogue's own for a look that adds and takes out nothing", () => {
+      expect(entryOf(badge(undefined))).toEqual(entryOf(badge({})));
+      expect(entryOf(badge({}))).toEqual(
+        metaOf(catalogueOf([]), { component: "Badge", from: SYSTEM_FROM })
+      );
+    });
   });
 });

@@ -2297,6 +2297,78 @@ describe("a system component's look, read through the tools (UP-227)", () => {
   );
 });
 
+describe("a system component's own variant members, read through the tools (ADR 0161)", () => {
+  toolTest({
+    files: {
+      "designs/components/Badge.component.json": `${JSON.stringify({
+        ...emptySystemComponent("Badge"),
+        members: {
+          shape: { add: ["default", "pill"] },
+          variant: { add: ["neutral-strong"], remove: ["outline"] },
+        },
+        variants: {
+          variant: { "neutral-strong": { root: { fill: "#333" } } },
+        },
+      })}\n`,
+    },
+  })(
+    "names the members the product's look adds and takes out, and offers only the ones it has",
+    () =>
+      Effect.gen(function* () {
+        const badge = yield* tool("get_component", { name: "Badge" });
+        assert.deepStrictEqual(badge.variants, {
+          shape: ["default", "pill"],
+          variant: ["default", "secondary", "destructive", "neutral-strong"],
+        });
+        assert.include(badge.props, 'shape: "default" | "pill"');
+        assert.deepStrictEqual(badge.members, [
+          "variant: adds neutral-strong; takes out outline, whose instances keep it until moved",
+          "shape: the product's own axis, default|pill",
+        ]);
+        const [line] = (yield* tool("list_components", { match: "badge" }))
+          .components;
+        assert.include(
+          line,
+          "variant: default|secondary|destructive|neutral-strong; shape: default|pill"
+        );
+        // A component whose look adds and takes out nothing says nothing of it.
+        const button = yield* tool("get_component", { name: "Button" });
+        assert.isUndefined(button.members);
+      })
+  );
+
+  toolTest({
+    files: {
+      "designs/components/Badge.component.json": `${JSON.stringify({
+        ...emptySystemComponent("Badge"),
+        members: { variant: { remove: ["outline"] } },
+      })}\n`,
+    },
+  })(
+    "warns of an instance placed in a member its look does not offer, and says how to add one",
+    () =>
+      Effect.gen(function* () {
+        const badge = (variant: string) =>
+          inserted({
+            component: "Badge",
+            from: "@ultrapaint/system",
+            props: { variant },
+            text: variant,
+            type: "instance",
+          });
+        const { created, warnings } = yield* tool("apply_operations", {
+          ops: [badge("outline"), badge("warning"), badge("secondary")],
+          route: "/home",
+        });
+        const [outline, warning] = created;
+        assert.deepStrictEqual(warnings, [
+          `${outline}: Badge's variant offers no outline; its members are default, secondary, destructive. A member of the product's own is added to its look first, through handoff's change: {op:"addMember", axis:"variant", member:"outline"}`,
+          `${warning}: Badge's variant offers no warning; its members are default, secondary, destructive. A member of the product's own is added to its look first, through handoff's change: {op:"addMember", axis:"variant", member:"warning"}`,
+        ]);
+      })
+  );
+});
+
 describe("get_screenshot", () => {
   const shoot = (
     parameters: Parameters<typeof callRawTool<typeof GetScreenshot>>[1]

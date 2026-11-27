@@ -524,10 +524,14 @@ const PART_DECLARED: readonly ((style: PartStyle) => Declared)[] = [
 export const partDeclarations = (style: PartStyle): Declarations =>
   Object.assign({}, ...PART_DECLARED.map((declare) => declare(style)));
 
-/** The member of each of a look's axes an instance is in: its prop as its mark has it, else the default. */
+/**
+ * The member of each of a look's axes an instance is in: its prop as its mark has it, else the
+ * member the axis starts in (`defaults`, the last look's that says, ADR 0161).
+ */
 const membersIn = (
   look: ComponentLook,
-  props: Readonly<Record<string, unknown>> | undefined
+  props: Readonly<Record<string, unknown>> | undefined,
+  defaults: Readonly<Record<string, string>>
 ): (readonly [string, string])[] => {
   const marked = new Map(
     variantAttributeOf(props)
@@ -539,7 +543,7 @@ const membersIn = (
       })
   );
   return Object.keys(look.variants).flatMap((axis) => {
-    const member = marked.get(axis) ?? look.defaults[axis];
+    const member = marked.get(axis) ?? defaults[axis];
     return member === undefined ? [] : [[axis, member] as const];
   });
 };
@@ -547,7 +551,9 @@ const membersIn = (
 /**
  * A part's declarations at rest, in an instance's variant (ADR 0040): each look's base, then its
  * axes' members, the looks in the order the canvas lays them, a later one's property winning
- * over an earlier one's as its rule does. A state, a hover or an open, is not at rest.
+ * over an earlier one's as its rule does. An axis the instance does not set is in the member the
+ * last look starts it in, in every look, as the canvas marks it (ADR 0161). A state, a hover or
+ * an open, is not at rest.
  */
 export const restingDeclarations = (
   looks: readonly ComponentLook[],
@@ -555,8 +561,12 @@ export const restingDeclarations = (
   part: string
 ): Declarations => {
   const out: Record<string, DeclaredValue> = {};
+  const defaults: Record<string, string> = Object.assign(
+    {},
+    ...looks.map((l) => l.defaults)
+  );
   for (const look of looks) {
-    const members = membersIn(look, props);
+    const members = membersIn(look, props, defaults);
     const styles = [
       look.base[part],
       ...members.map(([axis, member]) => look.variants[axis]?.[member]?.[part]),

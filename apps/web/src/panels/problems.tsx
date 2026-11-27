@@ -1,7 +1,8 @@
 /**
- * Problems' panel (ADR 0106): what the design system's files and the sync say needs fixing,
- * grouped by the file it is read from, each with what it costs and its fix: a chat drafted to fix
- * it, or the Sync for a step that waits there; its menu shows it in its file, or leaves a warning
+ * Problems' panel (ADR 0106): what the design system's files and the sync say needs fixing, and
+ * the instances of a variant member a look takes out (ADR 0161), grouped by where it is read from,
+ * each with what it costs and its fix: a chat drafted to fix it, the Sync for a step that waits
+ * there, or the instances moved to a member the look offers; its menu shows it in its file, or leaves a warning
  * as it is, for the person or the project. Fix all drafts one chat for every problem an agent
  * can fix. The rail shows its item only while there is something here, so none is said only when
  * the last one was fixed with the panel open.
@@ -34,9 +35,11 @@ import {
   type Problem,
   type ProblemSource,
 } from "../lib/problems.ts";
+import { movedTo, type RemovedMember } from "../lib/removed-members.ts";
 import { startPrompt } from "../lib/start-thread.ts";
 import { api } from "../state/connection.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
+import { applyEdits } from "../state/documents.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { setIgnored, useProblemIds, useProblems } from "../state/problems.ts";
 import { reportError } from "../state/project.ts";
@@ -137,6 +140,52 @@ const More = ({ problem }: { problem: Problem }) => {
   );
 };
 
+/**
+ * A member a look takes out (ADR 0161): its instances moved to a member the look offers, every
+ * page's in one undo step.
+ */
+const MoveTo = ({ move }: { move: RemovedMember }) => (
+  <DropdownMenu>
+    <DropdownMenuTrigger render={<Button size="sm" variant="secondary" />}>
+      Move to…
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="start">
+      {move.to.map((member) => (
+        <DropdownMenuItem
+          key={member}
+          onClick={() =>
+            applyEdits(
+              movedTo(move, member),
+              `Move ${move.component}'s ${move.member} to ${member}`
+            )
+          }
+        >
+          {member}
+        </DropdownMenuItem>
+      ))}
+    </DropdownMenuContent>
+  </DropdownMenu>
+);
+
+/** A problem's fix: the Sync's review, its instances moved, or a chat drafted for an agent. */
+const Fix = ({ problem }: { problem: Problem }) => {
+  if (problem.fix === "sync") {
+    return (
+      <Button onClick={reviewSync} size="sm" variant="secondary">
+        Review
+      </Button>
+    );
+  }
+  if (problem.fix === "member" && problem.move) {
+    return <MoveTo move={problem.move} />;
+  }
+  return (
+    <Button onClick={() => fix([problem])} size="sm" variant="secondary">
+      Fix with agent
+    </Button>
+  );
+};
+
 /** One problem: what is wrong, what it costs, and its fix under them, on the text's edge. */
 const Row = ({ problem }: { problem: Problem }) => (
   <li
@@ -161,15 +210,7 @@ const Row = ({ problem }: { problem: Problem }) => (
       </p>
     ) : null}
     <div className="col-start-2 flex items-center gap-1 pt-1.5">
-      {problem.fix === "sync" ? (
-        <Button onClick={reviewSync} size="sm" variant="secondary">
-          Review
-        </Button>
-      ) : (
-        <Button onClick={() => fix([problem])} size="sm" variant="secondary">
-          Fix with agent
-        </Button>
-      )}
+      <Fix problem={problem} />
       <More problem={problem} />
     </div>
   </li>
@@ -211,7 +252,8 @@ export const Problems = () => {
       </div>
       {problems.length === 0 ? (
         <PanelEmpty icon={<CircleCheck />} title="No problems">
-          The design system’s files read, and the sync waits for nothing.
+          The design system’s files read, the sync waits for nothing, and no
+          instance keeps a variant its look took out.
         </PanelEmpty>
       ) : (
         <div className="min-h-0 flex-1 overflow-auto pb-2">

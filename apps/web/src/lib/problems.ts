@@ -1,19 +1,25 @@
 /**
- * Problems (ADR 0106), worked out from what the editor reads: what the design system's files and the sync say needs fixing, in one list
- * the rail opens in either mode. DESIGN.md's linter (`@google/design.md`) speaks for its own
+ * Problems (ADR 0106), worked out from what the editor reads: what the design system's files and
+ * the sync say needs fixing, and the instances of a variant member a look takes out (ADR 0161),
+ * in one list the rail opens in either mode. DESIGN.md's linter (`@google/design.md`) speaks for its own
  * tools, so its findings are said again here in Ultrapaint's words, each with what it costs and
  * the raw message kept for the agent asked to fix it. Information is not a problem; a waiting sync
  * step is, and the Sync is where it is answered.
  */
+
+import { componentFileOf } from "@ultrapaint/contracts/components";
 import type {
   DesignDocument,
   DesignFinding,
 } from "@ultrapaint/contracts/design-system";
 import type { SyncPlan, SyncStep } from "@ultrapaint/contracts/sync";
+import { plural } from "@ultrapaint/shared/text";
+import type { RemovedMember } from "./removed-members.ts";
 
 /** Where a problem is read from: the group it is listed in. */
 export type ProblemSource =
   | "Sync"
+  | "Components"
   | "DESIGN.md"
   | "design-system.json"
   | "design.tokens.json";
@@ -28,13 +34,18 @@ export interface Problem {
    * to its line, when it has one. None for a sync step, which lives in no file.
    */
   readonly file: { readonly at: string | null; readonly path: string } | null;
-  /** `sync`: answered in the Sync. `agent`: a chat drafted to fix it. */
-  readonly fix: "agent" | "sync";
+  /**
+   * `sync`: answered in the Sync. `agent`: a chat drafted to fix it. `member`: its instances moved
+   * to another member, as `move` says.
+   */
+  readonly fix: "agent" | "sync" | "member";
   /**
    * A stable name for it, whose words are the file's: a problem whose words change (a contrast
    * that moved) is a new one, and an ignored one comes back.
    */
   readonly id: string;
+  /** A member a look takes out, whose instances the fix moves (ADR 0161). */
+  readonly move?: RemovedMember;
   readonly severity: "error" | "warning";
   readonly source: ProblemSource;
   /** What is wrong, in a few words; a token's name between backticks, set in code. */
@@ -44,6 +55,7 @@ export interface Problem {
 /** The order the groups are listed in: the sync first, as it is answered there and not here. */
 const SOURCES: readonly ProblemSource[] = [
   "Sync",
+  "Components",
   "design-system.json",
   "design.tokens.json",
   "DESIGN.md",
@@ -261,7 +273,38 @@ export interface ProblemsInput {
   readonly notes: readonly string[];
   readonly plan: SyncPlan | null;
   readonly problem: string | undefined;
+  /** The instances of each member a look takes out (`removedMembersOf`). */
+  readonly removedMembers?: readonly RemovedMember[];
 }
+
+/**
+ * A member a look takes out that instances still have (ADR 0161): they keep drawing, and are
+ * moved to a member it offers.
+ */
+const removedMemberProblem = (
+  removed: RemovedMember,
+  designsDir: string
+): Problem => {
+  const { axis, component, instances, member, places } = removed;
+  const one = instances.length === 1;
+  const count = plural(instances.length, `${component} instance`);
+  return {
+    brief: `${count} keep ${axis} ${member}, which ${component}'s look takes out (on ${places.join(", ")})`,
+    detail: one
+      ? `It draws as before, on ${places.join(", ")}. Move it to a member its look offers.`
+      : `They draw as before, on ${places.join(", ")}. Move them to a member its look offers.`,
+    file: {
+      at: "members",
+      path: `${designsDir}/${componentFileOf(component)}`,
+    },
+    fix: "member",
+    id: `Components:${component}.${axis}.${member}`,
+    move: removed,
+    severity: "warning",
+    source: "Components",
+    title: `${count} still ${one ? "uses" : "use"} \`${member}\`, taken out of its ${axis}`,
+  };
+};
 
 /** Everything that needs fixing, grouped by where it is read from, in the order they are listed. */
 export const problemsOf = (input: ProblemsInput): readonly Problem[] => {
@@ -319,6 +362,11 @@ export const problemsOf = (input: ProblemsInput): readonly Problem[] => {
     });
   }
   all.push(...documentProblems(input.document));
+  all.push(
+    ...(input.removedMembers ?? []).map((r) =>
+      removedMemberProblem(r, input.designsDir)
+    )
+  );
   return all.sort(
     (a, b) => SOURCES.indexOf(a.source) - SOURCES.indexOf(b.source)
   );

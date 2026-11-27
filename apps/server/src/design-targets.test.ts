@@ -426,7 +426,7 @@ describe("a system component's look, changed through handoff (UP-227)", () => {
               },
               target: "component:Button",
             }),
-            "Button's size has no member xl; its members are md, sm, lg, icon"
+            'Button\'s size has no member xl; its members are md, sm, lg, icon. A member of the product\'s own is added first: {op:"addMember", axis:"size", member:"xl"}'
           );
           assert.strictEqual(
             yield* refusal({
@@ -527,6 +527,150 @@ describe("a system component's look, changed through handoff (UP-227)", () => {
           assert.deepStrictEqual(
             button?.origin === "system" ? button.base : undefined,
             { root: { height: 40 } }
+          );
+        })
+    );
+  });
+});
+
+/** A setStyle's style with a field that is no style field, refused with the look's fields. */
+const STYLE_REFUSED_RE =
+  /^style: text is no style field\. A look is Badge's appearance alone \(.*fill.*\); one with props, slots, text or behaviour is an app component built on Badge$/;
+
+describe("a system component's own variant members, changed through handoff (ADR 0161)", () => {
+  eachTest(ProjectTest())((it) => {
+    const badgeEntry = project(ComponentService, (c) =>
+      Effect.map(c.catalogue, (catalogue) =>
+        catalogue.find((e) => e.name === "Badge")
+      )
+    );
+
+    it.effect(
+      "adds the product's member and takes a built-in one out, each in an undo step, the catalogue offering what the look has",
+      () =>
+        Effect.gen(function* () {
+          assert.strictEqual(
+            yield* handoff({
+              action: "change",
+              change: {
+                axis: "variant",
+                member: "neutral-strong",
+                op: "addMember",
+              },
+              target: "component:Badge",
+            }),
+            "Changed Badge."
+          );
+          assert.strictEqual(
+            (yield* project(EditService, (e) => e.state)).undoLabel,
+            "Add neutral-strong to Badge's variant"
+          );
+          yield* handoff({
+            action: "change",
+            change: { axis: "variant", member: "outline", op: "removeMember" },
+            target: "component:Badge",
+          });
+          yield* handoff({
+            action: "change",
+            change: { axis: "shape", member: "default", op: "addMember" },
+            target: "component:Badge",
+          });
+          yield* handoff({
+            action: "change",
+            change: { axis: "shape", member: "pill", op: "addMember" },
+            target: "component:Badge",
+          });
+          assert.deepStrictEqual((yield* badgeEntry)?.variants, {
+            shape: ["default", "pill"],
+            variant: ["default", "secondary", "destructive", "neutral-strong"],
+          });
+          yield* project(EditService, (e) => e.undo);
+          assert.deepStrictEqual((yield* badgeEntry)?.variants.shape, [
+            "default",
+          ]);
+        })
+    );
+
+    it.effect(
+      "has /implement give the product's component the members its look adds, as its own props",
+      () =>
+        Effect.gen(function* () {
+          for (const [axis, member] of [
+            ["variant", "neutral-strong"],
+            ["shape", "default"],
+            ["shape", "pill"],
+          ] as const) {
+            yield* handoff({
+              action: "change",
+              change: { axis, member, op: "addMember" },
+              target: "component:Badge",
+            });
+          }
+          yield* handoff({
+            action: "change",
+            change: { axis: "variant", member: "outline", op: "removeMember" },
+            target: "component:Badge",
+          });
+          const task = yield* implementTask("Badge");
+          assert.include(
+            task,
+            "Its variants are the product's own (ADR 0161), as its file's members say:\n- variant: adds neutral-strong; takes out outline, whose instances keep it until moved\n- shape: the product's own axis, default|pill"
+          );
+          assert.include(
+            task,
+            "Give the component's variant props the members its file adds"
+          );
+          // A look that keeps the editor's members says nothing of them.
+          yield* handoff({
+            action: "change",
+            change: {
+              op: "setStyle",
+              place: { state: null, variant: null },
+              slot: "root",
+              style: { height: 48 },
+            },
+            target: "component:Button",
+          });
+          assert.notInclude(
+            yield* implementTask("Button"),
+            "Its variants are the product's own"
+          );
+        })
+    );
+
+    it.effect(
+      "refuses a member that cannot be taken out, naming the ones it offers",
+      () =>
+        Effect.gen(function* () {
+          assert.strictEqual(
+            yield* refusal({
+              action: "change",
+              change: { axis: "variant", member: "pill", op: "removeMember" },
+              target: "component:Badge",
+            }),
+            "Badge's variant offers no member pill; its members are default, secondary, outline, destructive"
+          );
+          // A style sent with a field that is no style field is refused, not read without it.
+          assert.match(
+            yield* refusal({
+              action: "change",
+              change: {
+                op: "setStyle",
+                place: { state: null, variant: null },
+                slot: "root",
+                style: { fill: "#fa0", text: "Warning" },
+              },
+              target: "component:Badge",
+            }),
+            STYLE_REFUSED_RE
+          );
+          assert.strictEqual(
+            yield* refusal({
+              action: "change",
+              change: { axis: "loading", member: "yes", op: "addMember" },
+              target: "component:Button",
+            }),
+            "members.loading: Button's own axis takes a name of its own in camelCase, not loading; its props are variant, size, disabled, loading"
           );
         })
     );

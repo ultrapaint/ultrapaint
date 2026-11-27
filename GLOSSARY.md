@@ -610,8 +610,15 @@ refactor and the board view left.
   base, in each variant, in each state and in a **state in a variant** (`variantStates`, ADR
   0044: an outline button's hover), the more specific winning and disabled over the other
   states, layout per part, content for a slot given nothing, the
-  optional parts left out, a Select's or a Menu's item template; without a file, its default look
-  (`defaults.ts`, drawn by `look.ts` through `lookCss`). Its behavioural parts are fixed.
+  optional parts left out, a Select's or a Menu's item template, and its **own members**; without
+  a file, its default look (`defaults.ts`, drawn by `look.ts` through `lookCss`). Its behavioural
+  parts are fixed.
+- **Own member**: a variant member a system component's look adds (`members.<axis>.add`, ADR
+  0161), offered after the catalogue's, or an axis it lacks, the product's own axis, its first
+  member the default; appearance alone. A built-in member the look takes out
+  (`members.<axis>.remove`) is a **removed member**: no longer offered, its instances kept and
+  listed in Problems to be moved. `systemMetaIn` makes the component as its look has it. _Avoid_
+  "custom variant".
 - **App component**: one of the project's own components (ADR 0041), built from system
   components and other app components; an instance names one with `from: "#app"`. Its file is a
   **tree**, its **properties** and its **slots**, drawn in an instance's place by
@@ -801,11 +808,12 @@ refactor and the board view left.
   and the rail shows the mode's places.
 - **Place switch**: Canvas · Design system · Prototype at the top centre of the canvas (ADR 0058;
   `components/place-switch.tsx`): the two modes and the prototype workspace in one control Design system carries the warning sign while there are **Problems**.
-- **Problems**: what needs fixing in the design system's files and the sync, the rail's place for
-  it in both modes, shown while there are some (ADR 0106; `lib/problems.ts`, `panels/problems.tsx`):
-  the sync's waiting steps, a file that does not read, what the tokens file left out, DESIGN.md's
-  linter findings in Ultrapaint's words; each with its fix (Review, Fix with agent), and Fix all
-  with agent. A warning can be **ignored** for the person or for the project (`ignoredProblems`),
+- **Problems**: what needs fixing in the design system's files, the sync and the components, the
+  rail's place for it in both modes, shown while there are some (ADR 0106; `lib/problems.ts`,
+  `panels/problems.tsx`): the sync's waiting steps, a file that does not read, what the tokens file
+  left out, DESIGN.md's linter findings in Ultrapaint's words, and the instances of a **removed
+  member** (ADR 0161, `lib/removed-members.ts`); each with its fix (Review, Fix with agent, Move
+  to…), and Fix all with agent. A warning can be **ignored** for the person or for the project (`ignoredProblems`),
   listed in Settings › Design system with Show again.
 - **Editor theme**: light, dark or the system's, the person's pick kept in the browser (ADR 0058;
   `state/theme.ts`); the editor's chrome only, never a design's theme.

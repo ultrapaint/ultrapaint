@@ -67,6 +67,10 @@ const labelOf = (name: string, made: ComponentChange) => {
     case "setContent":
     case "setItem":
       return `Change ${name}'s look`;
+    case "addMember":
+      return `Add ${made.member} to ${name}'s ${made.axis}`;
+    case "removeMember":
+      return `Take ${made.member} out of ${name}'s ${made.axis}`;
     case "addNote":
       return `Note how ${name} behaves`;
     default:

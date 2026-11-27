@@ -127,13 +127,25 @@ export const ItemTemplate = Schema.Struct({
 export type ItemTemplate = typeof ItemTemplate.Type;
 
 /**
+ * The project's own members of one variant axis of a system component (ADR 0161): those it adds,
+ * after the catalogue's, and the catalogue's it takes out. An axis the component does not have is
+ * the project's own, its members all added, the first its default. Appearance only: a member is a
+ * place of the look, styled in `variants` and `variantStates` as a built-in one is.
+ */
+export const AxisMembers = Schema.Struct({
+  add: Schema.optional(Schema.Array(Schema.String)),
+  remove: Schema.optional(Schema.Array(Schema.String)),
+});
+export type AxisMembers = typeof AxisMembers.Type;
+
+/**
  * A system component's look as the project's design says it: style fields per part at its base,
  * per variant axis and member, per state, and per state in one variant member (ADR 0044); what
  * each slot holds when an instance gives it
- * nothing; which optional parts it leaves out; and, for a Select or a Menu, what an item draws.
- * Its parts, axes and states are the catalogue's; behaviour is Base UI's, and its behavioural
- * parts are fixed: a component that adds behaviour or removes one of them is an app component
- * built on it.
+ * nothing; which optional parts it leaves out; for a Select or a Menu, what an item draws; and the
+ * variant members it adds or takes out (ADR 0161). Its parts and states are the catalogue's;
+ * behaviour is Base UI's, and its behavioural parts are fixed: a component that adds behaviour or
+ * removes one of them is an app component built on it.
  */
 const lookFields = {
   /** Style fields every instance starts from, per part. */
@@ -146,6 +158,8 @@ const lookFields = {
   hidden: Schema.optional(Schema.Array(Schema.String)),
   /** What each item of a Select or a Menu draws. */
   item: Schema.optional(ItemTemplate),
+  /** The members each variant axis adds or takes out, and the axes of its own (ADR 0161). */
+  members: Schema.optional(Schema.Record(Schema.String, AxisMembers)),
   /** Style fields per state, per part. */
   states: StateStyles,
   /**
@@ -328,6 +342,24 @@ export const ComponentChange = Schema.Union([
   Schema.Struct({
     item: Schema.NullOr(ItemTemplate),
     op: Schema.Literal("setItem"),
+  }),
+  /**
+   * A variant member a system component's look adds (ADR 0161): to one of its axes, or to an axis
+   * of its own, which starts in its first member; a built-in member taken out is put back.
+   */
+  Schema.Struct({
+    axis: Schema.String,
+    member: Schema.String,
+    op: Schema.Literal("addMember"),
+  }),
+  /**
+   * A variant member a system component's look takes out (ADR 0161): a built-in one no longer
+   * offered, its instances kept; one of the project's own gone, with what its look styled in it.
+   */
+  Schema.Struct({
+    axis: Schema.String,
+    member: Schema.String,
+    op: Schema.Literal("removeMember"),
   }),
   /** A behaviour note (ADR 0030) about a part, or the whole; the server gives it its id. */
   Schema.Struct({

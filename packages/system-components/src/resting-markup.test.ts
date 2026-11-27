@@ -131,6 +131,32 @@ describe("systemDrawingOf", () => {
     expect(drawing?.looks[1]?.base.root?.fill).toBe("$color-accent");
   });
 
+  it("writes an instance that sets no member in the one the project's look starts in (ADR 0161)", () => {
+    // A look that sets nothing but its members: the default look draws the member it starts in.
+    const look = {
+      base: {},
+      members: { variant: { remove: ["primary"] } },
+      name: "Button",
+      origin: "system" as const,
+      states: {},
+      variants: {},
+      version: 1 as const,
+    };
+    const go: DesignNode = {
+      component: "Button",
+      from: SYSTEM_FROM,
+      id: "b",
+      text: "Go",
+      type: "instance",
+    };
+    const html = toHtml(go, writer, {
+      catalogue: catalogueOf([look]),
+      systemDrawing: systemDrawingOf([look]),
+    });
+    expect(html).toContain("background:$color-secondary");
+    expect(html).not.toContain("background:$color-primary");
+  });
+
   it("knows no drawing for a name that is no system component", () => {
     expect(systemDrawingOf([])("Nope")).toBeUndefined();
   });
