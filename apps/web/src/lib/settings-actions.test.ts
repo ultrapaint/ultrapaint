@@ -27,9 +27,9 @@ const REPO = "/work/shop";
 
 const running: Settings = {
   designsDir: "designs",
-  hostCss: [],
   libraryDirs: [],
   repoPath: REPO,
+  stylesheets: [],
 };
 
 const openInfo = (storage: ProjectInfo["storage"]): ProjectInfo => ({

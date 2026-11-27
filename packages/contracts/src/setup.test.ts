@@ -4,10 +4,7 @@ import { defaultSettings } from "./settings.ts";
 import {
   applySuggestions,
   describeSuggestions,
-  hostCssFor,
-  relativePosix,
   SetupSuggestions,
-  stylesheetOf,
 } from "./setup.ts";
 
 const found: SetupSuggestions = {
@@ -24,21 +21,12 @@ const found: SetupSuggestions = {
 };
 
 describe("first-run suggestions", () => {
-  it("writes host CSS imports relative to the generated directory", () => {
-    expect(
-      relativePosix("docs/designs/.ultrapaint", "apps/web/src/app.css")
-    ).toBe("../../../apps/web/src/app.css");
-    expect(relativePosix("designs/.ultrapaint", "designs/host.css")).toBe(
-      "../host.css"
-    );
-  });
-
   it("proposes a designs directory that needs no package", () => {
     expect(applySuggestions(defaultSettings("/repo"), found)).toMatchObject({
       designsDir: "docs/designs",
-      hostCss: ["../../../apps/web/src/app.css"],
       libraryDirs: ["packages/ui/src"],
       resolveFrom: "apps/web",
+      stylesheets: ["apps/web/src/app.css"],
     });
   });
 
@@ -51,7 +39,7 @@ describe("first-run suggestions", () => {
     });
     expect(settings.resolveFrom).toBeUndefined();
     expect(settings.designsDir).toBe("packages/designs");
-    expect(settings.hostCss).toEqual(["../host.css"]);
+    expect(settings.stylesheets).toEqual(["packages/designs/host.css"]);
   });
 
   it("points at an application's own components, with no package to import them by", () => {
@@ -68,18 +56,10 @@ describe("first-run suggestions", () => {
       ],
     });
     expect(settings).toMatchObject({
-      hostCss: ["../../../front/src/index.css"],
       libraryDirs: ["front/src/components"],
       resolveFrom: "front",
+      stylesheets: ["front/src/index.css"],
     });
-  });
-
-  it("names a stylesheet by its file, and back", () => {
-    const spec = hostCssFor("docs/designs", "apps/web/src/app.css");
-    expect(stylesheetOf("docs/designs", spec)).toBe("apps/web/src/app.css");
-    expect(stylesheetOf("docs/designs", "@acme/ui/styles.css")).toBe(
-      "@acme/ui/styles.css"
-    );
   });
 
   it("says where the pages and the stylesheet are, and nothing of components", () => {

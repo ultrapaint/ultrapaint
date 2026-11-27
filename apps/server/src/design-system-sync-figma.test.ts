@@ -80,7 +80,7 @@ const Themed = ProjectRpc({
       '{ "name": "designs", "dependencies": { "react": "19" } }\n',
     "styles/app.css": THEME,
   },
-  settings: { hostCss: ["../../styles/app.css"], libraryDirs: ["ui"] },
+  settings: { libraryDirs: ["ui"], stylesheets: ["styles/app.css"] },
 });
 
 eachTest(Themed)("Figma's tokens in the sync", (it) => {

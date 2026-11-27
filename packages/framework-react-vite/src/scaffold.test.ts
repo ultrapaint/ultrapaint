@@ -53,9 +53,9 @@ describe("a new application", () => {
   it("is one the setup recognises: the app, its own components, its stylesheet", () => {
     const result = scaffold({ dir: "app", name: "Acme Web", tokens: {} });
     expect(result.settings).toEqual({
-      hostCss: "app/src/index.css",
       libraryDir: "app/src/components",
       resolveFrom: "app",
+      stylesheet: "app/src/index.css",
     });
     const root = written(result.files);
     const found = detect(root);
@@ -134,9 +134,9 @@ describe("a blank application", () => {
     expect(blank.files["app/src/index.css"]).toContain("@theme {\n}\n");
     expect(blank.files["app/src/index.css"]).not.toContain("--color-");
     expect(blank.settings).toEqual({
-      hostCss: "app/src/index.css",
       libraryDir: "app/src/components",
       resolveFrom: "app",
+      stylesheet: "app/src/index.css",
     });
   });
 

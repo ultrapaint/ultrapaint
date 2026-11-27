@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { ProjectConfig } from "./settings.ts";
+import { ProjectConfig, stylesheetsOf } from "./settings.ts";
 
 describe("a configuration file", () => {
   it("still reads with a field that is no setting any more, which is dropped", () => {
@@ -20,6 +20,47 @@ describe("a configuration file", () => {
       theme: "dark",
     });
     expect(config).toEqual({ designsDir: "docs/designs" });
+  });
+});
+
+describe("a configuration's stylesheets, from the repository's root (ADR 0165)", () => {
+  it("reads the old hostCss from where it was relative to, wherever the designs are", () => {
+    expect(
+      stylesheetsOf({ designsDir: ".", hostCss: ["../src/index.css"] })
+    ).toEqual(["src/index.css"]);
+    expect(
+      stylesheetsOf({ designsDir: "designs", hostCss: ["../../src/index.css"] })
+    ).toEqual(["src/index.css"]);
+    expect(
+      stylesheetsOf({
+        designsDir: "docs/designs",
+        hostCss: ["../../../apps/web/src/styles.css", "../host.css"],
+      })
+    ).toEqual(["apps/web/src/styles.css", "docs/designs/host.css"]);
+  });
+
+  it("names a package's stylesheet as it is, in either field", () => {
+    const spec = "@acme/ui/styles.css";
+    expect(
+      stylesheetsOf({ designsDir: "docs/designs", hostCss: [spec] })
+    ).toEqual([spec]);
+    expect(
+      stylesheetsOf({ designsDir: "docs/designs", stylesheets: [spec] })
+    ).toEqual([spec]);
+  });
+
+  it("reads stylesheets over a hostCss beside it", () => {
+    expect(
+      stylesheetsOf({
+        designsDir: "docs/designs",
+        hostCss: ["../../../old.css"],
+        stylesheets: ["src/index.css"],
+      })
+    ).toEqual(["src/index.css"]);
+  });
+
+  it("names none when neither field is there", () => {
+    expect(stylesheetsOf({ designsDir: "docs/designs" })).toEqual([]);
   });
 });
 

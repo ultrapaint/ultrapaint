@@ -10,6 +10,7 @@
  * track B (`freeze`), where screens are composed from it.
  */
 import path from "node:path";
+import { ProjectConfig, stylesheetsOf } from "@ultrapaint/contracts/settings";
 import { Effect, FileSystem, Predicate, Schema } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { Browser } from "./browser.ts";
@@ -449,7 +450,7 @@ const extractOnce = Effect.fn("extractOnce")(function* (
     Effect.gen(function* () {
       const session = yield* launch(host, "own");
       const config = yield* readJson(
-        Schema.Record(Schema.String, Schema.Unknown),
+        ProjectConfig,
         path.join(host, "ultrapaint.config.json")
       );
       const list = yield* familyComponentList(family);
@@ -460,7 +461,7 @@ const extractOnce = Effect.fn("extractOnce")(function* (
           step: "style",
           text: yield* prompt("extract-style", {
             components: "app/src/components/ui",
-            css: [config.hostCss].flat().join(", ") || "app/src/index.css",
+            css: stylesheetsOf(config).join(", ") || "app/src/index.css",
             list,
             product: family,
           }),

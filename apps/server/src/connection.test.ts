@@ -170,9 +170,9 @@ describe("Connection", () => {
         connection.on("project", (info) => projects.push(info.configured));
         const settings: Settings = {
           designsDir: "designs",
-          hostCss: [],
           libraryDirs: [],
           repoPath: repo,
+          stylesheets: [],
         };
         const validation = yield* Effect.promise(() =>
           connection.request("settings.set", settings)
@@ -250,9 +250,9 @@ describe("Connection", () => {
         yield* Effect.promise(() =>
           connection.request("settings.set", {
             designsDir: "designs",
-            hostCss: [],
             libraryDirs: [],
             repoPath: repo,
+            stylesheets: [],
           })
         );
         const created = yield* Effect.promise(() =>

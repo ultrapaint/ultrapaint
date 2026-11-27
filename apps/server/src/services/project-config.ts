@@ -1,4 +1,8 @@
-import type { ProjectConfig, Settings } from "@ultrapaint/contracts/settings";
+import {
+  type ProjectConfig,
+  type Settings,
+  stylesheetsOf,
+} from "@ultrapaint/contracts/settings";
 import type { Path } from "effect";
 import { toPosix } from "../hash.ts";
 
@@ -8,12 +12,12 @@ export const toSettings = (
   config: ProjectConfig,
   baseDir: string
 ): Settings => {
-  const { $schema: _schema, repoPath, ...rest } = config;
+  const { $schema: _schema, hostCss: _hostCss, repoPath, ...rest } = config;
   return {
     ...rest,
-    hostCss: config.hostCss ?? [],
     libraryDirs: config.libraryDirs ?? [],
     repoPath: path.resolve(baseDir, repoPath ?? "."),
+    stylesheets: stylesheetsOf(config),
   };
 };
 

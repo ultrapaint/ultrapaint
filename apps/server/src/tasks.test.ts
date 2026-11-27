@@ -63,7 +63,7 @@ const withDesignSystem = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   yield* fs.makeDirectory(path.join(repo, "styles"), { recursive: true });
   yield* fs.writeFileString(path.join(repo, "styles/app.css"), THEME);
-  yield* reopen({ hostCss: ["../../styles/app.css"] });
+  yield* reopen({ stylesheets: ["styles/app.css"] });
   const project = yield* OpenProject;
   yield* project.use(Effect.flatMap(DesignSystemService, (d) => d.detect));
 });
@@ -123,6 +123,17 @@ describe("tasks, with the editor's MCP server", () => {
   });
 
   eachTest(ProjectTest({ mcp: true }))((it) => {
+    it.effect(
+      "names the stylesheet from the repository's root in the design-system setup (ADR 0165)",
+      () =>
+        Effect.gen(function* () {
+          const { reopen } = yield* ProjectFixture;
+          yield* reopen({ stylesheets: ["styles/app.css"] });
+          const define = yield* textOf({ _tag: "SetupStep", step: "define" });
+          assert.include(define, "code's tokens are in (styles/app.css)");
+        })
+    );
+
     it.effect("gives each request its task and its thread's purpose", () =>
       Effect.gen(function* () {
         const init = yield* task({ _tag: "Init" });
@@ -307,7 +318,7 @@ const panelChanges = (stylesheet: string) =>
     const fs = yield* FileSystem.FileSystem;
     yield* fs.makeDirectory(path.join(repo, "styles"), { recursive: true });
     yield* fs.writeFileString(path.join(repo, "styles/app.css"), stylesheet);
-    yield* reopen({ hostCss: ["../../styles/app.css"] });
+    yield* reopen({ stylesheets: ["styles/app.css"] });
     const project = yield* OpenProject;
     yield* project.use(
       Effect.gen(function* () {

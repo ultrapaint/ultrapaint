@@ -18,7 +18,7 @@ const THEME = `@theme {
 /** A project of each test's own whose code has a theme; no socket, as nothing here is the wire's. */
 const Themed = ProjectRpc({
   files: { "styles/app.css": THEME },
-  settings: { hostCss: ["../../styles/app.css"] },
+  settings: { stylesheets: ["styles/app.css"] },
 });
 
 eachTest(Themed)("the design system edited from the editor", (it) => {

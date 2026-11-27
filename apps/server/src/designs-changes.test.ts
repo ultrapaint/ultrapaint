@@ -72,9 +72,9 @@ const toldOnly = Layer.unwrap(
           Layer.mergeAll(
             RepoPaths.layer({
               designsDir: "designs",
-              hostCss: [],
               libraryDirs: [],
               repoPath: repo,
+              stylesheets: [],
             }),
             EventBus.layer
           )
@@ -219,9 +219,9 @@ describe("the designs' changes", () => {
                 Layer.mergeAll(
                   RepoPaths.layer({
                     designsDir: "designs",
-                    hostCss: [],
                     libraryDirs: [],
                     repoPath: repo,
+                    stylesheets: [],
                   }),
                   EventBus.layer
                 )
@@ -385,9 +385,9 @@ describe("a change to the designs from outside the editor", () => {
                 Layer.mergeAll(
                   RepoPaths.layer({
                     designsDir: "designs",
-                    hostCss: [],
                     libraryDirs: [],
                     repoPath: repo,
+                    stylesheets: [],
                   }),
                   EventBus.layer
                 )

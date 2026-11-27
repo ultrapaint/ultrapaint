@@ -38,9 +38,9 @@ vi.mock(
 
 const settings: Settings = {
   designsDir: "designs",
-  hostCss: [],
   libraryDirs: [],
   repoPath: "/work/shop",
+  stylesheets: [],
 };
 
 const page = (id: string, name: string): Page => ({

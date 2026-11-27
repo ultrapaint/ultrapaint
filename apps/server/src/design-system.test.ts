@@ -42,7 +42,7 @@ describe("the design system written", () => {
     () =>
       withProject({
         files: { "styles/app.css": THEME },
-        settings: { codeTokens: "auto", hostCss: ["../../styles/app.css"] },
+        settings: { codeTokens: "auto", stylesheets: ["styles/app.css"] },
       })(
         Effect.gen(function* () {
           yield* inProject(
@@ -68,7 +68,7 @@ describe("the design system written", () => {
       withProject({
         fileSystem: gatedFileSystem,
         files: { "styles/app.css": THEME },
-        settings: { hostCss: ["../../styles/app.css"] },
+        settings: { stylesheets: ["styles/app.css"] },
       })(
         Effect.gen(function* () {
           const service = inProject(Effect.map(DesignSystemService, (d) => d));

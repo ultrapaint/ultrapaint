@@ -61,9 +61,9 @@ describe("WorkingTree", () => {
       Layer.provide(
         RepoPaths.layer({
           designsDir: "designs",
-          hostCss: [],
           libraryDirs: [],
           repoPath: root,
+          stylesheets: [],
         })
       ),
       Layer.provide(

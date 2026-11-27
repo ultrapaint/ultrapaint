@@ -720,9 +720,9 @@ describe("the editor's requests on a project", () => {
         const { settings } = yield* TestEnv;
         yield* client["settings.set"]({
           ...settings,
-          // Relative to the directory the preview is generated into, as the setup writes them.
-          hostCss: ["../theme.css"],
           libraryDirs: ["ui"],
+          // Relative to the directory the preview is generated into, as the setup writes them.
+          stylesheets: ["designs/theme.css"],
         });
         const told = yield* subscribed(
           Stream.runHead(client["events.designSystem"]())

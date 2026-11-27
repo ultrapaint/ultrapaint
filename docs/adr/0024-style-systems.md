@@ -2,6 +2,9 @@
 
 Status: accepted, 2026-10-06. Amends 0011 (framework packages) and 0015 (the design system).
 
+> Amended by [0165](0165-stylesheets-are-named-from-the-root.md), 2026-11-27: `hostCss` is
+> `stylesheets`, named from the repository's root; `hostCss` is read, never written.
+
 > Amended by [0152](0152-a-token-is-read-where-the-code-declares-it.md), 2026-11-26: a token is also a variable with a token's name in an unconditional root block (`:root { --color-panel: … }`), marked `variableOnly`; declared in both, the root value is the one read and written.
 
 > Amended by [0046](0046-deep-modules-fifth-review.md), 2026-10-30: the scan classifies what the token reader reads, so `/init` and Sync read a stylesheet's themes one way; the framework seam beside the style system goes.
@@ -91,7 +94,8 @@ by detection. The server loads it as it loads the framework, through `ProjectSty
 
 - Adding StyleX or Emotion is a package implementing `StyleSystem` and an entry in the
   server's list of bundled style systems; the sync, the setup and the Figma comparison follow.
-- `hostCss` stays a top-level setting, read by the Tailwind adapter. It moves under a style
+- `hostCss` (named `stylesheets` from the repository's root since ADR 0165) stays a top-level
+  setting, read by the Tailwind adapter. It moves under a style
   section with the first second adapter, and the configuration's schema is versioned then.
 - Still Tailwind-shaped, to move behind the adapter when next touched: the Tailwind checks in
   the setup's rules, and the wording of the briefing. The Code tab's translation moved behind it

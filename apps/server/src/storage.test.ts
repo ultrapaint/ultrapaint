@@ -696,9 +696,9 @@ describe("an unsaved session in a directory the command lends", () => {
       const settings = {
         codeTokens: "auto" as const,
         designsDir: "designs",
-        hostCss: [],
         libraryDirs: [],
         repoPath: repo,
+        stylesheets: [],
       };
 
       const first = yield* Effect.scoped(
@@ -735,9 +735,9 @@ describe("an unsaved session in a directory the command lends", () => {
       const services = settingsOf(repo, { mode: "ephemeral", sessionDir });
       const settings = {
         designsDir: "designs",
-        hostCss: [],
         libraryDirs: [],
         repoPath: repo,
+        stylesheets: [],
       };
       yield* Effect.scoped(
         Effect.gen(function* () {
@@ -790,9 +790,9 @@ describe("an unsaved session in a directory the command lends", () => {
               Layer.provide(
                 RepoPaths.layer({
                   designsDir: "designs",
-                  hostCss: [],
                   libraryDirs: [],
                   repoPath: repo,
+                  stylesheets: [],
                 })
               ),
               Layer.provideMerge(
@@ -867,3 +867,55 @@ eachTest(Detected, { realClock: CONFIG_WATCH })(
     );
   }
 );
+
+describe("the stylesheets of a configuration file (ADR 0165)", () => {
+  /** A repository whose designs are in docs/designs, with its configuration file holding `config`. */
+  const configured = (config: object) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const repo = yield* makeRepository;
+      yield* fs.makeDirectory(`${repo}/docs/designs`, { recursive: true });
+      const configPath = `${repo}/ultrapaint.config.json`;
+      yield* fs.writeFileString(
+        configPath,
+        JSON.stringify({ designsDir: "docs/designs", ...config })
+      );
+      const storage: StorageTarget = {
+        configPath,
+        mode: "file",
+        stateDir: `${repo}/.ultrapaint`,
+      };
+      return { configPath, services: settingsOf(repo, storage) };
+    });
+
+  it.effect(
+    "reads the old hostCss from the repository's root and saves it as stylesheets",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const { configPath, services } = yield* configured({
+          hostCss: ["../../../src/index.css", "@acme/ui/styles.css"],
+        });
+        yield* Effect.scoped(
+          Effect.gen(function* () {
+            const service = yield* SettingsService;
+            const settings = yield* service.get;
+            assert.deepStrictEqual(settings?.stylesheets, [
+              "src/index.css",
+              "@acme/ui/styles.css",
+            ]);
+            assert.notProperty(settings, "hostCss");
+            if (settings) {
+              assert.isTrue((yield* service.set(settings)).ok);
+            }
+          }).pipe(Effect.provide(services))
+        );
+        const saved = JSON.parse(yield* fs.readFileString(configPath));
+        assert.deepStrictEqual(saved.stylesheets, [
+          "src/index.css",
+          "@acme/ui/styles.css",
+        ]);
+        assert.notProperty(saved, "hostCss");
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+});

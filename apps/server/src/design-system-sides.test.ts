@@ -68,7 +68,7 @@ describe("the code's side", () => {
     ProjectTest({
       fileSystem: failingRenames,
       files: { "styles/brand.css": BRAND, "styles/ink.css": INK },
-      settings: { hostCss: ["../../styles/brand.css", "../../styles/ink.css"] },
+      settings: { stylesheets: ["styles/brand.css", "styles/ink.css"] },
     })
   )((it) => {
     it.effect(
@@ -122,7 +122,7 @@ describe("the code's side", () => {
   eachTest(
     ProjectTest({
       files: { "styles/app.css": INK },
-      settings: { hostCss: ["../../styles/app.css"] },
+      settings: { stylesheets: ["styles/app.css"] },
     })
   )((it) => {
     it.effect(
@@ -230,7 +230,7 @@ describe("Figma's side", () => {
           "@theme default {\n  --color-red-500: #ef4444;\n}\n",
         "styles/app.css": `@import "tailwindcss";\n${INK}`,
       },
-      settings: { hostCss: ["../../styles/app.css"] },
+      settings: { stylesheets: ["styles/app.css"] },
     })
   )((it) => {
     it.effect(
@@ -304,7 +304,7 @@ describe("DESIGN.md's side", () => {
   eachTest(
     ProjectTest({
       files: { "styles/app.css": INK },
-      settings: { codeTokens: "auto", hostCss: ["../../styles/app.css"] },
+      settings: { codeTokens: "auto", stylesheets: ["styles/app.css"] },
     })
   )((it) => {
     it.effect(

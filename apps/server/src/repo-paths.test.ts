@@ -37,9 +37,9 @@ describe("RepoPaths.resolve", () => {
           Effect.provide(
             RepoPaths.layer({
               designsDir: "real",
-              hostCss: [],
               libraryDirs: [],
               repoPath: repo,
+              stylesheets: [],
             })
           )
         );
@@ -84,9 +84,9 @@ describe("a designs directory that is a link", () => {
           Effect.provide(
             RepoPaths.layer({
               designsDir: "docs/designs",
-              hostCss: [],
               libraryDirs: [],
               repoPath: repo,
+              stylesheets: [],
             })
           )
         );

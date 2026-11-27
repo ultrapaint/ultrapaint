@@ -13,11 +13,7 @@ import {
   Settings,
   type SettingsValidation,
 } from "@ultrapaint/contracts/settings";
-import {
-  applySuggestions,
-  hostCssFor,
-  stylesheetOf,
-} from "@ultrapaint/contracts/setup";
+import { applySuggestions } from "@ultrapaint/contracts/setup";
 import {
   Context,
   Effect,
@@ -631,14 +627,12 @@ export class ProjectManager extends Context.Service<
             return { problems: ["no folder is open to set up"] };
           }
           const designsDir = change.designsDir?.trim() || settings.designsDir;
-          const [css] = settings.hostCss;
           const stylesheet =
-            change.stylesheet?.trim() ??
-            (css === undefined ? "" : stylesheetOf(settings.designsDir, css));
+            change.stylesheet?.trim() ?? settings.stylesheets[0] ?? "";
           const next: Settings = {
             ...settings,
             designsDir,
-            hostCss: stylesheet ? [hostCssFor(designsDir, stylesheet)] : [],
+            stylesheets: stylesheet ? [stylesheet] : [],
           };
           const made = yield* setup
             .createDesigns({ designsDir, repoPath: settings.repoPath })
