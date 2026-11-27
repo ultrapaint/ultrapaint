@@ -34,18 +34,32 @@ export const Fill = Schema.String.annotate({
     'A colour (a token such as "$color-primary", or CSS), or CSS gradients and images layered over one, top first, with "$color-…" tokens in their stops: "linear-gradient(90deg in oklab, $color-primary, transparent), $color-background". An image is its file, "assets/<file>" as an image\'s src, centred and not repeated at a fit of cover, contain or 100% 100%, its children drawn over it: "linear-gradient(in oklab, $color-scrim, transparent), url(assets/hero.jpg) center / cover no-repeat".',
 });
 
+const SIZE_FORMS = Schema.Literals(["fill", "hug"]);
+const SIZE_DESCRIPTION =
+  '"fill" takes the room the parent leaves, "hug" wraps the content, a number is fixed pixels.';
+
 /**
  * How a node is sized along one axis. `fill` takes the room its parent leaves, `hug` wraps its
  * content, a number is fixed pixels. Left out, the node sizes as its layout naturally would.
  */
-export const Size = Schema.Union([
-  Schema.Literals(["fill", "hug"]),
-  Schema.Number,
-]).annotate({
-  description:
-    '"fill" takes the room the parent leaves, "hug" wraps the content, a number is fixed pixels.',
+export const Size = Schema.Union([SIZE_FORMS, Schema.Number]).annotate({
+  description: SIZE_DESCRIPTION,
 });
 export type Size = typeof Size.Type;
+
+/**
+ * A node's `width` or `height`: a `Size`, refused with every form it takes and the length fields
+ * that take a percentage or a token (UP-242). A string is refused by the literals and anything
+ * else by the union, so both carry the message.
+ */
+const sizeField = (field: "height" | "width") => {
+  const axis = field === "width" ? "Width" : "Height";
+  const message = `${field} takes pixels (a number), "fill" or "hug"; for a percentage or a token, use max${axis} or min${axis}`;
+  return Schema.Union([
+    SIZE_FORMS.annotate({ message }),
+    Schema.Number,
+  ]).annotate({ description: SIZE_DESCRIPTION, message });
+};
 
 export const Sides = Schema.Struct({
   bottom: Schema.optional(Length),
@@ -349,7 +363,7 @@ const boxFields = {
   ),
   border: Schema.optional(Border),
   fill: Schema.optional(Fill),
-  height: Schema.optional(Size),
+  height: Schema.optional(sizeField("height")),
   hidden: Schema.optional(Schema.Boolean),
   id: Schema.String.check(Schema.isMinLength(1)),
   link: Schema.optional(
@@ -383,7 +397,7 @@ const boxFields = {
         "The part of its parent system component this child fills, by the slot's name (\"dialog-footer\"); a child without one fills the system component's default slot.",
     })
   ),
-  width: Schema.optional(Size),
+  width: Schema.optional(sizeField("width")),
   x: Schema.optional(Schema.Number),
   y: Schema.optional(Schema.Number),
 };

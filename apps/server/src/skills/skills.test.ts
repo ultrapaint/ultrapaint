@@ -158,6 +158,8 @@ describe("the design skill's terms in the editor", () => {
     const terms = skillTerms(agentWays(true), "designs", "/cache/abc");
     assert.include(terms, "textStyle");
     assert.include(terms, '"$name"');
+    // A container width is a length field's: width takes pixels, "fill" or "hug" only (UP-242).
+    assert.include(terms, 'maxWidth: "$container-3xl"');
     for (const tool of ["read_design_system", "get_component", "ask_user"]) {
       assert.include(terms, tool);
     }

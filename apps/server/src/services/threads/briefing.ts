@@ -274,7 +274,7 @@ export const skillTerms = (
 ) => {
   const t = ways.tools;
   const lines = [
-    `- A text style is a text's textStyle, a token "$name", a container width "$container-3xl", a shared baseline crossAlign: "baseline"; what sizes to its content is "hug", what takes the room left "fill".`,
+    `- A text style is a text's textStyle, a token "$name", a container width maxWidth: "$container-3xl", a shared baseline crossAlign: "baseline"; what sizes to its content is "hug", what takes the room left "fill".`,
     `- A breakpoint is "at": the smallest width in the node's own fields, then {op: "update", id, at: "md", set: {…}} for what changes from md up; what only a wide screen has is hidden: true with at: {lg: {hidden: false}}. It changes any style field, a text, an instance's props, hidden and order; the tree is one for every width.`,
     "- A transition is a text node beside the page on the canvas, one line each: trigger, what moves, duration, curve; the page shows its end state.",
     ...(t
