@@ -1,4 +1,5 @@
 import type { PageNode } from "@ultrapaint/contracts/document";
+import { CHECK_KINDS } from "@ultrapaint/contracts/review";
 import type { RoundFinding } from "@ultrapaint/contracts/threads";
 import {
   type OffSystemKind,
@@ -12,8 +13,12 @@ import {
 } from "./check-findings.ts";
 import { toRoundFinding } from "./review-rounds.ts";
 
-/** The checks' findings on the pages, none declined before. */
-const checkFindings = (pages: readonly CheckedPage[]) => checksOf(pages).found;
+/** Every kind, groups set too close too: how a kind reads once it is sent again. */
+const EVERY_CHECK = new Set(CHECK_KINDS);
+
+/** The checks' findings on the pages of every kind, none declined before. */
+const checkFindings = (pages: readonly CheckedPage[]) =>
+  checksOf(pages, [], EVERY_CHECK).found;
 
 const value = (
   node: string,
@@ -444,21 +449,27 @@ describe("a check's finding declined before", () => {
       checks: { offSystem: [], rendered: [measured] },
       file: HOME,
     });
-    const declined = checksOf([on(groups)]).found.map(
+    const declined = checksOf([on(groups)], [], EVERY_CHECK).found.map(
       (f): RoundFinding => ({ ...toRoundFinding(f), declined: "one panel" })
     );
-    expect(checksOf([on(groups)], declined).found).toEqual([]);
+    expect(checksOf([on(groups)], declined, EVERY_CHECK).found).toEqual([]);
     expect(
-      checksOf([on({ ...groups, box: { ...groups.box, y: 300 } })], declined)
-        .found
+      checksOf(
+        [on({ ...groups, box: { ...groups.box, y: 300 } })],
+        declined,
+        EVERY_CHECK
+      ).found
     ).toEqual([]);
     expect(
-      checksOf([on({ ...groups, between: 24 })], declined).found.map(
-        (f) => f.finding.title
-      )
+      checksOf(
+        [on({ ...groups, between: 24 })],
+        declined,
+        EVERY_CHECK
+      ).found.map((f) => f.finding.title)
     ).toEqual(["“System components” too close to “App components”"]);
     expect(
-      checksOf([on({ ...groups, below: "Templates" })], declined).found
+      checksOf([on({ ...groups, below: "Templates" })], declined, EVERY_CHECK)
+        .found
     ).toHaveLength(1);
   });
 

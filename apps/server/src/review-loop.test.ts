@@ -952,7 +952,7 @@ describe("the checks' findings", () => {
     "go to the designer after the reviewers', each marked as a check's with what it measured",
     () =>
       Effect.gen(function* () {
-        yield* anEditor([GROUPS, TOUCHING]);
+        yield* anEditor([TOUCHING]);
         const { designer } = yield* designed({ padding: 13 });
         const reviewing = yield* nextReviewer;
         yield* reviewing.turn.say(answer([finding("Loud title")], false));
@@ -964,16 +964,28 @@ describe("the checks' findings", () => {
         );
         assert.include(
           told,
-          "2. **“System components” too close to “App components”** (“App components” and “System components”; a check's, spacing): groups: 27px between “App components” and “System components”, 10px between the lines below: under 3×"
+          "2. **Rows touching in “Files”** (the rows of “Files”; a check's, spacing): touching rows: rows of 28px"
         );
         assert.include(
           told,
-          "3. **Rows touching in “Files”** (the rows of “Files”; a check's, spacing): touching rows: rows of 28px"
+          "3. **Hand-set spacing 13px on c_1** (c_1 (`padding`); a check's, spacing): off the system: 13px spacing, 1 place"
         );
-        assert.include(
-          told,
-          "4. **Hand-set spacing 13px on c_1** (c_1 (`padding`); a check's, spacing): off the system: 13px spacing, 1 place"
-        );
+      }).pipe(Effect.scoped)
+  );
+
+  drawnTest(
+    "leave out groups set too close, read near 10 to 20% real (ADR 0081 §3)",
+    () =>
+      Effect.gen(function* () {
+        yield* anEditor([GROUPS, TOUCHING]);
+        const { designer } = yield* designed();
+        const reviewing = yield* nextReviewer;
+        yield* reviewing.turn.say(answer([finding("Loud title")], false));
+        yield* reviewing.turn.end();
+        const told = (yield* designer.nextTurn).texts.join("\n");
+        assert.include(told, "2. **Rows touching in “Files”**");
+        assert.notInclude(told, "System components");
+        assert.notInclude(told, "too close");
       }).pipe(Effect.scoped)
   );
 
