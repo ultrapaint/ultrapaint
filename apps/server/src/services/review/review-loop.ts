@@ -54,7 +54,7 @@ import { RepoPaths } from "../repo-paths.ts";
 import { AgentConfigs } from "../threads/agent-configs.ts";
 import { ChatPreferences } from "../threads/chat-preferences.ts";
 import { ThreadStore } from "../threads/thread-store.ts";
-import { checkFindings } from "./check-findings.ts";
+import { type Checked, checksOf } from "./check-findings.ts";
 import { makeFindingsLog } from "./findings-log.ts";
 import { makePageViews } from "./page-views.ts";
 import {
@@ -74,7 +74,6 @@ import {
   isSent,
   keptOnSecondLook,
   listedInRound,
-  notDeclined,
   REVIEW_TIMEOUT,
   type ReviewItem,
   reviewerResult,
@@ -88,11 +87,15 @@ import {
   turnsOf,
 } from "./review-rounds.ts";
 import { makeReviewer, ReviewerFailure } from "./reviewer.ts";
+import { makeTurnBefores } from "./turn-befores.ts";
 
 /** A round the thread's review is due: the pages it looks at, and where the run stands. */
 export interface DueRound {
-  /** The titles of the checks' findings the designer declined in the run: not sent again. */
-  readonly declinedChecks: readonly string[];
+  /**
+   * The checks' findings the designer declined in the thread (ADR 0156): what they name, as it
+   * read then, is not sent again.
+   */
+  readonly declinedChecks: readonly RoundFinding[];
   /** The round's number, from 1. */
   readonly number: number;
   /**
@@ -107,6 +110,11 @@ export interface DueRound {
   /** What the person asked, which the reviewers keep to. */
   readonly request: string;
   readonly settings: ReviewSettings;
+  /**
+   * When the thread's last round started (0 before any): the turns that ended after it are the
+   * ones this round covers, and the checks read what they changed (ADR 0156).
+   */
+  readonly since: number;
   /** How many rounds were reviewed in turn so far: who reviews this one. */
   readonly turns: number;
 }
@@ -136,6 +144,17 @@ const outcomeOf = (
     verdict.reason === "budget";
   return { end: roundEndOf(verdict), send: capped && sent > 0 };
 };
+
+/** When the thread's last round started; 0 before any. */
+const lastRoundAt = (items: readonly ThreadItem[]) =>
+  items.findLast((i) => i.kind === "review")?.at ?? 0;
+
+/**
+ * The checks' findings a round that ends as `end` lists, and the declines they carried: none
+ * when no model could score the design, which sends nothing, the checks' findings included.
+ */
+const checkedAtEnd = (checked: Checked, end: ReviewItem["end"]): Checked =>
+  end?.reason === "no-scores" ? { carried: [], found: [] } : checked;
 
 /** What the review shows when nobody can review. */
 const NOBODY =
@@ -188,8 +207,12 @@ interface RoundState {
 
 /** What every round of one review shares. */
 interface Review {
-  /** The checks' findings on its pages (ADR 0081), sent with the round's outcome. */
-  readonly checks: readonly Found[];
+  /**
+   * The checks' findings on its pages (ADR 0081), sent with the round's outcome, and the
+   * declines carried, which held back what the checks measured again (ADR 0156): listed in the
+   * round after the rest, never sent or logged again.
+   */
+  readonly checked: Checked;
   /** The round under way, which a stop ends. */
   current: string | null;
   readonly maxRounds: number;
@@ -253,6 +276,7 @@ export class ReviewLoop extends Context.Service<
       const path = yield* Path.Path;
       const lookWith = yield* makeReviewer();
       const viewsOf = yield* makePageViews();
+      const beforesOf = yield* makeTurnBefores();
       const findingsLog = yield* makeFindingsLog();
       const profile = yield* ProfileService;
       const newItemId = makeId("item");
@@ -348,7 +372,11 @@ export class ReviewLoop extends Context.Service<
         // A turn stopped answered nothing.
         const declined = cancelled
           ? new Map<number, string>()
-          : declinedOf(saidSinceLastPrompt(items), round.findings);
+          : // A decline carried is none of the round's to answer: it comes after those that are.
+            declinedOf(
+              saidSinceLastPrompt(items),
+              round.findings.filter((f) => f.carried !== true)
+            );
         const asked = askedOf.get(round.id);
         askedOf.delete(round.id);
         if (!cancelled) {
@@ -443,7 +471,7 @@ export class ReviewLoop extends Context.Service<
         lastPages.set(threadId, pages);
         const last = run.rounds.at(-1);
         const round: DueRound = {
-          declinedChecks: declinedChecksOf(run.rounds),
+          declinedChecks: declinedChecksOf(items),
           number: run.rounds.length + 1,
           // The reviewers' findings only: a second look is never shown the checks' (ADR 0081).
           open: (last?.findings ?? []).filter(
@@ -454,6 +482,7 @@ export class ReviewLoop extends Context.Service<
           previous: run.rounds.map(roundOf),
           request: run.request,
           settings,
+          since: lastRoundAt(items),
           turns: turnsOf(run.rounds),
         };
         return round;
@@ -633,14 +662,14 @@ export class ReviewLoop extends Context.Service<
       ): Effect.fn.Return<ToDesigner | null> {
         const { logged, sent, verdict } = round;
         const { end, send } = outcomeOf(sent.length, verdict);
-        // A review no model could score sends nothing, the checks' findings included.
-        const checks = end?.reason === "no-scores" ? [] : review.checks;
+        const { carried, found: checks } = checkedAtEnd(review.checked, end);
         const listed = listedInRound(state.found, checks, send);
-        if (end !== undefined || checks.length > 0) {
+        if (end !== undefined || checks.length > 0 || carried.length > 0) {
           yield* patchRound(review.threadId, state.id, (item) => ({
             ...item,
             ...(end !== undefined && { end }),
-            findings: listed.map(toRoundFinding),
+            // The declines carried come last: the designer's numbers are the list's before them.
+            findings: [...listed.map(toRoundFinding), ...carried],
           }));
         }
         if (!send && checks.length === 0) {
@@ -766,13 +795,19 @@ export class ReviewLoop extends Context.Service<
         const { settings } = round;
         const chosen = settings.reviewModels ?? [];
         const models = chosen.length > 0 ? chosen : yield* strongest;
-        const views =
-          paths === null ? [] : yield* viewsOf(paths.root, round.pages);
-        if (paths === null || views.length === 0) {
+        if (paths === null) {
+          return null;
+        }
+        const views = yield* viewsOf(
+          paths.root,
+          round.pages,
+          yield* beforesOf(threadId, round.since, round.pages)
+        );
+        if (views.length === 0) {
           return null;
         }
         const started: Review = {
-          checks: notDeclined(checkFindings(views), round.declinedChecks),
+          checked: checksOf(views, round.declinedChecks),
           current: null,
           maxRounds: settings.goal?.maxRounds ?? MAX_ROUNDS,
           models,

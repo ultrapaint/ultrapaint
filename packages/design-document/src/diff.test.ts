@@ -6,7 +6,12 @@ import type {
   TextNode,
 } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
-import { describeDiff, diffTrees, isEmptyDiff } from "./diff.ts";
+import {
+  changedNodeIds,
+  describeDiff,
+  diffTrees,
+  isEmptyDiff,
+} from "./diff.ts";
 
 const text = (id: string, value = id): TextNode => ({
   id,
@@ -293,6 +298,28 @@ describe("diffTrees", () => {
     const diff = diffTrees(before, after);
     expect(diff.changed.map((c) => c.id)).toEqual(["c", "sub"]);
     expect(diff.moved.map((m) => m.id)).toEqual(["body", "c", "sub"]);
+  });
+});
+
+describe("changedNodeIds", () => {
+  it("names the nodes whose own fields changed and every node of an added subtree, not one moved or a parent of a change", () => {
+    const after = page([
+      column(
+        "header",
+        [text("sub", "Subtitle"), text("title", "A new title")],
+        "Header"
+      ),
+      column("body", [text("a"), text("b")], "Body"),
+      column("footer", [text("note"), column("links", [text("x")])]),
+    ]);
+    expect([...changedNodeIds(diffTrees(before, after))].sort()).toEqual([
+      "footer",
+      "links",
+      "note",
+      "title",
+      "x",
+    ]);
+    expect(changedNodeIds(diffTrees(before, before)).size).toBe(0);
   });
 });
 

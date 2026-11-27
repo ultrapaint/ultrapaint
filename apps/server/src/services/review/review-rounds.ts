@@ -21,6 +21,7 @@ import {
   type Verdict,
 } from "@ultrapaint/contracts/review";
 import type {
+  CheckPlace,
   ReviewEnd,
   RoundFinding,
   RoundReviewer,
@@ -367,6 +368,8 @@ export interface Found {
   readonly check?: CheckKind | undefined;
   readonly finding: Finding;
   readonly page: string;
+  /** A check's: what it is about, so that a decline of it is remembered (ADR 0156). */
+  readonly places?: readonly CheckPlace[] | undefined;
   readonly reviewer: string;
 }
 
@@ -408,8 +411,10 @@ export const mergeFound = (
         : a
     );
     const pages = [...new Set(group.map((f) => f.page))];
+    const places = group.flatMap((f) => f.places ?? []);
     return {
       ...worst,
+      ...(places.length > 0 && { places }),
       finding: {
         ...worst.finding,
         where: `${worst.finding.where}, on ${pages.length} pages (${pages.map(pageName).join(", ")})`,
@@ -423,6 +428,7 @@ export const toRoundFinding = (f: Found): RoundFinding => ({
   category: f.finding.category,
   ...(f.check !== undefined && { check: f.check }),
   fix: f.finding.fix,
+  ...(f.places !== undefined && { places: [...f.places] }),
   problem: f.finding.problem,
   reviewer: f.reviewer,
   severity: f.finding.severity,
@@ -483,24 +489,25 @@ export const listedInRound = (
 };
 
 /**
- * The checks' findings the designer declined in a run's rounds, by title: what the checks
- * measure again is not sent again once declined (ADR 0081).
+ * The checks' findings the designer declined in the thread, in any of its rounds, as they were
+ * declined (ADR 0156): what the checks measure again in the places one names, while each reads
+ * the same, is not sent again. A decline carried into a later round is the one it was, and a
+ * finding stored without its places names none.
  */
 export const declinedChecksOf = (
-  rounds: readonly ReviewItem[]
-): readonly string[] =>
-  rounds.flatMap((r) =>
-    r.findings.flatMap((f) =>
-      f.check !== undefined && f.declined !== undefined ? [normal(f.title)] : []
-    )
+  items: readonly ThreadItem[]
+): readonly RoundFinding[] =>
+  items.flatMap((i) =>
+    i.kind === "review"
+      ? i.findings.filter(
+          (f) =>
+            f.check !== undefined &&
+            f.declined !== undefined &&
+            f.carried !== true &&
+            (f.places ?? []).length > 0
+        )
+      : []
   );
-
-/** The checks' findings not declined before, by their titles (`declinedChecksOf`). */
-export const notDeclined = (
-  checks: readonly Found[],
-  declined: readonly string[]
-): readonly Found[] =>
-  checks.filter((f) => !declined.includes(normal(f.finding.title)));
 
 /**
  * In a round that looks again (the second), what a model may give: a finding it was sent before
@@ -572,13 +579,16 @@ export const answeredRound = (
    */
   asked?: number
 ): ReviewItem => {
+  // A decline carried from an earlier round is not this round's to answer (ADR 0156).
   const wasSent = (f: RoundFinding, i: number) =>
-    asked === undefined ? isSent(f) : i < asked;
+    f.carried !== true && (asked === undefined ? isSent(f) : i < asked);
   return {
     ...item,
     findings: item.findings.map((f, i) => {
       const reason = declined.get(i);
-      return reason === undefined ? f : { ...f, declined: reason };
+      return reason === undefined || f.carried === true
+        ? f
+        : { ...f, declined: reason };
     }),
     // What the designer was sent (ADR 0063, 0081), less what it declined.
     fixed: item.findings.filter((f, i) => wasSent(f, i) && !declined.has(i))

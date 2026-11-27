@@ -194,4 +194,37 @@ describe("values off the design system", () => {
       )
     ).toEqual([]);
   });
+
+  it("names each value's node by its id beside its name, with the node's fields of its kind as they are", () => {
+    const card = {
+      children: [],
+      gap: 11,
+      id: "c_card",
+      name: "Card",
+      padding: { left: "$spacing-4", top: 19 },
+      radius: 14,
+      type: "column",
+    } as const;
+    const found = offSystemValues(page([card]));
+    expect(found.map((f) => [f.id, f.node, f.field])).toEqual([
+      ["c_card", "Card", "gap"],
+      ["c_card", "Card", "radius"],
+      ["c_card", "Card", "padding.top"],
+    ]);
+    const [gap, radius, top] = found;
+    // The spacing values of one node read its spacing fields alike, the token among them.
+    expect(gap?.fields).toBe(top?.fields);
+    expect(gap?.fields).not.toBe(radius?.fields);
+    const again = (more: object) =>
+      offSystemValues(page([{ ...card, ...more }]))[0]?.fields;
+    // A change of a field of its kind is a change; one of another kind, or of its text, is not.
+    expect(again({ padding: { left: "$spacing-4", top: 20 } })).not.toBe(
+      gap?.fields
+    );
+    expect(again({ padding: { left: "$spacing-2", top: 19 } })).not.toBe(
+      gap?.fields
+    );
+    expect(again({ radius: 12 })).toBe(gap?.fields);
+    expect(again({ name: "Panel" })).toBe(gap?.fields);
+  });
 });

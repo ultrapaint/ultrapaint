@@ -4,7 +4,8 @@
  * editor draws the pictures: with none open, or one that can't, the page goes without one and
  * the review says why. Beside them, for the designer and never for the reviewers (ADR 0081), what
  * the checks measured: the values its document sets by hand where the design system has a token,
- * and what the editor measured on the page it drew, when it could.
+ * and what the editor measured on the page it drew, when it could, on what the turns changed
+ * (ADR 0156).
  */
 import { PageDocument } from "@ultrapaint/contracts/document";
 import { presetSize } from "@ultrapaint/contracts/pages";
@@ -23,7 +24,9 @@ import { OpenProject } from "../../project.ts";
 import { DocumentService } from "../documents.ts";
 import { PagesService } from "../pages.ts";
 import { Screenshots } from "../screenshots.ts";
+import { checksOnChanges } from "./check-findings.ts";
 import type { PageView } from "./review-prompts.ts";
+import type { Befores } from "./turn-befores.ts";
 
 const encodeDocument = Schema.encodeEffect(
   Schema.fromJsonString(Schema.Unknown)
@@ -140,8 +143,15 @@ export const makePageViews = Effect.fnUntraced(function* () {
     return view;
   });
 
-  /** Each page as the reviewers see it; a page deleted since is left out. */
-  return Effect.fnUntraced(function* (root: string, files: readonly string[]) {
+  /**
+   * Each page as the reviewers see it; a page deleted since is left out. Its checks read what
+   * changed since its before, when it has one.
+   */
+  return Effect.fnUntraced(function* (
+    root: string,
+    files: readonly string[],
+    befores: Befores
+  ) {
     const editors = Option.getOrElse(
       yield* Stream.runHead(screenshots.editors),
       () => 0
@@ -169,12 +179,13 @@ export const makePageViews = Effect.fnUntraced(function* () {
           : Option.none();
         const { rendered, ...drawnView } = yield* pictureOf(file, editors);
         views.push({
-          checks: {
-            offSystem: Option.isSome(page)
-              ? offSystemValues(page.value.root)
-              : [],
-            rendered,
-          },
+          checks: Option.isSome(page)
+            ? checksOnChanges(
+                { offSystem: offSystemValues(page.value.root), rendered },
+                befores.get(file),
+                page.value.root
+              )
+            : { offSystem: [], rendered },
           document,
           file,
           ...drawnView,

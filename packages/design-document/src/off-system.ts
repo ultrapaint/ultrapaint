@@ -43,6 +43,13 @@ export type OffSystemKind =
 export interface OffSystemValue {
   /** The field, with its side or breakpoint: `padding.top`, `at.md.gap`, `border.color`. */
   readonly field: string;
+  /**
+   * The node's fields of this kind, with its breakpoints', as one string, their values on the
+   * system or off: what a decline of the value holds to while it reads the same (ADR 0156).
+   */
+  readonly fields: string;
+  /** The node's id. */
+  readonly id: string;
   readonly kind: OffSystemKind;
   /**
    * The fill layer the value is (ADR 0134): one of a gradient's stops, or a colour layer among
@@ -207,13 +214,21 @@ const rawLayersOf = (
   });
 };
 
+/** The node a value is on: its id, its name, and its fields of each kind as one string. */
+interface ValueNode {
+  readonly fieldsOf: (kind: OffSystemKind) => string;
+  readonly id: string;
+  readonly name: string;
+}
+
 /** One node's fields (its own, or a breakpoint's), each value a token was due for and isn't. */
 const offIn = (
   fields: Readonly<Record<string, unknown>>,
   prefix: string,
-  node: string,
+  owner: ValueNode,
   spacingBase: number
 ): OffSystemValue[] => {
+  const { fieldsOf, id, name: node } = owner;
   const found: OffSystemValue[] = [];
   const check = (field: string, kind: OffSystemKind, value: unknown) => {
     // A shadow list is reported shadow by shadow: the raw one, not the list it is in.
@@ -229,19 +244,52 @@ const offIn = (
     if (layers !== undefined) {
       for (const { color, layer } of layers) {
         if (!found.some((f) => f.field === field && f.value === color)) {
-          found.push({ field, kind, layer, node, value: color });
+          found.push({
+            field,
+            fields: fieldsOf(kind),
+            id,
+            kind,
+            layer,
+            node,
+            value: color,
+          });
         }
       }
       return;
     }
     if (isOffSystem(kind, value, spacingBase)) {
-      found.push({ field, kind, node, value: value as string | number });
+      found.push({
+        field,
+        fields: fieldsOf(kind),
+        id,
+        kind,
+        node,
+        value: value as string | number,
+      });
     }
   };
   for (const { field, kind, value } of tokenFieldsOf(fields, prefix)) {
     check(field, kind, value);
   }
   return found;
+};
+
+/** A node's own fields, and each breakpoint's with the node's type, as the check reads them. */
+const fieldSetsOf = (node: DesignNode) => {
+  const fields = node as unknown as Readonly<Record<string, unknown>>;
+  const sets: (readonly [Readonly<Record<string, unknown>>, string])[] = [
+    [fields, ""],
+  ];
+  const { at } = fields;
+  if (typeof at === "object" && at !== null) {
+    for (const [breakpoint, over] of Object.entries(at)) {
+      sets.push([
+        { ...(over as Record<string, unknown>), type: node.type },
+        `at.${breakpoint}.`,
+      ]);
+    }
+  }
+  return sets;
 };
 
 /** Every value in a page's tree that is the design's own where the design system has a token. */
@@ -251,22 +299,25 @@ export const offSystemValues = (
 ): readonly OffSystemValue[] => {
   const found: OffSystemValue[] = [];
   const visit = (node: DesignNode) => {
-    const name = node.name ?? node.id;
     if (node.type !== "instance") {
-      const fields = node as unknown as Readonly<Record<string, unknown>>;
-      found.push(...offIn(fields, "", name, spacingBase));
-      const { at } = fields;
-      if (typeof at === "object" && at !== null) {
-        for (const [breakpoint, over] of Object.entries(at)) {
-          found.push(
-            ...offIn(
-              { ...(over as Record<string, unknown>), type: node.type },
-              `at.${breakpoint}.`,
-              name,
-              spacingBase
+      const sets = fieldSetsOf(node);
+      const fieldsOf = (kind: OffSystemKind) =>
+        JSON.stringify(
+          sets.flatMap(([fields, prefix]) =>
+            tokenFieldsOf(fields, prefix).flatMap((f) =>
+              f.kind === kind && f.value !== undefined
+                ? [[f.field, f.value]]
+                : []
             )
-          );
-        }
+          )
+        );
+      const owner: ValueNode = {
+        fieldsOf,
+        id: node.id,
+        name: node.name ?? node.id,
+      };
+      for (const [fields, prefix] of sets) {
+        found.push(...offIn(fields, prefix, owner, spacingBase));
       }
     }
     for (const child of childrenOf(node)) {

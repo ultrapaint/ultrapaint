@@ -142,15 +142,28 @@ const ReviewerLine = ({ reviewer }: { reviewer: RoundReviewer }) => (
   </div>
 );
 
+/** How a declined finding says why: a check's as a measurement (ADR 0081), one carried too (ADR 0156). */
+const declinedAs = (f: ReviewItem["findings"][number]) => {
+  if (f.check === undefined) {
+    return "Declined";
+  }
+  return f.carried === true
+    ? "Declined check in an earlier round"
+    : "Declined check";
+};
+
 /**
  * A round's body: who looked, and what the designer fixed and declined with its reasons. A
- * declined check's finding says so (ADR 0081), as a measurement and not a reviewer's judgement.
+ * declined check's finding says so (ADR 0081), as a measurement and not a reviewer's judgement,
+ * and one declined in an earlier round, which held back what the checks measured again, says
+ * that too (ADR 0156): it is not this round's answer.
  */
 const RoundBody = ({ item }: { item: ReviewItem }) => {
   const declined = item.findings.filter((f) => f.declined !== undefined);
+  const declinedNow = declined.filter((f) => f.carried !== true).length;
   const answered = [
     item.fixed !== undefined && item.fixed > 0 ? `${item.fixed} fixed` : null,
-    declined.length > 0 ? `${declined.length} declined` : null,
+    declinedNow > 0 ? `${declinedNow} declined` : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -174,8 +187,7 @@ const RoundBody = ({ item }: { item: ReviewItem }) => {
             <li className="flex flex-col" key={`${f.reviewer}:${f.title}`}>
               <span className="font-body-medium">{f.title}</span>
               <span className="font-body-small text-muted-foreground">
-                {f.check === undefined ? "Declined" : "Declined check"}:{" "}
-                {f.declined}
+                {declinedAs(f)}: {f.declined}
               </span>
             </li>
           ))}

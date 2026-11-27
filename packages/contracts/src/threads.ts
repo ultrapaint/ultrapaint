@@ -634,8 +634,28 @@ export const RoundReviewer = Schema.Struct({
 });
 export type RoundReviewer = typeof RoundReviewer.Type;
 
+/**
+ * One place a check's finding is about (ADR 0156): a page, a node on it, and the node's fields the
+ * check read, as one string. A decline of the finding holds for the place while all three read
+ * the same.
+ */
+export const CheckPlace = Schema.Struct({
+  /** The node's fields of the finding's kind; for a rendered check, what it measured. */
+  fields: Schema.String,
+  /** The node's id; for a rendered check, the labels of the blocks it measured. */
+  node: Schema.String,
+  /** The page's file, repository-relative. */
+  page: Schema.String,
+});
+export type CheckPlace = typeof CheckPlace.Type;
+
 /** A finding as the transcript shows it, with the designer's answer once it has one. */
 export const RoundFinding = Schema.Struct({
+  /**
+   * A check's finding the designer declined in an earlier round, which held back what the checks
+   * measured again in this one: listed, never sent (ADR 0156).
+   */
+  carried: Schema.optional(Schema.Boolean),
   category: Category,
   /**
    * The check that measured it (ADR 0081), sent to the designer beside the reviewers' and never
@@ -645,6 +665,8 @@ export const RoundFinding = Schema.Struct({
   /** The designer's reason when it declined it. */
   declined: Schema.optional(Schema.String),
   fix: Schema.String,
+  /** A check's finding: what it is about, so that a decline of it is remembered (ADR 0156). */
+  places: Schema.optional(Schema.Array(CheckPlace)),
   problem: Schema.String,
   /** Who found it, by `RoundReviewer.key`; `check` for a check's. */
   reviewer: Schema.String,

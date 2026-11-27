@@ -29,7 +29,10 @@ import { Screenshots } from "./services/screenshots.ts";
 import { ThreadSessions } from "./services/threads/thread-session.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
 import { perTest } from "./testing/each-test.ts";
-import { ScriptedAgents } from "./testing/scripted-agents.ts";
+import {
+  type LaunchedAgent,
+  ScriptedAgents,
+} from "./testing/scripted-agents.ts";
 import {
   briefingFor,
   onThread,
@@ -127,12 +130,61 @@ const designed = Effect.fnUntraced(function* (
   return { designer, threadId };
 });
 
+/**
+ * The person prompts the design thread again, and the designer's turn writes its page with a
+ * root of `fields`, as `designed` wrote it, and ends.
+ */
+const designTurn = Effect.fnUntraced(function* (
+  threadId: string,
+  designer: LaunchedAgent,
+  fields: object
+) {
+  const { repo } = yield* ThreadFixture;
+  yield* promptThread({ attachments: [], text: "Once more", threadId });
+  const turn = yield* designer.nextTurn;
+  yield* designer.host.writeTextFile({
+    content: `${JSON.stringify({ root: { children: [], id: "c_1", type: "page", ...fields }, version: 1 })}\n`,
+    path: path.join(repo, PAGE),
+    sessionId: turn.sessionId,
+  });
+  yield* turn.end();
+});
+
 /** The next review model started, and the prompt it was given. */
 const nextReviewer = Effect.gen(function* () {
   const agents = yield* ScriptedAgents;
   const reviewer = yield* agents.next;
   const turn = yield* reviewer.nextTurn;
   return { reviewer, turn };
+});
+
+/**
+ * A design whose root's 13px padding the designer declined in the first run, then a prompt of
+ * the person's naming the page: its root changed, its spacing as it was declined. Its review
+ * model approves. The findings log is kept.
+ */
+const declinedThenNamed = Effect.gen(function* () {
+  const { designer, threadId } = yield* designed({
+    padding: 13,
+    review: { findingsLog: true },
+  });
+  const first = yield* nextReviewer;
+  yield* first.turn.say(answer([], true));
+  yield* first.turn.end();
+  const fixing = yield* designer.nextTurn;
+  assert.include(
+    fixing.texts.join("\n"),
+    "1. **Hand-set spacing 13px on c_1**"
+  );
+  yield* fixing.say("Declined: 1 — the page's own inset");
+  yield* fixing.end();
+  yield* threadWhen(threadId, turnsEnded(2));
+  yield* TestClock.adjust("1 second");
+  yield* designTurn(threadId, designer, { name: "Home", padding: 13 });
+  const second = yield* nextReviewer;
+  yield* second.turn.say(answer([], true));
+  yield* second.turn.end();
+  return { designer, threadId };
 });
 
 const reviewsOf = (items: readonly ThreadItem[]) =>
@@ -905,11 +957,98 @@ describe("the checks' findings", () => {
         const { items } = yield* threadWhen(threadId, reviewEnded);
         const rounds = reviewsOf(items);
         assert.strictEqual(rounds[1]?.end?.reason, "approved");
-        assert.deepStrictEqual(rounds[1]?.findings, []);
+        // Listed in the round as the decline it was, carried, and not sent.
+        assert.deepStrictEqual(
+          rounds[1]?.findings.map((f) => [f.title, f.declined, f.carried]),
+          [["Rows touching in “Files”", "one strip by design", true]]
+        );
         // The person's request and the first round's findings: nothing more is asked.
         assert.strictEqual(items.filter((i) => i.kind === "user").length, 2);
       }).pipe(Effect.scoped)
   );
+
+  test("hold a finding declined in one of the thread's runs back from the next, carried in its round", () =>
+    Effect.gen(function* () {
+      const { threadId } = yield* declinedThenNamed;
+      const { items } = yield* threadWhen(
+        threadId,
+        (t, all) => reviewsOf(all).length === 2 && reviewEnded(t, all)
+      );
+      assert.strictEqual(reviewsOf(items)[1]?.end?.reason, "approved");
+      assert.deepStrictEqual(
+        reviewsOf(items)[1]?.findings.map((f) => [
+          f.title,
+          f.declined,
+          f.carried,
+        ]),
+        [["Hand-set spacing 13px on c_1", "the page's own inset", true]]
+      );
+      // Two prompts of the person's and the first round's findings: nothing more is asked.
+      assert.strictEqual(items.filter((i) => i.kind === "user").length, 3);
+    }));
+
+  test("log a decline carried into a later run once, with its kind", () =>
+    Effect.gen(function* () {
+      const { threadId } = yield* declinedThenNamed;
+      yield* threadWhen(
+        threadId,
+        (t, all) => reviewsOf(all).length === 2 && reviewEnded(t, all)
+      );
+      assert.deepStrictEqual(
+        (yield* logged).map((l) => [l.check, l.designer]),
+        [["off-system", { did: "declined", reason: "the page's own inset" }]]
+      );
+    }));
+
+  test("send a finding declined before again once its node has another value of its kind", () =>
+    Effect.gen(function* () {
+      const { designer, threadId } = yield* declinedThenNamed;
+      yield* threadWhen(
+        threadId,
+        (t, all) => reviewsOf(all).length === 2 && reviewEnded(t, all)
+      );
+      // A wider inset is another value on the node: the finding comes back.
+      yield* TestClock.adjust("1 second");
+      yield* designTurn(threadId, designer, { name: "Home", padding: 15 });
+      const third = yield* nextReviewer;
+      yield* third.turn.say(answer([], true));
+      yield* third.turn.end();
+      assert.include(
+        (yield* designer.nextTurn).texts.join("\n"),
+        "1. **Hand-set spacing 15px on Home**"
+      );
+    }));
+
+  test("read only the nodes the turn changed on a page made before it", () =>
+    Effect.gen(function* () {
+      const { designer, threadId } = yield* designed({ padding: 13 });
+      const first = yield* nextReviewer;
+      yield* first.turn.say(answer([], true));
+      yield* first.turn.end();
+      yield* Effect.andThen(designer.nextTurn, (t) => t.end());
+      yield* threadWhen(threadId, turnsEnded(2));
+      yield* TestClock.adjust("1 second");
+      // A footer added, its text size set by hand; the root's 13px left as it was.
+      yield* designTurn(threadId, designer, {
+        children: [
+          {
+            id: "c_2",
+            name: "Footer",
+            role: "paragraph",
+            size: 15,
+            text: "Made with care",
+            type: "text",
+          },
+        ],
+        padding: 13,
+      });
+      const second = yield* nextReviewer;
+      yield* second.turn.say(answer([], true));
+      yield* second.turn.end();
+      const told = (yield* designer.nextTurn).texts.join("\n");
+      assert.include(told, "1. **Hand-set text size 15px on Footer**");
+      assert.notInclude(told, "13px");
+    }));
 
   drawnTest("go nowhere when no review model could score the design", () =>
     Effect.gen(function* () {

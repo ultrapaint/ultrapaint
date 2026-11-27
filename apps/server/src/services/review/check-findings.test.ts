@@ -1,19 +1,35 @@
+import type { PageNode } from "@ultrapaint/contracts/document";
+import type { RoundFinding } from "@ultrapaint/contracts/threads";
+import {
+  type OffSystemKind,
+  offSystemValues,
+} from "@ultrapaint/design-document/off-system";
 import { describe, expect, it } from "vitest";
-import { checkFindings } from "./check-findings.ts";
+import {
+  type CheckedPage,
+  checksOf,
+  checksOnChanges,
+} from "./check-findings.ts";
+import { toRoundFinding } from "./review-rounds.ts";
+
+/** The checks' findings on the pages, none declined before. */
+const checkFindings = (pages: readonly CheckedPage[]) => checksOf(pages).found;
 
 const value = (
   node: string,
   v: number | string,
-  kind = "spacing" as const
+  kind: OffSystemKind = "spacing"
 ) => ({
   field: "padding.top",
+  fields: `[["padding.top",${JSON.stringify(v)}]]`,
+  id: `n_${node}`,
   kind,
   node,
   value: v,
 });
 
 describe("the checks' findings for the designer", () => {
-  it("group the values off the system by value, the most places first, naming five and counting the rest", () => {
+  it("group the values off the system by kind, the values with the most places first, naming five places and counting the rest", () => {
     const found = checkFindings([
       {
         checks: {
@@ -34,15 +50,14 @@ describe("the checks' findings for the designer", () => {
     expect(
       found.map((f) => [f.check, f.finding.title, f.finding.severity])
     ).toEqual([
-      ["off-system", "Hand-set spacing 6px on Row 1 and others", "minor"],
-      ["off-system", "Hand-set spacing 13px on Title", "minor"],
+      ["off-system", "10 hand-set spacing values on Row 1 and others", "minor"],
     ]);
-    const [six] = found;
-    expect(six?.finding.problem).toBe(
-      "off the system: 6px spacing, 9 places, set by hand where the design system has a token."
+    const [spacing] = found;
+    expect(spacing?.finding.problem).toBe(
+      "off the system: 10 spacing values set by hand where the design system has a token: 6px (9 places), 13px (1 place)."
     );
-    expect(six?.finding.where).toBe(
-      "Row 1 (`padding.top`) on home, Row 2 (`padding.top`) on home, Row 3 (`padding.top`) on home, Row 4 (`padding.top`) on home, Row 5 (`padding.top`) on home and 4 more, on 2 pages"
+    expect(spacing?.finding.where).toBe(
+      "Row 1 (`padding.top`) on home, Row 2 (`padding.top`) on home, Row 3 (`padding.top`) on home, Row 4 (`padding.top`) on home, Row 5 (`padding.top`) on home and 5 more, on 2 pages"
     );
   });
 
@@ -158,23 +173,22 @@ describe("the checks' findings for the designer", () => {
         checks: {
           offSystem: [
             {
+              ...value("Hero", "rgba(12, 10, 40, 0.6)", "color"),
               field: "fill",
               kind: "color",
               layer: "gradient",
-              node: "Hero",
-              value: "rgba(12, 10, 40, 0.6)",
             },
             {
+              ...value("Heading", "", "font"),
               field: "font",
               kind: "font",
-              node: "Heading",
               value:
                 '"Instrument Sans", "Helvetica Neue", system-ui, sans-serif',
             },
             ...["Plan", "Plan", "Footer"].map((node) => ({
+              ...value(node, "", "color"),
               field: "color",
               kind: "color" as const,
-              node,
               value: "color-mix(in oklab, #1f2937 80%, transparent)",
             })),
           ],
@@ -184,8 +198,7 @@ describe("the checks' findings for the designer", () => {
       },
     ]);
     expect(found.map((f) => f.finding.title)).toEqual([
-      "Hand-set colour color-mix(…) on Plan and others",
-      "Hand-set colour rgba(12, 10, 40, 0.6) in a gradient on Hero",
+      "4 hand-set colours on Plan and others",
       'Hand-set font "Instrument Sans"… on Heading',
     ]);
   });
@@ -196,10 +209,10 @@ describe("the checks' findings for the designer", () => {
         checks: {
           offSystem: ["Pricing section heading", "Pricing section body"].map(
             (node) => ({
+              ...value(node, ""),
               field: "fill",
               kind: "color" as const,
               layer: "gradient" as const,
-              node,
               value: "rgba(255, 255, 255, 0.08)",
             })
           ),
@@ -219,13 +232,12 @@ describe("the checks' findings for the designer", () => {
       {
         checks: {
           offSystem: [
-            { field: "font", kind: "font", node: "Heading", value: font },
+            { ...value("Heading", font), field: "font", kind: "font" },
             {
+              ...value("Band", "#fafafa"),
               field: "fill",
               kind: "color",
               layer: "colour",
-              node: "Band",
-              value: "#fafafa",
             },
           ],
           rendered: [],
@@ -239,24 +251,28 @@ describe("the checks' findings for the designer", () => {
     ]);
   });
 
-  it("keep each value's own title where two shorten alike", () => {
+  it("name each value of a kind in its problem, whole, with the places it has", () => {
     const found = checkFindings([
       {
         checks: {
-          offSystem: ["#1f2937 80%", "#1f2937 60%"].map((mix) => ({
-            field: "color",
-            kind: "color" as const,
-            node: "Plan",
-            value: `color-mix(in oklab, ${mix}, transparent)`,
-          })),
+          offSystem: ["#1f2937 80%", "#1f2937 60%", "#1f2937 80%"].map(
+            (mix, i) => ({
+              ...value(i === 2 ? "Card" : "Plan", ""),
+              field: "color",
+              kind: "color" as const,
+              value: `color-mix(in oklab, ${mix}, transparent)`,
+            })
+          ),
           rendered: [],
         },
         file: "designs/home.page.json",
       },
     ]);
-    expect(found.map((f) => f.finding.title)).toEqual([
-      "Hand-set colour color-mix(in oklab, #1f2937 80%, transparent) on Plan",
-      "Hand-set colour color-mix(in oklab, #1f2937 60%, transparent) on Plan",
+    expect(found.map((f) => [f.finding.title, f.finding.problem])).toEqual([
+      [
+        "3 hand-set colours on Plan and others",
+        "off the system: 3 colours set by hand where the design system has a token: color-mix(in oklab, #1f2937 80%, transparent) (2 places), color-mix(in oklab, #1f2937 60%, transparent) (1 place).",
+      ],
     ]);
   });
 
@@ -290,10 +306,9 @@ describe("the checks' findings for the designer", () => {
 
   it("name each page as the canvas names it, the home page too", () => {
     const weight = {
+      ...value("Title", 550),
       field: "weight",
       kind: "weight" as const,
-      node: "Title",
-      value: 550,
     };
     const found = checkFindings(
       [
@@ -311,10 +326,9 @@ describe("the checks' findings for the designer", () => {
 
   it("name the home page by its route where the canvas's name is not known", () => {
     const weight = {
+      ...value("Title", 550),
       field: "weight",
       kind: "weight" as const,
-      node: "Title",
-      value: 550,
     };
     const found = checkFindings(
       [
@@ -340,5 +354,164 @@ describe("the checks' findings for the designer", () => {
         { file: "designs/unread.page.json" },
       ])
     ).toEqual([]);
+  });
+});
+
+/** A page whose title's text size and weight are set by hand, and its card's padding. */
+const hero = (titleSize: number, cardPadding = 13): PageNode => ({
+  children: [
+    {
+      id: "c_title",
+      name: "Title",
+      role: "heading",
+      size: titleSize,
+      text: "Pricing",
+      type: "text",
+      weight: 550,
+    },
+    {
+      children: [],
+      id: "c_card",
+      name: "Card",
+      padding: cardPadding,
+      type: "column",
+    },
+  ],
+  id: "c_root",
+  type: "page",
+});
+
+const HOME = "designs/home.page.json";
+
+const checkedHero = (root: PageNode): CheckedPage => ({
+  checks: { offSystem: offSystemValues(root), rendered: [] },
+  file: HOME,
+});
+
+/** The round's findings, the designer declining those whose titles start with `declining`. */
+const declinedIn = (page: CheckedPage, declining: string) =>
+  checksOf([page]).found.flatMap((f): RoundFinding[] =>
+    f.finding.title.startsWith(declining)
+      ? [{ ...toRoundFinding(f), declined: "the brand's type" }]
+      : []
+  );
+
+describe("a check's finding declined before", () => {
+  it("holds back what the checks measure again while its node's fields of its kind are the same", () => {
+    const declined = declinedIn(checkedHero(hero(15)), "Hand-set text size");
+    expect(declined.map((d) => d.title)).toEqual([
+      "Hand-set text size 15px on Title",
+    ]);
+    // The title's text changed, and its weight: its text size is the same.
+    const again = hero(15);
+    const changed = {
+      ...again,
+      children: [
+        { ...again.children[0], text: "Plans", weight: 600 },
+        ...again.children.slice(1),
+      ],
+    } as PageNode;
+    const { carried, found } = checksOf([checkedHero(changed)], declined);
+    expect(found.map((f) => f.finding.title)).toEqual([
+      "Hand-set weight 600 on Title",
+      "Hand-set spacing 13px on Card",
+    ]);
+    expect(carried.map((c) => [c.title, c.declined, c.carried])).toEqual([
+      ["Hand-set text size 15px on Title", "the brand's type", true],
+    ]);
+  });
+
+  it("holds nothing back once a node it names has other fields of its kind", () => {
+    const declined = declinedIn(checkedHero(hero(15)), "Hand-set text size");
+    const { carried, found } = checksOf([checkedHero(hero(17))], declined);
+    expect(found.map((f) => f.finding.title)).toContain(
+      "Hand-set text size 17px on Title"
+    );
+    expect(carried).toEqual([]);
+  });
+
+  it("holds back a rendered check's finding while its blocks' labels and what it measured are the same", () => {
+    const groups = {
+      above: "App components",
+      below: "System components",
+      between: 27,
+      box: { height: 287, width: 200, x: 0, y: 259 },
+      kind: "groups-apart" as const,
+      ratio: 3,
+      within: 10,
+    };
+    const on = (measured: typeof groups): CheckedPage => ({
+      checks: { offSystem: [], rendered: [measured] },
+      file: HOME,
+    });
+    const declined = checksOf([on(groups)]).found.map(
+      (f): RoundFinding => ({ ...toRoundFinding(f), declined: "one panel" })
+    );
+    expect(checksOf([on(groups)], declined).found).toEqual([]);
+    expect(
+      checksOf([on({ ...groups, box: { ...groups.box, y: 300 } })], declined)
+        .found
+    ).toEqual([]);
+    expect(
+      checksOf([on({ ...groups, between: 24 })], declined).found.map(
+        (f) => f.finding.title
+      )
+    ).toEqual(["“System components” too close to “App components”"]);
+    expect(
+      checksOf([on({ ...groups, below: "Templates" })], declined).found
+    ).toHaveLength(1);
+  });
+
+  it("is a decline of the page it was on, not of a node of the same id on another", () => {
+    const declined = declinedIn(checkedHero(hero(15)), "Hand-set text size");
+    const { found } = checksOf(
+      [{ ...checkedHero(hero(15)), file: "designs/about.page.json" }],
+      declined
+    );
+    expect(found.map((f) => f.finding.title)).toContain(
+      "Hand-set text size 15px on Title"
+    );
+  });
+});
+
+describe("the checks on what the turns changed", () => {
+  it("read the values of the nodes the turns changed, and every block of a page they changed", () => {
+    const touching = {
+      box: { height: 84, width: 200, x: 0, y: 0 },
+      kind: "touching-rows" as const,
+      list: "Files",
+      rowHeight: 28,
+    };
+    const after = hero(15, 15);
+    const checks = { offSystem: offSystemValues(after), rendered: [touching] };
+    const scoped = checksOnChanges(checks, hero(15), after);
+    expect(scoped.offSystem.map((v) => [v.id, v.field, v.value])).toEqual([
+      ["c_card", "padding", 15],
+    ]);
+    expect(scoped.rendered).toEqual([touching]);
+  });
+
+  it("read nothing on a page the turns left as it was", () => {
+    const checks = {
+      offSystem: offSystemValues(hero(15)),
+      rendered: [
+        {
+          box: { height: 84, width: 200, x: 0, y: 0 },
+          kind: "touching-rows" as const,
+          list: "Files",
+          rowHeight: 28,
+        },
+      ],
+    };
+    expect(checksOnChanges(checks, hero(15), hero(15))).toEqual({
+      offSystem: [],
+      rendered: [],
+    });
+  });
+
+  it("read a page the turns made, or one with no before, whole", () => {
+    const checks = { offSystem: offSystemValues(hero(15)), rendered: [] };
+    expect(checksOnChanges(checks, null, hero(15))).toBe(checks);
+    expect(checksOnChanges(checks, undefined, hero(15))).toBe(checks);
   });
 });

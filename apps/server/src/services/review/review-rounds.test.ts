@@ -6,6 +6,7 @@ import {
   answeredRound,
   answerOf,
   answersByPage,
+  declinedChecksOf,
   declinedOf,
   handsToAll,
   mergeFound,
@@ -264,6 +265,74 @@ describe("the designer's answer", () => {
   });
 });
 
+describe("the checks' declines a thread remembers", () => {
+  const place = {
+    fields: '[["size",15]]',
+    node: "c_title",
+    page: "designs/home.page.json",
+  };
+  const check = (
+    title: string,
+    more: Partial<RoundFinding> = {}
+  ): RoundFinding => ({
+    category: "typography",
+    check: "off-system",
+    fix: "Use the design system's text size token.",
+    places: [place],
+    problem: "off the system",
+    reviewer: "check",
+    severity: "minor",
+    title,
+    where: "Title (`size`)",
+    ...more,
+  });
+  const reviewed = (
+    id: string,
+    findings: readonly RoundFinding[]
+  ): ThreadItem => ({
+    at: 1,
+    findings,
+    id,
+    kind: "review",
+    maxRounds: 6,
+    reviewers: [],
+    round: 1,
+  });
+
+  it("are the checks' findings declined in every round of the thread, each once, as it was declined", () => {
+    const declined = check("Hand-set text size 15px on Title", {
+      declined: "the brand's",
+    });
+    const remembered = declinedChecksOf([
+      user("u1", "a page"),
+      reviewed("r1", [
+        declined,
+        check("Hand-set weight 550 on Title"),
+        {
+          ...check("Uneven gap", { declined: "on purpose" }),
+          check: undefined,
+          reviewer: "m0",
+        },
+      ]),
+      user("u2", "now the footer"),
+      // Carried into a later run's round, it is the decline it was.
+      reviewed("r2", [{ ...declined, carried: true }]),
+      // Stored before a finding kept its places, it names none.
+      reviewed("r3", [
+        check("Hand-set spacing 13px on Card", {
+          declined: "tight",
+          places: undefined,
+        }),
+      ]),
+    ]);
+    expect(remembered).toEqual([declined]);
+  });
+
+  it("are none in a thread of its own", () => {
+    expect(declinedChecksOf([user("u1", "a page"), round("r1")])).toEqual([]);
+  });
+});
+
 describe("a round answered", () => {
   it("counts as fixed only what the designer was sent, less what it declined", () => {
     const answered = {
@@ -327,6 +396,34 @@ describe("a round answered", () => {
     expect(answeredRound(answered, new Map([[0, "by design"]]), 1).fixed).toBe(
       0
     );
+  });
+
+  it("leaves a decline carried from an earlier round as it was, neither fixed nor declined again", () => {
+    const carried: RoundFinding = {
+      carried: true,
+      category: "spacing",
+      check: "off-system",
+      declined: "the card's own inset",
+      fix: "",
+      problem: "",
+      reviewer: "check",
+      severity: "minor",
+      title: "Hand-set spacing 13px on Card",
+      where: "",
+    };
+    const answered: Extract<ThreadItem, { kind: "review" }> = {
+      at: 0,
+      findings: [carried],
+      id: "r1",
+      kind: "review",
+      maxRounds: 2,
+      reviewers: [],
+      round: 1,
+    };
+    // Sent before the server restarted, the round counts what it sends: never a carried one.
+    const again = answeredRound(answered, new Map([[0, "another reason"]]));
+    expect(again.fixed).toBe(0);
+    expect(again.findings).toEqual([carried]);
   });
 });
 
