@@ -266,7 +266,8 @@ ${method ? `\n${method}` : ""}${craftOf(skills)}${termsOf(skills, ways, designsD
 
 /**
  * The components (ADR 0041): their files, which system components' look the design owns, the
- * format an agent writes a component's file in, and how it changes a look (UP-227).
+ * format an agent writes a component's file in, how it changes an app component's tree (UP-230)
+ * and a look (UP-227).
  */
 const componentsOf = (
   designsDir: string,
@@ -275,7 +276,7 @@ const componentsOf = (
 ) => {
   const looks = components.filter((c) => c.origin === "system");
   return `${componentFiles(designsDir)}
-${looks.length > 0 ? `The design owns the look of ${looks.map((c) => c.name).join(", ")}.\n` : ""}${ways.changeLook}
+${ways.changeAppComponent}${looks.length > 0 ? `The design owns the look of ${looks.map((c) => c.name).join(", ")}.\n` : ""}${ways.changeLook}
 
 `;
 };

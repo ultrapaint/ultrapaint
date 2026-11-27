@@ -2,6 +2,7 @@ import {
   type AppComponentFile,
   COMPONENT_EXTENSION,
   COMPONENTS_DIR,
+  type ComponentFile,
   componentDocOf,
   componentFileOf,
   componentOfDoc,
@@ -67,6 +68,8 @@ import { hashContent, toPosix } from "../hash.ts";
 import { CanvasFiles } from "./canvas-files.ts";
 import {
   componentText,
+  partDroppedBy,
+  problemOf,
   readComponentFile,
   withTree,
 } from "./component-files.ts";
@@ -116,6 +119,17 @@ export interface ApplyStep {
 /** What `alongside` adds to the step: more edits, or nothing but its files. */
 type Alongside = readonly DocumentEdit[] | undefined;
 
+/** How `apply` takes what its edits do to an app component's file. */
+export interface ApplyOptions {
+  /**
+   * Its slots and the nodes its properties set are kept: an edit that takes one's node out is
+   * refused, where the editor's own lets them go with their node (`withTree`). An agent's edit
+   * through the tools (UP-230): taking one out is `handoff`'s change's, which follows into
+   * every instance.
+   */
+  readonly keepParts?: boolean;
+}
+
 /**
  * What applying edits gives: the ids the operations created, each document touched as it is now
  * and as the editors were told it (ADR 0044).
@@ -141,12 +155,14 @@ export class DocumentService extends Context.Service<
      * Applies the edits as one undo step; `alongside` changes other files of the designs in the
      * same step (a component's file written as an instance of it takes a node's place), and may
      * give edits of its own, made of the documents as they are under the journal (`step.all`,
-     * `step.get`), so no edit made meanwhile fails or is lost. Answers with each document touched
-     * and its change as the editors were told it.
+     * `step.get`), so no edit made meanwhile fails or is lost. An app component's tree edited
+     * is refused when it would leave its file wrong among the others (`problemOf`): placing
+     * itself, say. Answers with each document touched and its change as the editors were told it.
      */
     readonly apply: (
       input: ApplyInput,
-      alongside?: (step: ApplyStep) => Effect.Effect<Alongside, EditFailure>
+      alongside?: (step: ApplyStep) => Effect.Effect<Alongside, EditFailure>,
+      options?: ApplyOptions
     ) => Effect.Effect<Applied, EditFailure | Conflict>;
     /** The document a file of the designs is (repo-relative), or null when it is none. */
     readonly documentOf: (file: string) => string | null;
@@ -433,12 +449,66 @@ export class DocumentService extends Context.Service<
           return Effect.as(events.publish("document", change), change);
         });
 
+      /** The components' files as the step has them: what one edited is checked among. */
+      const componentFilesIn = Effect.fnUntraced(function* (
+        tx: EditTransaction
+      ) {
+        const dir = path.join(root, COMPONENTS_DIR);
+        const names = yield* fs.readDirectory(dir).pipe(
+          // No components yet: the directory comes with the first.
+          Effect.catchReason("PlatformError", "NotFound", () =>
+            Effect.succeed<string[]>([])
+          ),
+          Effect.mapError(
+            (error) =>
+              new Conflict({
+                message: `${COMPONENTS_DIR} cannot be read: ${error.message}`,
+              })
+          )
+        );
+        const texts = yield* Effect.forEach(
+          names.filter((n) => n.endsWith(COMPONENT_EXTENSION)),
+          (n) => tx.read(paths.relative(path.join(dir, n)))
+        );
+        return texts.flatMap((text): ComponentFile[] => {
+          const read = text === null ? null : readComponentFile(text);
+          return read && "component" in read ? [read.component] : [];
+        });
+      });
+
+      /**
+       * An app component's file with its tree edited, or why it cannot be: wrong among the others
+       * where it was not before (`problemOf`), or, with `keepParts`, a slot or a property's node
+       * taken out.
+       */
+      const componentEdited = Effect.fnUntraced(function* (
+        tx: EditTransaction,
+        file: AppComponentFile,
+        tree: DesignNode,
+        options: ApplyOptions
+      ) {
+        const next = withTree(file, tree);
+        const others = yield* componentFilesIn(tx);
+        const problem =
+          (options.keepParts ? partDroppedBy(tree, file) : undefined) ??
+          (problemOf(file, others) === undefined
+            ? problemOf(next, others)
+            : undefined);
+        if (problem !== undefined) {
+          return yield* new BadRequest({
+            message: `${file.name} cannot be changed so: ${problem}`,
+          });
+        }
+        return next;
+      });
+
       /** A document's edited tree written to its file: a page's, a canvas's, a component's. */
       const writeDocument = Effect.fnUntraced(function* (
         tx: EditTransaction,
         doc: string,
         loaded: Loaded,
-        edited: DesignNode
+        edited: DesignNode,
+        options: ApplyOptions
       ) {
         const invalid = (error: { message: string }) =>
           new BadRequest({
@@ -456,7 +526,9 @@ export class DocumentService extends Context.Service<
           }
           yield* tx.write(
             yield* fileOf(doc),
-            componentText(withTree(read.component, tree))
+            componentText(
+              yield* componentEdited(tx, read.component, tree, options)
+            )
           );
         } else if (canvas === null) {
           const document = yield* decodePage({
@@ -566,7 +638,8 @@ export class DocumentService extends Context.Service<
 
       const apply = Effect.fn("DocumentService.apply")(function* (
         input: ApplyInput,
-        alongside?: (step: ApplyStep) => Effect.Effect<Alongside, EditFailure>
+        alongside?: (step: ApplyStep) => Effect.Effect<Alongside, EditFailure>,
+        options: ApplyOptions = {}
       ) {
         const created: string[] = [];
         const copies: Copy[] = [];
@@ -629,7 +702,7 @@ export class DocumentService extends Context.Service<
                       : [op],
                 }),
             });
-            yield* writeDocument(tx, change.doc, loaded, result.root);
+            yield* writeDocument(tx, change.doc, loaded, result.root, options);
             // By its file: two spellings of one page are one document.
             finalRoots.set(yield* fileOf(change.doc), {
               doc: change.doc,

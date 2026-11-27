@@ -112,6 +112,30 @@ inProject(
 );
 
 inProject(
+  "a take's working copy makes no component, which would stay placed nowhere if the take went (UP-230)",
+  () =>
+    Effect.gen(function* () {
+      const { copies, threadId } = yield* variationsTurn;
+      const refused = yield* Effect.flip(
+        callTool(
+          EditorTools,
+          "apply_operations",
+          {
+            ops: [{ ids: ["heading"], name: "Title", op: "makeComponent" }],
+            route: copies[0] ?? "",
+          },
+          threadId
+        )
+      );
+      assert.include(
+        refused.message,
+        "makeComponent works on a page, not a take's working copy"
+      );
+      assert.isFalse(yield* exists("designs/components/Title.component.json"));
+    })
+);
+
+inProject(
   "a take handed in is saved into the set by the name the agent gave it, the page as it was, its copy gone",
   () =>
     Effect.gen(function* () {
