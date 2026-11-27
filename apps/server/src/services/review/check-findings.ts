@@ -1,13 +1,25 @@
 /**
  * The checks' findings for the designer (ADR 0081): what the editor measured on a page it drew
  * for the review (groups set too close, filled rows touching) and the values its document sets by
- * hand where the design system has a token, grouped by value ("13px spacing, 9 places"). Each is
- * a finding marked as a check's, with what it measured and the element it names, sent to the
+ * hand where the design system has a token, grouped by kind ("10 hand-set spacing values"). Each
+ * is a finding marked as a check's, with what it measured and the element it names, sent to the
  * designer beside the reviewers' and never shown to them. A check's finding is minor and never
  * holds back approval.
+ *
+ * The checks read what the turns changed (ADR 0156): the values of the nodes they changed, and
+ * every block of a page they changed, a page they made whole. A check's finding the designer
+ * declined in the thread holds back what the checks measure again in the places it names, while
+ * each reads the same.
  */
+import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Category, CheckKind } from "@ultrapaint/contracts/review";
 import type { RenderedFinding } from "@ultrapaint/contracts/screenshots";
+import type { CheckPlace, RoundFinding } from "@ultrapaint/contracts/threads";
+import {
+  changedNodeIds,
+  diffTrees,
+  isEmptyDiff,
+} from "@ultrapaint/design-document/diff";
 import type {
   OffSystemKind,
   OffSystemValue,
@@ -32,8 +44,11 @@ export interface CheckedPage {
   readonly route?: string | undefined;
 }
 
-/** How many places of one value off the system a finding names, the rest counted. */
+/** How many places of one kind of value off the system a finding names, the rest counted. */
 const NAMED_PLACES = 5;
+
+/** How many values of one kind a finding's problem names, the rest counted. */
+const NAMED_VALUES = 5;
 
 const SPACING_RULE = "SKILL.md › Spacing › Proximity groups";
 
@@ -75,6 +90,7 @@ const shortValue = (value: string) => {
 const checkFound = (
   check: CheckKind,
   page: string,
+  places: readonly CheckPlace[],
   finding: Omit<Found["finding"], "rule" | "severity"> & {
     readonly rule?: string;
   }
@@ -82,13 +98,31 @@ const checkFound = (
   check,
   finding: { rule: "", ...finding, severity: "minor" },
   page,
+  places,
   reviewer: CHECK_REVIEWER,
 });
 
-/** A rendered check's finding, as the designer is told it. */
-const renderedFound = (page: string, f: RenderedFinding): Found =>
+/**
+ * Where a rendered check measured: the labels of its blocks and what it measured, for want of
+ * the nodes they draw, which the frame does not name (ADR 0156).
+ */
+const renderedPlace = (file: string, f: RenderedFinding): CheckPlace =>
   f.kind === "groups-apart"
-    ? checkFound("groups-apart", page, {
+    ? {
+        fields: `${f.between}px between, ${f.within}px within`,
+        node: `“${f.above}” / “${f.below}”`,
+        page: file,
+      }
+    : { fields: `rows of ${f.rowHeight}px`, node: `“${f.list}”`, page: file };
+
+/** A rendered check's finding, as the designer is told it. */
+const renderedFound = (
+  page: string,
+  file: string,
+  f: RenderedFinding
+): Found =>
+  f.kind === "groups-apart"
+    ? checkFound("groups-apart", page, [renderedPlace(file, f)], {
         category: "spacing",
         fix: `Set at least ${Math.ceil(f.ratio * f.within)}px between the groups (${f.ratio}× the ${f.within}px within), a step of the spacing scale.`,
         problem: `groups: ${f.between}px between “${f.above}” and “${f.below}”, ${f.within}px between the lines below: under ${f.ratio}×, they read as one group.`,
@@ -96,7 +130,7 @@ const renderedFound = (page: string, f: RenderedFinding): Found =>
         title: `“${shortened(f.below, LABEL_CHARS)}” too close to “${shortened(f.above, LABEL_CHARS)}”`,
         where: `“${f.above}” and “${f.below}”`,
       })
-    : checkFound("touching-rows", page, {
+    : checkFound("touching-rows", page, [renderedPlace(file, f)], {
         category: "spacing",
         fix: "Put the spacing scale's smallest step between the rows.",
         problem: `touching rows: rows of ${f.rowHeight}px, rounded or filled, with no gap between them: each row's fill meets its neighbour's.`,
@@ -127,6 +161,19 @@ const IN_PIXELS: ReadonlySet<OffSystemKind> = new Set([
 /** A kind of value as the designer reads it: `text size`, `colour`. */
 const kindName = (kind: OffSystemKind) =>
   kind === "color" ? "colour" : kind.replace("-", " ");
+
+/** Several values of a kind, as the designer reads them: `text sizes`, `spacing values`. */
+const PLURAL_KIND_NAME: Readonly<Record<OffSystemKind, string>> = {
+  color: "colours",
+  font: "fonts",
+  "line-height": "line heights",
+  radius: "radii",
+  shadow: "shadows",
+  spacing: "spacing values",
+  "text-size": "text sizes",
+  tracking: "tracking values",
+  weight: "weights",
+};
 
 /** A value as it is set: `13px` for a spacing of 13. */
 const setAs = (kind: OffSystemKind, value: string | number) =>
@@ -186,115 +233,193 @@ const pageNames = (pages: readonly CheckedPage[]) => {
   return (key: string) => nameOf.get(key) ?? (shortPage(key) || key);
 };
 
-const offSystemFound = (
-  pages: readonly CheckedPage[],
+/** One value off the system and its places. */
+interface ValueEntry {
+  readonly places: Place[];
+  readonly value: string | number;
+}
+
+/** One kind's values off the system across the pages, the nodes they are on and their pages. */
+interface KindEntry {
+  readonly kind: OffSystemKind;
+  readonly nodes: Map<string, CheckPlace>;
+  readonly pages: Set<string>;
+  readonly values: Map<string, ValueEntry>;
+}
+
+/** Each value's places, the most first, then each place in turn. */
+const placesOf = (values: readonly ValueEntry[]) =>
+  values.flatMap((v) => v.places);
+
+/**
+ * The finding of one kind's values off the system: titled by the kind, the value as it reads
+ * when there is one, or how many, and the first element (the others said, not counted); its
+ * problem names each value whole, its `where` each place.
+ */
+const kindFound = (
+  entry: KindEntry,
   pageName: (name: string) => string
-): readonly Found[] => {
-  const byValue = new Map<
-    string,
-    {
-      readonly kind: OffSystemKind;
-      readonly pages: Set<string>;
-      readonly places: Place[];
-      readonly value: string | number;
-    }
-  >();
-  for (const page of pages) {
-    const name = page.route ?? page.file;
-    for (const v of page.checks?.offSystem ?? []) {
-      // One key for one value however it is written: `13` and `"13px"` are one spacing.
-      const key = valueName(v.kind, v.value);
-      const entry = byValue.get(key) ?? {
-        kind: v.kind,
-        pages: new Set<string>(),
-        places: [],
-        value: v.value,
-      };
-      entry.pages.add(name);
-      entry.places.push({
-        layer: v.layer,
-        node: v.node,
-        page: name,
-        place: `${v.node} (\`${v.field}\`)`,
-      });
-      byValue.set(key, entry);
-    }
-  }
-  const values = [...byValue.values()].sort(
+): Found => {
+  const { kind, nodes, pages: onPages } = entry;
+  const values = [...entry.values.values()].sort(
     (a, b) => b.places.length - a.places.length
   );
-  /**
-   * A title: the kind, the value as it reads (or whole), its fill layer, and its first element,
-   * the others said but not counted, so the title stays as it was while the places change.
-   */
-  const titleOf = (entry: (typeof values)[number], whole: boolean) => {
-    const { kind, places, value } = entry;
-    const set = setAs(kind, value);
-    const head = `Hand-set ${kindName(kind)} ${whole ? set : shortValue(set)}${layerOf(places)}`;
-    const [first] = places;
-    if (first === undefined) {
-      return head;
-    }
-    const others = places.length > 1 ? " and others" : "";
-    const room = TITLE_CHARS - head.length - " on ".length - others.length;
-    const node = shortened(
-      first.node,
-      Math.min(NODE_CHARS.most, Math.max(NODE_CHARS.least, room))
-    );
-    return `${head} on ${node}${others}`;
-  };
-  // Two values that read alike are each titled by their whole value, so neither hides the other.
-  const shortTitles = values.map((entry) => titleOf(entry, false));
-  return values.map((entry, i) => {
-    const { kind, pages: on, places, value } = entry;
-    const title =
-      shortTitles.filter((t) => t === shortTitles[i]).length > 1
-        ? titleOf(entry, true)
-        : (shortTitles[i] ?? "");
-    const name = `${valueName(kind, value)}${layerOf(places)}`;
-    const count = `${places.length} ${places.length === 1 ? "place" : "places"}`;
-    // Across pages, each place names its page, so two nodes of one name stay apart.
-    const named = places
-      .slice(0, NAMED_PLACES)
-      .map((p) => (on.size > 1 ? `${p.place} on ${pageName(p.page)}` : p.place))
-      .join(", ");
-    const more =
-      places.length > NAMED_PLACES
-        ? ` and ${places.length - NAMED_PLACES} more`
-        : "";
-    const [first = ""] = on;
-    return checkFound("off-system", first, {
-      category: CATEGORY_OF[kind],
-      fix:
-        kind === "spacing"
-          ? "Use a step of the design system's spacing scale."
-          : `Use the design system's ${kindName(kind)} token.`,
-      problem: `off the system: ${name}, ${count}, set by hand where the design system has a token.`,
-      title,
-      where: `${named}${more}${on.size > 1 ? `, on ${on.size} pages` : ""}`,
-    });
+  const places = placesOf(values);
+  /** The kind's one value, when it has one. */
+  const single = values.length === 1 ? values[0] : undefined;
+  const [first] = places;
+  const head =
+    single === undefined
+      ? `${places.length} hand-set ${PLURAL_KIND_NAME[kind]}`
+      : `Hand-set ${kindName(kind)} ${shortValue(setAs(kind, single.value))}${layerOf(single.places)}`;
+  const others = nodes.size > 1 ? " and others" : "";
+  const room = TITLE_CHARS - head.length - " on ".length - others.length;
+  const title =
+    first === undefined
+      ? head
+      : `${head} on ${shortened(first.node, Math.min(NODE_CHARS.most, Math.max(NODE_CHARS.least, room)))}${others}`;
+  const count = (n: number) => `${n} ${n === 1 ? "place" : "places"}`;
+  const problem =
+    single === undefined
+      ? `off the system: ${places.length} ${PLURAL_KIND_NAME[kind]} set by hand where the design system has a token: ${values
+          .slice(0, NAMED_VALUES)
+          .map(
+            (v) =>
+              `${setAs(kind, v.value)}${layerOf(v.places)} (${count(v.places.length)})`
+          )
+          .join(", ")}${
+          values.length > NAMED_VALUES
+            ? ` and ${values.length - NAMED_VALUES} more`
+            : ""
+        }.`
+      : `off the system: ${valueName(kind, single.value)}${layerOf(single.places)}, ${count(single.places.length)}, set by hand where the design system has a token.`;
+  // Across pages, each place names its page, so two nodes of one name stay apart.
+  const named = places
+    .slice(0, NAMED_PLACES)
+    .map((p) =>
+      onPages.size > 1 ? `${p.place} on ${pageName(p.page)}` : p.place
+    )
+    .join(", ");
+  const more =
+    places.length > NAMED_PLACES
+      ? ` and ${places.length - NAMED_PLACES} more`
+      : "";
+  const [page = ""] = onPages;
+  return checkFound("off-system", page, [...nodes.values()], {
+    category: CATEGORY_OF[kind],
+    fix:
+      kind === "spacing"
+        ? "Use a step of the design system's spacing scale."
+        : `Use the design system's ${kindName(kind)} token.`,
+    problem,
+    title,
+    where: `${named}${more}${onPages.size > 1 ? `, on ${onPages.size} pages` : ""}`,
   });
+};
+
+/** The values off the system, one finding a kind across the pages, the kind with most places first. */
+const offSystemFound = (
+  values: readonly {
+    readonly page: CheckedPage;
+    readonly place: CheckPlace;
+    readonly value: OffSystemValue;
+  }[],
+  pageName: (name: string) => string
+): readonly Found[] => {
+  const byKind = new Map<OffSystemKind, KindEntry>();
+  for (const { page, place, value: v } of values) {
+    const name = page.route ?? page.file;
+    const entry = byKind.get(v.kind) ?? {
+      kind: v.kind,
+      nodes: new Map<string, CheckPlace>(),
+      pages: new Set<string>(),
+      values: new Map<string, ValueEntry>(),
+    };
+    entry.pages.add(name);
+    entry.nodes.set(`${place.page}|${place.node}`, place);
+    // One key for one value however it is written: `13` and `"13px"` are one spacing.
+    const key = valueName(v.kind, v.value);
+    const value = entry.values.get(key) ?? { places: [], value: v.value };
+    value.places.push({
+      layer: v.layer,
+      node: v.node,
+      page: name,
+      place: `${v.node} (\`${v.field}\`)`,
+    });
+    entry.values.set(key, value);
+    byKind.set(v.kind, entry);
+  }
+  const placeCount = (e: KindEntry) =>
+    [...e.values.values()].reduce((n, v) => n + v.places.length, 0);
+  return [...byKind.values()]
+    .sort((a, b) => placeCount(b) - placeCount(a))
+    .map((entry) => kindFound(entry, pageName));
 };
 
 /** Whether two findings share a title as `mergeFound` reads it. */
 const sameTitle = (a: Found, b: Found) =>
   a.finding.title.trim().toLowerCase() === b.finding.title.trim().toLowerCase();
 
+/** Whether a place reads as one a decline names. */
+const samePlace = (a: CheckPlace, b: CheckPlace) =>
+  a.page === b.page && a.node === b.node && a.fields === b.fields;
+
+/**
+ * The check's finding the designer declined that holds back what a check measured at a place
+ * (ADR 0156): one of the same check that names the place as it reads now.
+ */
+const declineHolding = (
+  declined: readonly RoundFinding[],
+  check: CheckKind,
+  place: CheckPlace
+) =>
+  declined.find(
+    (d) =>
+      d.check === check && (d.places ?? []).some((p) => samePlace(p, place))
+  );
+
+/** What the checks found on the pages: what to send, and the declines that held the rest back. */
+export interface Checked {
+  /** Each decline that held back something the checks measured again, marked as carried. */
+  readonly carried: readonly RoundFinding[];
+  readonly found: readonly Found[];
+}
+
 /**
  * Every check's finding on the pages (ADR 0081): what the editor measured on each, a problem two
- * pages share once, then the values off the system, grouped by value across the pages.
+ * pages share once, then the values off the system, one finding a kind across the pages. What a
+ * check's finding the designer declined before still names, as it read then, is held back, and
+ * the decline carried (ADR 0156).
  */
-export const checkFindings = (
-  pages: readonly CheckedPage[]
-): readonly Found[] => {
+export const checksOf = (
+  pages: readonly CheckedPage[],
+  declined: readonly RoundFinding[] = []
+): Checked => {
+  const holding = new Set<RoundFinding>();
+  /** Whether a decline holds the place back, the decline then counted as carried. */
+  const isHeld = (check: CheckKind, place: CheckPlace) => {
+    const by = declineHolding(declined, check, place);
+    if (by !== undefined) {
+      holding.add(by);
+    }
+    return by !== undefined;
+  };
   const rendered = pages.flatMap((page) =>
-    (page.checks?.rendered ?? []).map((f) =>
-      renderedFound(page.route ?? page.file, f)
+    (page.checks?.rendered ?? []).flatMap((f) =>
+      isHeld(f.kind, renderedPlace(page.file, f))
+        ? []
+        : [renderedFound(page.route ?? page.file, page.file, f)]
     )
+  );
+  const offSystem = pages.flatMap((page) =>
+    (page.checks?.offSystem ?? []).flatMap((value) => {
+      const place = { fields: value.fields, node: value.id, page: page.file };
+      return isHeld("off-system", place) ? [] : [{ page, place, value }];
+    })
   );
   const onPages = new Set(rendered.map((f) => f.page)).size;
   const pageName = pageNames(pages);
-  return [
+  const found = [
     ...mergeFound(rendered, pageName).map((f) =>
       // A problem on one page of several names it; one two pages share names them already.
       onPages > 1 && rendered.filter((r) => sameTitle(r, f)).length === 1
@@ -307,6 +432,36 @@ export const checkFindings = (
           }
         : f
     ),
-    ...offSystemFound(pages, pageName),
+    ...offSystemFound(offSystem, pageName),
   ];
+  return {
+    carried: declined
+      .filter((d) => holding.has(d))
+      .map((d) => ({ ...d, carried: true })),
+    found,
+  };
+};
+
+/**
+ * What the checks read on a page the turns changed (ADR 0156): the values of the nodes they
+ * changed, and every block the editor measured, the frame naming no nodes; nothing on a page
+ * they left as it was. A page they made, or one with no before, is read whole.
+ */
+export const checksOnChanges = (
+  checks: PageChecks,
+  before: DesignNode | null | undefined,
+  after: DesignNode
+): PageChecks => {
+  if (before === null || before === undefined) {
+    return checks;
+  }
+  const diff = diffTrees(before, after);
+  if (isEmptyDiff(diff)) {
+    return { offSystem: [], rendered: [] };
+  }
+  const changed = changedNodeIds(diff);
+  return {
+    offSystem: checks.offSystem.filter((v) => changed.has(v.id)),
+    rendered: checks.rendered,
+  };
 };

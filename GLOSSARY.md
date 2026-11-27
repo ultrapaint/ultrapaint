@@ -437,9 +437,15 @@ refactor and the board view left.
 - **Check's finding**: a finding a check measured, not one a review model judged (ADR 0081;
   contracts' `CheckKind`, the server's `review/check-findings.ts`): groups set too close and
   rounded or filled rows touching, measured by the editor on the page it draws for the review,
-  and the values a page's document sets **off the system**, one finding a value. It goes to the
-  designer after the reviewers' findings, marked as a check's, and never to a review model; it
-  is minor, never holds back approval, and is declined as any finding is.
+  and the values a page's document sets **off the system**, one finding a kind of value. It goes
+  to the designer after the reviewers' findings, marked as a check's, and never to a review
+  model; it is minor, never holds back approval, and is declined as any finding is. The checks
+  read what changed since each page's **before**: its tree before the first of the turns since
+  the thread's last round that changed it, read from the designs' history (the server's
+  `review/turn-befores.ts`). A check's finding keeps its
+  **places** (contracts' `CheckPlace`: the page, the node and its fields the check read): a
+  decline holds in the thread while each reads the same, and is **carried** into the round it
+  held something back in, listed and never sent again (ADR 0156).
 - **Skeptic**: in the lab, a model that did not write a review and tries to knock down each of
   its findings, keeping one only where it can point at what shows it (evals' `verify.ts`). It is
   measured on what it costs (gap findings refuted) and buys (rated noise refuted) before any

@@ -87,4 +87,28 @@ describe("a review round's declined findings", () => {
     );
     expect(lines()).toEqual(["Header too loudDeclined: The brief asks"]);
   });
+
+  it("say a check's finding declined in an earlier round, carried into this one, is held back since", () => {
+    act(() =>
+      root.render(
+        <Rounds
+          rounds={[
+            round([
+              finding("Hand-set spacing 13px on Card", {
+                carried: true,
+                check: "off-system",
+                declined: "The card's own inset",
+                reviewer: "check",
+              }),
+            ]),
+          ]}
+        />
+      )
+    );
+    expect(lines()).toEqual([
+      "Hand-set spacing 13px on CardDeclined check in an earlier round: The card's own inset",
+    ]);
+    // Not this round's answer: the round counts no decline of its own.
+    expect(host.textContent).toContain("Nothing to fix");
+  });
 });

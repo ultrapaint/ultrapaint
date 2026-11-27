@@ -232,6 +232,16 @@ export const diffTrees = (before: DesignNode, after: DesignNode): TreeDiff => {
   return { added, changed, moved, parents, removed };
 };
 
+/**
+ * The nodes a diff says changed: those whose own fields changed, and every node of an added
+ * subtree. A node only moved, removed, or a parent of a change, is not one of them.
+ */
+export const changedNodeIds = (diff: TreeDiff): ReadonlySet<string> =>
+  new Set([
+    ...diff.changed.map((c) => c.id),
+    ...diff.added.flatMap((a) => [...indexOf(a.node).keys()]),
+  ]);
+
 /** Whether a diff has nothing to say. */
 export const isEmptyDiff = (diff: TreeDiff): boolean =>
   diff.added.length === 0 &&
