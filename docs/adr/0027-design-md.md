@@ -3,6 +3,10 @@
 Status: accepted, 2026-10-15. Amends 0015 (the design system's two files) and 0025 (sync).
 Plan: `docs/plans/done/PLAN-design-md.md`.
 
+> Amended by [0160](0160-a-text-style-steps-at-breakpoints.md), 2026-11-27: a text style's steps
+> are stated in the Typography section's prose; the front matter keeps its own settings, and Sync
+> compares those alone.
+
 > Amended by [0106](0106-problems-are-a-place-on-the-rail.md), 2026-11-19: the linter's findings
 > are listed in Problems, on the rail, in Ultrapaint's words with a fix each, not under Foundations.
 

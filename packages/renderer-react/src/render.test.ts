@@ -6,6 +6,10 @@ import {
   type ComponentFile,
   SYSTEM_FROM,
 } from "@ultrapaint/contracts/components";
+import {
+  type DesignSystem,
+  emptyDesignSystem,
+} from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { emptySystemComponent } from "@ultrapaint/contracts/testing/components";
 import { pageChainAt } from "@ultrapaint/preview-core/dom";
@@ -62,6 +66,7 @@ const draw = async (
   extra: {
     readonly at?: string;
     readonly components?: readonly ComponentFile[];
+    readonly designSystem?: DesignSystem;
     readonly isolate?: {
       readonly around?: Readonly<
         Record<string, Readonly<Record<string, string>>>
@@ -102,7 +107,7 @@ const draw = async (
       ...(extra.at !== undefined && { at: extra.at }),
       ...(extra.isolate && { isolate: extra.isolate }),
       components: extra.components ?? [],
-      designSystem: null,
+      designSystem: extra.designSystem ?? null,
       mode: "page",
       renderId: 1,
       root,
@@ -586,5 +591,42 @@ describe("a box's image fill (ADR 0149)", () => {
     expect(
       at("hero")?.querySelector('[data-ed-node="headline"]')
     ).not.toBeNull();
+  });
+});
+
+describe("a text in a text style (ADR 0160)", () => {
+  it("is drawn at its style's step for the frame's breakpoint", async () => {
+    const ds: DesignSystem = {
+      ...emptyDesignSystem(),
+      typography: {
+        ...emptyDesignSystem().typography,
+        styles: [
+          {
+            at: { lg: { lineHeight: 1.1, size: 28 } },
+            lineHeight: 1.25,
+            name: "Heading",
+            role: "heading",
+            size: 24,
+          },
+        ],
+      },
+    };
+    const heading = text("title", { role: "heading", textStyle: "Heading" });
+    const sizeAt = async (at: string | undefined) => {
+      const drawn = await draw(heading, {
+        designSystem: ds,
+        ...(at !== undefined && { at }),
+      });
+      const { fontSize, lineHeight } = drawn.at("title")?.style ?? {};
+      mounted?.unmount();
+      mounted = null;
+      document.body.innerHTML = "";
+      return { fontSize, lineHeight };
+    };
+    expect(await sizeAt(undefined)).toEqual({
+      fontSize: "24px",
+      lineHeight: "1.25",
+    });
+    expect(await sizeAt("lg")).toEqual({ fontSize: "28px", lineHeight: "1.1" });
   });
 });

@@ -6,7 +6,10 @@
  * with a class per breakpoint, and the inspector reads where a value comes from.
  */
 import { isVariantKey } from "@ultrapaint/contracts/component-names";
-import type { DesignSystem } from "@ultrapaint/contracts/design-system";
+import type {
+  DesignSystem,
+  TextStyle,
+} from "@ultrapaint/contracts/design-system";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import { shortName, tokensOfKind } from "@ultrapaint/contracts/token-table";
 import { ROOT_PX, toPx } from "@ultrapaint/contracts/token-value";
@@ -147,15 +150,37 @@ const overrideBreakpoints = (node: InstanceNode): string[] =>
     at && typeof at === "object" && !Array.isArray(at) ? Object.keys(at) : []
   );
 
-/** The breakpoints the tree sets anything at, smallest first: what its code has prefixes for. */
+/** The text styles a text is set in, its own and at each breakpoint. */
+const textStyleNamesOf = (node: DesignNode): string[] => {
+  if (node.type !== "text") {
+    return [];
+  }
+  const at = Object.values(
+    (node.at ?? {}) as Record<string, { textStyle?: unknown } | undefined>
+  ).map((fields) => fields?.textStyle);
+  return [node.textStyle, ...at].filter(
+    (name): name is string => typeof name === "string"
+  );
+};
+
+/**
+ * The breakpoints the tree sets anything at, smallest first: what its code has prefixes for. A
+ * text's style that steps at a breakpoint (ADR 0160) sets something there too.
+ */
 export const breakpointsUsed = (
   node: DesignNode,
-  breakpoints: readonly Breakpoint[]
+  breakpoints: readonly Breakpoint[],
+  textStyles?: ReadonlyMap<string, TextStyle>
 ): readonly Breakpoint[] => {
   const names = new Set<string>();
   const visit = (n: DesignNode) => {
     for (const name of Object.keys(n.at ?? {})) {
       names.add(name);
+    }
+    for (const style of textStyleNamesOf(n)) {
+      for (const name of Object.keys(textStyles?.get(style)?.at ?? {})) {
+        names.add(name);
+      }
     }
     if (n.type === "instance") {
       for (const name of overrideBreakpoints(n)) {

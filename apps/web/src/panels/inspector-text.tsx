@@ -8,11 +8,18 @@ import {
   type TextStyle,
   type TextStyleSetting,
 } from "@ultrapaint/contracts/design-system";
-import type { TextNode } from "@ultrapaint/contracts/document";
+import type {
+  DesignNode,
+  DocOp,
+  TextNode,
+} from "@ultrapaint/contracts/document";
+import { upTo } from "@ultrapaint/design-document/breakpoints";
 import {
-  detachTextStyle,
+  attachTextStyleOps,
+  detachTextStyleOps,
   groupTextStyles,
   matchTextStyle,
+  textStyleAt,
 } from "@ultrapaint/design-document/text-styles";
 import {
   ALargeSmall,
@@ -39,7 +46,12 @@ import {
 import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { Segmented } from "../components/segmented.tsx";
-import { setField, updateSelection } from "../lib/node-actions.ts";
+import { useEditingBreakpoint } from "../lib/breakpoint-edits.ts";
+import {
+  setField,
+  updateSelection,
+  updateSelectionWithOps,
+} from "../lib/node-actions.ts";
 import {
   ALIGN,
   CASE,
@@ -56,7 +68,8 @@ import {
   shownAs,
 } from "../lib/shared-value.ts";
 import type { FieldTokenKind } from "../lib/token-options.tsx";
-import { useDesignSystem } from "../state/design-system.ts";
+import { useBreakpoints, useDesignSystem } from "../state/design-system.ts";
+import { useFrameBreakpoint } from "../state/selection.ts";
 import {
   ColorField,
   nullIfMixed,
@@ -65,7 +78,6 @@ import {
   Row,
   Section,
   set,
-  setEach,
   sharedOf,
   TextInput,
   TokenField,
@@ -83,11 +95,30 @@ const ROLE_OPTIONS = [
 const styleOf = (styles: readonly TextStyle[], node: TextNode) =>
   node.textStyle ? styles.find((s) => s.name === node.textStyle) : undefined;
 
-/** Sets fields of every text inspected, worked out from each. */
-const setTexts = (
+/**
+ * The breakpoints a text is taken off its style at: those that hold where the edit lands, whose
+ * style settings go on the text there, and every one, smallest first, for its steps.
+ */
+interface Detaching {
+  readonly holding: readonly string[];
+  readonly order: readonly string[];
+}
+
+/**
+ * Operations for every text inspected, worked out from it as its frame draws it and as it is
+ * stored: a text style's steps are the stored text's, at every breakpoint (ADR 0160).
+ */
+const opsOnTexts = (
   label: string,
-  setOf: (node: TextNode) => Record<string, JsonValue>
-) => setEach(label, (node) => (node.type === "text" ? setOf(node) : {}));
+  opsOf: (drawn: TextNode, stored: TextNode) => DocOp[]
+) =>
+  updateSelectionWithOps(
+    (drawn: DesignNode, stored: DesignNode) =>
+      drawn.type === "text" && stored.type === "text"
+        ? opsOf(drawn, stored)
+        : [],
+    label
+  );
 
 /**
  * A text style is size, weight and line height (and family and tracking) as one thing. Set in
@@ -96,11 +127,14 @@ const setTexts = (
  * sets it back in the style the settings match, or the one for its role.
  */
 const TextStyleRow = ({
+  detaching,
   named,
   nodes,
   style,
   styles,
 }: {
+  /** The breakpoints a detach is worked out at: those holding where the edit lands, and all. */
+  detaching: Detaching;
   /** The style the texts share by name, or `MIXED`. */
   named: Shared<string>;
   nodes: readonly TextNode[];
@@ -118,10 +152,13 @@ const TextStyleRow = ({
       }))
     ),
   ];
-  const attach = (next: TextStyle) => setField(TEXT_STYLE, next);
+  const attach = (next: TextStyle) =>
+    opsOnTexts(TEXT_STYLE.label(next), (_, stored) =>
+      attachTextStyleOps(stored, next)
+    );
   const detach = () =>
-    setTexts("Detach the text style", (n) =>
-      detachTextStyle(n, styleOf(styles, n))
+    opsOnTexts("Detach the text style", (drawn, stored) =>
+      detachTextStyleOps(drawn, stored, styleOf(styles, drawn), detaching)
     );
   const onStyle = (v: string) => {
     const next = styles.find((s) => s.name === v);
@@ -134,9 +171,9 @@ const TextStyleRow = ({
       const next = matchTextStyle(only, styles);
       return next ? attach(next) : undefined;
     }
-    return setTexts("Set the texts in their styles", (n) => {
-      const next = matchTextStyle(n, styles);
-      return next ? TEXT_STYLE.write(next) : {};
+    return opsOnTexts("Set the texts in their styles", (drawn, stored) => {
+      const next = matchTextStyle(drawn, styles);
+      return next ? attachTextStyleOps(stored, next) : [];
     });
   };
   const stale = typeof named === "string" && style === undefined;
@@ -293,9 +330,27 @@ const Formatting = ({ children }: { children: ReactNode }) => {
   );
 };
 
-export const TextSection = ({ nodes }: { nodes: readonly TextNode[] }) => {
+export const TextSection = ({
+  frame,
+  nodes,
+}: {
+  /** The frame the texts are drawn in, whose breakpoint a style's steps are shown at. */
+  frame: string;
+  nodes: readonly TextNode[];
+}) => {
   const ds = useDesignSystem((s) => s.designSystem);
   const styles = ds?.typography.styles ?? [];
+  const breakpoints = useBreakpoints();
+  const holding = upTo(breakpoints, useFrameBreakpoint(frame));
+  const detaching: Detaching = {
+    holding: upTo(breakpoints, useEditingBreakpoint(frame)),
+    order: breakpoints.map((b) => b.name),
+  };
+  /** The text's style as the frame draws it, with its steps there (ADR 0160). */
+  const drawnStyleOf = (n: TextNode) => {
+    const own = styleOf(styles, n);
+    return own && textStyleAt(own, holding);
+  };
   const named = sharedField(TEXT_STYLE, nodes);
   const style =
     typeof named === "string"
@@ -311,23 +366,35 @@ export const TextSection = ({ nodes }: { nodes: readonly TextNode[] }) => {
         : { level: Number(v.slice(1)), role: "heading" },
       "Change the text's role"
     );
-  // What a text is set in: its own field where it has one, its style's otherwise.
+  // What a text is set in: its own field where it has one, its style's at the frame otherwise.
   const settingOf = (key: TextStyleSetting) =>
     sharedValue(
-      nodes.map(
-        (n): JsonValue | undefined => n[key] ?? styleOf(styles, n)?.[key]
-      )
+      nodes.map((n): JsonValue | undefined => n[key] ?? drawnStyleOf(n)?.[key])
     );
   /** Editing a setting a style gives detaches the style, so the other settings stay. */
   const onSetting = (key: TextStyleSetting) => (value: JsonValue) =>
     nodes.some((n) => styleOf(styles, n))
-      ? setTexts("Detach the text style", (n) => {
-          const own = styleOf(styles, n);
+      ? opsOnTexts("Detach the text style", (drawn, stored) => {
+          const own = styleOf(styles, drawn);
           return own
-            ? { ...detachTextStyle(n, own), [key]: value }
-            : { [key]: value };
+            ? detachTextStyleOps(drawn, stored, own, detaching, {
+                [key]: value,
+              })
+            : [{ id: drawn.id, op: "update", set: { [key]: value } }];
         })
       : set(key, value);
+  /** A setting of a styled text the text sets itself, where the frame draws it: it overrides the style. */
+  const overrides = (key: TextStyleSetting) =>
+    nodes.some((n) => styleOf(styles, n) && n[key] !== undefined);
+  /** A setting's name, and where a styled text's value comes from. */
+  const titleOf = (key: TextStyleSetting, name: string) => {
+    if (!style) {
+      return name;
+    }
+    return overrides(key)
+      ? `${name}: its own, over ${style.name}`
+      : `${name}: from ${style.name}; a change detaches it`;
+  };
   /** A field of the text's type, named by `name` and, without a label, by its `icon`. */
   const setting = (
     key: TextStyleSetting,
@@ -336,12 +403,12 @@ export const TextSection = ({ nodes }: { nodes: readonly TextNode[] }) => {
     icon?: ReactNode
   ) => (
     <TokenField
-      className={style ? "text-muted-foreground" : undefined}
+      className={style && !overrides(key) ? "text-muted-foreground" : undefined}
       kind={kind}
       leading={icon}
       numeric={key !== "font"}
       onChange={onSetting(key)}
-      title={style ? `${name}: from ${style.name}; a change detaches it` : name}
+      title={titleOf(key, name)}
       {...shownAs(settingOf(key))}
     />
   );
@@ -372,7 +439,13 @@ export const TextSection = ({ nodes }: { nodes: readonly TextNode[] }) => {
           {...shownAs(sharedOf(nodes, (n) => n.text))}
         />
       </div>
-      <TextStyleRow named={named} nodes={nodes} style={style} styles={styles} />
+      <TextStyleRow
+        detaching={detaching}
+        named={named}
+        nodes={nodes}
+        style={style}
+        styles={styles}
+      />
       <Row fields={["font"]} label="Font">
         {setting("font", "font", "Font")}
       </Row>

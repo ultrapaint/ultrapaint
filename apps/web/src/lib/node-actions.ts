@@ -644,7 +644,8 @@ const withDefaults = (
  */
 const applyToEach = (
   targets: readonly Selection[],
-  opsOf: (node: DesignNode) => DocOp[],
+  /** The node as its frame draws it (as it is stored, with `asStored`), then as it is stored. */
+  opsOf: (node: DesignNode, stored: DesignNode) => DocOp[],
   label: string,
   asStored = false
 ) => {
@@ -656,12 +657,12 @@ const applyToEach = (
     const landed = (made: readonly DocOp[]) =>
       throughProperties(made, rootOfFrame(docs, canvas, named), appFileOf);
     if (asStored) {
-      byDoc.set(doc, [...(byDoc.get(doc) ?? []), ...landed(opsOf(node))]);
+      byDoc.set(doc, [...(byDoc.get(doc) ?? []), ...landed(opsOf(node, node))]);
       continue;
     }
     const frame = editedFrameOf(selection, named);
     const layer = isLayerOf(rootOfFrame(docs, canvas, named), node.id);
-    const ops = opsOf(asDrawnIn(node, frame)).flatMap((op): DocOp[] => {
+    const ops = opsOf(asDrawnIn(node, frame), node).flatMap((op): DocOp[] => {
       if (op.op === "update" && op.at === undefined) {
         return updateOpsAt(
           node,
@@ -734,6 +735,16 @@ export const updateNodesWith = (
     },
     label
   );
+
+/**
+ * Operations for each node of the selection, worked out from it as its frame draws it and as it
+ * is stored, in one undo step: an update that names no breakpoint lands where the inspector's
+ * edits land, one that names its breakpoint is sent as it is (a text style's steps, ADR 0160).
+ */
+export const updateSelectionWithOps = (
+  opsOf: (drawn: DesignNode, stored: DesignNode) => DocOp[],
+  label: string
+) => applyToEach(actedOn(), opsOf, label);
 
 /** Sets props of every instance among these nodes. */
 export const setPropsOfNodes = (

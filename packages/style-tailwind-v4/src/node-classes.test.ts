@@ -885,6 +885,43 @@ describe("breakpoints", () => {
 </div>`);
   });
 
+  it("writes a text style's steps as its classes with their prefixes (ADR 0160)", () => {
+    const stepped = {
+      ...ds,
+      typography: {
+        ...ds.typography,
+        styles: [
+          {
+            at: {
+              lg: { size: "$text-4xl" },
+              md: { lineHeight: "$leading-tight", size: "$text-3xl" },
+            },
+            name: "Display",
+            role: "heading" as const,
+            size: "$text-2xl",
+            weight: 700,
+          },
+        ],
+      },
+    };
+    const node: DesignNode = {
+      id: "h",
+      level: 1,
+      role: "heading",
+      text: "Pricing",
+      textStyle: "Display",
+      type: "text",
+    };
+    expect(
+      writeCode(node, tailwindClasses(stepped), {
+        breakpoints,
+        designSystem: stepped,
+      })
+    ).toBe(`<h1 className="text-2xl font-bold md:text-3xl md:leading-tight lg:text-4xl">
+  Pricing
+</h1>`);
+  });
+
   it("moves a node among its siblings from a breakpoint on with order", () => {
     const node: DesignNode = {
       at: { md: { order: -1 } },

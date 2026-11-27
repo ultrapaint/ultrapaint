@@ -180,7 +180,7 @@ export const Inspector = () => {
           {oneComponent(nodes) && (
             <InstanceSection frame={frame} nodes={nodes} />
           )}
-          {allOf(nodes, "text") && <TextSection nodes={nodes} />}
+          {allOf(nodes, "text") && <TextSection frame={frame} nodes={nodes} />}
           {allOf(nodes, "image") && <ImageSection nodes={nodes} />}
           {allStacks(nodes) && <LayoutSection nodes={nodes} />}
           <SizeSection frame={frame} nodes={nodes} />
@@ -235,7 +235,12 @@ const PartInspector = ({ part }: { part: PartOf }) => {
         onPointerDownCapture={holdBack}
       >
         <ReadOnlyFieldsContext.Provider value={true}>
-          {node.type === "text" && <TextSection nodes={[node]} />}
+          {node.type === "text" && (
+            <TextSection
+              frame={variationFrameOf(open, part.variation)}
+              nodes={[node]}
+            />
+          )}
           {node.type === "image" && <ImageSection nodes={[node]} />}
           {allStacks(nodes) && <LayoutSection nodes={nodes} />}
           <SizeSection

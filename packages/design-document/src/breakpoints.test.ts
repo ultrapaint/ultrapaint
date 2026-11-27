@@ -1,4 +1,7 @@
-import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
+import {
+  emptyDesignSystem,
+  type TextStyle,
+} from "@ultrapaint/contracts/design-system";
 import type {
   DesignNode,
   PageNode,
@@ -123,6 +126,47 @@ describe("breakpoints", () => {
     expect(
       breakpointsUsed(page, DEFAULT_BREAKPOINTS).map((b) => b.name)
     ).toEqual(["md", "lg"]);
+  });
+});
+
+describe("the breakpoints a tree's code is written at (ADR 0160)", () => {
+  it("counts those a text's style steps at, its own and at a breakpoint", () => {
+    const styles = new Map<string, TextStyle>([
+      [
+        "Display",
+        { at: { lg: { size: 48 } }, name: "Display", role: "heading" as const },
+      ],
+      [
+        "Lead",
+        { at: { sm: { size: 20 } }, name: "Lead", role: "paragraph" as const },
+      ],
+    ]);
+    const tree: DesignNode = {
+      children: [
+        {
+          id: "h",
+          role: "heading",
+          text: "Hi",
+          textStyle: "Display",
+          type: "text",
+        },
+        {
+          at: { md: { textStyle: "Lead" } },
+          id: "p",
+          role: "paragraph",
+          text: "Hi",
+          type: "text",
+        },
+      ],
+      id: "root",
+      type: "column",
+    };
+    expect(
+      breakpointsUsed(tree, DEFAULT_BREAKPOINTS, styles).map((b) => b.name)
+    ).toEqual(["sm", "md", "lg"]);
+    expect(
+      breakpointsUsed(tree, DEFAULT_BREAKPOINTS).map((b) => b.name)
+    ).toEqual(["md"]);
   });
 });
 

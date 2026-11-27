@@ -324,6 +324,81 @@ const panelChanges = (stylesheet: string) =>
 const DEFINE_DESIGN_MD_RE =
   /5\. Save it with write_design_system[\s\S]*Do's and Don'ts what the code does off the system[\s\S]*6\. /;
 
+/** DESIGN.md's Typography section, as the guide asks for it, with the styles' steps. */
+const TYPOGRAPHY_STEPS_RE =
+  /Typography: the families,[^\n]*\n\s*size and line height each steps to at a breakpoint/;
+
+describe("/init's text styles at each breakpoint (ADR 0160)", () => {
+  /** Import's steps, in /init and in Define when it adopts the theme. */
+  const importing = Effect.all([
+    textOf({ _tag: "Init" }),
+    textOf({ _tag: "SetupStep", mode: "adopt", step: "define" }),
+  ]);
+
+  eachTest(ProjectTest({ mcp: true }))((it) => {
+    it.effect(
+      "names each style's steps in the design briefing's text styles",
+      () =>
+        Effect.gen(function* () {
+          yield* withDesignSystem;
+          const project = yield* OpenProject;
+          yield* project.use(
+            Effect.flatMap(DesignSystemService, (d) =>
+              d.edit([
+                {
+                  op: "setTextStyle",
+                  style: {
+                    at: { lg: { size: "$text-4xl" }, sm: { size: 28 } },
+                    name: "Heading xl",
+                    role: "heading",
+                    size: "$text-2xl",
+                  },
+                },
+                {
+                  op: "setTextStyle",
+                  style: { name: "Body", role: "paragraph", size: 16 },
+                },
+              ])
+            )
+          );
+          const text = (yield* (yield* ProjectBriefing).text("design")) ?? "";
+          assert.include(
+            text,
+            "Text styles: headings: Heading xl (sm: 28, lg: $text-4xl); body: Body"
+          );
+          assert.include(
+            text,
+            "a text in the style needs no size of its own at any width"
+          );
+        })
+    );
+
+    it.effect(
+      "asks for each style's steps the code has, in the same tokens as its own",
+      () =>
+        Effect.gen(function* () {
+          for (const text of yield* importing) {
+            assert.include(
+              text,
+              '"at": { "sm": { "size": "$text-3xl", "lineHeight": "$leading-tight" } }'
+            );
+            assert.include(text, "in the same tokens as its own");
+          }
+        })
+    );
+
+    it.effect(
+      "asks for DESIGN.md's Typography to state each style's steps",
+      () =>
+        Effect.gen(function* () {
+          for (const text of yield* importing) {
+            assert.match(text, TYPOGRAPHY_STEPS_RE);
+          }
+        })
+    );
+  });
+});
+
 describe("/init's roles and looks of the system components (UP-226)", () => {
   /** Import's steps, in /init and in Define when it adopts the theme. */
   const importing = Effect.all([

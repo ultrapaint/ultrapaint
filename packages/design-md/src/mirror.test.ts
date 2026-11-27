@@ -99,6 +99,21 @@ describe("mirrorOf", () => {
       "color-chart: var(--chart-1) does not resolve to a value.",
     ]);
   });
+
+  it("writes a text style's own settings alone, its steps left to the prose (ADR 0160)", () => {
+    const ds = shadcn();
+    const stepped: DesignSystem = {
+      ...ds,
+      typography: {
+        ...ds.typography,
+        styles: ds.typography.styles.map((style) => ({
+          ...style,
+          at: { lg: { lineHeight: 1, size: "$text-4xl" }, sm: { size: 40 } },
+        })),
+      },
+    };
+    expect(mirrorOf(stepped)).toEqual(mirrorOf(ds));
+  });
 });
 
 describe("component tokens", () => {

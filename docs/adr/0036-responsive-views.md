@@ -5,6 +5,9 @@ breakpoint), 0020 (a page's frame has views beside it) and 0034 (a component's `
 `innerWidth` answer for its frame). Plan: `docs/plans/done/PLAN-responsive-views.md`. A page's
 comments in its views: amended by 0097 (each is drawn in the frame it was left in).
 
+> Amended by [0160](0160-a-text-style-steps-at-breakpoints.md), 2026-11-27: a text style's size
+> and line height follow the same rule, mobile-first in the style's own `at`, under the text's.
+
 > Amended 2026-11-10: `resolveAt` is gone; `resolveAtBreakpoint` is the one function that lays
 > the breakpoints over the base.
 

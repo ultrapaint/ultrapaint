@@ -104,6 +104,68 @@ describe("nodeStyle", () => {
     });
     expect(tagOf(node)).toBe("h2");
   });
+
+  describe("a text style's steps (ADR 0160)", () => {
+    const stepped = {
+      ...ds,
+      typography: {
+        ...ds.typography,
+        styles: [
+          {
+            at: { md: { size: 32 }, sm: { lineHeight: 1.2, size: 28 } },
+            lineHeight: 1.25,
+            name: "Display",
+            role: "heading" as const,
+            size: 24,
+          },
+          ...ds.typography.styles,
+        ],
+      },
+    };
+    const text = (fields: Partial<DesignNode> = {}): DesignNode =>
+      ({
+        id: "t",
+        role: "heading",
+        text: "Hi",
+        textStyle: "Display",
+        type: "text",
+        ...fields,
+      }) as DesignNode;
+    const drawnAt = (node: DesignNode, holding: readonly string[]) => {
+      const { fontSize, lineHeight } = nodeStyle(node, {
+        ...makeStyleContext(stepped),
+        holding,
+      });
+      return { fontSize, lineHeight };
+    };
+
+    it("draws a styled text at its style's step for the breakpoints that hold", () => {
+      expect(drawnAt(text(), [])).toEqual({
+        fontSize: "24px",
+        lineHeight: "1.25",
+      });
+      expect(drawnAt(text(), ["sm"])).toEqual({
+        fontSize: "28px",
+        lineHeight: "1.2",
+      });
+      expect(drawnAt(text(), ["sm", "md"])).toEqual({
+        fontSize: "32px",
+        lineHeight: "1.2",
+      });
+    });
+
+    it("draws the text's own size over its style's step", () => {
+      expect(drawnAt(text({ size: 20 }), ["sm", "md"])).toEqual({
+        fontSize: "20px",
+        lineHeight: "1.2",
+      });
+    });
+
+    it("draws a style without steps the same at every breakpoint", () => {
+      const title = text({ textStyle: "Title" });
+      expect(drawnAt(title, ["sm", "md"])).toEqual(drawnAt(title, []));
+    });
+  });
 });
 
 describe("a fill in layers", () => {

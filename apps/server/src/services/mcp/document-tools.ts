@@ -12,9 +12,10 @@ import type { Page } from "@ultrapaint/contracts/pages";
 import { breakpointsOf } from "@ultrapaint/design-document/breakpoints";
 import { fillIds } from "@ultrapaint/design-document/ids";
 import { inertFields } from "@ultrapaint/design-document/inert-fields";
-import { touchedBy } from "@ultrapaint/design-document/ops";
+import { type Found, touchedBy } from "@ultrapaint/design-document/ops";
 import { wrapperWarning } from "@ultrapaint/design-document/page-root";
 import { fillWarnings } from "@ultrapaint/design-document/sizing";
+import { styleOverrides } from "@ultrapaint/design-document/text-styles";
 import {
   canvasDocOf,
   childrenOf,
@@ -99,12 +100,21 @@ const capped = <A>(items: readonly A[]): (A | string)[] =>
       ]
     : [...items];
 
-/** What an agent is told of a page after its edit: a wrapper the page does not need, then fills with no room. */
-const warningsOf = (root: DesignNode, catalogue: Catalogue): string[] => {
+/**
+ * What an agent is told of a page after its edit: a wrapper the page does not need, fills with
+ * no room, then the styled texts the call gave a size or line height of their own (ADR 0160).
+ */
+const warningsOf = (
+  root: DesignNode,
+  catalogue: Catalogue,
+  found: readonly Found[]
+): string[] => {
   const wrapper = wrapperWarning(root);
   return [
     ...(wrapper === null ? [] : [wrapper]),
-    ...fillWarnings(root, catalogue).map((w) => `${w.nodeId}: ${w.message}`),
+    ...[...fillWarnings(root, catalogue), ...styleOverrides(found, root)].map(
+      (w) => `${w.nodeId}: ${w.message}`
+    ),
   ];
 };
 
@@ -216,7 +226,7 @@ Inserting into an instance showing "text" makes the text its first child. Number
         ])
       )
     ),
-    /** Nodes of the document whose fill has no room to take, and why. */
+    /** Nodes of the document whose fill has no room to take, and styled texts the call overrode, and why. */
     warnings: Schema.optional(Schema.Array(Schema.String)),
   }),
 }).annotateMerge(doing("edit"));
@@ -549,7 +559,7 @@ export const DocumentToolsLive = DocumentTools.toLayer(
         const { ignored, warnings } = after.root
           ? {
               ignored: inertFields(result.found, after.root, breakpoints),
-              warnings: warningsOf(after.root, yield* catalogue),
+              warnings: warningsOf(after.root, yield* catalogue, result.found),
             }
           : { ignored: [], warnings: [] };
         return {

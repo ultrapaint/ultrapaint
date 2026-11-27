@@ -1,5 +1,10 @@
+import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { starterTextStyles, textStyleGroup } from "./design-system.ts";
+import {
+  starterTextStyles,
+  TextStyle,
+  textStyleGroup,
+} from "./design-system.ts";
 
 const token = (name: string) => ({ name, value: "1" });
 
@@ -72,5 +77,24 @@ describe("textStyleGroup", () => {
     expect(
       textStyleGroup({ group: "other", name: "C", role: "paragraph" })
     ).toBe("other");
+  });
+});
+
+describe("TextStyle", () => {
+  const decode = Schema.decodeUnknownSync(TextStyle);
+  it("reads a style's size and line height at each breakpoint, and a style without them", () => {
+    const stepped = {
+      at: { lg: { size: "$text-4xl" }, sm: { lineHeight: 1.2, size: 28 } },
+      lineHeight: "$leading-tight",
+      name: "Heading xl",
+      role: "heading",
+      size: "$text-2xl",
+    };
+    expect(decode(stepped)).toEqual(stepped);
+    expect(decode({ name: "Body", role: "paragraph", size: 16 })).toEqual({
+      name: "Body",
+      role: "paragraph",
+      size: 16,
+    });
   });
 });
